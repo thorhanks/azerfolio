@@ -254,85 +254,87 @@
 
     // Suggestions grouped by zone.
     const groups = [];
-    if (hero && hero.state !== "complete") groups.push({ z: hero, why: hero === cur ? `Your current zone · ${hero.total - hero.done} left` : `${hero.total - hero.done} left` });
+    if (hero && hero.state !== "complete") groups.push({ z: hero, why: hero === cur ? `Current zone · ${hero.total - hero.done} left` : `${hero.total - hero.done} left` });
     inProgress.filter(z => z !== hero).slice(0, 1).forEach(z => groups.push({ z, why: `Closest to complete · ${z.total - z.done} left` }));
     if (next && !groups.some(g => g.z === next)) groups.push({ z: next, why: `Next for your level · ${next.total - next.done} areas` });
 
     // Activity: last 14 days.
-    const days = Array.from({ length: 14 }, (_, i) => {
-      const d = new Date(now); d.setDate(d.getDate() - (13 - i)); d.setHours(0, 0, 0, 0); return d;
-    });
+    const days = Array.from({ length: 14 }, (_, i) => { const d = new Date(now); d.setDate(d.getDate() - (13 - i)); d.setHours(0, 0, 0, 0); return d; });
     const counts = days.map((d, i) => S.milestones.filter(m => m.kind === "area" && new Date(m.t).setHours(0, 0, 0, 0) === d.getTime()).length
       + (ui.scenarioName === "veteran" ? VETERAN_DAILY[i] : 0));
     const max = Math.max(1, ...counts);
-    const recent = S.milestones.slice().sort((a, b) => b.t - a.t).slice(0, 5);
+    const recent = S.milestones.slice().sort((a, b) => b.t - a.t).slice(0, 3);
+    const CHIPS = 6;
 
-    content.innerHTML = `<div class="scroll" id="scroll">
-      <div class="ov-top">
-        ${hero ? `<button class="hero focusable ${hero.state === "complete" ? "done" : ""}" data-open="${esc(hero.name)}" data-tip="<b>${esc(hero.name)}</b>Press A to see what's left.">
+    content.innerHTML = `<div class="scroll" id="scroll"><div class="overview">
+      <div class="col">
+        ${hero ? `<button class="hero focusable ${hero.state === "complete" ? "done" : ""}" data-open="${esc(hero.name)}" data-tip="<b>${esc(hero.name)}</b>Open the zone to see what's left.">
           <div class="art">${art(hero)}</div>
           <div class="body"><div class="kicker">${heroKicker}</div><div class="zname">${esc(hero.name)}</div>
             ${pips(hero, "lg")}
-            <div class="left">${hero.done ? `<b>${hero.done}</b> of ${hero.total} areas discovered · <b>${hero.total - hero.done}</b> to go` : `${hero.total} areas to discover`}</div>
-            <div class="go"><span class="glyph A">A</span>${hero.done ? "Continue" : "Start"}</div></div></button>` : ""}
-        <div class="counters">
-          <button class="counter focusable" data-go="zones" data-tip="<b>Areas discovered</b>Every exploration objective across ${tracked.length} tracked zones. Source: the game's Explore achievements.">
-            <h4>Areas discovered <b>${totals.done} <small>/ ${totals.areas}</small></b></h4>${bar(p)}<span class="note">${(p * 100).toFixed(1)}% of all tracked exploration</span></button>
-          <button class="counter focusable" data-go="zones" data-tip="<b>Zones</b>Complete: every area found. In progress: some found. Untouched: none yet. Capitals and Zephras Isle aren't tracked.">
-            <h4>Zones <b>${totals.complete} <small>complete</small></b></h4>
-            <div class="stack"><i class="c" style="width:${W(totals.complete)}%"></i><i class="p" style="width:${W(totals.progress)}%"></i><i class="u" style="width:${W(totals.untouched)}%"></i></div>
-            <div class="legend"><span><i class="c"></i>${totals.complete} complete</span><span><i class="p"></i>${totals.progress} in progress</span><span><i class="u"></i>${totals.untouched} untouched</span></div></button>
+            <div class="left">${hero.done ? `<b>${hero.total - hero.done}</b> areas to go` : `${hero.total} areas to discover`}</div>
+            <div class="go"><span class="glyph A">A</span>${hero.done ? "Continue" : "Start"}</div></div>
+          <div class="score"><b>${pctText(hero.pct)}</b><span>${hero.done} of ${hero.total}</span></div></button>` : ""}
+        ${goal ? `<button class="goal focusable" data-open="${esc(goal.name)}" data-tip="<b>Next goal</b>The in-progress zone with the fewest areas left.">
+          <span class="flag">Next goal</span><span>Finish <b>${esc(goal.name)}</b> — ${goal.total - goal.done} to go</span>${pips(goal)}</button>` : ""}
+        <h2 class="section" data-group>Suggested next</h2>
+        ${groups.length ? groups.map(g => `<div class="zonegroup"><header><b>${esc(g.z.name)}</b><span class="why">${g.why}</span></header>
+          <div class="chips">${g.z.criteria.filter(c => !c.done).slice(0, CHIPS).map(c => `<button class="areachip focusable" data-open="${esc(g.z.name)}" data-crit="${c.id}" data-tip="<b>${esc(c.name)}</b>Undiscovered area in ${esc(g.z.name)}.">${esc(c.name)}</button>`).join("")}
+          ${g.z.total - g.z.done > CHIPS ? `<span class="note">+${g.z.total - g.z.done - CHIPS} more</span>` : ""}</div></div>`).join("")
+          : `<div class="note">Nothing to suggest: every relevant zone is explored.</div>`}
+      </div>
+      <div class="col">
+        <button class="counter focusable" data-go="zones" data-tip="<b>Areas discovered</b>Every exploration objective across ${tracked.length} tracked zones, from the game's Explore achievements.">
+          <h4>Areas discovered <b>${totals.done} <small>/ ${totals.areas} · ${(p * 100).toFixed(1)}%</small></b></h4>${bar(p)}</button>
+        <button class="counter focusable" data-go="zones" data-tip="<b>Zones</b>Complete: every area found. In progress: some found. Untouched: none yet. Capitals and Zephras Isle aren't tracked.">
+          <h4>Zones <b>${totals.complete} <small>complete</small></b></h4>
+          <div class="stack">${totals.complete ? `<i class="c" style="flex:${totals.complete}"></i>` : ""}${totals.progress ? `<i class="p" style="flex:${totals.progress}"></i>` : ""}${totals.untouched ? `<i class="u" style="flex:${totals.untouched}"></i>` : ""}</div>
+          <div class="legend"><span><i class="c"></i>${totals.complete} complete</span><span><i class="p"></i>${totals.progress} in progress</span><span><i class="u"></i>${totals.untouched} untouched</span></div></button>
+        <h2 class="section" data-group>Atlas</h2>
+        ${miniAtlas()}
+        <h2 class="section" data-group>Activity</h2>
+        <div class="activity">
+          <div class="sparklabels"><span>Areas discovered per day</span><span><b>${counts[13]}</b> today</span></div>
+          <div class="spark">${counts.map(c => `<i class="${c ? "" : "zero"}" style="height:${c ? Math.max(8, c / max * 100) : 4}%"></i>`).join("")}</div>
+          <div class="sparklabels"><span>2 weeks ago</span><span>Today</span></div>
+          ${recent.length ? recent.map(m => m.kind === "zone"
+            ? `<div class="milestone big"><span class="icon">★</span><span class="txt"><b>${esc(m.zone)}</b> fully explored</span><time>${fmtTime(m.t)}</time></div>`
+            : `<div class="milestone"><span class="icon">✓</span><span class="txt">Discovered <b>${esc(m.area)}</b> <span class="note">· ${esc(m.zone)}</span></span><time>${fmtTime(m.t)}</time></div>`).join("")
+            : `<div class="note" style="margin-top:8px">Your discoveries will appear here.</div>`}
         </div>
       </div>
-      ${goal ? `<button class="goal focusable" data-open="${esc(goal.name)}" data-tip="<b>Next goal</b>The in-progress zone with the fewest areas left.">
-          <span class="flag">Next goal</span><span>Finish <b>${esc(goal.name)}</b> — ${goal.total - goal.done} to go</span>${pips(goal)}</button>`
-        : ""}
-
-      <h2 class="section">Atlas <small>— every tracked zone, coloured by progress</small></h2>
-      ${renderAtlas()}
-
-      <div class="ov-bottom">
-        <div><h2 class="section">Suggested next</h2>
-          ${groups.length ? groups.map(g => `<div class="zonegroup"><header><b>${esc(g.z.name)}</b><span class="why">${g.why}</span></header>
-            <div class="chips">${g.z.criteria.filter(c => !c.done).slice(0, 8).map(c => `<button class="areachip focusable" data-open="${esc(g.z.name)}" data-crit="${c.id}" data-tip="<b>${esc(c.name)}</b>Undiscovered area in ${esc(g.z.name)}.">${esc(c.name)}</button>`).join("")}
-            ${g.z.total - g.z.done > 8 ? `<span class="note">+${g.z.total - g.z.done - 8} more</span>` : ""}</div></div>`).join("")
-            : `<div class="note">Nothing to suggest — every relevant zone is explored.</div>`}
-        </div>
-        <div><h2 class="section">Activity</h2>
-          <div class="activity">
-            <div class="legend" style="color:var(--ink-soft)"><span>Areas discovered per day</span><span style="margin-left:auto"><b>${counts[13]}</b>&nbsp;today</span></div>
-            <div class="spark">${counts.map((c, i) => `<i class="${c ? "" : "zero"}" style="height:${c ? Math.max(8, c / max * 100) : 4}%" title="${c} areas"></i>`).join("")}</div>
-            <div class="sparklabels"><span>2 weeks ago</span><span>Today</span></div>
-            <div style="margin-top:8px">${recent.length ? recent.map(m => m.kind === "zone"
-              ? `<div class="milestone big"><span class="icon">★</span><span><b>${esc(m.zone)}</b> fully explored</span><time>${fmtTime(m.t)}</time></div>`
-              : `<div class="milestone"><span class="icon">✓</span><span>Discovered <b>${esc(m.area)}</b> <span class="note">· ${esc(m.zone)}</span></span><time>${fmtTime(m.t)}</time></div>`).join("")
-              : `<div class="note">Your discoveries will appear here. Progress from before Azerfolio was installed still counts toward totals.</div>`}</div>
-          </div>
-        </div>
-      </div>
-    </div>`;
+    </div></div>`;
   }
 
-  function renderAtlas() {
+  // Overview thumbnail: one focus stop that opens the full Atlas view.
+  function miniAtlas() {
+    const grid = (name) => {
+      const cells = ATLAS[name];
+      return `<div class="mg">${Object.entries(cells).map(([zn, [c, r]]) => {
+        const z = byName[zn]; if (!z) return "";
+        return `<i class="${z.state} ${zn === CHAR.zone ? "here" : ""}" style="grid-column:${c + 1};grid-row:${r + 1};--p:${z.state === "progress" ? Math.round(z.pct * 100) : 0}%"></i>`;
+      }).join("")}</div>`;
+    };
+    return `<button class="minimap focusable" data-atlas data-tip="<b>Atlas</b>Every tracked zone, coloured by progress. Press A to open.">
+      <div class="grids">${grid("Eastern Kingdoms")}${grid("Kalimdor")}</div>
+      <div class="cap"><span>Eastern Kingdoms · Kalimdor</span><span><b>Open Atlas ›</b></span></div></button>`;
+  }
+
+  // Full Atlas (a Zones view). Tiles outside the current filters are dimmed, not hidden.
+  function atlasView(visible) {
     const cont = (name) => {
       const cells = ATLAS[name];
       const rows = Math.max(...Object.values(cells).map(c => c[1])) + 1;
-      return `<div class="continent"><h4>${name}</h4><div class="cgrid" style="grid-template-rows:repeat(${rows},30px)">
-        ${Object.entries(cells).map(([zn, [c, r]]) => {
-          const z = byName[zn]; if (!z) return "";
-          return `<button class="tile focusable ${z.state} ${zn === CHAR.zone ? "here" : ""}" style="grid-column:${c + 1};grid-row:${r + 1}" data-open="${esc(zn)}"
-            data-tip="<b>${esc(zn)}</b>${z.done} of ${z.total} areas · ${pctText(z.pct)}${zn === CHAR.zone ? "<span class='dim'> · You are here</span>" : ""}">
-            ${z.state === "progress" ? `<i style="width:${(z.pct * 100).toFixed(0)}%"></i>` : ""}<span>${esc(zn)}</span></button>`;
-        }).join("")}</div></div>`;
+      return `<div class="continent"><h3>${name}</h3><div class="cgrid" style="grid-template-rows:repeat(${rows},34px)">
+        ${Object.entries(cells).map(([zn, [c, r]]) => tile(byName[zn], `grid-column:${c + 1};grid-row:${r + 1}`)).join("")}</div></div>`;
     };
+    const tile = (z, style) => !z ? "" : `<button class="tile focusable ${z.state} ${z.name === CHAR.zone ? "here" : ""} ${visible.has(z.name) ? "" : "dim"}" style="${style}" data-open="${esc(z.name)}"
+        data-tip="<b>${esc(z.name)}</b>${z.done} of ${z.total} areas · ${pctText(z.pct)}${z.name === CHAR.zone ? " · You are here" : ""}">${z.state === "progress" ? `<i style="width:${Math.round(z.pct * 100)}%"></i>` : ""}<span>${esc(z.name)}</span></button>`;
     const placed = new Set(Object.values(ATLAS).flatMap(Object.keys));
     const unplaced = tracked.filter(z => !placed.has(z.name));
-    return `<div class="atlas-card">
-      <div class="atlas-head"><h3>Azeroth</h3><div class="legend"><span><i class="c"></i>Complete</span><span><i class="p"></i>In progress</span><span><i class="u"></i>Untouched</span><span>● You are here</span></div></div>
-      <div class="atlas">${cont("Eastern Kingdoms")}${cont("Kalimdor")}</div>
-      ${unplaced.length ? `<div class="unplaced">Not placed on the atlas yet:${unplaced.map(z => `<button class="tile focusable ${z.state}" data-open="${esc(z.name)}" data-tip="<b>${esc(z.name)}</b>${z.done} of ${z.total} areas. Its position on the atlas isn't known yet.">${z.state === "progress" ? `<i style="width:${(z.pct * 100).toFixed(0)}%"></i>` : ""}<span>${esc(z.name)}</span></button>`).join("")}</div>` : ""}
-      <div class="note" style="color:#bfb39b;margin-top:6px">Schematic layout. In game this can use the real continent map art.</div>
-    </div>`;
+    return `<div class="atlasview">${cont("Eastern Kingdoms")}${cont("Kalimdor")}</div>
+      ${unplaced.length ? `<div class="unplaced">Position not mapped yet:${unplaced.map(z => tile(z, "")).join("")}</div>` : ""}
+      <div class="atlasfoot"><div class="legend"><span><i class="c"></i>Complete</span><span><i class="p"></i>In progress</span><span><i class="u"></i>Untouched</span><span>● You are here</span></div></div>`;
   }
 
   // =====================================================================================
@@ -368,7 +370,7 @@
     for (const z of list) { const k = key(z); if (!out.length || out[out.length - 1].title !== k) out.push({ title: k, items: [] }); out[out.length - 1].items.push(z); }
     return out;
   }
-  // Tooltips add information the card doesn't already show; otherwise there is none.
+  // Info text adds what the control doesn't already show; empty if there's nothing to add.
   function zoneTip(z) {
     if (!z.tracked) return `<b>${esc(z.name)}</b>Exploration isn't tracked here: the game has no Explore achievement for this zone.`;
     const last = S.milestones.filter(m => m.zone === z.name).sort((a, b) => b.t - a.t)[0];
@@ -376,54 +378,58 @@
     if (z.state === "progress") return `<b>${esc(z.name)}</b>Discovered before Azerfolio was installed.`;
     return "";
   }
-  function card(z) {
+  function card(z, rec) {
     return `<button class="zcard focusable ${z.state}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
-      <div class="art">${art(z)}<span class="artlabel">ART PLACEHOLDER</span>
-        ${z.state === "complete" ? `<span class="badge emblem">✓</span>` : ""}</div>
-      ${fitsLevel(z) && z.state !== "complete" ? `<span class="ribbon">For your level</span>` : ""}
-      <div class="body"><div class="name">${esc(z.name)}</div>
-        <div class="meta"><span>${levels(z)}</span>${facBadge(z)}</div>
+      <div class="art">${art(z)}<span class="artlabel">ART PLACEHOLDER</span>${z.state === "complete" ? `<span class="badge emblem">✓</span>` : ""}</div>
+      ${rec ? `<span class="ribbon">Recommended next</span>` : ""}
+      <div class="body">
+        <div class="top"><span class="name">${esc(z.name)}</span><span class="pct">${z.tracked ? (z.state === "complete" ? "✓ " : "") + pctText(z.pct) : "—"}</span></div>
         ${z.tracked ? pips(z) : `<div class="bar unknown small"></div>`}
-        <div class="stats">${z.tracked ? `<span>${z.done} / ${z.total} areas</span><b>${pctText(z.pct)}</b>` : `<span>Exploration not tracked</span><span>—</span>`}</div></div></button>`;
+        <div class="meta"><span>Lv ${shortLv(z)}</span>${facBadge(z)}${fitsLevel(z) && z.state !== "complete" ? `<span class="fittag">Your level</span>` : ""}
+          <span class="n">${z.tracked ? `${z.done}/${z.total}` : "not tracked"}</span></div></div></button>`;
   }
   function row(z, compact) {
     if (compact) return `<button class="zrow focusable ${z.state} ${ui.selected === z.name ? "selected" : ""}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
-      <span class="thumb">${art(z)}</span><span><span class="zname">${esc(z.name)}</span>${z.tracked ? pips(z, "sm") : `<span class="note">not tracked</span>`}</span>
-      <span class="lv">${shortLv(z)}${levelbar(z)}</span><span class="pctcol">${pctText(z.pct)}</span></button>`;
+      <span class="thumb">${art(z)}</span><span class="areas"><span class="zname">${esc(z.name)}</span>${z.tracked ? pips(z, "sm") : `<span class="note">not tracked</span>`}</span>
+      <span class="lv">Lv ${shortLv(z)}${levelbar(z)}</span><span class="pctcol">${pctText(z.pct)}</span></button>`;
     return `<button class="zrow focusable ${z.state}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
       <span class="thumb">${art(z)}</span><span class="zname">${esc(z.name)} ${facBadge(z)}</span>
-      <span class="lv">${shortLv(z)}${levelbar(z)}</span>
-      <span>${z.tracked ? `${pips(z, "sm")}<span class="note">${z.done} / ${z.total} areas</span>` : `<span class="note">Exploration not tracked</span>`}</span>
+      <span class="lv">Lv ${shortLv(z)}${levelbar(z)}</span>
+      <span class="areas">${z.tracked ? `${pips(z, "sm")}<span class="note">${z.done} / ${z.total} areas</span>` : `<span class="note">Exploration not tracked</span>`}</span>
       <span class="pctcol">${pctText(z.pct)}</span></button>`;
   }
+  const VIEWS = () => ui.wide ? [["list", "☰", "List"], ["atlas", "◈", "Atlas"]] : [["cards", "▦", "Cards"], ["list", "☰", "List"], ["atlas", "◈", "Atlas"]];
   function toolbar(count) {
     const sel = (key) => `<button class="select focusable" data-cycle="${key}" data-tip="<b>${OPTIONS[key].label}</b>Press A to choose.">${OPTIONS[key].label}: <b>${optLabel(key)}</b><span class="arr">▾</span></button>`;
     return `<div class="toolbar">
-      <div class="seg">${STATUS.map(([v, l]) => `<button class="focusable ${ui.status === v ? "on" : ""}" data-status="${v}" data-tip="Show ${l.toLowerCase()} zones">${l}</button>`).join("")}</div>
+      <div class="seg">${STATUS.map(([v, l]) => `<button class="focusable ${ui.status === v ? "on" : ""}" data-status="${v}" data-tip="<b>${l}</b>Show ${l.toLowerCase()} zones.">${l}</button>`).join("")}</div>
       ${sel("faction")}${sel("level")}${sel("sort")}
       <span class="count">${count} zones</span><span class="spacer"></span>
       <label class="search focusable" data-search data-tip="<b>Search</b>Press A to type (on-screen keyboard on controller).">🔍<input id="searchInput" placeholder="Search" value="${esc(ui.search)}" tabindex="-1"></label>
-      ${ui.wide ? "" : `<div class="viewtoggle"><button class="focusable ${ui.view === "cards" ? "on" : ""}" data-view="cards" data-tip="Illustrated cards (Y)">▦</button><button class="focusable ${ui.view === "list" ? "on" : ""}" data-view="list" data-tip="Compact list (Y)">☰</button></div>`}
+      <div class="viewtoggle">${VIEWS().map(([v, icon, l]) => `<button class="focusable ${ui.view === v ? "on" : ""}" data-view="${v}" title="${l}" data-tip="<b>${l} view</b>Y cycles the views.">${icon}</button>`).join("")}</div>
     </div>`;
   }
 
   function renderZones() {
+    if (!VIEWS().some(v => v[0] === ui.view)) ui.view = ui.wide ? "list" : "cards";
     const list = filteredZones();
     const groups = groupsOf(list);
+    const rec = nextForLevel(null);
     const empty = `<div class="empty"><b>No zones match</b>Try a different status or filter, or clear the search.</div>`;
     const body = (compact) => list.length === 0 ? empty : groups.map(g => `${g.title ? `<div class="group-h" data-group>${g.title} <small>${g.items.filter(z => z.state === "complete").length} of ${g.items.filter(z => z.tracked).length} complete</small></div>` : ""}
-      ${!compact && ui.view === "cards" ? `<div class="grid">${g.items.map(card).join("")}</div>` : `<div class="rows">${g.items.map(z => row(z, compact)).join("")}</div>`}`).join("");
-    if (ui.wide) {
+      ${!compact && ui.view === "cards" ? `<div class="grid">${g.items.map(z => card(z, rec && z.name === rec.name)).join("")}</div>` : `<div class="rows">${g.items.map(z => row(z, compact)).join("")}</div>`}`).join("");
+    if (ui.view === "atlas") {
+      content.innerHTML = `${toolbar(list.length)}<div class="scroll" id="scroll">${atlasView(new Set(list.map(z => z.name)))}</div>`;
+    } else if (ui.wide) {
       if (!ui.selected || !list.some(z => z.name === ui.selected)) ui.selected = (list.find(z => z.name === CHAR.zone) || list[0] || {}).name || null;
       content.innerHTML = `${toolbar(list.length)}<div class="split"><div class="listpane"><div class="scroll" id="scroll">${body(true)}</div></div><div class="detailpane" id="detailpane"></div></div>`;
       renderDetailInto($("#detailpane"), ui.selected ? byName[ui.selected] : null, { back: false });
     } else {
-      content.innerHTML = `${toolbar(list.length)}<div class="scroll zones-scroll" id="scroll">${body(false)}</div>`;
+      content.innerHTML = `${toolbar(list.length)}<div class="scroll" id="scroll">${body(false)}</div>`;
     }
     // The toolbar can wrap; start the list right below it.
     const tb = $(".toolbar").offsetHeight;
-    const below = $(".split") || $("#scroll");
-    below.style.top = tb + "px";
+    ($(".split") || $("#scroll")).style.top = tb + "px";
     wireSearch();
   }
   function wireSearch() {
@@ -453,18 +459,17 @@
       <div class="detail-body">
         <div class="scroll" id="${opts.back ? "scroll" : "detailscroll"}">
           ${z.tracked ? `
-            <h2 class="section">To discover <small>${remaining.length}</small></h2>
+            <h2 class="section" data-group>To discover <small>${remaining.length}</small></h2>
             ${remaining.length ? `<div class="checklist">${remaining.map(check).join("")}</div>` : `<div class="note">Every area discovered. ✦</div>`}
-            <h2 class="section">Discovered <small>${found.length}</small></h2>
+            <h2 class="section" data-group>Discovered <small>${found.length}</small></h2>
             ${found.length ? `<div class="checklist">${found.map(check).join("")}</div>` : `<div class="note">Nothing yet — head out and explore.</div>`}`
           : `<div class="empty"><b>Exploration isn't tracked here</b>The game has no Explore achievement for ${esc(z.name)}, so Azerfolio can't verify progress.</div>`}
         </div>
         <aside class="mapside">
           <div class="zonemap">${zoneMap(z)}</div>
-          <div class="mapcap"><span class="legend"><span><i class="c" style="background:#c9b27a"></i>Revealed</span><span><i class="u" style="background:#3a2e22"></i>Unexplored</span></span>
-            <button class="btn focusable" data-map data-tip="Open the world map at ${esc(z.name)} (X)">World map</button></div>
+          <div class="mapcap"><span class="legend"><span><i style="background:#c9b27a"></i>Revealed</span><span><i style="background:#3a2e22"></i>Unexplored</span></span>
+            <button class="btn focusable" data-map data-tip="<b>World map</b>Open the world map at ${esc(z.name)}.">World map</button></div>
           <div class="focusinfo" id="focusinfo"></div>
-          <div class="note">${window.AZF_EXPLORED[z.mapID] && (ui.scenarioName === "today" || ui.scenarioName === "almost") ? "Revealed pieces come from the game's world-map data (Gideon's real map)." : "Mockup approximation; in game the revealed pieces come from the world-map data."} Marking each listed area on the map needs extra map data (planned).</div>
         </aside>
       </div></div>`;
     showFocusInfo(z, remaining[0] || found[0]);
@@ -472,18 +477,17 @@
   function showFocusInfo(z, c) {
     const box = $("#focusinfo"); if (!box) return;
     if (!c) { box.innerHTML = `<h3>${esc(z.name)}</h3><div class="facts">No exploration objectives.</div>`; return; }
-    box.innerHTML = `<h3>${esc(c.name)}</h3><div class="state ${c.done ? "done" : "todo"}">${c.done ? "✓ Discovered" : "○ Not yet discovered"}</div>
-      <div class="facts">Source: “Explore ${esc(z.name)}” achievement · criterion ${c.id}</div>`;
+    box.innerHTML = `<h3>${esc(c.name)}</h3><div class="state ${c.done ? "done" : "todo"}">${c.done ? "✓ Discovered" : "○ Not yet discovered"}</div>`;
   }
 
   // =====================================================================================
   // Render + hints
   // =====================================================================================
   const HINTS = {
-    overview: [["DP", "✥", "Move"], ["A", "A", "Select"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
-    zones: [["A", "A", "Open"], ["Y", "Y", "Cards / list"], ["X", "X", "Search"], ["LT", "LT/RT", "Jump section"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
-    zonesWide: [["DP", "✥", "Browse zones"], ["A", "A", "Checklist"], ["X", "X", "Search"], ["LT", "LT/RT", "Jump section"], ["B", "B", "Close"]],
-    detail: [["A", "A", "Details"], ["X", "X", "World map"], ["LT", "LT/RT", "Page"], ["B", "B", "Back"]],
+    overview: [["A", "A", "Select"], ["LT", "LT/RT", "Section"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
+    zones: [["A", "A", "Open"], ["Y", "Y", "View"], ["X", "X", "Search"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
+    zonesWide: [["A", "A", "Checklist"], ["Y", "Y", "View"], ["X", "X", "Search"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
+    detail: [["A", "A", "Select"], ["X", "X", "World map"], ["LT", "LT/RT", "Section"], ["B", "B", "Back"]],
     flyout: [["DP", "✥", "Choose"], ["A", "A", "Apply"], ["B", "B", "Cancel"]],
   };
   function screen() { return ui.tab === "zones" ? (ui.detail && !ui.wide ? "detail" : ui.wide ? "zonesWide" : "zones") : "overview"; }
@@ -504,7 +508,7 @@
     if (!el) return null;
     const d = el.dataset, parts = [];
     for (const a of ["open", "crit", "tab", "cycle", "status", "view", "go"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
-    for (const a of ["search", "back", "map"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
+    for (const a of ["search", "back", "map", "atlas"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
     if (el.id) parts.push("#" + el.id);
     return parts.length ? "." + [...el.classList].filter(c => !["focused", "on", "new", "selected"].includes(c))[0] + parts.join("") : null;
   }
@@ -527,7 +531,7 @@
   function openZone(name, crit) {
     if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
     ui.tab = "zones"; ui.lastZone = name;
-    if (ui.wide) { ui.selected = name; ui.detail = null; render(); const sel = $(`.zrow[data-open="${CSS.escape(name)}"]`); if (sel) sel.scrollIntoView({ block: "center" });
+    if (ui.wide) { ui.selected = name; ui.detail = null; ui.view = "list"; render(); const sel = $(`.zrow[data-open="${CSS.escape(name)}"]`); if (sel) sel.scrollIntoView({ block: "center" });
       const t = crit && $(`#detailpane .check[data-crit="${crit}"]`); setFocus(t || $("#detailpane .check") || sel); return; }
     ui.detail = name; render();
     const target = crit && $(`.check[data-crit="${crit}"]`);
@@ -543,7 +547,7 @@
   function restoreCatalog() {
     const sc = $("#scroll");
     if (sc) { sc.style.scrollBehavior = "auto"; sc.scrollTop = ui.zonesScroll; sc.style.scrollBehavior = ""; }
-    const want = ui.lastZone || (ui.wide && ui.selected);
+    const want = ui.lastZone || (ui.wide && ui.selected) || (ui.view === "atlas" && CHAR.zone);
     const last = want && $(`#scroll [data-open="${CSS.escape(want)}"]`);
     if (last && ui.wide) last.scrollIntoView({ block: "center" });
     setFocus(last || $("#scroll .focusable") || $(".toolbar .focusable"));
@@ -584,6 +588,7 @@
     if (d.open && ui.wide) { // wide: A on a row moves into its checklist
       return setFocus($("#detailpane .check.todo") || $("#detailpane .check") || $("#detailpane [data-map]"));
     }
+    if (d.atlas !== undefined) { ui.view = "atlas"; ui.detail = null; ui.lastZone = CHAR.zone; return setTab("zones"); }
     if (d.go) return setTab(d.go);
     if (d.status) { ui.status = d.status; render(); return setFocus($(`[data-status="${d.status}"]`)); }
     if (d.view) { ui.view = d.view; render(); return restoreCatalog(); }
@@ -634,7 +639,8 @@
     if (!el) return hideTooltip();
     el.classList.add("focused");
     if (!o.noScroll) el.scrollIntoView({ block: "nearest", inline: "nearest" });
-    showTooltip(el);
+    showInfo(el); // gamepad focus describes itself in the footer, never in a floating tooltip
+    hideTooltip();
     // Focus-driven updates: checklist info, and the wide split's detail pane.
     if (el.classList.contains("check")) {
       const z = byName[ui.detail || ui.selected];
@@ -671,15 +677,19 @@
     const best = aligned || coned;
     if (best) setFocus(best);
   }
-  // LT/RT: jump between catalogue sections when grouped, otherwise page.
+  // LT/RT: jump to the previous/next section header (in document order) that has focusable content;
+  // pages instead when the current scroll area has no sections.
   function jump(dir) {
     const sc = (focused && focused.closest(".scroll")) || $("#scroll"); if (!sc) return;
-    const heads = $$("[data-group]", sc);
-    if (heads.length && !(focused && focused.closest(".detailpane"))) {
-      const fy = focused ? focused.getBoundingClientRect().top : 0;
-      const ordered = dir > 0 ? heads : heads.slice().reverse();
-      const target = ordered.find(h => dir > 0 ? h.getBoundingClientRect().top > fy + 4 : h.getBoundingClientRect().top < fy - 40 && h !== heads[0] || (dir < 0 && h === heads[0]));
-      if (target) { const first = target.nextElementSibling.querySelector(".focusable"); if (first) { target.scrollIntoView({ block: "start" }); setFocus(first, { noScroll: true }); } }
+    const firstAfter = (h) => $$(".focusable", sc).find(el => h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const heads = $$("[data-group]", sc).filter(h => firstAfter(h));
+    if (heads.length) {
+      const before = (h) => focused && (h.compareDocumentPosition(focused) & Node.DOCUMENT_POSITION_FOLLOWING);
+      let cur = -1; heads.forEach((h, i) => { if (before(h)) cur = i; });
+      // Backwards: to the start of the current section, or the previous one if already at its start.
+      const atStart = cur >= 0 && focused === firstAfter(heads[cur]);
+      const target = dir > 0 ? heads[cur + 1] : heads[atStart ? cur - 1 : cur];
+      if (target) { const first = firstAfter(target); target.scrollIntoView({ block: "start" }); setFocus(first, { noScroll: true }); }
       return;
     }
     sc.scrollBy({ top: dir * sc.clientHeight * 0.85 });
@@ -703,6 +713,11 @@
     t.style.left = Math.max(8, left) + "px"; t.style.top = Math.max(8, top) + "px";
   }
   function hideTooltip() { $("#tooltip").hidden = true; }
+  // Footer info line: the focused control's description (console-style).
+  function showInfo(el) {
+    const tip = el && el.dataset.tip;
+    $("#info").innerHTML = tip ? tip.replace(/<b>(.*?)<\/b>/, "<b>$1</b>") : "";
+  }
 
   // =====================================================================================
   // Input
@@ -717,7 +732,7 @@
       Enter: () => activate(focused), " ": () => activate(focused), Escape: back, Backspace: back,
       q: () => !ui.flyout && !ui.celebrate && setTab(ui.tab === "overview" ? "zones" : "overview"),
       e: () => !ui.flyout && !ui.celebrate && setTab(ui.tab === "overview" ? "zones" : "overview"),
-      y: () => { if (ui.tab === "zones" && !ui.detail && !ui.wide && !ui.flyout) { ui.view = ui.view === "cards" ? "list" : "cards"; render(); restoreCatalog(); } },
+      y: () => { if (ui.tab === "zones" && !ui.detail && !ui.flyout) { const v = VIEWS().map(x => x[0]); ui.view = v[(v.indexOf(ui.view) + 1) % v.length]; render(); restoreCatalog(); } },
       x: () => { if (ui.flyout || ui.celebrate) return; if (ui.tab === "zones" && (ui.detail || (ui.wide && focused && focused.closest("#detailpane")))) activate($("[data-map]")); else if (ui.tab === "zones") { setFocus($("[data-search]")); $("#searchInput").focus(); } },
       PageDown: () => jump(1), PageUp: () => jump(-1),
     };
@@ -735,7 +750,7 @@
   });
   document.addEventListener("mouseover", (e) => {
     const el = e.target.closest("#window .focusable");
-    if (el) showTooltip(el); else if (focused) showTooltip(focused);
+    if (el) showTooltip(el); else hideTooltip(); // floating tooltips are for the mouse only
   });
   $("#reopen").addEventListener("click", reopen);
   document.addEventListener("scroll", (e) => { if (e.target.classList && e.target.classList.contains("scroll") && !e.target._programmatic) hideTooltip(); }, true);
