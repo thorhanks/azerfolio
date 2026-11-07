@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: Azerfolio Diagnostics
+## Notes: Dev-only. Dumps client capabilities to SavedVariables for Azerfolio development. /azfdiag
+## Author: Azerfolio
+## Version: 0.1.0
+## SavedVariables: AzerfolioDiagDB
+## IconTexture: Interface\Icons\INV_Misc_Spyglass_03
+
+Diag.lua

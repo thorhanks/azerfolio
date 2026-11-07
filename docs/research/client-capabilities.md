@@ -1,0 +1,117 @@
+# Client capabilities — WoW Forever
+
+Evidence levels: **[verified-ingame]**, **[verified-files]**, **[external]**, **[unverified]** (see plan §2.2).
+
+Sources: installed files (2026-11-07), and the first `AzerfolioDiag` dump (2026-11-07, character Gideon, level 9 Human Paladin, Alliance, realm "CAMWOW US1 Realm 10 RP"). Reproduce the numbers with `luajit tools/diag-report.lua <section>`.
+
+## Summary
+
+- The client runs the **modern retail addon API** on Lua 5.1, with classic-era content plus some Forever-only zones.
+- **Exploration is solved at the data level:** every questing zone has an "Explore <zone>" achievement. Its criteria are the zone's named areas, each with a stable `criteriaID` and a done flag. That gives us both the list of areas and completion from native data (Phase 1 approach A).
+- **Explored map textures can't be used for exploration:** they don't match criteria counts and appear in zones the character never visited.
+- Quest completion: `C_QuestLog.IsQuestFlaggedCompleted` and `C_QuestLog.GetAllCompletedQuestIDs` work. The legacy `GetQuestsCompleted` does not exist.
+- The client loads both **PNG and TGA** from addon folders. Native parchment, gold borders, Encounter Journal art and class icons are available.
+- No Forever- or Legacy-specific `C_*` API is exposed to addons. The Legacy UI exists, but only through Blizzard frames.
+
+## Client
+
+| Fact | Value | Evidence |
+|---|---|---|
+| Product flavor | `wowf` | [verified-files] `.flavor.info` |
+| Version / build | 1.60.1 / 70862 (built Nov 6 2026) | [verified-ingame] `GetBuildInfo()` |
+| Addon interface | `16001` | [verified-ingame] `GetBuildInfo()` 4th return |
+| Lua | Lua 5.1 | [verified-ingame] `_VERSION` |
+| Project ID | `WOW_PROJECT_ID = 18` = `WOW_PROJECT_CAMELOT` (`MAINLINE` = 1, `CLASSIC` = 2) | [verified-ingame] |
+| Locale | enUS | [verified-ingame] |
+| Max level | 60 (`GetMaxPlayerLevel()`; global `MAX_PLAYER_LEVEL` is nil) | [verified-ingame] |
+| API surface | 272 `C_*` namespaces: the full modern retail set, including `C_Secrets`, housing and `C_EncounterJournal` | [verified-ingame] |
+
+## Exploration
+
+### Achievements
+
+- 46 exploration achievements: 43 zones and 3 rollups (Explore Eastern Kingdoms 62353, Explore Kalimdor 62355, Explore Azeroth 62053). [verified-ingame]
+- Zone achievements are in category 14777 (Eastern Kingdoms) and 14778 (Kalimdor). Rollups are in 15607. [verified-ingame]
+- Each zone achievement's name is "Explore <map name>". Each matches exactly one map by name. [verified-ingame]
+- Forever-only zones with achievements: Mount Hyjal (62356, map 2482), Riverglades (62354, map 2548), Shen'dralas (63684, map 2652). [verified-ingame]
+
+### Criteria
+
+`GetAchievementCriteriaInfo(achID, i)` returns, for zone achievements: [verified-ingame]
+
+| Field | Value |
+|---|---|
+| name | Area name (e.g. "Goldshire") |
+| type | `43` (explore area) for every zone criterion. Rollups use `8` (achievement), with assetID = child achievement ID |
+| completed | boolean |
+| quantity / reqQuantity | 1/1 when done, 0/1 when not |
+| assetID | **Not an area ID.** Names don't match `C_Map.GetAreaInfo(assetID)`; e.g. Goldshire → "Zuuldaia Ruins". Probably a world-map overlay ID [unverified]. Don't use it for names |
+| criteriaID | Unique and nonzero for every criterion; e.g. Elwynn 1146–1157, Riverglades 116887–116898. **This is the stable objective ID** |
+| eligible | `true` for all criteria seen |
+| flags | 0 |
+
+Criteria counts per zone range from 1 (Moonglade) to 27 (Stranglethorn Vale). The full list is in the dump (`tools/diag-report.lua explore`).
+
+Elwynn Forest (776) has 12 criteria, 5 done on Gideon: Jerod's Landing, Northshire Valley, Goldshire, Fargodeep Mine, Crystal Lake. One criterion is "Stormwind City", so the city counts toward Elwynn's exploration. [verified-ingame]
+
+### Maps
+
+- Maps 1–3000 scanned: 60 maps. 1 world, 4 continents, 51 zones, 4 orphans. **No dungeon or micro maps** in that range. [verified-ingame]
+- Zone maps with no explore achievement: the six capitals (1453–1458) and Zephras Isle (2521, plus orphan 2665). [verified-ingame]
+- `C_MapExplorationInfo.GetExploredMapTextures(mapID)`: Elwynn returns 6 textures while 5 criteria are done. Alterac Mountains and Moonglade return 1 texture each with 0 criteria done, on a character who has never been there. **Not usable for completion.** [verified-ingame]
+- Texture entries have `fileDataIDs`, `offsetX/Y`, `textureWidth/Height`, `hitRect`, `isShownByMouseOver`, `isDrawOnTopLayer`. They could help draw a map highlight later. [verified-ingame]
+- `GetExploredAreaIDsAtPosition` returned area 87 "Goldshire" at the player's position. [verified-ingame]
+- `GetMapOverlayInfo` and `GetNumMapOverlays` (classic) don't exist. [verified-ingame]
+
+### Events
+
+All candidate events registered without error, including `MAP_EXPLORATION_UPDATED`, `CRITERIA_UPDATE`, `CRITERIA_EARNED`, `CRITERIA_COMPLETE`, `ACHIEVEMENT_EARNED`, `RECEIVED_ACHIEVEMENT_LIST` and `UI_INFO_MESSAGE`. [verified-ingame]
+
+Which of them fire on discovery, and in what order, is **not yet observed** (no discovery happened during the dump). Phase 1.
+
+### Open exploration questions
+
+1. Which events fire on discovery, and does the criterion flip immediately?
+2. **Per-character or account-wide?** The rollup says "on a single character", but it's unknown whether criteria `completed` reflects the current character or the account. Test on the second character (Thragor).
+3. Does the in-game Achievements window show Elwynn 5/12 for Gideon (cross-check)?
+4. Are any criteria faction-restricted (`eligible` false) on a Horde character?
+
+## Quests
+
+| API | Status | Evidence |
+|---|---|---|
+| `C_QuestLog.IsQuestFlaggedCompleted(id)` | Works. Gideon: 783, 7, 33, 15, 18, 3903 done; 5261 not done | [verified-ingame] |
+| `C_QuestLog.GetAllCompletedQuestIDs()` | Works, returned 64 IDs | [verified-ingame] |
+| `GetQuestsCompleted`, global `IsQuestFlaggedCompleted` | Do not exist | [verified-ingame] |
+| `C_QuestLog.GetTitleForQuestID(id)` | Returned nil for completed quests (likely not cached). Use the QuestieDB catalogue for names | [verified-ingame] |
+| `C_QuestLine`, `C_QuestHub`, `C_QuestInfoSystem` | Namespaces exist; not yet probed | [verified-ingame] |
+
+## UI framework
+
+- Available: `CreateScrollBoxListLinearView`, `CreateScrollBoxListGridView`, `CreateDataProvider`, `ScrollUtil`, `Mixin`, `CreateFromMixins`, `UISpecialFrames`, `AddonCompartmentFrame`, `Settings`, `OpenWorldMap`, `ToggleWorldMap`, `WorldMapFrame`, `SetPortraitTexture`. [verified-ingame]
+- `SetPortraitToTexture` doesn't exist. [verified-ingame]
+- `LibStub` exists globally because other addons embed it. Azerfolio must not rely on that. [verified-ingame]
+- Templates that exist: `BackdropTemplate`, `ButtonFrameTemplate`, `PortraitFrameTemplate`, `DefaultPanelTemplate`, `BasicFrameTemplate(WithInset)`, `InsetFrameTemplate`, `PanelTabButtonTemplate`, `WowScrollBox`, `WowScrollBoxList`, `MinimalScrollBar`, `SearchBoxTemplate`, `InputBoxTemplate`, `UICheckButtonTemplate`, `WowStyle1DropdownTemplate`, `WowStyle1FilterDropdownTemplate`, `UIPanelButtonTemplate`, `UIPanelCloseButton`, tooltip templates. [verified-ingame]
+- `CharacterFrameTabButtonTemplate` doesn't exist. Use `PanelTabButtonTemplate` for bottom tabs. [verified-ingame]
+- `EncounterJournal` is not loaded and `EncounterJournal_LoadUI` doesn't exist. `AchievementFrame_LoadUI` exists. [verified-ingame]
+
+## Art
+
+Test frame screenshot and `SetTexture` results: [verified-ingame]
+
+| Texture | Result |
+|---|---|
+| Addon `.tga` | Displays (fileID -24) |
+| Addon `.png` | Displays (fileID -23) |
+| Path with no extension | Loads the `.tga` |
+| `Interface\EncounterJournal\UI-EJ-BACKGROUND-Default` | Displays (521743), dungeon painting |
+| `Interface\QuestFrame\QuestBG` | Displays (530420), parchment |
+| `Interface\AchievementFrame\UI-Achievement-Parchment-Horizontal` | Displays (130661), parchment |
+| `Interface\DialogFrame\UI-DialogBox-Gold-Border` | Displays (131076), gold border pieces |
+| `Interface\TargetingFrame\UI-Classes-Circles` | Displays (237669), class icon sheet |
+
+Consequence: the art pipeline can ship **PNG** directly, with no TGA conversion needed. Always include the file extension in paths.
+
+## Events seen in session
+
+`RECEIVED_ACHIEVEMENT_LIST` fires once after login. Achievement data should be read after it, or after `PLAYER_ENTERING_WORLD` plus a delay. [verified-ingame] The event sniffer is now on and will capture discovery events in Phase 1.

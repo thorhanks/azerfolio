@@ -1,0 +1,171 @@
+-- Summarizes the AzerfolioDiag SavedVariables dump.
+-- Usage: luajit tools/diag-report.lua [section] [param]
+-- Sections: summary (default), env, ach, explore, maps, quests, zone, events, art, errors,
+--           criteria <achID>, ns <filter>, log [n]
+-- Set AZF_DIAG_FILE to read a different dump.
+local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
+
+local section, arg2 = arg[1] or "summary", arg[2]
+local path = os.getenv("AZF_DIAG_FILE") or DEFAULT
+
+-- Load the file in an empty environment: it only assigns a table.
+local chunk = assert(loadfile(path))
+local env = {}
+setfenv(chunk, env)
+chunk()
+local DB = assert(env.AzerfolioDiagDB, "AzerfolioDiagDB missing")
+
+local function p(...) print(string.format(...)) end
+local function keys(t) local k = {} for x in pairs(t or {}) do k[#k + 1] = x end table.sort(k, function(a, b) return tostring(a) < tostring(b) end) return k end
+local function count(t) local n = 0 for _ in pairs(t or {}) do n = n + 1 end return n end
+local function s(v) if type(v) == "table" then local o = {} for i, x in ipairs(v) do o[i] = tostring(x) end return "{" .. table.concat(o, ",") .. "}" end return tostring(v) end
+
+local R = {}
+
+function R.errors()
+    p("errors: %d", #(DB.errors or {}))
+    for _, e in ipairs(DB.errors or {}) do p("  [%s] %s", e.label, e.err) end
+end
+
+function R.env()
+    local e = DB.env or {}
+    p("build: %s", s(e.build)); p("lua: %s  locale: %s  projectID: %s", tostring(e.lua), tostring(e.locale), tostring(e.projectID))
+    for _, k in ipairs(keys(e.projectConstants)) do p("  %s = %s", k, tostring(e.projectConstants[k])) end
+    local pl = e.player or {}
+    p("player: %s-%s lvl %s race %s class %s faction %s xp %s/%s max %s", tostring(pl.name), tostring(pl.realm), tostring(pl.level),
+        s(pl.race), s(pl.class), s(pl.faction), tostring(pl.xp), tostring(pl.xpMax), tostring(pl.maxLevel))
+    p("C_ namespaces: %d", count(e.namespaces))
+    p("globals:"); for _, k in ipairs(keys(e.globals)) do p("  %-34s %s", k, e.globals[k]) end
+    p("templates:"); for _, k in ipairs(keys(e.templates)) do p("  %-34s %s", k, tostring(e.templates[k])) end
+    p("matching globals (legacy/forever/explor): %d", count(e.matchingGlobals))
+    for _, k in ipairs(keys(e.matchingGlobals)) do p("  %s (%s)", k, e.matchingGlobals[k]) end
+    p("uiMapType: "); for _, k in ipairs(keys(e.uiMapType)) do p("  %s=%s", k, tostring(e.uiMapType[k])) end
+end
+
+function R.ns(filter)
+    local e = DB.env or {}
+    for _, k in ipairs(keys(e.namespaces)) do
+        if not filter or k:lower():find(filter:lower(), 1, true) then
+            p("%s: %s", k, table.concat(e.namespaces[k], ", "))
+        end
+    end
+end
+
+function R.ach()
+    local a = DB.achievements or {}
+    p("categories: %d, achievements: %d", #(a.categories or {}), #(a.all or {}))
+    for _, c in ipairs(a.categories or {}) do
+        p("  cat %-6s %-32s parent %-6s %-24s %s/%s", tostring(c.id), tostring(c.name), tostring(c.parent), tostring(c.parentName), tostring(c.completed), tostring(c.total))
+    end
+end
+
+function R.explore()
+    local a = DB.achievements or {}
+    local list = {}
+    for id, x in pairs(a.explore or {}) do list[#list + 1] = x end
+    table.sort(list, function(x, y) return tostring(x.name) < tostring(y.name) end)
+    p("explore achievements: %d", #list)
+    for _, x in ipairs(list) do
+        local done, assetAreas, withCID = 0, 0, 0
+        local types = {}
+        for _, c in ipairs(x.criteria or {}) do
+            if c.done then done = done + 1 end
+            if c.assetAreaName then assetAreas = assetAreas + 1 end
+            if c.criteriaID and c.criteriaID ~= 0 then withCID = withCID + 1 end
+            types[tostring(c.type)] = true
+        end
+        p("  %-6s %-40s cat %-6s %2d/%-2d done=%-5s areaAssets=%d critIDs=%d types=%s maps=%s",
+            tostring(x.id), tostring(x.name), tostring(x.category), done, #(x.criteria or {}), tostring(x.done), assetAreas, withCID,
+            table.concat(keys(types), "/"), s(x.matchedMapIDs))
+    end
+end
+
+function R.criteria(id)
+    local x = DB.achievements and DB.achievements.explore and DB.achievements.explore[tonumber(id)]
+    if not x then p("no explore achievement %s", tostring(id)) return end
+    p("%s %s desc=%s flags=%s", tostring(x.id), tostring(x.name), tostring(x.desc), tostring(x.flags))
+    for _, c in ipairs(x.criteria or {}) do
+        p("  %2d %-30s type=%s done=%s asset=%s (%s) critID=%s flags=%s qty=%s/%s elig=%s",
+            c.index, tostring(c.name), tostring(c.type), tostring(c.done), tostring(c.assetID), tostring(c.assetAreaName),
+            tostring(c.criteriaID), tostring(c.flags), tostring(c.qty), tostring(c.reqQty), tostring(c.eligible))
+    end
+end
+
+function R.maps()
+    local m = DB.maps or {}
+    p("maps: %s", tostring(m.count))
+    local byType = {}
+    for _, x in pairs(m.byID or {}) do byType[x.mapType or -1] = (byType[x.mapType or -1] or 0) + 1 end
+    for _, k in ipairs(keys(byType)) do p("  mapType %s: %d", tostring(k), byType[k]) end
+    local zones = {}
+    for id, x in pairs(m.byID or {}) do if x.mapType == 3 then zones[#zones + 1] = x end end
+    table.sort(zones, function(a, b) return a.id < b.id end)
+    p("zone maps (type 3): %d", #zones)
+    for _, z in ipairs(zones) do
+        local parent = m.byID[z.parent]
+        p("  %-5d %-34s parent %-5s %-20s explored textures %s", z.id, tostring(z.name), tostring(z.parent), parent and tostring(parent.name) or "?", tostring(z.exploredTextureCount))
+    end
+end
+
+function R.quests()
+    local q = DB.quests or {}
+    for _, k in ipairs(keys(q.has)) do p("  %-40s %s", k, tostring(q.has[k])) end
+    p("allCompletedCount %s legacyCompletedCount %s logEntries %s", tostring(q.allCompletedCount), tostring(q.legacyCompletedCount), tostring(q.logEntries))
+    for _, x in ipairs(q.samples or {}) do p("  quest %s done=%s title=%s", tostring(x.id), tostring(x.done), tostring(x.title)) end
+end
+
+function R.zone()
+    for i, z in ipairs(DB.zoneSnapshots or {}) do
+        local w = z.where or {}
+        p("snapshot %d: map %s zone %s sub %s pos %s,%s", i, tostring(w.map), tostring(w.zone), tostring(w.subzone), tostring(w.x), tostring(w.y))
+        for _, a in ipairs(w.areas or {}) do p("  area here: %s %s", tostring(a.id), tostring(a.name)) end
+        for _, c in ipairs(z.mapChain or {}) do p("  chain: %s %s type %s", tostring(c.id), tostring(c.name), tostring(c.mapType)) end
+        p("  explored textures: %d", #(z.exploredTextures or {}))
+        local t1 = z.exploredTextures and z.exploredTextures[1]
+        if t1 then for _, k in ipairs(keys(t1)) do p("    tex[1].%s = %s", k, s(t1[k])) end end
+        if z.exploreAchievement then p("  achievement %s %s", tostring(z.exploreAchievement.id), tostring(z.exploreAchievement.name)) end
+    end
+end
+
+function R.events()
+    p("registration:"); for _, k in ipairs(keys(DB.eventRegistration)) do p("  %-30s %s", k, tostring(DB.eventRegistration[k])) end
+    p("counts:"); for _, k in ipairs(keys(DB.eventCounts)) do p("  %-30s %s", k, tostring(DB.eventCounts[k])) end
+    p("log entries: %d, diffs: %d", #(DB.log or {}), #(DB.diffs or {}))
+    for _, d in ipairs(DB.diffs or {}) do
+        p("  diff t=%s map=%s textures %s->%s triggers=%d", tostring(d.t), tostring(d.textures and d.textures.map), tostring(d.textures and d.textures.before), tostring(d.textures and d.textures.after), #(d.triggers or {}))
+        for _, c in ipairs(d.changes or {}) do p("    %s #%s %s asset=%s crit=%s %s->%s", tostring(c.achName), tostring(c.index), tostring(c.name), tostring(c.assetID), tostring(c.criteriaID), tostring(c.from), tostring(c.to)) end
+        for _, tr in ipairs(d.triggers or {}) do p("    trigger %s @%s", tostring(tr.e), tostring(tr.gt)) end
+    end
+    if DB.sniff then
+        p("sniff (on=%s): %d distinct events", tostring(DB.sniffOn), count(DB.sniff.counts))
+        local list = {}
+        for k, v in pairs(DB.sniff.counts) do list[#list + 1] = { k, v } end
+        table.sort(list, function(a, b) return a[2] > b[2] end)
+        for i = 1, #list do p("  %-44s %d", list[i][1], list[i][2]) end
+    end
+end
+
+function R.log(n)
+    local log = DB.log or {}
+    n = tonumber(n) or 60
+    for i = math.max(1, #log - n + 1), #log do
+        local l = log[i]
+        local args = {}
+        for j = 1, (l.args and l.args.n or 0) do args[#args + 1] = tostring(l.args[j]) end
+        p("%s %-28s map=%s sub=%s args=%s", tostring(l.gt), l.e, tostring(l.where and l.where.map), tostring(l.where and l.where.subzone), table.concat(args, " | "))
+    end
+end
+
+function R.art()
+    for _, r in ipairs((DB.art or {}).results or {}) do
+        p("  %-24s ok=%s ret=%s tex=%s fileID=%s", r.label, tostring(r.pcallOk), tostring(r.setTextureReturn), tostring(r.getTexture), tostring(r.getTextureFileID))
+    end
+end
+
+function R.summary()
+    R.errors(); print(); R.env(); print(); R.explore(); print(); R.quests(); print(); R.art()
+end
+
+local fn = R[section]
+if not fn then print("unknown section " .. section) os.exit(1) end
+fn(arg2)
