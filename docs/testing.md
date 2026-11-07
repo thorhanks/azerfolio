@@ -49,7 +49,7 @@ Gideon has 7 undiscovered Elwynn areas: Stormwind City, Brackwell Pumpkin Patch,
 
 | Date | By | Result |
 |---|---|---|
-| | | |
+| 2026-11-07 | Owner (Gideon) | Pass. All buttons received by the addon frame (66 presses, 0 errors); names match the `GAMEPAD_*` constants. Stick events only from the left stick, so right-stick scrolling is still unconfirmed |
 
 ## Phase 2 — Addon foundation
 

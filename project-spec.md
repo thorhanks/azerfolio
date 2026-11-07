@@ -94,7 +94,7 @@ Azerfolio is **gamepad first**: the owner plays with a controller. Everything mu
   | A (bottom face) | Activate the focused control |
   | B (right face) | Back (Zone Detail → catalogue), otherwise close the window |
   | LB / RB | Previous / next main tab |
-  | Right stick | Scroll the current list |
+  | Right stick (if the client delivers it) or LT / RT | Scroll the current list (LT/RT page up/down) |
   | Y / X | Context actions (e.g. toggle card/list view, open filters), shown in a hint bar |
 
 - **Hint bar:** the bottom of the window shows which buttons do what on the current screen.

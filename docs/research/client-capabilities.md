@@ -126,7 +126,24 @@ The owner uses the client's gamepad UI (button prompts, "Focus/Unfocus Interface
 - GatherLite builds an addon-owned input layer. It has a child frame with `EnableGamePadButton(true)`/`EnableGamePadStick(true)` and `OnGamePadButtonDown`/`Up` scripts, its own focus list and highlight border, and calls `owner:FocusGamepad()` / `UnfocusGamepad()`. It is active only when `InputUtil.IsGamepadUIEnabled()` is true and the player is out of combat. Its comment: never register with Blizzard's frame manager or binding stack, because their listeners call protected action-bar APIs.
 - ItemTree avoids creating frames under Blizzard panels while they're open, because of the `CreateFrame` hook.
 
-**To verify in game** (`/azfdiag pad`): whether an addon frame receives pad button and stick input, the button names (`PADDUP`, `PAD1`, `PADLSHOULDER`…), whether `FocusGamepad`/`UnfocusGamepad` and `InputUtil.IsGamepadUIEnabled` exist, and the `GAMEPAD_*` constants.
+**Probe results** (`/azfdiag pad`, Gideon, out of combat, 2026-11-07): [verified-ingame]
+- `C_GamePad.IsEnabled()` = true, `GamePadEnable` CVar = 1, `InputUtil.IsGamepadUIEnabled()` = true. The globals `SmartNavigation`, `GamepadMode` and `InputUtil` exist.
+- An addon frame with `EnableGamePadButton(true)` received **every** button through `OnGamePadButtonDown`/`Up`. 66 presses, 0 errors.
+- Button names (equal to the `GAMEPAD_*` constants, so code should use the constants):
+
+  | Constant | Name | Xbox |
+  |---|---|---|
+  | `GAMEPAD_DPAD_TOP/BOTTOM/LEFT/RIGHT` | `PADDUP`, `PADDDOWN`, `PADDLEFT`, `PADDRIGHT` | D-pad |
+  | `GAMEPAD_FACE_BOTTOM/RIGHT/LEFT/TOP` | `PAD1`, `PAD2`, `PAD3`, `PAD4` | A, B, X, Y |
+  | `GAMEPAD_SHOULDER_LEFT/RIGHT` | `PADLSHOULDER`, `PADRSHOULDER` | LB, RB |
+  | `GAMEPAD_TRIGGER_LEFT/RIGHT` | `PADLTRIGGER`, `PADRTRIGGER` | LT, RT |
+  | `GAMEPAD_STICK_LEFT/RIGHT_PRESS` | `PADLSTICK`, `PADRSTICK` | stick clicks |
+  | `GAMEPAD_MENU_LEFT/RIGHT` | `PADBACK`, `PADFORWARD` | View, Menu |
+
+- `EnableGamePadStick(true)` delivered `OnGamePadStick` for the **left** stick (`"Left"`, x/y in −1…1). No right-stick samples were recorded. Either the owner didn't move it during the probe, or the camera keeps it. **Open:** confirm in Phase 4. Fallback: scroll with LT/RT (page) and the D-pad (move focus, auto-scroll).
+- `FocusGamepad`/`UnfocusGamepad` don't exist as frame methods (GatherLite's are its own). `SetPropagateKeyboardInput` exists; `SetPropagateGamepadInput` doesn't.
+- `GAMEPAD_SMARTNAV_CURSOR_COLOR_CODE` = `|cffffe600` (Blizzard's focus cursor yellow). Worth matching for a native feel.
+- The modifiers `GAMEPAD_MOD_LEFT` = SHIFT and `GAMEPAD_MOD_RIGHT` = CTRL mean the owner's bindings can be combos (for the open/close key binding).
 
 ## Events seen in session
 
