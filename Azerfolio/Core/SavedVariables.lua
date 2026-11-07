@@ -70,8 +70,16 @@ SV.Normalize = function(saved, defaults, enums, ranges)
 end
 
 -- Schema migrations. migrations[n] upgrades a table from version n-1 to n, in place.
--- Version 1 is the first schema, so there is nothing to migrate yet.
-SV.ACCOUNT_MIGRATIONS = {}
+SV.ACCOUNT_MIGRATIONS = {
+    -- 2: the window default grew from 960x640 to the design size 1160x740. A size still at the
+    -- old default was never chosen by the player, so it moves to the new one.
+    [2] = function(db)
+        local w = db.window
+        if type(w) == "table" and w.width == 960 and w.height == 640 then
+            w.width, w.height = 1160, 740
+        end
+    end,
+}
 SV.CHAR_MIGRATIONS = {}
 
 -- Applies migrations up to `target`. Data from a newer, unknown schema is discarded

@@ -10,6 +10,7 @@ local FILES = {
     "tests/sv_test.lua",
     "tests/events_test.lua",
     "tests/addon_smoke_test.lua",
+    "tests/ui_test.lua",
 }
 
 local t = {}

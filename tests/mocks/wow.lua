@@ -21,22 +21,58 @@ end
 function frameMethods:UnregisterEvent(e) self.events[e] = nil end
 function frameMethods:RegisterAllEvents() self.allEvents = true end
 function frameMethods:UnregisterAllEvents() self.allEvents = false; self.events = {} end
-function frameMethods:Hide() self.shown = false end
-function frameMethods:Show() self.shown = true end
-function frameMethods:SetShown(v) self.shown = v and true or false end
+local function fire(self, script, ...)
+    if self.scripts[script] then self.scripts[script](self, ...) end
+end
+function frameMethods:Hide()
+    local was = self.shown
+    self.shown = false
+    if was then fire(self, "OnHide") end
+end
+function frameMethods:Show()
+    local was = self.shown
+    self.shown = true
+    if not was then fire(self, "OnShow") end
+end
+function frameMethods:SetShown(v) if v then self:Show() else self:Hide() end end
 function frameMethods:IsShown() return self.shown end
 -- Layout and appearance calls are accepted and ignored.
-for _, name in ipairs({ "SetSize", "SetPoint", "SetFrameStrata", "SetBackdrop", "SetBackdropColor",
+for _, name in ipairs({ "SetFrameStrata", "SetBackdrop", "SetBackdropColor",
     "SetBackdropBorderColor", "EnableMouse", "SetMovable", "RegisterForDrag", "StartMoving",
-    "StopMovingOrSizing", "SetText", "SetAllPoints" }) do
+    "StopMovingOrSizing", "SetAllPoints", "SetToplevel", "SetClampedToScreen", "SetResizable",
+    "SetResizeBounds", "SetClipsChildren", "SetColorTexture", "SetGradient", "SetTextColor",
+    "SetShadowColor", "SetShadowOffset", "SetFontObject", "SetWordWrap", "SetStatusBarTexture",
+    "SetStatusBarColor", "SetMinMaxValues", "SetValue", "SetNormalTexture", "SetHighlightTexture",
+    "SetPushedTexture", "SetAlpha", "SetFrameLevel", "StartSizing", "AddMaskTexture", "SetJustifyH",
+    "ClearAllPoints" }) do
     frameMethods[name] = function() end
+end
+function frameMethods:SetFont() return true end
+function frameMethods:SetText(text) self.text = text end
+function frameMethods:GetText() return self.text end
+function frameMethods:GetStringWidth() return #tostring(self.text or "") * 7 end
+function frameMethods:SetSize(w, h) self.width, self.height = w, h end
+function frameMethods:SetWidth(w) self.width = w end
+function frameMethods:SetHeight(h) self.height = h end
+function frameMethods:GetWidth() return self.width or 0 end
+function frameMethods:GetHeight() return self.height or 0 end
+function frameMethods:GetFrameLevel() return 1 end
+function frameMethods:GetButtonState() return "NORMAL" end
+-- Only CENTER-to-UIParent anchors are tracked (enough for window geometry).
+function frameMethods:SetPoint(point, rel, relPoint, x, y)
+    if point == "CENTER" and rel == _G.UIParent then self.cx, self.cy = x or 0, y or 0 end
+end
+function frameMethods:GetCenter()
+    if self == _G.UIParent then return self.width / 2, self.height / 2 end
+    if self.cx then return _G.UIParent.width / 2 + self.cx, _G.UIParent.height / 2 + self.cy end
 end
 function frameMethods:EnableGamePadButton(v) self.gamePadButton = v end
 function frameMethods:EnableGamePadStick(v) self.gamePadStick = v end
-for _, name in ipairs({ "SetJustifyH", "ClearAllPoints" }) do frameMethods[name] = function() end end
-function frameMethods:CreateFontString() return setmetatable({ scripts = {}, events = {} }, frameMethods) end
+local function region() return setmetatable({ scripts = {}, events = {}, shown = true }, frameMethods) end
+function frameMethods:CreateFontString() return region() end
+function frameMethods:CreateMaskTexture() return frameMethods.CreateTexture(self) end
 function frameMethods:CreateTexture()
-    local tex = setmetatable({ scripts = {}, events = {} }, frameMethods)
+    local tex = region()
     function tex:SetTexture(path) self.path = path; return true end
     function tex:GetTexture() return self.path end
     function tex:GetTextureFileID() return nil end
@@ -67,9 +103,15 @@ function M.install(overrides)
     _G.C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }
     _G.DEFAULT_CHAT_FRAME = { AddMessage = function(_, text) chat[#chat + 1] = text end }
     _G.SlashCmdList = {}
-    _G.UIParent = setmetatable({ scripts = {}, events = {} }, frameMethods)
+    -- 3440x1440 with the default UI scale: UIParent is 768 units tall.
+    _G.UIParent = setmetatable({ scripts = {}, events = {}, shown = true, width = 1835, height = 768 }, frameMethods)
+    _G.UISpecialFrames = {}
+    _G.InCombatLockdown = function() return M.combat == true end
+    M.combat = false
     for k, v in pairs(overrides or {}) do _G[k] = v end
 end
+
+function M.frameCount() return #frames end
 
 -- Delivers an event to every frame registered for it.
 function M.fire(event, ...)

@@ -55,7 +55,7 @@ Read before working:
 - Tests: `luajit tests/run.lua` (from repo root)
 - Read the diagnostic dump: `luajit tools/diag-report.lua [summary|env|explore|criteria <achID>|maps|zone|events|log [n]|quests|art|ns <filter>|errors]`
 - Diagnostics in game: `/azfdiag` (help), `/azfdiag all`, `/azfdiag zone`, `/azfdiag sniff`, `/azfdiag art`
-- Addon in game: `/azf help`, `/azf status`, `/azf debug [zone]`, `/azf refresh`, `/azf shot`
+- Addon in game: `/azf help`, `/azf status`, `/azf debug [zone]`, `/azf refresh`, `/azf shot`, `/azf shots` (screenshots every tab and state)
 - Mockups: start the `mockups` preview (`.claude/launch.json`, serves `mockups/` on http://localhost:8765 via `tools/serve-mockups.ps1`). Regenerate zone data with `luajit tools/export-mock-data.lua | Out-File -Encoding utf8 mockups/data.js`. Mockup state (Gideon's progress, level ranges, factions) is sample data in `mockups/app.js`, not addon data.
 - Zone art: owner saves generated images as `art/source/<mapID>-<slug>.png` (prompts in `art/prompts.md`, rules in `art/style-guide.md`), then `powershell -File tools/process-art.ps1`. This writes `Azerfolio/Media/Zones/<mapID>.blp` (1024×512 BLP2 DXT1 + mips, via `tools/Blp.cs`), the mockup PNGs, and `Azerfolio/Data/Art.lua`. Never hand-edit `Data/Art.lua`. Use the `.blp` extension in texture paths. Review with `tools/art-contact-sheet.ps1`. Only BLPs are committed; `art/source/` and mockup PNGs are git-ignored.
 - Git: not on PATH; use `C:\Users\thorh\AppData\Local\GitHubDesktop\app-3.6.10\resources\app\git\cmd\git.exe`. Pass commit messages with `-F <file>` (PowerShell 5.1 mangles quotes in arguments). Pushing needs the owner (GitHub Desktop holds the login).
@@ -63,5 +63,6 @@ Read before working:
 ## Code layout
 
 - `Azerfolio/Core/` — `Init` (namespace `ns`), `Config` (defaults/enums/ranges), `SavedVariables` (pure: validate/migrate), `Debug` (`Try`, error log), `Events` (dispatcher, `On`/`Send` messages, `Debounce`), `Character`, `Commands`, `Lifecycle` (loaded last).
+- `Azerfolio/UI/` — `Theme` (all style constants), `MainWindow` (`ns.UI`: chrome, tabs via `UI.RegisterTab`, geometry), `Gamepad` (addon-owned input layer), `Pages/` (one file per tab), `Shots` (`/azf shots`).
 - New files go in the TOC in dependency order; `tests/addon_smoke_test.lua` loads the addon from the TOC, so a missing file fails the tests.
 - Internal messages are named `AZF_*`. Startup: `ADDON_LOADED` → `PLAYER_LOGIN` → `AZF_READY`.

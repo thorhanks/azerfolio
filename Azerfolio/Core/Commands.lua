@@ -11,6 +11,7 @@ local HELP = {
     "/azf debug - turn debug output on or off",
     "/azf debug zone - show the current map and zone",
     "/azf shot - take a test screenshot (development)",
+    "/azf shots - screenshot every tab and state (development)",
 }
 
 local function toggleWindow()
@@ -100,6 +101,8 @@ function Commands.Handle(input)
         end
     elseif cmd == "shot" then
         shot()
+    elseif cmd == "shots" then
+        ns.UI.RunShots()
     else
         ns.Print("Unknown command. Type /azf help.")
     end

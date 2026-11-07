@@ -34,6 +34,23 @@
 
 **In game:** all steps passed. `Screenshot()` works for addons (3440×1440 JPG in `<game>\Screenshots\`). The owner plays with a gamepad and an ultrawide display; see the open question in the plan's decision log.
 
+## Phase 4 — Main window and navigation: in progress (2026-11-07)
+
+Built in steps the owner approves one at a time:
+1. **Window shell** (done; in-game check passed 2026-11-07): `UI/Theme.lua` (design tokens from `mockups/style.css`), `UI/MainWindow.lua` (header with portrait, name, class line, XP, subzone, wordmark and close; parchment content; footer with tabs, info line and hint bar; drag by the header; resize grip; position saved as a centre offset; off-screen recovery; Escape via `UISpecialFrames`; tabs registered with one `UI.RegisterTab` call; compact header on Zones), `UI/Gamepad.lua` (addon-owned input frame: LB/RB switch tabs, B closes; on only while shown, gamepad UI on and out of combat), placeholder Overview and Zones pages, `/azf shots` (4 screenshots: each tab, at saved and minimum size). Account schema 2: window default 1160×740 (range 1000–1800 × 640–1100); an untouched 960×640 moves to the new default.
+2. Focus grid (`UI/FocusGrid.lua`, pure, tested), D-pad focus border, A, info line from focus.
+3. Zones catalogue ↔ detail navigation with preserved state (zone names from the client, no progress yet).
+4. Launcher: addon compartment, in-house minimap button, key binding (`Bindings.xml`).
+5. Wide split view, the per-zone banner offset, `/azf shots` for every state.
+
+- Tests: 57 passed.
+- **First in-game shots** (`WoWScrnShot_110726_163711`–`163715`, Gideon): no errors. Verified [verified-ingame]: `Fonts\MORPHEUS.TTF` title face, the circular portrait mask, class colour, XP (1543 / 6500), subzone, the compact header on Zones, footer tabs, LB/RB glyphs, info line and B hint, the resize grip, and both 1160×740 and minimum 1000×640 layouts.
+- **Fixed:** the native parchment at full strength was dark and blotchy and hid ink text; content is now the flat design colour with the texture as 30% grain. Verified readable (`WoWScrnShot_110726_164052`).
+- Owner's UI scale is 0.65 (`Config.wtf`), so UIParent is about 2822×1182 units: the 1160×740 window covers about 1414×902 physical pixels (41% × 63% of the screen), and 14-unit body text is about 17 px tall. The owner confirmed this size is fine.
+- Owner confirmed: LB/RB/B work; drag, resize and position persist across `/reload` (SavedVariables: schema 2, x −450, y 228, 1000×640).
+- Not verified yet: right-stick events.
+- **Next:** the owner asked to match the native Forever UI style (dark panels, glowing gold frame, round portrait, round A/B glyphs; reference: the Reputation frame). Goes through the mockup first.
+
 ## Phase 3 — Art pipeline ready; waiting for zone art (2026-11-07)
 
 - `art/style-guide.md`: look and feel, camera, safe area (core = middle 40% × 40–62% band, checked against all four crops), palette by region type, image spec, workflow, review checklist. UI chrome uses native textures, so only 51 images are needed (43 zones, 7 untracked places, 1 fallback).
