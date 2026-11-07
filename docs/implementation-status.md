@@ -16,8 +16,24 @@
 - Write-up: `docs/research/exploration-validation.md`.
 - Tests: `luajit tests/run.lua`, 7 passed.
 
-## Phase 2 — Addon foundation: not started
+## Phase 2 — Addon foundation: built, awaiting in-game check
 
-**Next:** `Azerfolio/` skeleton: TOC, init order, config, versioned SavedVariables, slash commands, event dispatcher, debug commands, first unit tests. Exploration catalogue generator (`tools/`) can follow in Phase 5.
+**Done (2026-11-07)**
+- `Azerfolio/` addon, linked into AddOns. Core modules:
+  - `Init`: namespace and print helpers.
+  - `Config`: defaults, allowed values, ranges, limits.
+  - `SavedVariables`: validate, clamp, migrate, trim.
+  - `Debug`: error capture, `Try`.
+  - `Events`: pcall-isolated dispatcher, internal messages, debounce.
+  - `Character`: reads the player's details.
+  - `Commands`: `/azerfolio`, `/azf`, help, refresh, status, debug, debug zone, shot.
+  - `Lifecycle`: ADDON_LOADED → PLAYER_LOGIN → `AZF_READY`.
+- Settings ownership: account-wide = window, tab, Zones view and filters, launcher, notifications, debug. Per character = exploration baseline, milestones, recent zones. Search text is session-only.
+- `/azf shot` tests whether addons may call `Screenshot()` (needed for the visual preview loop).
+- Tests: `luajit tests/run.lua`, 37 passed (settings, events, startup, commands, TOC).
+
+**Human validation required:** Phase 2 steps in `docs/testing.md`.
+
+**Next:** Phase 3 visual design with HTML mockups (plan §4.3), and Phase 4 main window with `/azf shots`.
 
 The `AzerfolioDiag` event sniffer is still on; turn it off with `/azfdiag sniff` when convenient.

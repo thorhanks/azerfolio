@@ -7,6 +7,9 @@ package.path = "./tests/?.lua;./?.lua;" .. package.path
 local FILES = {
     "tests/runner_test.lua",
     "tests/diag_smoke_test.lua",
+    "tests/sv_test.lua",
+    "tests/events_test.lua",
+    "tests/addon_smoke_test.lua",
 }
 
 local t = {}

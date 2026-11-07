@@ -1,0 +1,17 @@
+## Interface: 16001
+## Title: Azerfolio
+## Notes: Completionist dashboard and progression journal. Type /azf to open.
+## Author: Thor Hanks
+## Version: 0.1.0
+## SavedVariables: AzerfolioDB
+## SavedVariablesPerCharacter: AzerfolioCharDB
+## IconTexture: Interface\Icons\INV_Misc_Book_11
+
+Core\Init.lua
+Core\Config.lua
+Core\SavedVariables.lua
+Core\Debug.lua
+Core\Events.lua
+Core\Character.lua
+Core\Commands.lua
+Core\Lifecycle.lua

@@ -34,3 +34,11 @@ Read before working: [project-spec.md](project-spec.md) (what), [project-impleme
 - Tests: `luajit tests/run.lua` (from repo root)
 - Read the diagnostic dump: `luajit tools/diag-report.lua [summary|env|explore|criteria <achID>|maps|zone|events|log [n]|quests|art|ns <filter>|errors]`
 - Diagnostics in game: `/azfdiag` (help), `/azfdiag all`, `/azfdiag zone`, `/azfdiag sniff`, `/azfdiag art`
+- Addon in game: `/azf help`, `/azf status`, `/azf debug [zone]`, `/azf refresh`, `/azf shot`
+- Git: not on PATH; use `C:\Users\thorh\AppData\Local\GitHubDesktop\app-3.6.10\resources\app\git\cmd\git.exe`. Pass commit messages with `-F <file>` (PowerShell 5.1 mangles quotes in arguments). Pushing needs the owner (GitHub Desktop holds the login).
+
+## Code layout
+
+- `Azerfolio/Core/` — `Init` (namespace `ns`), `Config` (defaults/enums/ranges), `SavedVariables` (pure: validate/migrate), `Debug` (`Try`, error log), `Events` (dispatcher, `On`/`Send` messages, `Debounce`), `Character`, `Commands`, `Lifecycle` (loaded last).
+- New files go in the TOC in dependency order; `tests/addon_smoke_test.lua` loads the addon from the TOC, so a missing file fails the tests.
+- Internal messages are named `AZF_*`. Startup: `ADDON_LOADED` → `PLAYER_LOGIN` → `AZF_READY`.

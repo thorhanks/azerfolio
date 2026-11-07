@@ -94,5 +94,33 @@ function M.loadAddonFile(path, addonName, ns)
     return ns
 end
 
+-- Loads every file listed in an addon's TOC, in order, with one shared namespace table.
+-- Returns the namespace and the list of files loaded. Fails if a listed file is missing.
+function M.loadToc(addonDir, addonName)
+    local tocPath = addonDir .. "/" .. addonName .. ".toc"
+    local toc = assert(io.open(tocPath, "r"), "missing " .. tocPath)
+    local ns, files = {}, {}
+    for line in toc:lines() do
+        line = line:gsub("\r$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+        if line ~= "" and not line:match("^#") then
+            local path = addonDir .. "/" .. line:gsub("\\", "/")
+            files[#files + 1] = path
+            M.loadAddonFile(path, addonName, ns)
+        end
+    end
+    toc:close()
+    return ns, files
+end
+
+-- Reads "## Key: value" metadata from a TOC.
+function M.tocMetadata(addonDir, addonName)
+    local meta = {}
+    for line in io.lines(addonDir .. "/" .. addonName .. ".toc") do
+        local k, v = line:match("^##%s*([%w%-]+)%s*:%s*(.-)%s*$")
+        if k then meta[k] = v end
+    end
+    return meta
+end
+
 M.reset()
 return M

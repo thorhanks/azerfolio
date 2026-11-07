@@ -119,6 +119,13 @@ The addon lives in a subfolder so the game only ever sees game files.
 
 API behavior, events, rendering, interaction, combat safety, SavedVariables behavior. Each test case in `docs/testing.md` records steps, expected result, actual result, date, and whether it was run by the owner.
 
+### 4.3 Visual preview
+
+Agents can't see the game, so two tools close the gap:
+
+- **HTML mockups** (Phase 3 onward): each screen is built as a static HTML page in `mockups/`, using real data shapes from the diagnostic dump, and shown in the desktop app's browser pane. Use them to iterate on layout and style with the owner before writing Lua. Once a design is approved, the mockup is the visual reference for the Lua implementation. Mockups are design tools, not the product; never treat a mockup as proof that the addon works.
+- **In-game screenshots** (Phase 4 onward): a dev command (`/azf shots`) opens the window, steps through each tab and state, and calls `Screenshot()` for each. The agent reads the images from `<game>\Screenshots\`. The owner's part is `/reload` then `/azf shots`.
+
 ## 5. Art pipeline
 
 Decision: Azerfolio uses custom artwork in the style of native Blizzard art.
@@ -365,6 +372,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Phase 1 accepted; exploration is per character | Discovery and two-character tests passed (`docs/research/exploration-validation.md`) |
 | 2026-11-07 | All exploration criteria count as eligible | The game marks none ineligible, even cross-faction; inventing exclusions would break the honest-data rule |
 | 2026-11-07 | Refresh on `CRITERIA_UPDATE` + `MAP_EXPLORATION_UPDATED`, debounced; re-read current zone only | Observed event order on discovery |
+| 2026-11-07 | Visual preview: HTML mockups for design, addon-taken screenshots for verification | A full out-of-game WoW UI emulator would cost weeks and still be approximate |
 
 ## 10. Definition of done (v1)
 

@@ -37,3 +37,22 @@ Gideon has 7 undiscovered Elwynn areas: Stormwind City, Brackwell Pumpkin Patch,
 | 2026-11-07 | Owner (Gideon) | Pass. Discovered Forest's Edge and Brackwell Pumpkin Patch; each flipped one criterion. Events: CRITERIA_UPDATE + UI_INFO_MESSAGE, then MAP_EXPLORATION_UPDATED about 0.4 s later. Correct after /reload |
 | 2026-11-07 | Owner (Thragor) | First try not captured (addon disabled for the character) |
 | 2026-11-07 | Owner (Thragor, Horde) | Pass. Elwynn 0/12 vs Gideon 7/12; Durotar 1/11 vs Gideon 0/11. Criteria are per character |
+
+## Phase 2 — Addon foundation
+
+Automated: `luajit tests/run.lua` covers settings validation and migration, the event dispatcher, startup order, and all commands against mocks.
+
+**Steps (owner), on Gideon**
+1. At character select, click **AddOns** and make sure **Azerfolio** is ticked. Log in.
+2. Type `/azf`. Expect: "The Azerfolio window isn't built yet…" (no Lua error).
+3. Type `/azf status`. Expect: v0.1.0, schema 1/1, your character's name, level, race, class and faction, errors 0.
+4. Type `/azf debug`, then `/azf debug zone`. Expect: "Debug output on", then the map chain (e.g. "Elwynn Forest (1429) < Eastern Kingdoms (1415) < Azeroth (947)").
+5. Type `/azf shot`. Expect: "Screenshot requested." and the usual screenshot flash.
+6. Type `/reload`, then `/azf status`. Expect: debug still on (settings persisted).
+7. Type `/azf debug` to turn debug off again.
+
+Agent checks afterwards: `AzerfolioDB` and `AzerfolioCharDB` files exist with schema 1; a new image in `<game>\Screenshots\`.
+
+| Date | By | Result |
+|---|---|---|
+| | | |
