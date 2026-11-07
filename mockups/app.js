@@ -1,18 +1,12 @@
-/* Azerfolio mockup behavior. Design reference only. */
+/* Azerfolio mockup behavior. Design reference only; the addon implements this in Lua. */
 (function () {
   "use strict";
 
-  // ---------- Sample state (Gideon, 2026-11-07, from the in-game diagnostics) ----------
-  const CHAR = { name: "Gideon", realm: "Everhope", level: 9, race: "Human", className: "Paladin",
-    faction: "Alliance", xp: 273, xpMax: 6500, zone: "Elwynn Forest", subzone: "Goldshire" };
-  const DONE = { "Elwynn Forest": ["Jerod's Landing", "Northshire Valley", "Goldshire", "Fargodeep Mine",
-    "Crystal Lake", "Forest's Edge", "Brackwell Pumpkin Patch"] };
-  const MILESTONES = [
-    { icon: "✓", text: "Discovered <b>Brackwell Pumpkin Patch</b>", zone: "Elwynn Forest", time: "Today, 11:30" },
-    { icon: "✓", text: "Discovered <b>Forest's Edge</b>", zone: "Elwynn Forest", time: "Today, 11:26" },
-  ];
+  // =====================================================================================
+  // Static data
+  // =====================================================================================
 
-  // Zone metadata: classic level ranges and faction territory. SAMPLE DATA for the mockup only;
+  // Zone metadata: classic level ranges and faction territory. SAMPLE DATA for the mockup;
   // the addon needs a verified source before showing these (spec P1).
   const META = {
     "Elwynn Forest": [1, 10, "Alliance"], "Dun Morogh": [1, 10, "Alliance"], "Teldrassil": [1, 10, "Alliance"],
@@ -39,139 +33,317 @@
     { mapID: 1458, name: "Undercity", continent: "Eastern Kingdoms", faction: "Horde" },
     { mapID: 2521, name: "Zephras Isle", continent: "Azeroth", faction: "Unknown" },
   ];
-
-  // ---------- Model (in the addon this is the Progression service) ----------
-  const zones = window.AZF_ZONES.map(z => {
-    const m = META[z.name] || [null, null, "Unknown"];
-    const doneSet = new Set(DONE[z.name] || []);
-    const criteria = z.criteria.map(c => ({ ...c, done: doneSet.has(c.name) }));
-    const done = criteria.filter(c => c.done).length;
-    return { ...z, tracked: true, minLevel: m[0], maxLevel: m[1], faction: m[2], criteria,
-      done, total: criteria.length, pct: done / criteria.length };
-  }).concat(UNTRACKED.map(u => ({ ...u, tracked: false, minLevel: null, maxLevel: null, criteria: [], done: 0, total: 0, pct: null })));
-  const byName = Object.fromEntries(zones.map(z => [z.name, z]));
-  const tracked = zones.filter(z => z.tracked);
-  const totalAreas = tracked.reduce((s, z) => s + z.total, 0);
-  const doneAreas = tracked.reduce((s, z) => s + z.done, 0);
-  const completedZones = tracked.filter(z => z.done === z.total).length;
-
-  // ---------- UI state ----------
-  const state = { tab: "overview", detail: null, view: "cards", faction: "relevant", status: "all", level: "all",
-    sort: "recommended", search: "", zonesScroll: 0, lastZone: null };
-  const OPTIONS = {
-    faction: [["relevant", "Relevant to me"], ["all", "All zones"]],
-    status: [["all", "All"], ["incomplete", "Incomplete"], ["completed", "Completed"]],
-    level: [["all", "All levels"], ["appropriate", "For my level"]],
-    sort: [["recommended", "Recommended"], ["alphabetical", "A–Z"], ["highest", "Highest %"], ["lowest", "Lowest %"], ["closest", "Closest to done"]],
+  // Schematic atlas: rough geographic grid positions [col, row]. Zones without a known
+  // position are listed as "not placed" rather than guessed.
+  const ATLAS = {
+    "Eastern Kingdoms": {
+      "Tirisfal Glades": [1, 0], "Western Plaguelands": [2, 0], "Eastern Plaguelands": [3, 0],
+      "Silverpine Forest": [0, 1], "Alterac Mountains": [1, 1], "The Hinterlands": [3, 1],
+      "Hillsbrad Foothills": [1, 2], "Arathi Highlands": [2, 2], "Wetlands": [2, 3],
+      "Dun Morogh": [1, 4], "Loch Modan": [2, 4], "Searing Gorge": [1, 5], "Badlands": [2, 5],
+      "Burning Steppes": [1, 6], "Elwynn Forest": [1, 7], "Redridge Mountains": [2, 7],
+      "Westfall": [0, 8], "Duskwood": [1, 8], "Deadwind Pass": [2, 8], "Swamp of Sorrows": [3, 8],
+      "Stranglethorn Vale": [1, 9], "Blasted Lands": [3, 9],
+    },
+    "Kalimdor": {
+      "Teldrassil": [0, 0], "Moonglade": [2, 0], "Winterspring": [3, 0],
+      "Darkshore": [1, 1], "Felwood": [2, 1], "Mount Hyjal": [3, 1],
+      "Ashenvale": [2, 2], "Azshara": [3, 2], "Stonetalon Mountains": [1, 3], "The Barrens": [2, 3], "Durotar": [3, 3],
+      "Desolace": [0, 4], "Mulgore": [1, 4], "Dustwallow Marsh": [3, 4],
+      "Feralas": [0, 5], "Thousand Needles": [2, 5], "Silithus": [0, 6], "Un'Goro Crater": [1, 6], "Tanaris": [2, 6],
+    },
   };
-  const label = (key) => OPTIONS[key].find(o => o[0] === state[key])[1];
 
+  const now = new Date();
+  const ago = (days, h, m) => { const d = new Date(now); d.setDate(d.getDate() - days); d.setHours(h, m, 0, 0); return d; };
+  const firstN = (zoneName, n) => window.AZF_ZONES.find(z => z.name === zoneName).criteria.slice(0, n).map(c => c.name);
+  const all = (zoneName) => firstN(zoneName, 999);
+  const GIDEON_ELWYNN = ["Jerod's Landing", "Northshire Valley", "Goldshire", "Fargodeep Mine", "Crystal Lake", "Forest's Edge", "Brackwell Pumpkin Patch"];
+
+  const SCENARIOS = {
+    today: () => ({
+      char: { name: "Gideon", level: 9, race: "Human", className: "Paladin", faction: "Alliance", xp: 273, xpMax: 6500, zone: "Elwynn Forest", subzone: "Goldshire" },
+      done: { "Elwynn Forest": GIDEON_ELWYNN.slice() },
+      milestones: [
+        { t: ago(0, 11, 26), kind: "area", area: "Forest's Edge", zone: "Elwynn Forest" },
+        { t: ago(0, 11, 30), kind: "area", area: "Brackwell Pumpkin Patch", zone: "Elwynn Forest" },
+      ],
+    }),
+    almost: () => {
+      const s = SCENARIOS.today();
+      s.done["Elwynn Forest"] = all("Elwynn Forest").filter(n => n !== "Tower of Azora");
+      ["Eastvale Logging Camp", "Ridgepoint Tower", "Stone Cairn Lake", "Stormwind City"].forEach((a, i) =>
+        s.milestones.push({ t: ago(0, 12, 5 + i * 7), kind: "area", area: a, zone: "Elwynn Forest" }));
+      return s;
+    },
+    veteran: () => ({
+      char: { name: "Gideon", level: 32, race: "Human", className: "Paladin", faction: "Alliance", xp: 41200, xpMax: 62300, zone: "Duskwood", subzone: "Darkshire" },
+      done: { "Elwynn Forest": all("Elwynn Forest"), "Westfall": all("Westfall"), "Loch Modan": all("Loch Modan"),
+        "Dun Morogh": firstN("Dun Morogh", 12), "Redridge Mountains": firstN("Redridge Mountains", 9),
+        "Duskwood": firstN("Duskwood", 7), "Wetlands": firstN("Wetlands", 4), "Darkshore": firstN("Darkshore", 3) },
+      milestones: [
+        { t: ago(12, 20, 10), kind: "zone", zone: "Elwynn Forest" }, { t: ago(9, 21, 40), kind: "zone", zone: "Westfall" },
+        { t: ago(6, 19, 5), kind: "zone", zone: "Loch Modan" }, { t: ago(4, 22, 15), kind: "area", area: "Lakeridge Highway", zone: "Redridge Mountains" },
+        { t: ago(3, 18, 30), kind: "area", area: "Three Corners", zone: "Redridge Mountains" }, { t: ago(1, 20, 0), kind: "area", area: "Raven Hill", zone: "Duskwood" },
+        { t: ago(0, 21, 12), kind: "area", area: "Darkshire", zone: "Duskwood" }, { t: ago(0, 21, 30), kind: "area", area: "Manor Mistmantle", zone: "Duskwood" },
+      ],
+    }),
+    fresh: () => ({
+      char: { name: "Elowen", level: 1, race: "Human", className: "Paladin", faction: "Alliance", xp: 0, xpMax: 400, zone: "Elwynn Forest", subzone: "Northshire Abbey" },
+      done: {}, milestones: [],
+    }),
+  };
+  // Veteran activity: pad extra area discoveries so the activity strip has a realistic shape.
+  const VETERAN_DAILY = [3, 0, 5, 2, 0, 0, 4, 6, 1, 0, 2, 3, 1, 2];
+
+  // =====================================================================================
+  // Model (in the addon this is the Progression service)
+  // =====================================================================================
+  let S;      // scenario data
+  let CHAR;   // character
+  let zones, byName, tracked, totals;
+
+  function buildModel() {
+    zones = window.AZF_ZONES.map(z => {
+      const m = META[z.name] || [null, null, "Unknown"];
+      const doneSet = new Set(S.done[z.name] || []);
+      const criteria = z.criteria.map(c => ({ ...c, done: doneSet.has(c.name) }));
+      const done = criteria.filter(c => c.done).length;
+      const total = criteria.length;
+      return { ...z, tracked: true, minLevel: m[0], maxLevel: m[1], faction: m[2], criteria, done, total, pct: done / total,
+        state: done === total ? "complete" : done > 0 ? "progress" : "untouched" };
+    }).concat(UNTRACKED.map(u => ({ ...u, tracked: false, minLevel: null, maxLevel: null, criteria: [], done: 0, total: 0, pct: null, state: "untracked" })));
+    byName = Object.fromEntries(zones.map(z => [z.name, z]));
+    tracked = zones.filter(z => z.tracked);
+    totals = {
+      areas: tracked.reduce((s, z) => s + z.total, 0), done: tracked.reduce((s, z) => s + z.done, 0),
+      complete: tracked.filter(z => z.state === "complete").length, progress: tracked.filter(z => z.state === "progress").length,
+      untouched: tracked.filter(z => z.state === "untouched").length,
+    };
+  }
+  const fitsLevel = (z) => z.minLevel != null && z.minLevel <= CHAR.level + 3 && z.maxLevel >= CHAR.level;
+  const relevant = (z) => z.faction !== (CHAR.faction === "Alliance" ? "Horde" : "Alliance");
+
+  // =====================================================================================
+  // UI state
+  // =====================================================================================
+  const ui = { tab: "overview", detail: null, view: "cards", faction: "relevant", status: "all", level: "all", sort: "recommended",
+    search: "", zonesScroll: 0, lastZone: null, selected: null, flyout: null, wide: false, newCrit: null, celebrate: null };
+  const OPTIONS = {
+    faction: { label: "Show", items: [["relevant", "Relevant to me"], ["all", "All zones"]] },
+    level: { label: "Level", items: [["all", "All levels"], ["appropriate", "For my level"]] },
+    sort: { label: "Sort", items: [["recommended", "Recommended"], ["alphabetical", "A–Z"], ["highest", "Highest %"], ["lowest", "Lowest %"], ["closest", "Closest to done"]] },
+  };
+  const STATUS = [["all", "All"], ["progress", "In progress"], ["untouched", "Untouched"], ["complete", "Complete"]];
+  const optLabel = (key) => OPTIONS[key].items.find(o => o[0] === ui[key])[1];
+
+  // =====================================================================================
+  // Helpers and components
+  // =====================================================================================
   const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const content = $("#content");
-  const pctText = (p) => p == null ? "—" : `${Math.round(p * 100)}%`;
   const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const levels = (z) => z.minLevel == null ? "Level range unknown" : `Levels ${z.minLevel}–${z.maxLevel}`;
+  const pctText = (p) => p == null ? "—" : `${Math.round(p * 100)}%`;
+  const levels = (z) => z.minLevel == null ? "Levels —" : `Levels ${z.minLevel}–${z.maxLevel}`;
+  const shortLv = (z) => z.minLevel == null ? "—" : `${z.minLevel}–${z.maxLevel}`;
+  const winW = () => ui.wide ? 1640 : 1160;
+  const fmtTime = (d) => {
+    const days = Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 864e5);
+    const hm = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return days === 0 ? `Today, ${hm}` : days === 1 ? `Yesterday, ${hm}` : `${days} days ago`;
+  };
+
+  function pips(z, size = "", light = false) {
+    if (!z.tracked) return "";
+    const ordered = z.criteria.filter(c => c.done).concat(z.criteria.filter(c => !c.done)); // fill left to right
+    return `<div class="pips ${size} ${light ? "light" : ""}">${ordered.map(c =>
+      `<i class="pip ${c.done ? "on" : ""} ${ui.newCrit === c.id ? "new" : ""}"></i>`).join("")}</div>`;
+  }
   const bar = (p, cls = "") => p == null ? `<div class="bar unknown ${cls}"></div>`
     : `<div class="bar ${p >= 1 ? "complete" : ""} ${cls}"><i style="width:${(p * 100).toFixed(1)}%"></i></div>`;
+  function levelbar(z) {
+    if (z.minLevel == null) return `<div class="levelbar"></div>`;
+    const x = (l) => ((l - 1) / 59 * 100).toFixed(1);
+    return `<div class="levelbar"><span class="range ${fitsLevel(z) ? "fit" : ""}" style="left:${x(z.minLevel)}%;width:${(x(z.maxLevel) - x(z.minLevel)).toFixed(1)}%"></span><span class="me" style="left:calc(${x(CHAR.level)}% - 1px)"></span></div>`;
+  }
+  const facBadge = (z) => `<span class="fac ${z.faction}">${z.faction}</span>`;
 
-  // ---------- Placeholder zone art (painted-landscape stand-in) ----------
+  // Placeholder zone art (painted-landscape stand-in until real art exists).
   function hash(s) { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; }
   function art(z) {
-    const h = hash(z.name);
-    const n = z.name;
-    const kind = /Tanaris|Silithus|Barrens|Desolace|Badlands|Durotar|Thousand|Searing|Burning|Blasted|Un'Goro/.test(n) ? "dry"
-      : /Winterspring|Dun Morogh|Alterac|Ironforge/.test(n) ? "snow"
-      : /Plague|Deadwind|Swamp|Dustwallow|Felwood|Undercity|Duskwood/.test(n) ? "gloom" : "green";
-    const pal = {
-      green: ["#9fd0ef", "#f5e3b5", "#5d8a4a", "#3d6b35", "#24451f"],
-      dry: ["#f2c58a", "#fbe7c2", "#c98a4b", "#a0632f", "#6e3f1b"],
-      snow: ["#a9c6e8", "#eef3fb", "#c9d6e6", "#8fa4bd", "#56677e"],
-      gloom: ["#6b7a8f", "#b8b3a0", "#4f5a4a", "#363f35", "#1e241d"],
-    }[kind];
+    const h = hash(z.name), n = z.name;
+    const kind = /Tanaris|Silithus|Barrens|Desolace|Badlands|Durotar|Thousand|Searing|Burning|Blasted|Un'Goro|Orgrimmar/.test(n) ? "dry"
+      : /Winterspring|Dun Morogh|Alterac|Ironforge|Hyjal/.test(n) ? "snow"
+      : /Plague|Deadwind|Swamp|Dustwallow|Felwood|Undercity|Duskwood|Shen/.test(n) ? "gloom" : "green";
+    const pal = { green: ["#9fd0ef", "#f5e3b5", "#5d8a4a", "#3d6b35", "#24451f"], dry: ["#f2c58a", "#fbe7c2", "#c98a4b", "#a0632f", "#6e3f1b"],
+      snow: ["#a9c6e8", "#eef3fb", "#c9d6e6", "#8fa4bd", "#56677e"], gloom: ["#6b7a8f", "#b8b3a0", "#4f5a4a", "#363f35", "#1e241d"] }[kind];
     const r = (i, a, b) => a + ((h >> (i * 3)) % 1000) / 1000 * (b - a);
     const ridge = (y, amp, seed) => {
       let d = `M0 ${y}`;
-      for (let x = 0; x <= 320; x += 20) d += ` L${x} ${(y - Math.abs(Math.sin((x + seed * 37) / (30 + seed * 7))) * amp - r(seed + x / 20, 0, amp / 3)).toFixed(1)}`;
+      for (let x = 0; x <= 320; x += 20) d += ` L${x} ${(y - Math.abs(Math.sin((x + seed * 37 + h % 50) / (30 + seed * 7))) * amp - r(seed + x / 20, 0, amp / 3)).toFixed(1)}`;
       return d + " L320 180 L0 180 Z";
     };
-    const trees = kind === "green" || kind === "gloom"
-      ? Array.from({ length: 9 }, (_, i) => { const x = 10 + i * 36 + r(i, -8, 8); const s = r(i + 2, 14, 26);
-          return `<path d="M${x} ${180 - 6} l${s / 2} -${s * 1.6} l${s / 2} ${s * 1.6} Z" fill="${pal[4]}"/>`; }).join("") : "";
+    const trees = kind === "green" || kind === "gloom" ? Array.from({ length: 9 }, (_, i) => {
+      const x = 10 + i * 36 + r(i, -8, 8), s = r(i + 2, 14, 26);
+      return `<path d="M${x} 174 l${s / 2} -${s * 1.6} l${s / 2} ${s * 1.6} Z" fill="${pal[4]}"/>`; }).join("") : "";
     const id = "g" + h;
     return `<svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${pal[0]}"/><stop offset="1" stop-color="${pal[1]}"/></linearGradient></defs>
       <rect width="320" height="180" fill="url(#${id})"/><circle cx="${r(1, 40, 280)}" cy="${r(2, 30, 60)}" r="16" fill="#fff6d8" opacity=".75"/>
-      <path d="${ridge(110, 45, 1)}" fill="${pal[2]}" opacity=".7"/><path d="${ridge(135, 35, 2)}" fill="${pal[3]}"/><path d="${ridge(160, 22, 3)}" fill="${pal[4]}"/>${trees}
-      <rect width="320" height="180" fill="url(#${id})" opacity=".08"/></svg>`;
+      <path d="${ridge(110, 45, 1)}" fill="${pal[2]}" opacity=".7"/><path d="${ridge(135, 35, 2)}" fill="${pal[3]}"/><path d="${ridge(160, 22, 3)}" fill="${pal[4]}"/>${trees}</svg>`;
   }
 
-  // ---------- Header ----------
+  // Zone mini-map: stylized base terrain + the game's revealed-area pieces cutting through fog.
+  function zoneMap(z) {
+    const h = hash(z.name);
+    const r = (i, a, b) => a + (((h >> (i % 24)) ^ (i * 2654435761)) >>> 0) % 1000 / 1000 * (b - a);
+    // Real revealed pieces were captured from Gideon, so only Gideon's scenarios use them.
+    const gideon = ui.scenarioName === "today" || ui.scenarioName === "almost";
+    let pieces = gideon && z.done > 0 ? (window.AZF_EXPLORED[z.mapID] || []).slice() : [];
+    const real = pieces.length > 0;
+    // Mockup: zones without real data, or with more discoveries than the snapshot, get approximate pieces.
+    const need = z.state === "complete" ? 99 : z.done - (real ? pieces.length - 1 : 0);
+    for (let i = 0; i < need && z.state !== "complete"; i++) pieces.push({ x: r(i * 3 + 1, 40, 760), y: r(i * 3 + 2, 30, 460), w: 230, h: 200 });
+    const blobs = Array.from({ length: 14 }, (_, i) => `<ellipse cx="${r(i * 5 + 1, 0, 1002)}" cy="${r(i * 5 + 2, 0, 668)}" rx="${r(i * 5 + 3, 60, 170)}" ry="${r(i * 5 + 4, 40, 110)}" fill="${i % 3 ? "#7c9b55" : "#5f7f43"}" opacity=".55"/>`).join("");
+    const holes = pieces.map(p => `<rect x="${p.x + 12}" y="${p.y + 12}" width="${p.w - 24}" height="${p.h - 24}" rx="40" fill="#000"/>`).join("");
+    const id = "m" + h;
+    const fog = z.state === "complete" ? "" : `<rect width="1002" height="668" fill="#1c140c" opacity=".78" mask="url(#${id})"/>`;
+    return `<svg viewBox="0 0 1002 668" preserveAspectRatio="xMidYMid slice">
+      <defs><filter id="${id}b"><feGaussianBlur stdDeviation="22"/></filter>
+        <mask id="${id}"><rect width="1002" height="668" fill="#fff"/><g filter="url(#${id}b)">${holes}</g></mask></defs>
+      <rect width="1002" height="668" fill="#c9b27a"/>${blobs}
+      <path d="M0 ${r(90, 200, 450)} C 250 ${r(91, 100, 600)}, 600 ${r(92, 100, 600)}, 1002 ${r(93, 200, 500)}" stroke="#4f7fa8" stroke-width="14" fill="none" opacity=".8"/>
+      <path d="M${r(94, 100, 900)} 0 C ${r(95, 0, 1002)} 300, ${r(96, 0, 1002)} 400, ${r(97, 100, 900)} 668" stroke="#8a6a3a" stroke-width="6" stroke-dasharray="14 8" fill="none"/>
+      ${fog}</svg>`;
+  }
+
+  // =====================================================================================
+  // Header
+  // =====================================================================================
   function renderHeader() {
+    const compact = ui.tab === "zones";
+    $("#window").classList.toggle("compact", compact);
     $("#charName").textContent = CHAR.name;
-    $("#charLine").innerHTML = `Level ${CHAR.level} ${CHAR.race} <span class="class-paladin">${CHAR.className}</span> · <span class="fac ${CHAR.faction}">${CHAR.faction}</span>`;
+    const line = $("#charLine");
+    line.dataset.name = CHAR.name;
+    line.innerHTML = `Level ${CHAR.level} ${CHAR.race} <span class="class-paladin">${CHAR.className}</span> · <span class="fac ${CHAR.faction}">${CHAR.faction}</span>`;
     $("#xpFill").style.width = `${(CHAR.xp / CHAR.xpMax * 100).toFixed(1)}%`;
-    $("#xpText").textContent = `XP ${CHAR.xp} / ${CHAR.xpMax}`;
-    $("#charZone").innerHTML = `Current zone<b>${CHAR.zone}</b>${CHAR.subzone}`;
+    $("#xpText").textContent = `XP ${CHAR.xp.toLocaleString()} / ${CHAR.xpMax.toLocaleString()}`;
+    $("#charZone").innerHTML = compact ? `<b>${CHAR.zone}</b>${CHAR.subzone}` : `<span>${CHAR.subzone}</span>`;
   }
 
-  // ---------- Overview ----------
+  // =====================================================================================
+  // Overview
+  // =====================================================================================
+  function nextForLevel(exclude) {
+    return tracked.filter(z => z !== exclude && relevant(z) && z.state !== "complete" && z.minLevel != null && z.minLevel >= Math.max(1, CHAR.level - 2))
+      .sort((a, b) => (b.state === "progress") - (a.state === "progress") || a.minLevel - b.minLevel
+        || (b.continent === byName[CHAR.zone].continent) - (a.continent === byName[CHAR.zone].continent) || a.name.localeCompare(b.name))[0];
+  }
+
   function renderOverview() {
-    const p = doneAreas / totalAreas;
-    const C = 2 * Math.PI * 80;
     const cur = byName[CHAR.zone];
-    const closest = tracked.filter(z => z.done < z.total && z.done > 0).sort((a, b) => b.pct - a.pct)[0];
-    const remaining = cur.criteria.filter(c => !c.done);
-    const westfall = byName["Westfall"];
-    const suggestions = remaining.slice(0, 4).map(c => ({ name: c.name, zone: cur.name, cat: "Exploration",
-      why: `In your current zone — ${remaining.length} left in ${cur.name}`, open: cur.name, crit: c.id }))
-      .concat([{ name: "Westfall", zone: "Westfall", cat: "Zone", why: `Next zone for your level — ${westfall.total} areas to discover`, open: "Westfall" }]);
-    content.innerHTML = `<div class="scroll" id="scroll"><div class="overview">
-      <div>
-        <div class="ring-card">
-          <h3>Tracked Completion</h3>
-          <div class="ring"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" fill="none" stroke="#3a2b1c" stroke-width="18"/>
-            <circle cx="100" cy="100" r="80" fill="none" stroke="#d4a017" stroke-width="18" stroke-linecap="round" stroke-dasharray="${(C * p).toFixed(1)} ${C.toFixed(1)}"/></svg>
-            <div class="pct"><b>${(p * 100).toFixed(1)}%</b><span>${doneAreas} of ${totalAreas} objectives</span></div></div>
-          <div class="includes">Includes <span class="chip">Exploration</span></div>
-          <div class="note" style="margin-top:6px">Counts only what Azerfolio can verify. Quests join in v1.1.</div>
-        </div>
-        <h2 class="section">Zone highlights</h2>
-        <div class="list">
-          ${hl("Current zone", cur)}
-          ${closest ? hl("Closest to completion", closest) : ""}
-          <div class="item" style="cursor:default"><span>Recently completed</span><span class="meta">None yet</span></div>
+    const inProgress = tracked.filter(z => z.state === "progress").sort((a, b) => (a.total - a.done) - (b.total - b.done));
+    const hero = cur.state !== "complete" ? cur : inProgress[0] || nextForLevel(cur);
+    const heroKicker = hero === cur ? (cur.done ? "Continue exploring · current zone" : "Start exploring · current zone")
+      : cur.state === "complete" ? `${cur.name} complete · next up` : "Continue exploring";
+    const goal = inProgress.find(z => z !== hero); // never repeat the Continue card
+    const next = nextForLevel(hero);
+    const p = totals.done / totals.areas;
+    const W = (n) => (n / tracked.length * 100).toFixed(2);
+
+    // Suggestions grouped by zone.
+    const groups = [];
+    if (hero && hero.state !== "complete") groups.push({ z: hero, why: hero === cur ? `Your current zone · ${hero.total - hero.done} left` : `${hero.total - hero.done} left` });
+    inProgress.filter(z => z !== hero).slice(0, 1).forEach(z => groups.push({ z, why: `Closest to complete · ${z.total - z.done} left` }));
+    if (next && !groups.some(g => g.z === next)) groups.push({ z: next, why: `Next for your level · ${next.total - next.done} areas` });
+
+    // Activity: last 14 days.
+    const days = Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(now); d.setDate(d.getDate() - (13 - i)); d.setHours(0, 0, 0, 0); return d;
+    });
+    const counts = days.map((d, i) => S.milestones.filter(m => m.kind === "area" && new Date(m.t).setHours(0, 0, 0, 0) === d.getTime()).length
+      + (ui.scenarioName === "veteran" ? VETERAN_DAILY[i] : 0));
+    const max = Math.max(1, ...counts);
+    const recent = S.milestones.slice().sort((a, b) => b.t - a.t).slice(0, 5);
+
+    content.innerHTML = `<div class="scroll" id="scroll">
+      <div class="ov-top">
+        ${hero ? `<button class="hero focusable ${hero.state === "complete" ? "done" : ""}" data-open="${esc(hero.name)}" data-tip="<b>${esc(hero.name)}</b>Press A to see what's left.">
+          <div class="art">${art(hero)}</div>
+          <div class="body"><div class="kicker">${heroKicker}</div><div class="zname">${esc(hero.name)}</div>
+            ${pips(hero, "lg")}
+            <div class="left">${hero.done ? `<b>${hero.done}</b> of ${hero.total} areas discovered · <b>${hero.total - hero.done}</b> to go` : `${hero.total} areas to discover`}</div>
+            <div class="go"><span class="glyph A">A</span>${hero.done ? "Continue" : "Start"}</div></div></button>` : ""}
+        <div class="counters">
+          <button class="counter focusable" data-go="zones" data-tip="<b>Areas discovered</b>Every exploration objective across ${tracked.length} tracked zones. Source: the game's Explore achievements.">
+            <h4>Areas discovered <b>${totals.done} <small>/ ${totals.areas}</small></b></h4>${bar(p)}<span class="note">${(p * 100).toFixed(1)}% of all tracked exploration</span></button>
+          <button class="counter focusable" data-go="zones" data-tip="<b>Zones</b>Complete: every area found. In progress: some found. Untouched: none yet. Capitals and Zephras Isle aren't tracked.">
+            <h4>Zones <b>${totals.complete} <small>complete</small></b></h4>
+            <div class="stack"><i class="c" style="width:${W(totals.complete)}%"></i><i class="p" style="width:${W(totals.progress)}%"></i><i class="u" style="width:${W(totals.untouched)}%"></i></div>
+            <div class="legend"><span><i class="c"></i>${totals.complete} complete</span><span><i class="p"></i>${totals.progress} in progress</span><span><i class="u"></i>${totals.untouched} untouched</span></div></button>
         </div>
       </div>
-      <div>
-        <div class="cards">
-          <button class="stat focusable" data-go="zones" data-tip="<b>Zones completed</b>Zones where every exploration objective is discovered.<span class='dim'> Tracked zones only (${tracked.length}); capitals have no exploration data.</span>">
-            <h4>Zones</h4><div class="big">${completedZones} <small>of ${tracked.length}</small></div><div class="sub">fully explored</div>${bar(completedZones / tracked.length)}</button>
-          <button class="stat focusable" data-go="zones" data-tip="<b>Exploration</b>Areas discovered across all ${tracked.length} tracked zones. Source: the game's Explore achievements.">
-            <h4>Exploration</h4><div class="big">${doneAreas} <small>of ${totalAreas}</small></div><div class="sub">areas discovered · ${(p * 100).toFixed(1)}%</div>${bar(p)}</button>
-          <button class="stat focusable" data-open="${cur.name}" data-tip="<b>${cur.name}</b>${cur.done} of ${cur.total} areas discovered. Press A to open.">
-            <h4>Current zone</h4><div class="big">${pctText(cur.pct)}</div><div class="sub">${cur.name} · ${cur.total - cur.done} left</div>${bar(cur.pct)}</button>
+      ${goal ? `<button class="goal focusable" data-open="${esc(goal.name)}" data-tip="<b>Next goal</b>The in-progress zone with the fewest areas left.">
+          <span class="flag">Next goal</span><span>Finish <b>${esc(goal.name)}</b> — ${goal.total - goal.done} to go</span>${pips(goal)}</button>`
+        : ""}
+
+      <h2 class="section">Atlas <small>— every tracked zone, coloured by progress</small></h2>
+      ${renderAtlas()}
+
+      <div class="ov-bottom">
+        <div><h2 class="section">Suggested next</h2>
+          ${groups.length ? groups.map(g => `<div class="zonegroup"><header><b>${esc(g.z.name)}</b><span class="why">${g.why}</span></header>
+            <div class="chips">${g.z.criteria.filter(c => !c.done).slice(0, 8).map(c => `<button class="areachip focusable" data-open="${esc(g.z.name)}" data-crit="${c.id}" data-tip="<b>${esc(c.name)}</b>Undiscovered area in ${esc(g.z.name)}.">${esc(c.name)}</button>`).join("")}
+            ${g.z.total - g.z.done > 8 ? `<span class="note">+${g.z.total - g.z.done - 8} more</span>` : ""}</div></div>`).join("")
+            : `<div class="note">Nothing to suggest — every relevant zone is explored.</div>`}
         </div>
-        <h2 class="section">Suggested next</h2>
-        <div class="list">${suggestions.map(s => `<button class="item focusable" data-open="${esc(s.open)}" ${s.crit ? `data-crit="${s.crit}"` : ""}
-            data-tip="<b>${esc(s.name)}</b>${esc(s.why)}"><span>${esc(s.name)} <span class="tag">${s.cat}</span></span><span class="meta">${esc(s.zone)}</span><span class="why">${esc(s.why)}</span></button>`).join("")}</div>
-        <h2 class="section">Recent milestones</h2>
-        <div>${MILESTONES.map(m => `<div class="milestone"><span class="icon">${m.icon}</span><span>${m.text} <span class="note">— ${m.zone}</span></span><time>${m.time}</time></div>`).join("")}
-          <div class="note" style="margin-top:6px">Progress made before Azerfolio was installed counts toward your totals but isn't listed here.</div></div>
+        <div><h2 class="section">Activity</h2>
+          <div class="activity">
+            <div class="legend" style="color:var(--ink-soft)"><span>Areas discovered per day</span><span style="margin-left:auto"><b>${counts[13]}</b>&nbsp;today</span></div>
+            <div class="spark">${counts.map((c, i) => `<i class="${c ? "" : "zero"}" style="height:${c ? Math.max(8, c / max * 100) : 4}%" title="${c} areas"></i>`).join("")}</div>
+            <div class="sparklabels"><span>2 weeks ago</span><span>Today</span></div>
+            <div style="margin-top:8px">${recent.length ? recent.map(m => m.kind === "zone"
+              ? `<div class="milestone big"><span class="icon">★</span><span><b>${esc(m.zone)}</b> fully explored</span><time>${fmtTime(m.t)}</time></div>`
+              : `<div class="milestone"><span class="icon">✓</span><span>Discovered <b>${esc(m.area)}</b> <span class="note">· ${esc(m.zone)}</span></span><time>${fmtTime(m.t)}</time></div>`).join("")
+              : `<div class="note">Your discoveries will appear here. Progress from before Azerfolio was installed still counts toward totals.</div>`}</div>
+          </div>
+        </div>
       </div>
-    </div></div>`;
-    function hl(title, z) {
-      return `<button class="item focusable" data-open="${esc(z.name)}" data-tip="<b>${esc(z.name)}</b>${z.done} of ${z.total} areas · ${pctText(z.pct)}">
-        <span><span class="meta">${title}</span><br>${esc(z.name)}</span><span class="meta">${z.done}/${z.total}</span>${bar(z.pct, "small").replace('class="bar', 'style="grid-column:1/-1" class="bar')}</button>`;
-    }
+    </div>`;
   }
 
-  // ---------- Zones catalogue ----------
+  function renderAtlas() {
+    const cont = (name) => {
+      const cells = ATLAS[name];
+      const rows = Math.max(...Object.values(cells).map(c => c[1])) + 1;
+      return `<div class="continent"><h4>${name}</h4><div class="cgrid" style="grid-template-rows:repeat(${rows},30px)">
+        ${Object.entries(cells).map(([zn, [c, r]]) => {
+          const z = byName[zn]; if (!z) return "";
+          return `<button class="tile focusable ${z.state} ${zn === CHAR.zone ? "here" : ""}" style="grid-column:${c + 1};grid-row:${r + 1}" data-open="${esc(zn)}"
+            data-tip="<b>${esc(zn)}</b>${z.done} of ${z.total} areas · ${pctText(z.pct)}${zn === CHAR.zone ? "<span class='dim'> · You are here</span>" : ""}">
+            ${z.state === "progress" ? `<i style="width:${(z.pct * 100).toFixed(0)}%"></i>` : ""}<span>${esc(zn)}</span></button>`;
+        }).join("")}</div></div>`;
+    };
+    const placed = new Set(Object.values(ATLAS).flatMap(Object.keys));
+    const unplaced = tracked.filter(z => !placed.has(z.name));
+    return `<div class="atlas-card">
+      <div class="atlas-head"><h3>Azeroth</h3><div class="legend"><span><i class="c"></i>Complete</span><span><i class="p"></i>In progress</span><span><i class="u"></i>Untouched</span><span>● You are here</span></div></div>
+      <div class="atlas">${cont("Eastern Kingdoms")}${cont("Kalimdor")}</div>
+      ${unplaced.length ? `<div class="unplaced">Not placed on the atlas yet:${unplaced.map(z => `<button class="tile focusable ${z.state}" data-open="${esc(z.name)}" data-tip="<b>${esc(z.name)}</b>${z.done} of ${z.total} areas. Its position on the atlas isn't known yet.">${z.state === "progress" ? `<i style="width:${(z.pct * 100).toFixed(0)}%"></i>` : ""}<span>${esc(z.name)}</span></button>`).join("")}</div>` : ""}
+      <div class="note" style="color:#bfb39b;margin-top:6px">Schematic layout. In game this can use the real continent map art.</div>
+    </div>`;
+  }
+
+  // =====================================================================================
+  // Zones catalogue
+  // =====================================================================================
   function filteredZones() {
-    const q = state.search.trim().toLowerCase();
-    let list = zones.filter(z => {
-      if (state.faction === "relevant" && (z.faction === "Horde")) return false;
-      if (state.status === "completed" && !(z.tracked && z.done === z.total)) return false;
-      if (state.status === "incomplete" && !(z.tracked && z.done < z.total)) return false;
-      if (state.level === "appropriate" && !(z.minLevel != null && z.minLevel <= CHAR.level + 3 && z.maxLevel >= CHAR.level)) return false;
+    const q = ui.search.trim().toLowerCase();
+    const list = zones.filter(z => {
+      if (ui.faction === "relevant" && !relevant(z)) return false;
+      if (ui.status !== "all" && z.state !== ui.status) return false;
+      if (ui.level === "appropriate" && !fitsLevel(z)) return false;
       if (q && !z.name.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -179,169 +351,283 @@
     const unknownLast = (f) => (a, b) => (a.pct == null) - (b.pct == null) || f(a, b) || name(a, b);
     const sorts = {
       recommended: (a, b) => (a.minLevel ?? 999) - (b.minLevel ?? 999) || (a.tracked ? 0 : 1) - (b.tracked ? 0 : 1) || name(a, b),
-      alphabetical: name,
-      highest: unknownLast((a, b) => b.pct - a.pct),
-      lowest: unknownLast((a, b) => a.pct - b.pct),
-      closest: unknownLast((a, b) => (a.total - a.done) - (b.total - b.done) || b.pct - a.pct),
+      alphabetical: name, highest: unknownLast((a, b) => b.pct - a.pct), lowest: unknownLast((a, b) => a.pct - b.pct),
+      closest: unknownLast((a, b) => (a.state === "complete") - (b.state === "complete") || (a.total - a.done) - (b.total - b.done)),
     };
-    return list.sort(sorts[state.sort]);
+    return list.sort(sorts[ui.sort]);
   }
-
+  function groupsOf(list) {
+    if (ui.sort !== "recommended") return [{ title: null, items: list }];
+    const key = (z) => {
+      if (z.minLevel == null) return z.tracked ? "Level unknown" : "Cities and other places";
+      if (z.minLevel < 10) return "Levels 1–10";
+      const b = Math.floor(z.minLevel / 10) * 10;
+      return `Levels ${b}–${b + 10}`;
+    };
+    const out = [];
+    for (const z of list) { const k = key(z); if (!out.length || out[out.length - 1].title !== k) out.push({ title: k, items: [] }); out[out.length - 1].items.push(z); }
+    return out;
+  }
+  // Tooltips add information the card doesn't already show; otherwise there is none.
   function zoneTip(z) {
     if (!z.tracked) return `<b>${esc(z.name)}</b>Exploration isn't tracked here: the game has no Explore achievement for this zone.`;
-    return `<b>${esc(z.name)}</b>${z.done} of ${z.total} areas discovered (${pctText(z.pct)}).<span class='dim'> ${levels(z)} · ${z.faction}</span>`;
+    const last = S.milestones.filter(m => m.zone === z.name).sort((a, b) => b.t - a.t)[0];
+    if (last) return `<b>${esc(z.name)}</b>Last discovery: ${last.kind === "zone" ? "zone completed" : esc(last.area)} · ${fmtTime(last.t)}`;
+    if (z.state === "progress") return `<b>${esc(z.name)}</b>Discovered before Azerfolio was installed.`;
+    return "";
+  }
+  function card(z) {
+    return `<button class="zcard focusable ${z.state}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
+      <div class="art">${art(z)}<span class="artlabel">ART PLACEHOLDER</span>
+        ${z.state === "complete" ? `<span class="badge emblem">✓</span>` : ""}</div>
+      ${fitsLevel(z) && z.state !== "complete" ? `<span class="ribbon">For your level</span>` : ""}
+      <div class="body"><div class="name">${esc(z.name)}</div>
+        <div class="meta"><span>${levels(z)}</span>${facBadge(z)}</div>
+        ${z.tracked ? pips(z) : `<div class="bar unknown small"></div>`}
+        <div class="stats">${z.tracked ? `<span>${z.done} / ${z.total} areas</span><b>${pctText(z.pct)}</b>` : `<span>Exploration not tracked</span><span>—</span>`}</div></div></button>`;
+  }
+  function row(z, compact) {
+    if (compact) return `<button class="zrow focusable ${z.state} ${ui.selected === z.name ? "selected" : ""}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
+      <span class="thumb">${art(z)}</span><span><span class="zname">${esc(z.name)}</span>${z.tracked ? pips(z, "sm") : `<span class="note">not tracked</span>`}</span>
+      <span class="lv">${shortLv(z)}${levelbar(z)}</span><span class="pctcol">${pctText(z.pct)}</span></button>`;
+    return `<button class="zrow focusable ${z.state}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
+      <span class="thumb">${art(z)}</span><span class="zname">${esc(z.name)} ${facBadge(z)}</span>
+      <span class="lv">${shortLv(z)}${levelbar(z)}</span>
+      <span>${z.tracked ? `${pips(z, "sm")}<span class="note">${z.done} / ${z.total} areas</span>` : `<span class="note">Exploration not tracked</span>`}</span>
+      <span class="pctcol">${pctText(z.pct)}</span></button>`;
+  }
+  function toolbar(count) {
+    const sel = (key) => `<button class="select focusable" data-cycle="${key}" data-tip="<b>${OPTIONS[key].label}</b>Press A to choose.">${OPTIONS[key].label}: <b>${optLabel(key)}</b><span class="arr">▾</span></button>`;
+    return `<div class="toolbar">
+      <div class="seg">${STATUS.map(([v, l]) => `<button class="focusable ${ui.status === v ? "on" : ""}" data-status="${v}" data-tip="Show ${l.toLowerCase()} zones">${l}</button>`).join("")}</div>
+      ${sel("faction")}${sel("level")}${sel("sort")}
+      <span class="count">${count} zones</span><span class="spacer"></span>
+      <label class="search focusable" data-search data-tip="<b>Search</b>Press A to type (on-screen keyboard on controller).">🔍<input id="searchInput" placeholder="Search" value="${esc(ui.search)}" tabindex="-1"></label>
+      ${ui.wide ? "" : `<div class="viewtoggle"><button class="focusable ${ui.view === "cards" ? "on" : ""}" data-view="cards" data-tip="Illustrated cards (Y)">▦</button><button class="focusable ${ui.view === "list" ? "on" : ""}" data-view="list" data-tip="Compact list (Y)">☰</button></div>`}
+    </div>`;
   }
 
   function renderZones() {
     const list = filteredZones();
-    const card = (z) => `<button class="zcard focusable ${z.tracked && z.done === z.total ? "complete" : ""} ${z.tracked ? "" : "untracked"}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
-        <div class="art">${art(z)}<span class="artlabel">ART PLACEHOLDER</span>${z.tracked && z.done === z.total ? `<span class="badge emblem">✓</span>` : ""}</div>
-        <div class="body"><div class="name">${esc(z.name)}</div>
-          <div class="meta"><span>${z.minLevel == null ? "Levels —" : `${z.minLevel}–${z.maxLevel}`}</span><span class="fac ${z.faction}">${z.faction}</span></div>
-          ${bar(z.pct)}
-          <div class="stats">${z.tracked ? `<span>Exploration ${z.done}/${z.total}</span><b>${pctText(z.pct)}</b>` : `<span>Exploration not tracked</span><span>—</span>`}</div></div></button>`;
-    const row = (z) => `<button class="zrow focusable ${z.tracked ? "" : "untracked"}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
-        <span class="thumb">${art(z)}</span><span class="zname">${esc(z.name)}</span><span>${z.minLevel == null ? "—" : `${z.minLevel}–${z.maxLevel}`}</span>
-        <span><span class="fac ${z.faction}">${z.faction}</span></span>${bar(z.pct, "small")}
-        <span class="num">${z.tracked ? `${z.done} / ${z.total}` : "not tracked"}</span><span class="pctcol">${pctText(z.pct)}</span></button>`;
-    const sel = (key, tip) => `<button class="select focusable" data-cycle="${key}" data-tip="<b>${tip}</b>Press A to change.">${tip}: <b>${label(key)}</b></button>`;
-    content.innerHTML = `
-      <div class="toolbar">
-        <label class="search focusable" data-search data-tip="<b>Search zones</b>Press A to type (on-screen keyboard on controller).">🔍<input id="searchInput" placeholder="Search zones" value="${esc(state.search)}" tabindex="-1"></label>
-        ${sel("faction", "Show")}${sel("status", "Status")}${sel("level", "Level")}${sel("sort", "Sort")}
-        <span class="count">${list.length} zones</span>
-        <div class="viewtoggle"><button class="focusable ${state.view === "cards" ? "on" : ""}" data-view="cards" data-tip="Illustrated cards (Y)">▦ Cards</button><button class="focusable ${state.view === "list" ? "on" : ""}" data-view="list" data-tip="Compact list (Y)">☰ List</button></div>
-      </div>
-      <div class="scroll zones-scroll" id="scroll">
-        ${list.length === 0 ? `<div class="empty"><b>No zones match</b>Try clearing the search or changing the filters.</div>`
-          : state.view === "cards" ? `<div class="grid">${list.map(card).join("")}</div>`
-          : `<div class="listhead"><span></span><span>Zone</span><span>Levels</span><span>Faction</span><span>Exploration</span><span>Areas</span><span>%</span></div><div class="rows">${list.map(row).join("")}</div>`}
-      </div>`;
+    const groups = groupsOf(list);
+    const empty = `<div class="empty"><b>No zones match</b>Try a different status or filter, or clear the search.</div>`;
+    const body = (compact) => list.length === 0 ? empty : groups.map(g => `${g.title ? `<div class="group-h" data-group>${g.title} <small>${g.items.filter(z => z.state === "complete").length} of ${g.items.filter(z => z.tracked).length} complete</small></div>` : ""}
+      ${!compact && ui.view === "cards" ? `<div class="grid">${g.items.map(card).join("")}</div>` : `<div class="rows">${g.items.map(z => row(z, compact)).join("")}</div>`}`).join("");
+    if (ui.wide) {
+      if (!ui.selected || !list.some(z => z.name === ui.selected)) ui.selected = (list.find(z => z.name === CHAR.zone) || list[0] || {}).name || null;
+      content.innerHTML = `${toolbar(list.length)}<div class="split"><div class="listpane"><div class="scroll" id="scroll">${body(true)}</div></div><div class="detailpane" id="detailpane"></div></div>`;
+      renderDetailInto($("#detailpane"), ui.selected ? byName[ui.selected] : null, { back: false });
+    } else {
+      content.innerHTML = `${toolbar(list.length)}<div class="scroll zones-scroll" id="scroll">${body(false)}</div>`;
+    }
+    // The toolbar can wrap; start the list right below it.
+    const tb = $(".toolbar").offsetHeight;
+    const below = $(".split") || $("#scroll");
+    below.style.top = tb + "px";
+    wireSearch();
+  }
+  function wireSearch() {
     const input = $("#searchInput");
-    input.addEventListener("input", () => { state.search = input.value; const pos = input.selectionStart; render(); const i = $("#searchInput"); i.focus(); i.setSelectionRange(pos, pos); });
+    if (!input) return;
+    input.addEventListener("input", () => { ui.search = input.value; const pos = input.selectionStart; render(); const i = $("#searchInput"); i.focus(); i.setSelectionRange(pos, pos); });
     input.addEventListener("keydown", (e) => { if (e.key === "Escape" || e.key === "Enter") { e.stopPropagation(); input.blur(); setFocus($("[data-search]")); } });
   }
 
-  // ---------- Zone detail ----------
-  function renderDetail(focusCrit) {
-    const z = byName[state.detail];
-    const remaining = z.criteria.filter(c => !c.done);
-    const found = z.criteria.filter(c => c.done);
-    // No tooltip: the side panel already shows the focused objective's details.
-    const check = (c) => `<button class="check focusable ${c.done ? "done" : ""}" data-crit="${c.id}"><span class="mark">${c.done ? "✓" : ""}</span><span>${esc(c.name)}</span></button>`;
-    content.innerHTML = `
-      <div class="detail-hero">${art(z)}<div class="shade"></div>
-        <button class="btn dark back focusable" data-back data-tip="Back to all zones (B)">‹ Zones</button>
-        <div class="info"><div><h1>${esc(z.name)}</h1><div class="sub"><span>${levels(z)}</span><span class="fac ${z.faction}">${z.faction}</span><span>${z.continent}</span></div></div>
-          <div><div class="bigpct">${z.tracked ? pctText(z.pct) : "—"}<small>${z.tracked ? `${z.done} of ${z.total} areas discovered` : "Exploration not tracked"}</small></div>${bar(z.pct)}</div></div>
-      </div>
+  // =====================================================================================
+  // Zone detail
+  // =====================================================================================
+  function renderDetailInto(container, z, opts) {
+    if (!z) { container.innerHTML = `<div class="empty"><b>Select a zone</b></div>`; return; }
+    const remaining = z.criteria.filter(c => !c.done), found = z.criteria.filter(c => c.done);
+    const check = (c) => `<button class="check focusable ${c.done ? "done" : "todo"} ${ui.newCrit === c.id ? "new" : ""}" data-crit="${c.id}"><span class="mark">${c.done ? "✓" : ""}</span><span>${esc(c.name)}</span></button>`;
+    const next = z.tracked ? tracked.filter(x => x !== z && relevant(x) && x.state !== "complete" && x.minLevel != null && z.minLevel != null && x.minLevel > z.minLevel)
+      .sort((a, b) => a.minLevel - b.minLevel || (b.continent === z.continent) - (a.continent === z.continent) || a.name.localeCompare(b.name))[0] : null;
+    container.innerHTML = `<div class="detail">
+      <div class="detail-hero ${opts.back ? "has-back" : ""}">${art(z)}<div class="shade"></div>
+        ${opts.back ? `<button class="btn dark back focusable" data-back data-tip="Back to all zones (B)">‹ Zones</button>` : ""}
+        <div class="info">
+          <div><h1>${esc(z.name)}</h1><div class="sub"><span>${levels(z)}</span>${facBadge(z)}<span>${esc(z.continent)}</span>
+            ${next ? `<span class="next">· Next: ${esc(next.name)} (${shortLv(next)})</span>` : ""}</div></div>
+          <div class="scorebox">${z.tracked ? `<div class="bigpct">${pctText(z.pct)}<small>${z.done} of ${z.total}</small></div>${pips(z, "lg", true)}` : `<div class="bigpct">—<small>not tracked</small></div>`}</div>
+        </div></div>
       <div class="detail-body">
-        <div class="scroll" id="scroll">
+        <div class="scroll" id="${opts.back ? "scroll" : "detailscroll"}">
           ${z.tracked ? `
-          <h2 class="section">Exploration · remaining ${remaining.length}</h2>
-          ${remaining.length ? `<div class="checklist">${remaining.map(check).join("")}</div>` : `<div class="note">Every area discovered. ✦</div>`}
-          <h2 class="section">Discovered ${found.length}</h2>
-          <div class="checklist">${found.map(check).join("")}</div>`
-          : `<div class="empty"><b>Exploration isn't tracked here</b>The game has no Explore achievement for ${esc(z.name)}, so Azerfolio can't verify progress. Other categories will appear here in later versions.</div>`}
+            <h2 class="section">To discover <small>${remaining.length}</small></h2>
+            ${remaining.length ? `<div class="checklist">${remaining.map(check).join("")}</div>` : `<div class="note">Every area discovered. ✦</div>`}
+            <h2 class="section">Discovered <small>${found.length}</small></h2>
+            ${found.length ? `<div class="checklist">${found.map(check).join("")}</div>` : `<div class="note">Nothing yet — head out and explore.</div>`}`
+          : `<div class="empty"><b>Exploration isn't tracked here</b>The game has no Explore achievement for ${esc(z.name)}, so Azerfolio can't verify progress.</div>`}
         </div>
-        <aside class="side" id="side"></aside>
-      </div>`;
-    updateSide(z, focusCrit ? z.criteria.find(c => String(c.id) === String(focusCrit)) : remaining[0] || found[0]);
+        <aside class="mapside">
+          <div class="zonemap">${zoneMap(z)}</div>
+          <div class="mapcap"><span class="legend"><span><i class="c" style="background:#c9b27a"></i>Revealed</span><span><i class="u" style="background:#3a2e22"></i>Unexplored</span></span>
+            <button class="btn focusable" data-map data-tip="Open the world map at ${esc(z.name)} (X)">World map</button></div>
+          <div class="focusinfo" id="focusinfo"></div>
+          <div class="note">${window.AZF_EXPLORED[z.mapID] && (ui.scenarioName === "today" || ui.scenarioName === "almost") ? "Revealed pieces come from the game's world-map data (Gideon's real map)." : "Mockup approximation; in game the revealed pieces come from the world-map data."} Marking each listed area on the map needs extra map data (planned).</div>
+        </aside>
+      </div></div>`;
+    showFocusInfo(z, remaining[0] || found[0]);
+  }
+  function showFocusInfo(z, c) {
+    const box = $("#focusinfo"); if (!box) return;
+    if (!c) { box.innerHTML = `<h3>${esc(z.name)}</h3><div class="facts">No exploration objectives.</div>`; return; }
+    box.innerHTML = `<h3>${esc(c.name)}</h3><div class="state ${c.done ? "done" : "todo"}">${c.done ? "✓ Discovered" : "○ Not yet discovered"}</div>
+      <div class="facts">Source: “Explore ${esc(z.name)}” achievement · criterion ${c.id}</div>`;
   }
 
-  function updateSide(z, c) {
-    const side = $("#side");
-    if (!side) return;
-    if (!c) { side.innerHTML = `<h3>${esc(z.name)}</h3><div class="facts">Nothing to show.</div>`; return; }
-    side.innerHTML = `<h3>${esc(c.name)}</h3>
-      <div class="state ${c.done ? "done" : ""}">${c.done ? "✓ Discovered" : "○ Not yet discovered"}</div>
-      <div class="facts">Exploration objective in ${esc(z.name)}.<br>Source: the game's “Explore ${esc(z.name)}” achievement (criterion ${c.id}).</div>
-      <button class="btn focusable" data-map data-tip="Open the world map at ${esc(z.name)} (X)">Show on world map</button>
-      <div class="note">Exact location markers need map data we don't have yet.</div>`;
-  }
-
-  // ---------- Render + hints ----------
+  // =====================================================================================
+  // Render + hints
+  // =====================================================================================
   const HINTS = {
     overview: [["DP", "✥", "Move"], ["A", "A", "Select"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
-    zones: [["A", "A", "Open zone"], ["Y", "Y", "Cards / list"], ["X", "X", "Search"], ["LT", "LT/RT", "Page"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
+    zones: [["A", "A", "Open"], ["Y", "Y", "Cards / list"], ["X", "X", "Search"], ["LT", "LT/RT", "Jump section"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
+    zonesWide: [["DP", "✥", "Browse zones"], ["A", "A", "Checklist"], ["X", "X", "Search"], ["LT", "LT/RT", "Jump section"], ["B", "B", "Close"]],
     detail: [["A", "A", "Details"], ["X", "X", "World map"], ["LT", "LT/RT", "Page"], ["B", "B", "Back"]],
+    flyout: [["DP", "✥", "Choose"], ["A", "A", "Apply"], ["B", "B", "Cancel"]],
   };
-  function render(opts = {}) {
-    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === state.tab));
-    const screen = state.tab === "zones" && state.detail ? "detail" : state.tab;
-    if (screen === "overview") renderOverview();
-    else if (screen === "zones") renderZones();
-    else renderDetail(opts.focusCrit);
-    $("#hints").innerHTML = HINTS[screen].map(([cls, g, t]) => `<span><span class="glyph ${cls}">${g}</span>${t}</span>`).join("");
+  function screen() { return ui.tab === "zones" ? (ui.detail && !ui.wide ? "detail" : ui.wide ? "zonesWide" : "zones") : "overview"; }
+  function render() {
+    renderHeader();
+    $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === ui.tab));
+    const sc = screen();
+    if (sc === "overview") renderOverview();
+    else if (sc === "detail") renderDetailInto(content, byName[ui.detail], { back: true });
+    else renderZones();
+    setHints(ui.flyout ? "flyout" : sc);
     hideTooltip();
   }
+  function setHints(key) { $("#hints").innerHTML = HINTS[key].map(([cls, g, t]) => `<span><span class="glyph ${cls}">${g}</span>${t}</span>`).join(""); }
 
-  // ---------- Navigation actions ----------
-  function setTab(tab) {
-    if (state.tab === "zones" && !state.detail) state.zonesScroll = $("#scroll")?.scrollTop || 0;
-    state.tab = tab;
+  // Focus restore: remember what was focused by its data attributes, find it again after a re-render.
+  function keyOf(el) {
+    if (!el) return null;
+    const d = el.dataset, parts = [];
+    for (const a of ["open", "crit", "tab", "cycle", "status", "view", "go"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
+    for (const a of ["search", "back", "map"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
+    if (el.id) parts.push("#" + el.id);
+    return parts.length ? "." + [...el.classList].filter(c => !["focused", "on", "new", "selected"].includes(c))[0] + parts.join("") : null;
+  }
+  function rerenderKeepFocus() {
+    const k = keyOf(focused);
     render();
-    if (tab === "zones" && !state.detail) restoreCatalog();
-    else focusFirst();
+    const el = k && $(k);
+    setFocus(el || $("#content .focusable"), { noScroll: false });
+  }
+
+  // =====================================================================================
+  // Navigation and actions
+  // =====================================================================================
+  function setTab(tab) {
+    if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
+    ui.tab = tab; ui.flyout = null;
+    render();
+    if (tab === "zones" && !ui.detail) restoreCatalog(); else focusFirst();
   }
   function openZone(name, crit) {
-    if (state.tab === "zones" && !state.detail) state.zonesScroll = $("#scroll")?.scrollTop || 0;
-    state.tab = "zones"; state.detail = name; state.lastZone = name;
-    render({ focusCrit: crit });
+    if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
+    ui.tab = "zones"; ui.lastZone = name;
+    if (ui.wide) { ui.selected = name; ui.detail = null; render(); const sel = $(`.zrow[data-open="${CSS.escape(name)}"]`); if (sel) sel.scrollIntoView({ block: "center" });
+      const t = crit && $(`#detailpane .check[data-crit="${crit}"]`); setFocus(t || $("#detailpane .check") || sel); return; }
+    ui.detail = name; render();
     const target = crit && $(`.check[data-crit="${crit}"]`);
     setFocus(target || $(".check") || $("[data-back]"));
   }
   function back() {
-    if (state.tab === "zones" && state.detail) {
-      state.detail = null;
-      render();
-      restoreCatalog();
-    } else {
-      closeWindow();
-    }
+    if (ui.celebrate) return closeCelebrate();
+    if (ui.flyout) return closeFlyout();
+    if (ui.tab === "zones" && ui.wide && focused && focused.closest("#detailpane")) return setFocus($(`.zrow[data-open="${CSS.escape(ui.selected)}"]`));
+    if (ui.tab === "zones" && ui.detail) { ui.detail = null; render(); return restoreCatalog(); }
+    closeWindow();
   }
   function restoreCatalog() {
     const sc = $("#scroll");
-    if (sc) { sc.style.scrollBehavior = "auto"; sc.scrollTop = state.zonesScroll; sc.style.scrollBehavior = ""; }
-    const last = state.lastZone && document.querySelector(`#scroll [data-open="${CSS.escape(state.lastZone)}"]`);
-    setFocus(last || $("#scroll .focusable") || $(".toolbar .focusable"), { noScroll: !!last && false });
+    if (sc) { sc.style.scrollBehavior = "auto"; sc.scrollTop = ui.zonesScroll; sc.style.scrollBehavior = ""; }
+    const want = ui.lastZone || (ui.wide && ui.selected);
+    const last = want && $(`#scroll [data-open="${CSS.escape(want)}"]`);
+    if (last && ui.wide) last.scrollIntoView({ block: "center" });
+    setFocus(last || $("#scroll .focusable") || $(".toolbar .focusable"));
   }
-  function closeWindow() {
-    $("#window").hidden = true; $("#reopen").hidden = false; hideTooltip();
+  function closeWindow() { $("#window").hidden = true; $("#reopen").hidden = false; hideTooltip(); }
+  function reopen() { $("#window").hidden = false; $("#reopen").hidden = true; render(); focusFirst(); }
+  function toast(html, ms = 2200) { const t = $("#toast"); t.innerHTML = html; t.hidden = false; clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.hidden = true), ms); }
+
+  // Filter flyout (gamepad-friendly dropdown).
+  function openFlyout(key, anchor) {
+    closeFlyout();
+    ui.flyout = key;
+    const w = $("#window").getBoundingClientRect(), r = anchor.getBoundingClientRect(), s = currentScale;
+    const fly = document.createElement("div");
+    fly.className = "flyout"; fly.id = "flyout";
+    fly.style.left = (r.left - w.left) / s + "px"; fly.style.top = (r.bottom - w.top) / s + 4 + "px";
+    fly.innerHTML = OPTIONS[key].items.map(([v, l]) => `<button class="focusable ${ui[key] === v ? "on" : ""}" data-choose="${v}">${l}</button>`).join("");
+    $("#window").appendChild(fly);
+    setHints("flyout");
+    setFocus($("#flyout .on") || $("#flyout button"));
   }
-  function toast(text) {
-    const t = $("#toast"); t.textContent = text; t.hidden = false;
-    clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.hidden = true), 1800);
+  function closeFlyout(apply) {
+    const key = ui.flyout; const fly = $("#flyout");
+    if (fly) fly.remove();
+    ui.flyout = null;
+    if (key) { if (apply !== undefined) ui[key] = apply; render(); setFocus($(`[data-cycle="${key}"]`)); }
   }
 
   function activate(el) {
     if (!el) return;
-    if (el.dataset.tab) return setTab(el.dataset.tab);
+    const d = el.dataset;
+    if (d.choose !== undefined) return closeFlyout(d.choose);
+    if (el.classList.contains("cel-ok")) return closeCelebrate();
+    if (d.tab) return setTab(d.tab);
     if (el.id === "closeBtn") return closeWindow();
-    if (el.dataset.back !== undefined) return back();
-    if (el.dataset.open) return openZone(el.dataset.open, el.dataset.crit);
-    if (el.dataset.go) return setTab(el.dataset.go);
-    if (el.dataset.view) { state.view = el.dataset.view; render(); return setFocus($(`[data-view="${state.view}"]`)); }
-    if (el.dataset.cycle) {
-      const key = el.dataset.cycle, opts = OPTIONS[key];
-      const i = opts.findIndex(o => o[0] === state[key]);
-      state[key] = opts[(i + 1) % opts.length][0];
-      render(); return setFocus($(`[data-cycle="${key}"]`));
+    if (d.back !== undefined) return back();
+    if (d.open && !(ui.wide && el.classList.contains("zrow"))) return openZone(d.open, d.crit);
+    if (d.open && ui.wide) { // wide: A on a row moves into its checklist
+      return setFocus($("#detailpane .check.todo") || $("#detailpane .check") || $("#detailpane [data-map]"));
     }
-    if (el.dataset.search !== undefined) { $("#searchInput").focus(); return; }
-    if (el.dataset.map !== undefined) return toast("Would open the world map at " + state.detail);
-    if (el.dataset.crit) {
-      const z = byName[state.detail];
-      updateSide(z, z.criteria.find(c => String(c.id) === el.dataset.crit));
-      return setFocus($("[data-map]"));
-    }
+    if (d.go) return setTab(d.go);
+    if (d.status) { ui.status = d.status; render(); return setFocus($(`[data-status="${d.status}"]`)); }
+    if (d.view) { ui.view = d.view; render(); return restoreCatalog(); }
+    if (d.cycle) return openFlyout(d.cycle, el);
+    if (d.search !== undefined) return $("#searchInput").focus();
+    if (d.map !== undefined) return toast(`Would open the world map at ${esc(ui.detail || ui.selected)}`);
+    if (d.crit) return setFocus($("[data-map]"));
   }
 
-  // ---------- Focus engine (spatial stand-in for the addon's explicit focus grid) ----------
-  let focused = null;
-  function visibleFocusables() {
-    return [...document.querySelectorAll("#window .focusable")].filter(el => el.offsetParent !== null);
+  // Live discovery simulation: shows how every view updates, plus the completion moment.
+  function simulateDiscovery() {
+    const z = byName[CHAR.zone];
+    const nextC = z.criteria.find(c => !c.done);
+    if (!nextC) return toast(`${esc(z.name)} is already fully explored.<small>Switch Data to try again.</small>`);
+    (S.done[z.name] = S.done[z.name] || []).push(nextC.name);
+    S.milestones.push({ t: new Date(), kind: "area", area: nextC.name, zone: z.name });
+    ui.newCrit = nextC.id;
+    buildModel();
+    const nz = byName[z.name];
+    toast(`Discovered: ${esc(nextC.name)}<small>${nz.done} of ${nz.total} in ${esc(z.name)} · milestone recorded</small>`);
+    rerenderKeepFocus();
+    if (nz.state === "complete") {
+      S.milestones.push({ t: new Date(), kind: "zone", zone: z.name });
+      setTimeout(() => showCelebrate(nz), 900);
+    }
+    setTimeout(() => { ui.newCrit = null; }, 1500);
   }
+  function showCelebrate(z) {
+    ui.celebrate = z.name;
+    const el = document.createElement("div");
+    el.className = "celebrate"; el.id = "celebrate";
+    el.innerHTML = `<div class="rays"></div><div class="card"><div class="emblem">✓</div><h1>${esc(z.name)} Explored</h1>
+      <p>All ${z.total} areas discovered. Added to your milestones.</p><button class="btn focusable cel-ok">Continue <span class="glyph A">A</span></button></div>`;
+    $("#window").appendChild(el);
+    setFocus($(".cel-ok"));
+  }
+  function closeCelebrate() { $("#celebrate")?.remove(); ui.celebrate = null; rerenderKeepFocus(); }
+
+  // =====================================================================================
+  // Focus engine (spatial stand-in for the addon's explicit focus grid)
+  // =====================================================================================
+  let focused = null;
+  function scope() { return $("#celebrate") || $("#flyout") || $("#window"); }
+  function visibleFocusables() { return $$(".focusable", scope()).filter(el => el.offsetParent !== null); }
   function setFocus(el, o = {}) {
     if (focused) focused.classList.remove("focused");
     focused = el || null;
@@ -349,9 +635,16 @@
     el.classList.add("focused");
     if (!o.noScroll) el.scrollIntoView({ block: "nearest", inline: "nearest" });
     showTooltip(el);
-    if (el.classList.contains("check") && state.detail) {
-      const z = byName[state.detail];
-      updateSide(z, z.criteria.find(c => String(c.id) === el.dataset.crit));
+    // Focus-driven updates: checklist info, and the wide split's detail pane.
+    if (el.classList.contains("check")) {
+      const z = byName[ui.detail || ui.selected];
+      if (z) showFocusInfo(z, z.criteria.find(c => String(c.id) === el.dataset.crit));
+    }
+    if (ui.wide && ui.tab === "zones" && el.classList.contains("zrow") && el.dataset.open !== ui.selected) {
+      ui.selected = el.dataset.open;
+      $$(".zrow.selected").forEach(r => r.classList.remove("selected"));
+      el.classList.add("selected");
+      renderDetailInto($("#detailpane"), byName[ui.selected], { back: false });
     }
   }
   function focusFirst() { setFocus($("#content .focusable") || $(".tab.active")); }
@@ -365,16 +658,10 @@
     for (const el of visibleFocusables()) {
       if (el === focused) continue;
       const b = el.getBoundingClientRect();
-      // Distance along the move direction, edge to edge (0 if touching).
       const main = horizontal ? (sign > 0 ? b.left - a.right : a.left - b.right) : (sign > 0 ? b.top - a.bottom : a.top - b.bottom);
       if (main < -2) continue;
-      // Pass 1: targets that overlap the current control on the cross axis (same row/column).
       const overlap = horizontal ? Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) : Math.min(a.right, b.right) - Math.max(a.left, b.left);
-      if (overlap > 4) {
-        if (main < alignedScore) { alignedScore = main; aligned = el; }
-        continue;
-      }
-      // Pass 2: strict 45° cone from the control's centre.
+      if (overlap > 4) { const sc = main + (horizontal ? Math.abs(b.top - a.top) : Math.abs(b.left - a.left)) * 0.1; if (sc < alignedScore) { alignedScore = sc; aligned = el; } continue; }
       const dx = b.left + b.width / 2 - ax, dy = b.top + b.height / 2 - ay;
       const along = horizontal ? sign * dx : sign * dy, across = Math.abs(horizontal ? dy : dx);
       if (along <= 0 || across > along) continue;
@@ -384,48 +671,62 @@
     const best = aligned || coned;
     if (best) setFocus(best);
   }
+  // LT/RT: jump between catalogue sections when grouped, otherwise page.
+  function jump(dir) {
+    const sc = (focused && focused.closest(".scroll")) || $("#scroll"); if (!sc) return;
+    const heads = $$("[data-group]", sc);
+    if (heads.length && !(focused && focused.closest(".detailpane"))) {
+      const fy = focused ? focused.getBoundingClientRect().top : 0;
+      const ordered = dir > 0 ? heads : heads.slice().reverse();
+      const target = ordered.find(h => dir > 0 ? h.getBoundingClientRect().top > fy + 4 : h.getBoundingClientRect().top < fy - 40 && h !== heads[0] || (dir < 0 && h === heads[0]));
+      if (target) { const first = target.nextElementSibling.querySelector(".focusable"); if (first) { target.scrollIntoView({ block: "start" }); setFocus(first, { noScroll: true }); } }
+      return;
+    }
+    sc.scrollBy({ top: dir * sc.clientHeight * 0.85 });
+    setTimeout(() => { const r = sc.getBoundingClientRect();
+      const first = $$(".focusable", sc).find(el => { const b = el.getBoundingClientRect(); return b.top >= r.top && b.bottom <= r.bottom; });
+      if (first) setFocus(first, { noScroll: true }); }, 350);
+  }
 
-  // ---------- Tooltip ----------
+  // =====================================================================================
+  // Tooltip
+  // =====================================================================================
   function showTooltip(el) {
-    const tip = el.dataset.tip;
-    const t = $("#tooltip");
-    if (!tip) return hideTooltip();
+    const tip = el.dataset.tip, t = $("#tooltip");
+    if (!tip || ui.celebrate) return hideTooltip();
     t.innerHTML = tip; t.hidden = false;
-    const w = $("#window").getBoundingClientRect(), r = el.getBoundingClientRect();
-    const s = currentScale;
+    const w = $("#window").getBoundingClientRect(), r = el.getBoundingClientRect(), s = currentScale, W = winW();
     let left = (r.right - w.left) / s + 10, top = (r.top - w.top) / s;
-    if (r.width / s > 420) { // wide controls (list rows): tooltip below, right-aligned
-      left = (r.right - w.left) / s - 310; top = (r.bottom - w.top) / s + 6;
-    } else if (left + 310 > 1160) left = (r.left - w.left) / s - 310;
-    if (top + 90 > 740) top = 740 - 100;
+    if (r.width / s > 420) { left = (r.right - w.left) / s - 310; top = (r.bottom - w.top) / s + 6; }
+    else if (left + 310 > W) left = (r.left - w.left) / s - 310;
+    if (top + 90 > 740) top = (r.top - w.top) / s - 90;
     t.style.left = Math.max(8, left) + "px"; t.style.top = Math.max(8, top) + "px";
   }
   function hideTooltip() { $("#tooltip").hidden = true; }
 
-  // ---------- Input ----------
+  // =====================================================================================
+  // Input
+  // =====================================================================================
   document.addEventListener("keydown", (e) => {
     if ($("#window").hidden) { if (e.key === "Enter") reopen(); return; }
     if (document.activeElement && document.activeElement.id === "searchInput") return;
-    const k = e.key;
-    const map = { ArrowUp: () => move("up"), ArrowDown: () => move("down"), ArrowLeft: () => move("left"), ArrowRight: () => move("right"),
+    if (e.target.closest && e.target.closest(".devbar")) return;
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    const map = {
+      ArrowUp: () => move("up"), ArrowDown: () => move("down"), ArrowLeft: () => move("left"), ArrowRight: () => move("right"),
       Enter: () => activate(focused), " ": () => activate(focused), Escape: back, Backspace: back,
-      q: () => setTab(state.tab === "overview" ? "zones" : "overview"), e: () => setTab(state.tab === "overview" ? "zones" : "overview"),
-      y: () => { if (state.tab === "zones" && !state.detail) { state.view = state.view === "cards" ? "list" : "cards"; render(); restoreCatalog(); } },
-      x: () => { if (state.detail) activate($("[data-map]")); else if (state.tab === "zones") { setFocus($("[data-search]")); $("#searchInput").focus(); } },
-      PageDown: () => page(1), PageUp: () => page(-1) };
-    const fn = map[k] || map[k.toLowerCase && k.toLowerCase()];
+      q: () => !ui.flyout && !ui.celebrate && setTab(ui.tab === "overview" ? "zones" : "overview"),
+      e: () => !ui.flyout && !ui.celebrate && setTab(ui.tab === "overview" ? "zones" : "overview"),
+      y: () => { if (ui.tab === "zones" && !ui.detail && !ui.wide && !ui.flyout) { ui.view = ui.view === "cards" ? "list" : "cards"; render(); restoreCatalog(); } },
+      x: () => { if (ui.flyout || ui.celebrate) return; if (ui.tab === "zones" && (ui.detail || (ui.wide && focused && focused.closest("#detailpane")))) activate($("[data-map]")); else if (ui.tab === "zones") { setFocus($("[data-search]")); $("#searchInput").focus(); } },
+      PageDown: () => jump(1), PageUp: () => jump(-1),
+    };
+    const fn = map[k];
     if (fn) { e.preventDefault(); fn(); }
   });
-  function page(dir) {
-    const sc = $("#scroll"); if (!sc) return;
-    sc.scrollBy({ top: dir * sc.clientHeight * 0.85 });
-    setTimeout(() => {
-      const r = sc.getBoundingClientRect();
-      const first = [...sc.querySelectorAll(".focusable")].find(el => { const b = el.getBoundingClientRect(); return b.top >= r.top && b.bottom <= r.bottom; });
-      if (first) setFocus(first, { noScroll: true });
-    }, 350);
-  }
   document.addEventListener("click", (e) => {
+    if (e.target.closest(".devbar")) return;
+    if (ui.flyout && !e.target.closest("#flyout")) { closeFlyout(); return; }
     const el = e.target.closest("#window .focusable");
     if (!el) return;
     if (el.dataset.search !== undefined) { setFocus(el); return; }
@@ -436,20 +737,37 @@
     const el = e.target.closest("#window .focusable");
     if (el) showTooltip(el); else if (focused) showTooltip(focused);
   });
-  function reopen() { $("#window").hidden = false; $("#reopen").hidden = true; render(); focusFirst(); }
   $("#reopen").addEventListener("click", reopen);
+  document.addEventListener("scroll", (e) => { if (e.target.classList && e.target.classList.contains("scroll") && !e.target._programmatic) hideTooltip(); }, true);
 
-  // ---------- Scale to screen ----------
+  // =====================================================================================
+  // Dev controls and scaling
+  // =====================================================================================
+  function loadScenario(name) {
+    ui.scenarioName = name;
+    S = SCENARIOS[name]();
+    CHAR = S.char;
+    ui.detail = null; ui.selected = null; ui.lastZone = null;
+    $("#celebrate")?.remove(); ui.celebrate = null; closeFlyout();
+    buildModel();
+  }
+  $("#scenario").addEventListener("change", (e) => { loadScenario(e.target.value); render(); focusFirst(); e.target.blur(); });
+  $("#simulate").addEventListener("click", (e) => { simulateDiscovery(); e.target.blur(); });
+  $("#wideToggle").addEventListener("change", (e) => {
+    ui.wide = e.target.checked; ui.detail = null;
+    document.documentElement.style.setProperty("--win-w", winW() + "px");
+    fit(); render(); if (ui.tab === "zones") restoreCatalog(); else focusFirst(); e.target.blur();
+  });
   let currentScale = 1;
   function fit() {
     const stage = $("#stage").getBoundingClientRect();
-    currentScale = $("#scaleToggle").checked ? Math.min((stage.width - 24) / 1160, (stage.height - 24) / 740, 1.6) : 1;
+    currentScale = $("#scaleToggle").checked ? Math.min((stage.width - 24) / winW(), (stage.height - 24) / 740, 1.6) : 1;
     $("#window").style.transform = `scale(${currentScale})`;
   }
   window.addEventListener("resize", fit);
-  $("#scaleToggle").addEventListener("change", fit);
+  $("#scaleToggle").addEventListener("change", (e) => { fit(); e.target.blur(); });
 
-  renderHeader();
+  loadScenario("today");
   render();
   fit();
   focusFirst();

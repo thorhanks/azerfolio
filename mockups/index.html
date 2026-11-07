@@ -5,22 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Azerfolio Mockup</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Alegreya:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="devbar">
   <strong>Azerfolio mockup</strong>
-  <span>Design reference only — not the addon. Controller simulation:</span>
-  <kbd>Arrows</kbd> D-pad <kbd>Enter</kbd> A <kbd>Esc</kbd> B <kbd>Q</kbd>/<kbd>E</kbd> LB/RB <kbd>Y</kbd> Y <kbd>X</kbd> X <kbd>PgUp</kbd>/<kbd>PgDn</kbd> LT/RT
-  <label><input type="checkbox" id="scaleToggle" checked> Fit to screen</label>
+  <span>Controller:</span>
+  <kbd>Arrows</kbd> D-pad <kbd>Enter</kbd> A <kbd>Esc</kbd> B <kbd>Q</kbd>/<kbd>E</kbd> LB/RB <kbd>Y</kbd> <kbd>X</kbd> <kbd>PgUp</kbd>/<kbd>PgDn</kbd> LT/RT
+  <span class="sep"></span>
+  <label>Data <select id="scenario">
+    <option value="today">Gideon today (7/12 Elwynn)</option>
+    <option value="almost">Gideon, 1 area left</option>
+    <option value="veteran">Veteran (several zones done)</option>
+    <option value="fresh">Brand-new character</option>
+  </select></label>
+  <button id="simulate">Simulate discovery</button>
+  <span class="right">
+    <label><input type="checkbox" id="wideToggle"> Wide window (ultrawide)</label>
+    <label><input type="checkbox" id="scaleToggle" checked> Fit to screen</label>
+  </span>
 </div>
 
 <div class="stage" id="stage">
   <div class="window" id="window">
     <div class="titlebar">
       <div class="title">Azerfolio</div>
-      <button class="close focusable" id="closeBtn" data-tip="Close Azerfolio" aria-label="Close">✕</button>
+      <button class="close focusable" id="closeBtn" data-tip="Close Azerfolio (B)" aria-label="Close">✕</button>
     </div>
 
     <header class="charheader">
@@ -52,6 +63,7 @@
 </div>
 
 <script src="data.js"></script>
+<script src="explored.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

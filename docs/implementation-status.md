@@ -34,7 +34,20 @@
 
 **In game:** all steps passed. `Screenshot()` works for addons (3440×1440 JPG in `<game>\Screenshots\`). The owner plays with a gamepad and an ultrawide display; see the open question in the plan's decision log.
 
-## Phase 3 — Visual design: first mockup ready for review (2026-11-07)
+## Phase 3 — Visual design: second mockup iteration (2026-11-07)
+
+The owner approved every UX improvement. The mockup now implements:
+- A state language (complete / in progress / untouched / not tracked) and pips everywhere.
+- Overview: Continue card, stacked zone bar, next goal, Atlas, grouped suggestions, activity strip.
+- Catalogue: level-bracket sections, gamepad filter popups, status segments, level bars, "For your level" ribbons.
+- Zone Detail: zone map from real revealed-map data.
+- Wide split view for ultrawide screens.
+- A completion celebration.
+- Dev scenarios and a discovery simulation.
+
+Decisions are recorded in `mockups/DESIGN.md`.
+
+### First iteration
 
 - `mockups/`: an interactive HTML mockup of the window, served at http://localhost:8765 (`mockups` preview).
   - Screens: Overview, Zones (cards and list), Zone Detail.
