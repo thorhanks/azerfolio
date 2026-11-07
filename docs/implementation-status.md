@@ -16,7 +16,7 @@
 - Write-up: `docs/research/exploration-validation.md`.
 - Tests: `luajit tests/run.lua`, 7 passed.
 
-## Phase 2 — Addon foundation: built, awaiting in-game check
+## Phase 2 — Addon foundation: done (in-game check passed 2026-11-07)
 
 **Done (2026-11-07)**
 - `Azerfolio/` addon, linked into AddOns. Core modules:
@@ -32,7 +32,7 @@
 - `/azf shot` tests whether addons may call `Screenshot()` (needed for the visual preview loop).
 - Tests: `luajit tests/run.lua`, 37 passed (settings, events, startup, commands, TOC).
 
-**Human validation required:** Phase 2 steps in `docs/testing.md`.
+**In game:** all steps passed. `Screenshot()` works for addons (3440×1440 JPG in `<game>\Screenshots\`). The owner plays with a gamepad and an ultrawide display; see the open question in the plan's decision log.
 
 **Next:** Phase 3 visual design with HTML mockups (plan §4.3), and Phase 4 main window with `/azf shots`.
 

@@ -373,6 +373,8 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | All exploration criteria count as eligible | The game marks none ineligible, even cross-faction; inventing exclusions would break the honest-data rule |
 | 2026-11-07 | Refresh on `CRITERIA_UPDATE` + `MAP_EXPLORATION_UPDATED`, debounced; re-read current zone only | Observed event order on discovery |
 | 2026-11-07 | Visual preview: HTML mockups for design, addon-taken screenshots for verification | A full out-of-game WoW UI emulator would cost weeks and still be approximate |
+| 2026-11-07 | `Screenshot()` verified for addons | Phase 2 in-game check |
+| open | Gamepad support? Owner plays with a gamepad (client gamepad UI with "Previous/Next Frame" navigation). Decide before Phase 4 | Affects button sizing, focus order, and whether the window must work with the client's gamepad navigation |
 
 ## 10. Definition of done (v1)
 

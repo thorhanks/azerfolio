@@ -8,7 +8,8 @@ Read before working: [project-spec.md](project-spec.md) (what), [project-impleme
 
 - Game: `C:\Program Files (x86)\World of Warcraft\_forever_` — flavor `wowf`, interface `16001`.
 - Addon folders in this repo (`Azerfolio/`, `AzerfolioDiag/`) are junctioned into `<game>\Interface\AddOns` by `tools/link-addons.ps1`. Edits in the repo are live after `/reload` in game.
-- SavedVariables: `<game>\WTF\Account\COMPUTERWISPERER\SavedVariables\<Addon>.lua`. Written on `/reload` or logout. Read them to get in-game results.
+- SavedVariables: account-wide `<game>\WTF\Account\COMPUTERWISPERER\SavedVariables\<Addon>.lua`; per character `<game>\WTF\Account\COMPUTERWISPERER\91\<Character-Realm>\SavedVariables\<Addon>.lua` (e.g. `Gideon-Everhope`). Written on `/reload` or logout. Read them to get in-game results.
+- Screenshots: `<game>\Screenshots\WoWScrnShot_MMDDYY_HHMMSS.jpg`. The owner's display is 3440×1440 (ultrawide), and they play with a gamepad.
 - Shell is Windows PowerShell 5.1. PowerShell variable names are case-insensitive. No Python; git isn't on PATH.
 - LuaJIT: `C:\Users\thorh\AppData\Local\Programs\LuaJIT\bin\luajit.exe` (on the user PATH; a shell started before install may need it added).
 
@@ -18,6 +19,7 @@ Read before working: [project-spec.md](project-spec.md) (what), [project-impleme
 - **No new dependencies** (addons, embedded libraries, dev tools) without the owner's explicit approval.
 - **Verify client APIs** before relying on them; guard with existence checks and `pcall`. Retail/Classic docs are only hints. Tag research findings with evidence levels (plan §2.2).
 - **UI never calculates progress**; the progression service does.
+- **Never commit** `AzerfolioDiag.lua` dumps or other SavedVariables files: they can contain chat and friend-list data.
 - **Don't copy code** from other addons; reading them to learn API usage is fine.
 - Lua 5.1 only. No `goto`, no integer division `//`, no `table.unpack` in addon code (use `unpack`).
 - Modules with pure logic must not touch WoW globals at load time, so tests can load them.

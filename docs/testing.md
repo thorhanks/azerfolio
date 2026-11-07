@@ -55,4 +55,4 @@ Agent checks afterwards: `AzerfolioDB` and `AzerfolioCharDB` files exist with sc
 
 | Date | By | Result |
 |---|---|---|
-| | | |
+| 2026-11-07 | Owner (Gideon) + agent | Pass. Chat output correct for every step (seen in the screenshot). `Screenshot()` works for addons: `Screenshots\WoWScrnShot_110726_121155.jpg`, 3440×1440 JPG. Account file at `WTF\Account\COMPUTERWISPERER\SavedVariables\Azerfolio.lua` (schema 1, debug persisted as true); character file at `WTF\Account\COMPUTERWISPERER\91\Gideon-Everhope\SavedVariables\Azerfolio.lua` (schema 1) |
