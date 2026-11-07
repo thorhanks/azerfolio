@@ -8,6 +8,7 @@
 ## IconTexture: Interface\Icons\INV_Misc_Book_11
 
 Core\Init.lua
+Data\Art.lua
 Core\Config.lua
 Core\SavedVariables.lua
 Core\Debug.lua

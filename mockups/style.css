@@ -140,7 +140,7 @@ h2.section small { font: 500 var(--fs-xs) var(--body-font); text-transform: none
 .col { display: flex; flex-direction: column; min-width: 0; }
 .hero { display: grid; grid-template-columns: 190px 1fr auto; text-align: left; padding: 0; overflow: hidden; cursor: pointer; height: 164px;
   background: linear-gradient(180deg, #3b2817, #24170d); color: var(--white); border: 2px solid var(--gold-dark); border-radius: var(--r-card); }
-.hero .art svg { width: 100%; height: 100%; display: block; }
+.hero .art > :is(svg, img) { width: 100%; height: 100%; display: block; }
 .hero .body { padding: var(--s3) var(--s4); display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
 .hero .kicker { font: 700 var(--fs-xs) var(--title-font); color: var(--wow-gold); letter-spacing: 1.5px; text-transform: uppercase; }
 .hero .zname { font: 700 var(--fs-xl) var(--name-font); line-height: 1.05; }
@@ -221,7 +221,8 @@ h2.section small { font: 500 var(--fs-xs) var(--body-font); text-transform: none
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--s4); }
 .zcard { position: relative; text-align: left; padding: 0; background: #24170d; color: var(--white); border: 2px solid var(--gold-dark); border-radius: var(--r-card); cursor: pointer; display: flex; flex-direction: column; transition: transform .12s; }
 .zcard .art { position: relative; aspect-ratio: 16 / 5; overflow: hidden; border-radius: 4px 4px 0 0; }
-.zcard .art svg { width: 100%; height: 100%; display: block; transition: filter .2s; }
+.zcard .art svg, .zart { width: 100%; height: 100%; display: block; transition: filter .2s; }
+.zart { object-fit: cover; object-position: center 50%; }
 .zcard .badge { position: absolute; top: var(--s2); right: var(--s2); }
 .zcard .body { padding: var(--s2) var(--s3) var(--s3); display: flex; flex-direction: column; gap: var(--s2); }
 .zcard .top { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s2); }
@@ -229,7 +230,7 @@ h2.section small { font: 500 var(--fs-xs) var(--body-font); text-transform: none
 .zcard .pct { font: 700 var(--fs-md) var(--title-font); }
 .zcard .meta { font-size: var(--fs-xs); color: #cbbd9f; display: flex; gap: var(--s2); align-items: center; }
 .zcard .meta .n { margin-left: auto; }
-.zcard.untouched .art svg { filter: grayscale(.85) brightness(.75); }
+.zcard.untouched .art > :is(svg, img) { filter: grayscale(.85) brightness(.75); }
 .zcard.untouched .name { color: #d8ccb4; }
 .zcard.progress { border-color: #b8742e; box-shadow: inset 0 -3px 0 var(--st-progress); }
 .zcard.progress .pct { color: var(--st-progress); }
@@ -237,7 +238,7 @@ h2.section small { font: 500 var(--fs-xs) var(--body-font); text-transform: none
 .zcard.complete .pct { color: var(--st-complete); }
 .zcard.complete .art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, rgba(255,240,180,.45) 50%, transparent 65%); animation: shine 3.5s infinite; }
 @keyframes shine { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(100%); } }
-.zcard.untracked .art svg { filter: grayscale(1) brightness(.6); }
+.zcard.untracked .art > :is(svg, img) { filter: grayscale(1) brightness(.6); }
 .zcard.untracked .art::before { content: ""; position: absolute; inset: 0; background: var(--st-untracked); opacity: .35; z-index: 1; }
 .artlabel { position: absolute; right: 6px; bottom: 3px; font-size: 9px; color: rgba(255,255,255,.5); letter-spacing: .5px; z-index: 2; }
 
@@ -245,19 +246,19 @@ h2.section small { font: 500 var(--fs-xs) var(--body-font); text-transform: none
 .zrow { display: grid; grid-template-columns: 64px 1.3fr 120px 1.6fr 56px; gap: var(--s3); align-items: center; text-align: left;
   background: rgba(255,248,230,.55); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r-ctl); padding: var(--s1) var(--s3) var(--s1) var(--s1); cursor: pointer; font-size: var(--fs-sm); }
 .zrow .thumb { width: 64px; height: 36px; border-radius: 3px; overflow: hidden; }
-.zrow .thumb svg { width: 100%; height: 100%; display: block; }
+.zrow .thumb > :is(svg, img) { width: 100%; height: 100%; display: block; }
 .zrow .zname { font: 700 var(--fs-md) var(--name-font); display: flex; gap: var(--s2); align-items: center; }
 .zrow .lv { display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-xs); color: var(--ink-soft); }
 .zrow .pctcol { text-align: right; font: 700 var(--fs-sm) var(--title-font); }
 .zrow .areas { display: flex; flex-direction: column; gap: 2px; }
-.zrow.untouched .thumb svg { filter: grayscale(.85) brightness(.8); }
+.zrow.untouched .thumb > :is(svg, img) { filter: grayscale(.85) brightness(.8); }
 .zrow.untouched { color: #5c4a35; }
 .zrow.progress { border-left: 4px solid var(--st-progress); }
 .zrow.complete { border-left: 4px solid var(--st-complete); background: rgba(255,236,170,.7); }
 .zrow.complete .pctcol::before { content: "✓ "; color: #7a5608; }
 .zrow.untracked { color: #7a6a52; }
 .zrow.untracked .thumb { background: var(--st-untracked); }
-.zrow.untracked .thumb svg { opacity: .35; }
+.zrow.untracked .thumb > :is(svg, img) { opacity: .35; }
 .zrow.selected { background: rgba(255,226,140,.85); }
 .empty { text-align: center; padding: 60px 20px; color: var(--ink-soft); }
 .empty b { display: block; font: 700 var(--fs-lg) var(--title-font); color: var(--ink); margin-bottom: var(--s2); }
@@ -284,7 +285,7 @@ h2.section small { font: 500 var(--fs-xs) var(--body-font); text-transform: none
 /* ---------- Zone detail ---------- */
 .detail { position: absolute; inset: 0; display: grid; grid-template-rows: 124px 1fr; }
 .detail-hero { position: relative; border-bottom: 3px solid var(--gold-dark); overflow: hidden; }
-.detail-hero > svg { width: 100%; height: 100%; display: block; }
+.detail-hero > :is(svg, img) { width: 100%; height: 100%; display: block; }
 .detail-hero .shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,6,2,.85) 0%, rgba(10,6,2,.55) 45%, rgba(10,6,2,.25)); }
 .detail-hero .back { position: absolute; top: var(--s2); left: var(--s6); z-index: 2; }
 .detail-hero .info { position: absolute; left: var(--s6); right: var(--s6); bottom: var(--s3); display: grid; grid-template-columns: 1fr auto; gap: var(--s6); align-items: end; color: var(--white); }

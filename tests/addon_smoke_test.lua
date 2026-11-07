@@ -66,6 +66,13 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
+    t.test("generated art index loads", function()
+        local ns = boot()
+        t.eq(type(ns.Art), "table")
+        t.eq(type(ns.Art.zones), "table")
+        t.eq(type(ns.Art.hasFallback), "boolean")
+    end)
+
     t.test("ignores other addons' ADDON_LOADED", function()
         wow.install(client())
         _G.AzerfolioDB, _G.AzerfolioCharDB = nil, nil

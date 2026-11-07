@@ -34,7 +34,16 @@
 
 **In game:** all steps passed. `Screenshot()` works for addons (3440×1440 JPG in `<game>\Screenshots\`). The owner plays with a gamepad and an ultrawide display; see the open question in the plan's decision log.
 
-## Phase 3 — Visual design: second mockup iteration (2026-11-07)
+## Phase 3 — Art pipeline ready; waiting for zone art (2026-11-07)
+
+- `art/style-guide.md`: look and feel, camera, safe area (core = middle 40% × 40–62% band, checked against all four crops), palette by region type, image spec, workflow, review checklist. UI chrome uses native textures, so only 51 images are needed (43 zones, 7 untracked places, 1 fallback).
+- `art/prompts.md`: a shared style block, a negative prompt, and a subject line for all 51 images. Riverglades, Shen'dralas and Zephras Isle are inferred or unknown; the owner should confirm them.
+- `tools/process-art.ps1`: crop to 2:1 around an optional focal point (`art/focal.json`), resize to 1024×512 PNG, write `Azerfolio/Media/Zones/`, generate `Azerfolio/Data/Art.lua` (in the TOC) and `mockups/zone-art/index.js`. Tested with a synthetic image: the landmark survives every crop in the mockup.
+- Tests: 39 passed.
+
+**Human step:** generate images and save them to `art/source/`.
+
+## Phase 3 — Visual design: mockup iterations (2026-11-07)
 
 The owner approved every UX improvement. The mockup now implements:
 - A state language (complete / in progress / untouched / not tracked) and pips everywhere.

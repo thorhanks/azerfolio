@@ -172,6 +172,11 @@
   // Placeholder zone art (painted-landscape stand-in until real art exists).
   function hash(s) { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; }
   function art(z) {
+    // Real processed art (tools/process-art.ps1) wins; then the fallback image; then a generated placeholder.
+    const A = window.AZF_ART;
+    if (A && (A.ids.includes(z.mapID) || A.fallback)) {
+      return `<img class="zart" src="zone-art/${A.ids.includes(z.mapID) ? z.mapID : "fallback"}.png" alt="">`;
+    }
     const h = hash(z.name), n = z.name;
     const kind = /Tanaris|Silithus|Barrens|Desolace|Badlands|Durotar|Thousand|Searing|Burning|Blasted|Un'Goro|Orgrimmar/.test(n) ? "dry"
       : /Winterspring|Dun Morogh|Alterac|Ironforge|Hyjal/.test(n) ? "snow"
@@ -380,7 +385,7 @@
   }
   function card(z, rec) {
     return `<button class="zcard focusable ${z.state}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
-      <div class="art">${art(z)}<span class="artlabel">ART PLACEHOLDER</span>${z.state === "complete" ? `<span class="badge emblem">✓</span>` : ""}</div>
+      <div class="art">${art(z)}${window.AZF_ART && (window.AZF_ART.ids.includes(z.mapID) || window.AZF_ART.fallback) ? "" : `<span class="artlabel">ART PLACEHOLDER</span>`}${z.state === "complete" ? `<span class="badge emblem">✓</span>` : ""}</div>
       ${rec ? `<span class="ribbon">Recommended next</span>` : ""}
       <div class="body">
         <div class="top"><span class="name">${esc(z.name)}</span><span class="pct">${z.tracked ? (z.state === "complete" ? "✓ " : "") + pctText(z.pct) : "—"}</span></div>

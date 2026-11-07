@@ -383,6 +383,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Visual preview: HTML mockups for design, addon-taken screenshots for verification | A full out-of-game WoW UI emulator would cost weeks and still be approximate |
 | 2026-11-07 | `Screenshot()` verified for addons | Phase 2 in-game check |
 | 2026-11-07 | Gamepad first (spec §4.3), with an addon-owned input layer; never use Blizzard `SmartNavigation` | Owner plays with a controller; SmartNavigation needs secure callers and risks taint |
+| 2026-11-07 | Zone art: one 1024×512 PNG per zone, cropped in the UI with texture coordinates; style and safe area in `art/style-guide.md` | One file serves all four layouts; small addon footprint |
 | 2026-11-07 | UI design follows `mockups/DESIGN.md`: state language, pips, Continue card, Atlas, zone map, wide split view, completion celebration | Owner approved the full UX review |
 
 ## 10. Definition of done (v1)
