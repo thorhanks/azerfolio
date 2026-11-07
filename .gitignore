@@ -1,0 +1,10 @@
+# Zone art: originals and mockup PNGs stay out of git (large; the owner keeps the originals).
+# Only the converted game files (Azerfolio/Media/Zones/*.blp) are committed.
+art/source/*
+!art/source/.gitkeep
+mockups/zone-art/*.png
+art/review/
+
+# Never commit SavedVariables dumps (they can contain chat and friend-list data).
+*.lua.bak
+WTF/

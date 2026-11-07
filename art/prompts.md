@@ -25,8 +25,22 @@ Subject:
 ```
 photorealistic, photograph, 3D render, CGI gloss, people, person, character, face, creature, animal,
 text, letters, logo, watermark, signature, frame, border, user interface, blurry, lens flare, film grain,
-fisheye, pure black shadows, overexposed
+fisheye, pure black shadows, overexposed, pagoda, East Asian architecture, curved upturned roofs
 ```
+
+Tip: give your tool **Elwynn Forest (1429)** as a style reference image if it supports one, so regenerated images match the set.
+
+## Regeneration list (round 2)
+
+| mapID | Zone | Why | Status |
+|---|---|---|---|
+| 1433 | Redridge Mountains | Pagoda village; Lakeshire is a human town | Prompt updated |
+| 1446 | Tanaris | Orc fortress; Gadgetzan is a goblin town | Prompt updated |
+| 1452 | Winterspring | Pagoda lodge; Everlook is a goblin town | Prompt updated |
+| 1420 | Tirisfal Glades | Capital too faint at small sizes | Prompt updated |
+| 1411 | Durotar | Looks like Orgrimmar | Prompt updated |
+| 2652 | Shen'dralas | Inferred prompt didn't match the real zone | Prompt updated from in-game reference |
+| 2521 | Zephras Isle | Unknown place | Prompt updated from in-game references (keep curved roofs: remove that term from the negative) |
 
 ## Eastern Kingdoms
 
@@ -34,11 +48,11 @@ fisheye, pure black shadows, overexposed
 |---|---|---|---|
 | 1429 | elwynn-forest | Elwynn Forest | A lush green forest of tall oaks around a cozy village inn with warm glowing windows beside a cobbled road; a stone abbey on a hill and the white walls and blue roofs of a great city on the far horizon; golden hour |
 | 1426 | dun-morogh | Dun Morogh | A snowy mountain valley with frosted pine trees and a frozen lake; enormous dwarven stone gates carved into the mountainside at the center; crisp blue sky, sunlit snow |
-| 1420 | tirisfal-glades | Tirisfal Glades | A gloomy autumn forest with withered orange trees and abandoned pumpkin fields; the ruined spires of a fallen human capital in the misty distance; purple-gray fog, low sun |
+| 1420 | tirisfal-glades | Tirisfal Glades | *(v2)* A gloomy autumn forest with withered orange trees and abandoned pumpkin fields in the foreground; at the center, the dark jagged spires and broken walls of a great fallen human capital, large and clearly silhouetted against a glowing amber sunset; thin purple-gray fog low on the ground only, so the city stays sharp |
 | 1436 | westfall | Westfall | Rolling golden wheat fields with old farmhouses and a wooden windmill; a tall stone lighthouse on sea cliffs at the center; warm harvest sunset |
 | 1432 | loch-modan | Loch Modan | A wide blue mountain lake held back by a massive carved stone dwarven dam at the center; green hills and small farms; sunny afternoon |
 | 1421 | silverpine-forest | Silverpine Forest | A dark pine forest beside a cold gray lake; a gothic stone keep on a cliff at the center; drifting mist, cool green-gray light |
-| 1433 | redridge-mountains | Redridge Mountains | Red rock ridges around a calm lake; a lakeside village on wooden stilts with a long stone bridge at the center; warm autumn colors |
+| 1433 | redridge-mountains | Redridge Mountains | *(v2)* Red rock ridges around a calm blue lake; at the center, a human lakeside town of timber-framed houses with steep dark slate roofs and stone chimneys, some on wooden piers over the water, joined to the shore by a long gray stone bridge with plain round arches; medieval European style like an English village; warm autumn trees |
 | 1431 | duskwood | Duskwood | A perpetually moonlit forest of gnarled black trees; a small village with warm lantern light and a chapel at the center; silver-blue mist |
 | 1437 | wetlands | Wetlands | Rain-soaked marshland with tall grass and pools; a weathered stone harbor fortress on the coast at the center; a dark mountain far away; gray-green overcast with a break of sunlight |
 | 1424 | hillsbrad-foothills | Hillsbrad Foothills | Gentle green hills with orchards and farms; a large stone keep ruin on a hill at the center; a river running to the sea; bright afternoon |
@@ -60,7 +74,7 @@ fisheye, pure black shadows, overexposed
 
 | mapID | Slug | Zone | Subject line |
 |---|---|---|---|
-| 1411 | durotar | Durotar | A red rocky desert coast with dry canyons; a fortified orcish town with spiked wooden walls at the center; hot afternoon sun |
+| 1411 | durotar | Durotar | *(v2)* A red rocky desert coast with dry canyons and scrub; at the center, a small frontier hilltop outpost of a few rough wooden huts behind a low spiked log palisade with one wooden watchtower, modest in size, not a fortress; turquoise sea and sea stacks on one side; hot afternoon sun |
 | 1412 | mulgore | Mulgore | Vast golden grassland plains under a huge sky; towering flat-topped mesas with totems and tents at the center; windy, bright |
 | 1413 | the-barrens | The Barrens | An endless dry savanna with yellow grass and thorny flat-topped trees; a small crossroads trading outpost at the center; enormous open sky |
 | 1438 | teldrassil | Teldrassil | A colossal world tree rising from the sea with glowing violet forest on its branches; graceful elven architecture at the center; twilight with soft moonlight |
@@ -71,15 +85,15 @@ fisheye, pure black shadows, overexposed
 | 1443 | desolace | Desolace | A barren gray land with scattered giant bones; nomad tent camps and a lonely stone ruin at the center; desolate overcast with a pale sun |
 | 1445 | dustwallow-marsh | Dustwallow Marsh | A foggy coastal swamp; a stone harbor fortress city on an island at the center; green-gray mist with warm windows |
 | 1444 | feralas | Feralas | A rainforest of giant trees and waterfalls; a vast overgrown ruined elven city at the center; mossy greens, misty light |
-| 1446 | tanaris | Tanaris | Vast golden sand dunes; a walled goblin trading town at the center; ancient ruins half-buried in sand; blazing midday sun |
+| 1446 | tanaris | Tanaris | *(v2)* Vast golden sand dunes; at the center, a ramshackle goblin trading town behind patched walls of rusty riveted metal sheets and wooden scaffolding, with tall water towers, smokestacks, pipes and a big clock tower; ancient stone ruins half-buried in the sand nearby; blazing midday sun; no horns, spikes or curved roofs |
 | 1447 | azshara | Azshara | An autumn forest of crimson and orange leaves on a rugged coast; grand ruined elven palaces at the center; pink-orange sunset |
 | 1448 | felwood | Felwood | A corrupted forest of twisted trees with sickly green glowing pools; a ruined shrine at the center; toxic green haze with a warm sunset edge |
 | 1449 | un-goro-crater | Un'Goro Crater | A primeval jungle inside a vast crater with giant ferns; a smoking volcano and glowing crystals at the center; humid golden light |
 | 1450 | moonglade | Moonglade | A serene moonlit glade around a still lake; elegant druidic shrines and a bridge at the center; silver-blue night with soft stars |
 | 1451 | silithus | Silithus | An alien yellow desert; enormous insect-hive spires and mounds at the center; hazy amber sky |
-| 1452 | winterspring | Winterspring | A snowy pine valley with steaming hot springs; a small goblin trading town at the center; pale blue sky and drifting snow |
+| 1452 | winterspring | Winterspring | *(v2)* A snowy pine valley with steaming turquoise hot springs; at the center, a small goblin trading post built from dark timber and corrugated metal sheets, with snow-covered flat and gabled roofs, smoking stovepipe chimneys, lanterns and a wooden wall; pale blue sky and drifting snow; no horns or curved roofs |
 | 2482 | mount-hyjal | Mount Hyjal | *(from area names: Summit of Eternity, Shrine of Aviana, Felblood Scar, Tainted Foothills)* A sacred forested mountain with an immense world tree on the summit at the center; elegant shrines among the trees; scarred, smoldering foothills below; golden light on the summit |
-| 2652 | shendralas | Shen'dralas | *(inferred from area names: Evenshade's Overlook, Forlorn Gardens, Valley of Bones, Magram Front; please confirm)* Haunting overgrown elven ruins and forlorn gardens on a high overlook; a valley strewn with giant bones below at the center; dusk with long purple shadows |
+| 2652 | shendralas | Shen'dralas | *(v2, from the owner's in-game reference)* A haunted twilight forest of huge gnarled dark trees draped in hanging moss; at the center, a clearing with a still pond covered in glowing teal mist; a distant tribal war camp of hide tents with small warm torchlight half-hidden in the fog; a tall dark rock spire looming in the misty background; crude wooden spears with red bindings planted in the ground in the foreground; deep blue-teal palette with warm orange torch accents |
 
 ## Capitals and other places (shown as "not tracked")
 
@@ -91,7 +105,7 @@ fisheye, pure black shadows, overexposed
 | 1454 | orgrimmar | Orgrimmar | A fortified orcish city of spiked walls and red-earth buildings in a canyon; a great hall at the center; hot sunset |
 | 1456 | thunder-bluff | Thunder Bluff | A city on tall flat-topped mesas joined by rope bridges, with totems and tents; the central mesa at the center; windy blue sky |
 | 1458 | undercity | Undercity | The ruined walls of a once-great royal capital above ground, with an eerie green glow from underground passages at the center; misty dusk |
-| 2521 | zephras-isle | Zephras Isle | *(unknown; please describe this island)* A remote island in a sunlit sea with cliffs and a small ruin at the center |
+| 2521 | zephras-isle | Zephras Isle | *(v2, from the owner's in-game references; remove "curved upturned roofs" from the negative prompt for this one)* A lush misty island high among the clouds; at the center, a tall slender white stone elven tower rising into glowing haze, tethered to the ground by an enormous chain anchored to a carved wooden gate; a graceful elven village of pale wood with teal-blue scalloped tile roofs and gently curved eaves along winding cobblestone paths; gnarled trees with red-pink blossoms; a white-sailed sailing ship floating through the clouds on one side; more white towers fading into the mist behind; soft golden sunlight through bright fog |
 
 ## Fallback
 

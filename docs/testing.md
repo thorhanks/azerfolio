@@ -51,6 +51,14 @@ Gideon has 7 undiscovered Elwynn areas: Stormwind City, Brackwell Pumpkin Patch,
 |---|---|---|
 | 2026-11-07 | Owner (Gideon) | Pass. All buttons received by the addon frame (66 presses, 0 errors); names match the `GAMEPAD_*` constants. Stick events only from the left stick, so right-stick scrolling is still unconfirmed |
 
+## BLP zone art
+
+**Steps (owner):** with Azerfolio and Azerfolio Diagnostics enabled: `/azfdiag art`, then `/azf shot`, then `/azfdiag art` to close.
+
+| Date | By | Result |
+|---|---|---|
+| 2026-11-07 | Owner (Gideon) + agent | Pass. Elwynn and Tanaris BLP (DXT1, mipmaps) display with correct colours and detail; file IDs -20541 / -20558 |
+
 ## Phase 2 — Addon foundation
 
 Automated: `luajit tests/run.lua` covers settings validation and migration, the event dispatcher, startup order, and all commands against mocks.

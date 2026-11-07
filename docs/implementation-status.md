@@ -41,7 +41,13 @@
 - `tools/process-art.ps1`: crop to 2:1 around an optional focal point (`art/focal.json`), resize to 1024×512 PNG, write `Azerfolio/Media/Zones/`, generate `Azerfolio/Data/Art.lua` (in the TOC) and `mockups/zone-art/index.js`. Tested with a synthetic image: the landmark survives every crop in the mockup.
 - Tests: 39 passed.
 
-**Human step:** generate images and save them to `art/source/`.
+**Art review (2026-11-07):** all 51 images were generated (1672×941) and processed. Reviewed with contact sheets (`tools/art-contact-sheet.ps1`) and in the mockup.
+- The style, camera and light are consistent across the set. No people, creatures, text or frames (busy scenes checked at full size).
+- **Regenerate (wrong architecture):** 1433 Redridge Mountains (East Asian pagoda village; should be a human timber-framed lakeside town), 1446 Tanaris (horned orc fortress; should be a ramshackle goblin town), 1452 Winterspring (horned pagoda lodge; should be a small goblin town).
+- **Minor:** 1420 Tirisfal Glades' capital is faint and hard to read small. 1442 Stonetalon's spire and some tall landmarks (Westfall, Silverpine, Teldrassil, Mount Hyjal, Deadwind Pass) sit above the thin banner band. 1411 Durotar and 1454 Orgrimmar look alike. 2652 Shen'dralas doesn't show the bones valley.
+- **Round 2:** Redridge, Tanaris, Winterspring, Tirisfal, Durotar regenerated with corrected prompts; Shen'dralas and Zephras Isle regenerated from the owner's in-game references. All pass review.
+- **BLP:** all 51 converted to BLP2 DXT1 with mipmaps (17.1 MB; PSNR 33–35 dB). Verified displaying in game (`/azfdiag art`, screenshot `WoWScrnShot_110726_154339.jpg`). Only BLPs are committed; originals and mockup PNGs are git-ignored.
+- **Open idea for Phase 4:** a per-zone banner offset, so tall landmarks (Westfall, Silverpine, Teldrassil, Mount Hyjal, Deadwind Pass, Stonetalon, Zephras Isle) show in the thin banner crop.
 
 ## Phase 3 — Visual design: mockup iterations (2026-11-07)
 

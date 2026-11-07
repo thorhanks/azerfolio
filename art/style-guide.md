@@ -84,7 +84,7 @@ The title and percentage are overlaid on the left of the banner and the bottom o
 | Dry and hot | Ochre, rust, terracotta, sand | Strong sun, heat haze | Durotar, The Barrens, Thousand Needles, Desolace, Tanaris, Silithus, Badlands |
 | Snow and stone | Ice blue, slate, white | Crisp, cold | Dun Morogh, Alterac Mountains, Winterspring, Stonetalon Mountains |
 | Fire and ash | Charcoal, ember orange, red | Glow from below, smoky | Searing Gorge, Burning Steppes, Blasted Lands |
-| Gloom | Desaturated green-grey, purple, sickly yellow | Overcast, moonlight, fog | Tirisfal Glades, Silverpine Forest, Duskwood, Western Plaguelands, Eastern Plaguelands, Deadwind Pass, Swamp of Sorrows, Wetlands, Dustwallow Marsh, Felwood, Darkshore, Azshara, Shen'dralas |
+| Gloom | Desaturated green-grey, purple, sickly yellow, misty teal | Overcast, moonlight, fog | Tirisfal Glades, Silverpine Forest, Duskwood, Western Plaguelands, Eastern Plaguelands, Deadwind Pass, Swamp of Sorrows, Wetlands, Dustwallow Marsh, Felwood, Darkshore, Azshara, Shen'dralas |
 
 Even gloomy zones keep a warm accent (a lantern, a sunset edge) so the set feels unified.
 
@@ -94,8 +94,9 @@ Even gloomy zones keep a warm accent (a lantern, a sunset edge) so the set feels
 |---|---|
 | Generate at | 16:9 landscape, at least 1792×1008 (1920×1080 or larger preferred) |
 | Format from the generator | PNG or JPG (WebP isn't supported by the processing script; convert first) |
-| Processed file | 1024×512 PNG, cropped to 2:1 around the focal point |
-| Game path | `Azerfolio\Media\Zones\<mapID>.png` (fallback: `fallback.png`) |
+| Processed file | 1024×512, cropped to 2:1 around the focal point |
+| Game file | `Azerfolio\Media\Zones\<mapID>.blp`: BLP2, DXT1, full mipmap chain, about 343 KB (fallback: `fallback.blp`). Verified to display in the Forever client (2026-11-07) |
+| Mockup file | `mockups/zone-art/<mapID>.png` (browsers can't show BLP; not committed) |
 | Variants | Generate 3–4 per zone and pick the best against the review checklist |
 
 ## 6. Workflow
@@ -103,10 +104,10 @@ Even gloomy zones keep a warm accent (a lantern, a sunset edge) so the set feels
 1. **Generate:** use the prompt for the zone from [prompts.md](prompts.md) with any image model. Paste the shared style block plus the zone line. Use the negative prompt if your tool supports one.
 2. **Save the chosen image** as `art/source/<mapID>-<slug>.png`, e.g. `art/source/1429-elwynn-forest.png`. The map ID prefix is what matters.
 3. **Optionally adjust the crop:** if the landmark isn't centred, add the focal point to `art/focal.json` (0–1 from the left and top; default 0.5, 0.5), e.g. `{ "1429": { "x": 0.45, "y": 0.55 } }`.
-4. **Process:** `powershell -File tools/process-art.ps1`. It crops and resizes every source image, writes the game files to `Azerfolio/Media/Zones/`, copies them into the mockup, and regenerates `Azerfolio/Data/Art.lua` (the list of zones that have art; the game can't check whether a file exists).
-5. **Review** in the mockup (cards, banner, Continue card, list), then in game with `/azf shots`.
+4. **Process:** `powershell -File tools/process-art.ps1`. It crops and resizes every source image, writes PNGs for the mockup and BLP files for the game (encoder: `tools/Blp.cs`, no external tools), and regenerates `Azerfolio/Data/Art.lua` (the list of zones that have art; the game can't check whether a file exists).
+5. **Review** with contact sheets (`powershell -File tools/art-contact-sheet.ps1`, crop guides drawn on), in the mockup (cards, banner, Continue card, list), then in game.
 
-`art/source/` is kept in the repo so images can be reprocessed later. The processed files are what the addon ships.
+**Storage:** only the BLP game files are committed. `art/source/` (the originals) and the mockup PNGs are git-ignored. The owner keeps the originals, and they're needed to reprocess or change crops.
 
 ## 7. Review checklist
 

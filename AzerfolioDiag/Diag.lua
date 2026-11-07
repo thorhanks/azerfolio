@@ -499,13 +499,15 @@ local ART_TESTS = {
     { label = "Achievement parchment", path = "Interface\\AchievementFrame\\UI-Achievement-Parchment-Horizontal" },
     { label = "Dialog border", path = "Interface\\DialogFrame\\UI-DialogBox-Gold-Border" },
     { label = "Class icon (atlas file)", path = "Interface\\TargetingFrame\\UI-Classes-Circles" },
+    { label = "Elwynn .blp (DXT1)", path = "Interface\\AddOns\\Azerfolio\\Media\\Zones\\1429.blp", wide = true },
+    { label = "Tanaris .blp (DXT1)", path = "Interface\\AddOns\\Azerfolio\\Media\\Zones\\1446.blp", wide = true },
 }
 
 local artFrame
 local function showArt()
     if not artFrame then
         local f = CreateFrame("Frame", "AzerfolioDiagArtFrame", UIParent, "BackdropTemplate")
-        f:SetSize(4 * 150 + 20, 2 * 170 + 40)
+        f:SetSize(4 * 150 + 20, 2 * 170 + 170 + 40)
         f:SetPoint("CENTER")
         f:SetFrameStrata("DIALOG")
         if f.SetBackdrop then
@@ -522,11 +524,18 @@ local function showArt()
         title:SetPoint("TOP", 0, -8)
         title:SetText("AzerfolioDiag art test - screenshot me, then /azfdiag art to close")
         DB.art = { t = time(), results = {} }
+        local wideCount = 0
         for i, test in ipairs(ART_TESTS) do
-            local col, row = (i - 1) % 4, math.floor((i - 1) / 4)
             local tex = f:CreateTexture(nil, "ARTWORK")
-            tex:SetSize(128, 128)
-            tex:SetPoint("TOPLEFT", 10 + col * 150 + 11, -34 - row * 170)
+            if test.wide then -- 2:1 zone art spans two columns on the third row
+                tex:SetSize(278, 139)
+                tex:SetPoint("TOPLEFT", 10 + wideCount * 300 + 11, -34 - 2 * 170)
+                wideCount = wideCount + 1
+            else
+                local col, row = (i - 1) % 4, math.floor((i - 1) / 4)
+                tex:SetSize(128, 128)
+                tex:SetPoint("TOPLEFT", 10 + col * 150 + 11, -34 - row * 170)
+            end
             local ok, ret = pcall(tex.SetTexture, tex, test.path)
             local label = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             label:SetPoint("TOP", tex, "BOTTOM", 0, -4)
