@@ -162,7 +162,27 @@ From `Gethe/wow-ui-source`, branch `forever` [external, read 2026-11-07]:
 - `ButtonFrameTemplate`: the same chrome plus a dark inset and a bottom strip. `DefaultPanelTemplate`: the same without the portrait. `InsetFrameTemplate`: a near-black inset with a thin edge.
 - `gamepad-largecursor-white` tinted yellow is the focus chevron seen beside the focused row. `gamepad-mapquestlog-cursor-diamond-gold` is a gold diamond.
 - The Reputation panes are a darker, warmer brown than the template background; the yellow outer glow seen in the owner's first screenshot was absent here, so it likely marks the controller-focused frame [unverified].
-- Pending: the recorded texture data (pane background, side tabs, header row, status bar, LT glyph); it reaches disk on the next `/reload`.
+- Recorded texture data (`luajit tools/diag-report.lua skin` / `skin tree`), live CharacterFrame on the Reputation tab:
+
+  | Part | Native source | Notes |
+  |---|---|---|
+  | Frame | NineSlice `UI-Frame-PortraitMetal-CornerTopLeft`, `UI-Frame-Metal-*` (= `PortraitFrameTemplate`) | Draws gold on this client |
+  | Controller-focus glow | `gamepad-uiframemetal-largeportrait-focus`, texture `NineSlice.GlowTexture` (1330×1044 for a 631×484 frame, BACKGROUND) | The yellow glow in the owner's first screenshot |
+  | Pane backgrounds | `UI-Character-Info-General-BG` (left), `UI-Character-Info-Stat-BG` (right) | The warm dark-brown panes |
+  | Pane divider | `common-framedivider` (11 px wide, OVERLAY) | |
+  | Inner pane border | `common-insideframe` | |
+  | Side tabs (right, 55×60) | `common-sidetab`, `-hover`, `-selected`, `-mask` | LB above, RB below |
+  | List group header | `common-button-list-collapseExpand` (row), `common-button-list-minus` (icon); gold text (1, 0.82, 0) | "Alliance" row |
+  | Row highlight | `charactercreate-customize-dropdown-linemouseover-side` / `-middle` | Selected/hovered row |
+  | Progress bar (160×29) | `common-stat-bar-BG`, fill `common-stat-bar-white` tinted, `common-stat-bar-Mask`; also `common-stat-bar-green` | Reputation and XP bars |
+  | Dropdown | `common-dropdown-textholder`, `common-dropdown-a-button` | |
+  | Buttons | `common-button-square-gray-up/down`, `common-button-tertiary-normal`, `RedButton-Exit` (close) | |
+  | Shoulder/trigger glyphs | `Gamepad-Xbox1-Trigger-LB/RB/LT/RT-Normal` (also `-Over`, `-Down`, `-Focus`, `-Disabled`), `Gamepad-Xbox1-View-Normal` | Face-button (A/B/X/Y) atlas names not captured yet |
+  | Button legend box | `GamepadPersistentInputLegend`: NineSlice `UI-Frame-DiamondMetal-*`, `UI-World-Quest-golden-line`; footer slots `gamepad-footer-slot-bg`, `-frameneutral` | Bottom-left "A Select / B Close" box |
+  | Focus pointer | `SmartNavigation.Pointer.Icon`: `gamepad-largecursor-white` | Yellow chevron |
+  | Font | `Fonts\FRIZQT__.TTF` 14 everywhere | Names white, headers gold (1, 0.82, 0) |
+
+- The CharacterFrame walk hit the 1,500-node cap (paperdoll), so some Character tabs are incomplete; the Reputation subtree (183 nodes) is complete.
 
 Consequence: build the window on `PortraitFrameTemplate` (native chrome for free, no custom frame art) and use the native chevron for focus.
 
