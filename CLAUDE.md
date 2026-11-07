@@ -2,7 +2,26 @@
 
 Completionist dashboard addon for World of Warcraft: Forever. Personal project, built entirely by AI agents; the owner runs the game.
 
-Read before working: [project-spec.md](project-spec.md) (what), [project-implementation-plan.md](project-implementation-plan.md) (how, phases, decision log), [docs/implementation-status.md](docs/implementation-status.md) (where we are), [docs/research/client-capabilities.md](docs/research/client-capabilities.md) (what the client can do).
+Read before working:
+- [project-spec.md](project-spec.md): what we're building.
+- [project-implementation-plan.md](project-implementation-plan.md): how, the phases, and the decision log.
+- [docs/implementation-status.md](docs/implementation-status.md): where we are and what's next.
+- [docs/research/client-capabilities.md](docs/research/client-capabilities.md) and [docs/research/exploration-validation.md](docs/research/exploration-validation.md): verified client facts (APIs, exploration, gamepad, art formats).
+- [mockups/DESIGN.md](mockups/DESIGN.md): **the approved UI design** (design system, screens, gamepad map). The Lua UI must follow it; the mockup at http://localhost:8765 is the visual reference.
+- [art/style-guide.md](art/style-guide.md): zone art rules and pipeline.
+
+## Current state (2026-11-07)
+
+- Phases 0–2 done. Phase 3 design is approved and all zone art is done (51 BLPs). **Next: Phase 4, the main window** (plan §6; build to `mockups/DESIGN.md`, including the gamepad input layer and `/azf shots`).
+- Open for Phase 4: a per-zone banner offset for tall landmarks (see the status doc).
+- In game, the owner may still have **Azerfolio Diagnostics** enabled with its event sniffer on. Ask them to turn it off (`/azfdiag sniff`, then untick the addon) when it's no longer needed.
+
+## How the owner likes to work
+
+- Plays with a **gamepad** on a **3440×1440** screen; characters: Gideon (Alliance Paladin, main test character) and Thragor (Horde).
+- Wants thorough reviews with concrete measurements, and evidence before claims (in-game checks via SavedVariables files and screenshots the agent reads itself).
+- Approves work step by step; commit after each completed step with a descriptive message. The owner pushes from GitHub Desktop.
+- Design iterations go through the mockup first, then Lua.
 
 ## Environment
 
