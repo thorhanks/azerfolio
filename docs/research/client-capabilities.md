@@ -145,6 +145,27 @@ The owner uses the client's gamepad UI (button prompts, "Focus/Unfocus Interface
 - `GAMEPAD_SMARTNAV_CURSOR_COLOR_CODE` = `|cffffe600` (Blizzard's focus cursor yellow). Worth matching for a native feel.
 - The modifiers `GAMEPAD_MOD_LEFT` = SHIFT and `GAMEPAD_MOD_RIGHT` = CTRL mean the owner's bindings can be combos (for the open/close key binding).
 
+## Native frame style (Forever) — research for the restyle (2026-11-07)
+
+The owner wants Azerfolio to match the native Forever UI (reference: Reputation frame: gold frame with outer glow, round portrait, dark brown panes, right-side LB/RB icon tabs, yellow chevron on the focused row, floating round A/B hint box).
+
+From `Gethe/wow-ui-source`, branch `forever` [external, read 2026-11-07]:
+- `PortraitFrameMixin:SetBorder(layoutName)` applies a NineSlice layout (`Blizzard_SharedXML/PortraitFrame.lua`). The published `PortraitFrameTemplate` layout uses **Metal** atlases (`UI-Frame-PortraitMetal-CornerTopLeft`, `UI-Frame-Metal-*`), not gold. So the gold frame seen in game is either a client-side atlas override or an unpublished layout. **Unknown until probed in game.**
+- Inset panes: `InsetFrameTemplate` layout, atlases `UI-Frame-Inner*`.
+- Right-side tabs: `RightSideTabTemplate` (`Shared/Tabs/RightSideTab.xml`), spellbook-tab textures. The LB/RB Character tabs were not found in the source.
+- Focus pointer: `SmartNavigationPointerTemplate` uses atlas `gamepad-largecursor-white` tinted `GAMEPAD_SMARTNAV_CURSOR_COLOR`, bobbing ±4 px. Probably the yellow chevron [unverified].
+- Hint box: `Blizzard_GamepadSharedUtility/InputPrompts/InputPrompts.xml` (`InputPromptOneIconWithTextTemplate` etc., mixin `InputPromptMixin`); the legend box is likely `InputLegendPromptGroup.lua` / `FrameControlsManager.lua` (not read). Round glyph atlases not found yet.
+- CharacterFrame / ReputationFrame XML is not in the published branch.
+
+**In-game probe** (`/azfdiag skin`, Gideon, screenshot `WoWScrnShot_110726_165420.jpg`) [verified-ingame]:
+- `PortraitFrameTemplate` renders the native Forever chrome on this client: bronze-gold edges, round portrait ring top-left (`PortraitContainer.portrait` + `SetPortraitTexture` works), title bar with gold title (`SetTitle`), red-gold close button. Identical to the Reputation window. So the published "Metal" atlas names draw gold here.
+- `ButtonFrameTemplate`: the same chrome plus a dark inset and a bottom strip. `DefaultPanelTemplate`: the same without the portrait. `InsetFrameTemplate`: a near-black inset with a thin edge.
+- `gamepad-largecursor-white` tinted yellow is the focus chevron seen beside the focused row. `gamepad-mapquestlog-cursor-diamond-gold` is a gold diamond.
+- The Reputation panes are a darker, warmer brown than the template background; the yellow outer glow seen in the owner's first screenshot was absent here, so it likely marks the controller-focused frame [unverified].
+- Pending: the recorded texture data (pane background, side tabs, header row, status bar, LT glyph); it reaches disk on the next `/reload`.
+
+Consequence: build the window on `PortraitFrameTemplate` (native chrome for free, no custom frame art) and use the native chevron for focus.
+
 ## Events seen in session
 
 `RECEIVED_ACHIEVEMENT_LIST` fires once after login. Achievement data should be read after it, or after `PLAYER_ENTERING_WORLD` plus a delay. [verified-ingame] The event sniffer is now on and will capture discovery events in Phase 1.

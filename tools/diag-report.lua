@@ -1,7 +1,7 @@
 -- Summarizes the AzerfolioDiag SavedVariables dump.
 -- Usage: luajit tools/diag-report.lua [section] [param]
 -- Sections: summary (default), env, ach, explore, maps, quests, zone, events, art, errors,
---           criteria <achID>, ns <filter>, log [n]
+--           criteria <achID>, ns <filter>, log [n], skin [tree [filter]]
 -- Set AZF_DIAG_FILE to read a different dump.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
 
@@ -179,10 +179,80 @@ function R.pad()
     for i, s in ipairs(pad.sticks or {}) do if i <= 10 then p("    %s x=%.2f y=%.2f", s.stick, s.x or 0, s.y or 0) end end
 end
 
+-- skin: unique atlases, files and fonts per probed frame. "skin tree [root|overlays|templates]"
+-- prints the indented frame tree instead.
+local function eachNode(node, depth, fn)
+    if type(node) ~= "table" then return end
+    fn(node, depth)
+    for _, r in ipairs(node.regions or {}) do fn(r, depth + 1) end
+    for _, c in ipairs(node.children or {}) do eachNode(c, depth + 1, fn) end
+end
+
+local function nodeLine(n)
+    local size = n.size and string.format("%sx%s", tostring(math.floor((tonumber(n.size[1]) or 0) + 0.5)), tostring(math.floor((tonumber(n.size[2]) or 0) + 0.5))) or "?"
+    local label = (n.key and n.key ~= "nil" and n.key) or n.name or ""
+    local bits = { tostring(n.type), label, size, n.shown == false and "hidden" or "" }
+    if n.atlas and n.atlas ~= "nil" then bits[#bits + 1] = "atlas=" .. tostring(n.atlas) end
+    if (not n.atlas or n.atlas == "nil") and n.texture and n.texture ~= "nil" then bits[#bits + 1] = "tex=" .. tostring(n.texture) end
+    if n.fileID and n.fileID ~= "nil" then bits[#bits + 1] = "id=" .. tostring(n.fileID) end
+    if n.layer then bits[#bits + 1] = "layer=" .. s(n.layer) end
+    if n.color then bits[#bits + 1] = "rgba=" .. s(n.color) end
+    if n.font then bits[#bits + 1] = "font=" .. s(n.font) end
+    if n.text and n.text ~= "nil" then bits[#bits + 1] = "text=" .. tostring(n.text) end
+    return table.concat(bits, " ")
+end
+
+local function skinRoots(sk)
+    local list = {}
+    for _, k in ipairs(keys(sk.roots)) do list[#list + 1] = { k, sk.roots[k] } end
+    for i, o in ipairs(sk.overlays or {}) do list[#list + 1] = { "overlay" .. i .. " " .. tostring(o.name), o } end
+    for _, t in ipairs(sk.templates or {}) do list[#list + 1] = { "template " .. t.template, t.tree } end
+    return list
+end
+
+function R.skin(mode, which)
+    local sk = DB.skin
+    if not sk then p("no skin probe recorded") return end
+    if mode == "tree" then
+        for _, pair in ipairs(skinRoots(sk)) do
+            if not which or pair[1]:lower():find(which:lower(), 1, true) then
+                p("== %s", pair[1])
+                eachNode(pair[2], 0, function(n, d)
+                    if n.type == "Texture" or n.type == "FontString" or n.type == "MaskTexture" then
+                        if n.shown == false then return end
+                    end
+                    p("%s%s", string.rep("  ", d), nodeLine(n))
+                end)
+            end
+        end
+        return
+    end
+    for _, pair in ipairs(skinRoots(sk)) do
+        local atlases, files, fonts, nodes = {}, {}, {}, 0
+        eachNode(pair[2], 0, function(n)
+            nodes = nodes + 1
+            if n.atlas and n.atlas ~= "nil" then atlases[n.atlas] = (atlases[n.atlas] or 0) + 1
+            elseif n.texture and n.texture ~= "nil" then files[tostring(n.texture)] = (files[tostring(n.texture)] or 0) + 1 end
+            if n.font then local f = s(n.font); fonts[f] = (fonts[f] or 0) + 1 end
+        end)
+        p("== %s (%d nodes%s)", pair[1], nodes, type(pair[2]) == "table" and pair[2].shown == false and ", hidden" or "")
+        for _, k in ipairs(keys(atlases)) do p("  atlas %-50s x%d", k, atlases[k]) end
+        for _, k in ipairs(keys(files)) do p("  file  %-50s x%d", k, files[k]) end
+        for _, k in ipairs(keys(fonts)) do p("  font  %-50s x%d", k, fonts[k]) end
+    end
+    p("atlas checks:")
+    for _, k in ipairs(keys(sk.atlases)) do
+        local a = sk.atlases[k]
+        p("  %-45s %s", k, a and string.format("file=%s %sx%s", tostring(a.file or a.filename), tostring(a.width), tostring(a.height)) or "MISSING")
+    end
+    p("templates:")
+    for _, t in ipairs(sk.templates or {}) do p("  %-28s %s", t.template, t.ok and "ok" or ("FAILED " .. tostring(t.err))) end
+end
+
 function R.summary()
     R.errors(); print(); R.env(); print(); R.explore(); print(); R.quests(); print(); R.art()
 end
 
 local fn = R[section]
 if not fn then print("unknown section " .. section) os.exit(1) end
-fn(arg2)
+fn(arg2, arg[3])

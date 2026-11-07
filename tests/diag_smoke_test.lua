@@ -145,6 +145,49 @@ return function(t)
         t.eq(#db.errors, 0)
     end)
 
+    t.test("skin probe records the native frame tree, atlases and templates", function()
+        boot()
+        local function obj(kind, fields)
+            local o = fields or {}
+            o.GetObjectType = function() return kind end
+            o.IsShown = function() return true end
+            o.IsVisible = function() return true end
+            o.GetSize = function() return 10, 20 end
+            return o
+        end
+        local corner = obj("Texture", { GetAtlas = function() return "UI-Frame-Gold-Corner" end,
+            GetDrawLayer = function() return "OVERLAY", 0 end })
+        local title = obj("FontString", { GetText = function() return "Reputation" end,
+            GetFont = function() return "Fonts\\FRIZQT__.TTF", 14, "" end })
+        local nine = obj("Frame", { GetDebugName = function() return "CharacterFrame.NineSlice" end,
+            GetRegions = function() return corner end, GetChildren = function() end })
+        _G.CharacterFrame = obj("Frame", { GetDebugName = function() return "CharacterFrame" end,
+            GetRegions = function() return title end, GetChildren = function() return nine end })
+        local legend = obj("Frame", { GetDebugName = function() return "GamepadLegendFrame" end })
+        _G.EnumerateFrames = function(prev) if prev == nil then return legend end end
+        _G.C_Texture = { GetAtlasInfo = function(name)
+            if name == "gamepad-largecursor-white" then return { file = 123, width = 32, height = 32 } end
+        end }
+
+        _G.SlashCmdList.AZERFOLIODIAG("skin")
+        local sk = _G.AzerfolioDiagDB.skin
+        t.ok(sk, "skin recorded")
+        local root = sk.roots.CharacterFrame
+        t.eq(root.regions[1].text, "Reputation")
+        t.eq(root.children[1].regions[1].atlas, "UI-Frame-Gold-Corner")
+        t.eq(sk.roots.ReputationFrame, "missing")
+        t.eq(#sk.overlays, 1)
+        t.eq(sk.atlases["gamepad-largecursor-white"].width, 32)
+        t.eq(sk.atlases["UI-Frame-InnerTopLeft"], false)
+        t.eq(#sk.templates, 4)
+        t.ok(sk.templates[1].ok, "template frame created")
+        t.ok(_G.AzerfolioDiagSkinFrame:IsShown(), "test frame shown")
+        _G.SlashCmdList.AZERFOLIODIAG("skin")
+        t.eq(_G.AzerfolioDiagSkinFrame:IsShown(), false, "second call hides it")
+        t.eq(#_G.AzerfolioDiagDB.errors, 0)
+        _G.CharacterFrame, _G.EnumerateFrames, _G.C_Texture = nil, nil, nil
+    end)
+
     t.test("an unknown event name does not break loading", function()
         local env = fakeClient()
         wow.install(env)

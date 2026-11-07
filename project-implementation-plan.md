@@ -386,6 +386,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Zone art: one 1024×512 image per zone, cropped in the UI with texture coordinates; style and safe area in `art/style-guide.md` | One file serves all four layouts; small addon footprint |
 | 2026-11-07 | Ship zone art as BLP2 DXT1 with mipmaps (in-house encoder `tools/Blp.cs`); commit only the BLPs | 17 MB instead of 67 MB PNG; native format; no new dependency; verified in game |
 | 2026-11-07 | UI design follows `mockups/DESIGN.md`: state language, pips, Continue card, Atlas, zone map, wide split view, completion celebration | Owner approved the full UX review |
+| 2026-11-07 | **Full native look**: match the Forever UI (gold glowing frame, round portrait, dark brown panes instead of parchment, native tabs, prompts and focus pointer). Probe the live frames first (`/azfdiag skin`), then update the mockup, then Lua | Owner's request; native look fits the gamepad UI. Supersedes the parchment and custom chrome in `mockups/DESIGN.md` once the new mockup is approved |
 | 2026-11-07 | Window default 1160×740 (account schema 2); footer tabs are custom buttons, not `PanelTabButtonTemplate` | The design lays out at 1160×740 and puts tabs inside the footer with LB/RB glyphs; the template hangs tabs below the frame |
 
 ## 10. Definition of done (v1)

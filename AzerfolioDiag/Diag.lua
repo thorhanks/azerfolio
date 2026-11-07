@@ -554,6 +554,180 @@ local function showArt()
 end
 
 ---------------------------------------------------------------------------
+-- Skin probe: what draws the native Forever frames? (/azfdiag skin)
+-- 1. Walks the live CharacterFrame (open Reputation first) and records every texture's atlas,
+--    file and file ID, every font, and the frame tree. Read-only: nothing is changed.
+-- 2. Lists visible gamepad overlay frames (button legend, prompts, pointer).
+-- 3. Checks candidate atlas names with C_Texture.GetAtlasInfo.
+-- 4. Shows a test frame built from candidate templates, for a screenshot.
+---------------------------------------------------------------------------
+
+local SKIN_ROOTS = { "CharacterFrame", "ReputationFrame" }
+local SKIN_MAX_NODES, SKIN_MAX_DEPTH = 1500, 7
+local SKIN_OVERLAY_PATTERNS = { "gamepad", "legend", "prompt", "smartnav", "pointer", "cursor", "controls" }
+local SKIN_ATLASES = {
+    "UI-Frame-PortraitMetal-CornerTopLeft", "UI-Frame-Metal-CornerTopRight", "_UI-Frame-Metal-EdgeTop",
+    "!UI-Frame-Metal-EdgeLeft", "UI-Frame-InnerTopLeft", "_UI-Frame-InnerTopTile",
+    "gamepad-largecursor-white", "gamepad-mapquestlog-cursor-diamond-gold",
+    "gamepad-reticletargeting-indicator-x1",
+}
+local SKIN_TEMPLATES = {
+    { template = "PortraitFrameTemplate", w = 300, h = 220 },
+    { template = "ButtonFrameTemplate", w = 300, h = 220 },
+    { template = "DefaultPanelTemplate", w = 300, h = 220 },
+    { template = "InsetFrameTemplate", w = 300, h = 220 },
+}
+
+local function call(obj, method, ...)
+    local fn = obj and obj[method]
+    if type(fn) ~= "function" then return nil end
+    return try(method, fn, obj, ...)
+end
+
+local function packed(obj, method, ...)
+    local fn = obj and obj[method]
+    if type(fn) ~= "function" then return nil end
+    local r = packn(pcall(fn, obj, ...))
+    if not r[1] then return nil end
+    local out = {}
+    for i = 2, r.n do out[i - 1] = safePlain(r[i]) end
+    return out
+end
+
+-- One region or frame, flattened into plain values.
+local function describe(obj)
+    local d = {
+        type = call(obj, "GetObjectType"),
+        name = safePlain(call(obj, "GetDebugName")),
+        key = safePlain(call(obj, "GetParentKey")),
+        shown = call(obj, "IsShown"),
+        size = packed(obj, "GetSize"),
+    }
+    if d.type == "Texture" or d.type == "MaskTexture" then
+        d.atlas = safePlain(call(obj, "GetAtlas"))
+        d.texture = safePlain(call(obj, "GetTexture"))
+        d.fileID = safePlain(call(obj, "GetTextureFileID"))
+        d.layer = packed(obj, "GetDrawLayer")
+        d.color = packed(obj, "GetVertexColor")
+        d.coords = packed(obj, "GetTexCoord")
+        d.blend = safePlain(call(obj, "GetBlendMode"))
+        d.alpha = safePlain(call(obj, "GetAlpha"))
+    elseif d.type == "FontString" then
+        d.text = safePlain(call(obj, "GetText"))
+        d.font = packed(obj, "GetFont")
+        d.color = packed(obj, "GetTextColor")
+        d.layer = packed(obj, "GetDrawLayer")
+    end
+    return d
+end
+
+local function walk(frame, depth, budget)
+    budget.n = budget.n + 1
+    local node = describe(frame)
+    if budget.n > SKIN_MAX_NODES then node.truncated = true return node end
+    node.regions = {}
+    for _, r in ipairs({ call(frame, "GetRegions") }) do
+        budget.n = budget.n + 1
+        node.regions[#node.regions + 1] = describe(r)
+    end
+    if depth < SKIN_MAX_DEPTH then
+        node.children = {}
+        for _, c in ipairs({ call(frame, "GetChildren") }) do
+            if budget.n > SKIN_MAX_NODES then node.truncated = true break end
+            node.children[#node.children + 1] = walk(c, depth + 1, budget)
+        end
+    end
+    return node
+end
+
+local function overlayFrames()
+    local found = {}
+    if type(EnumerateFrames) ~= "function" then return found end
+    local f, guard = EnumerateFrames(), 0
+    while f and guard < 20000 and #found < 60 do
+        guard = guard + 1
+        if call(f, "IsVisible") then
+            local name = tostring(call(f, "GetDebugName") or ""):lower()
+            for _, pat in ipairs(SKIN_OVERLAY_PATTERNS) do
+                if name:find(pat, 1, true) then
+                    found[#found + 1] = walk(f, SKIN_MAX_DEPTH - 2, { n = 0 })
+                    break
+                end
+            end
+        end
+        f = EnumerateFrames(f)
+    end
+    return found
+end
+
+local skinFrame
+local function buildSkinTestFrame()
+    local holder = CreateFrame("Frame", "AzerfolioDiagSkinFrame", UIParent)
+    holder:SetSize(2 * 320, 2 * 250 + 80)
+    holder:SetPoint("RIGHT", UIParent, "RIGHT", -60, 0)
+    holder:SetFrameStrata("DIALOG")
+    local title = holder:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    title:SetPoint("TOP", 0, -4)
+    title:SetText("AzerfolioDiag skin test - screenshot, then /azfdiag skin to close")
+    local results = {}
+    for i, spec in ipairs(SKIN_TEMPLATES) do
+        local col, row = (i - 1) % 2, math.floor((i - 1) / 2)
+        local ok, f = pcall(CreateFrame, "Frame", nil, holder, spec.template)
+        results[i] = { template = spec.template, ok = ok, err = not ok and safePlain(f) or nil }
+        if ok and f then
+            f:SetSize(spec.w, spec.h)
+            f:SetPoint("TOPLEFT", holder, "TOPLEFT", 10 + col * 320, -40 - row * 250)
+            if f.SetTitle then pcall(f.SetTitle, f, spec.template) end
+            local portrait = f.PortraitContainer and f.PortraitContainer.portrait or f.portrait
+            if portrait and SetPortraitTexture then pcall(SetPortraitTexture, portrait, "player") end
+            local label = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+            label:SetPoint("CENTER")
+            label:SetText(spec.template)
+            results[i].tree = walk(f, 3, { n = 0 })
+        end
+    end
+    -- Pointer candidates, tinted like the SmartNavigation cursor.
+    for i, atlas in ipairs({ "gamepad-largecursor-white", "gamepad-mapquestlog-cursor-diamond-gold" }) do
+        local tex = holder:CreateTexture(nil, "OVERLAY")
+        tex:SetSize(32, 32)
+        tex:SetPoint("BOTTOMLEFT", holder, "BOTTOMLEFT", 10 + (i - 1) * 200, 10)
+        local ok = pcall(tex.SetAtlas, tex, atlas)
+        if i == 1 then tex:SetVertexColor(1, 0.9, 0, 1) end
+        local label = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        label:SetPoint("LEFT", tex, "RIGHT", 6, 0)
+        label:SetText(atlas .. (ok and "" or " (failed)"))
+    end
+    return holder, results
+end
+
+local function runSkinProbe()
+    if skinFrame and skinFrame:IsShown() then
+        skinFrame:Hide()
+        msg("skin test hidden.")
+        return
+    end
+    local skin = { t = time(), roots = {}, atlases = {} }
+    for _, name in ipairs(SKIN_ROOTS) do
+        local f = _G[name]
+        skin.roots[name] = f and walk(f, 0, { n = 0 }) or "missing"
+    end
+    skin.overlays = overlayFrames()
+    for _, atlas in ipairs(SKIN_ATLASES) do
+        local info = C_Texture and try("GetAtlasInfo", C_Texture.GetAtlasInfo, atlas)
+        skin.atlases[atlas] = info and safePlain(info) or false
+    end
+    if not skinFrame then
+        local frame, results = buildSkinTestFrame()
+        skinFrame, skin.templates = frame, results
+    end
+    skinFrame:Show()
+    DB.skin = skin
+    local shown = type(skin.roots.CharacterFrame) == "table" and skin.roots.CharacterFrame.shown
+    msg(string.format("skin recorded (Character frame %s). Take a screenshot, then /reload.",
+        shown and "open" or "NOT open - open Reputation first and run again"))
+end
+
+---------------------------------------------------------------------------
 -- Gamepad probe: can an addon frame receive pad input, and what are the names?
 ---------------------------------------------------------------------------
 
@@ -778,6 +952,7 @@ local HELP = {
     "/azfdiag sniff  - toggle logging of every event name",
     "/azfdiag art    - show the image-format test frame",
     "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
+    "/azfdiag skin   - record what draws the native frames (open Reputation first) and show a template test",
     "/azfdiag status - show what has been recorded",
     "/azfdiag clear  - clear logs and diffs",
     "Then /reload to write results to disk.",
@@ -796,6 +971,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "sniff" then setSniff(not DB.sniffOn)
     elseif cmd == "art" then showArt()
     elseif cmd == "pad" then togglePad()
+    elseif cmd == "skin" then runSkinProbe()
     elseif cmd == "clear" then
         DB.log, DB.diffs, DB.zoneSnapshots, DB.errors, DB.eventCounts, DB.sniff = {}, {}, {}, {}, {}, nil
         msg("cleared")

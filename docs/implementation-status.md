@@ -49,7 +49,7 @@ Built in steps the owner approves one at a time:
 - Owner's UI scale is 0.65 (`Config.wtf`), so UIParent is about 2822×1182 units: the 1160×740 window covers about 1414×902 physical pixels (41% × 63% of the screen), and 14-unit body text is about 17 px tall. The owner confirmed this size is fine.
 - Owner confirmed: LB/RB/B work; drag, resize and position persist across `/reload` (SavedVariables: schema 2, x −450, y 228, 1000×640).
 - Not verified yet: right-stick events.
-- **Next:** the owner asked to match the native Forever UI style (dark panels, glowing gold frame, round portrait, round A/B glyphs; reference: the Reputation frame). Goes through the mockup first.
+- **Next:** the owner chose the **full native look** (dark panes instead of parchment, glowing gold frame, round portrait, native tabs and prompts; reference: the Reputation frame). `/azfdiag skin` (built; tests 58 passed) records what draws the live CharacterFrame and gamepad overlays, checks candidate atlases and shows a template test. Report: `luajit tools/diag-report.lua skin [tree [filter]]`. Then the mockup, then Lua; Phase 4 step 2 waits for this.
 
 ## Phase 3 — Art pipeline ready; waiting for zone art (2026-11-07)
 
