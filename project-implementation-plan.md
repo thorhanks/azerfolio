@@ -258,11 +258,19 @@ Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue for
 1. Main frame: title, character header, close button, drag, resize with min/max, clipping, content region.
 2. Bottom tabs (Overview, Zones) built so adding a tab is one registration call.
 3. Zones subview navigation (catalogue ↔ detail) with preserved state.
-4. Launcher: addon compartment entry (needs no library) and a lightweight minimap button written in-house. Persist button position.
+4. Launcher: addon compartment entry (needs no library) and a lightweight minimap button written in-house. Persist button position. Key binding via `Bindings.xml`.
 5. Escape-to-close (register in `UISpecialFrames`), position persistence, off-screen recovery.
+6. **Gamepad input layer** (`UI/Gamepad.lua`), addon-owned, following spec §4.3:
+   - An input frame on the window with `EnableGamePadButton`/`EnableGamePadStick`, active only while the window is shown, the gamepad UI is on, and the player is out of combat.
+   - **Do not use Blizzard's `SmartNavigation`.** Its registration (`HandlePanelOpen`) and setters require secure callers, and other Forever addons report that touching it taints protected action-bar code (see `docs/research/client-capabilities.md` § Gamepad).
+   - Each page declares its focus targets as an explicit grid (rows × columns). The layer moves focus within that grid, draws the gold focus border, shows the focused control's tooltip, and scrolls lists to keep focus visible.
+   - Hint bar component at the bottom of the window.
+   - Pure focus-grid logic (`UI/FocusGrid.lua`) unit-tested without WoW.
+7. `/azf shots`: open the window and screenshot each tab and state for agent review (plan §4.3).
 
 **Done when:**
-- [ ] Opens from both commands and the launcher; tabs switch.
+- [ ] Opens from both commands, the launcher and the key binding; tabs switch with mouse and LB/RB.
+- [ ] D-pad focus, A, B and the hint bar work on every screen; input is released in combat.
 - [ ] Drag, resize, and persistence work across reload and relog.
 - [ ] Escape closes; no errors opening during combat.
 - [ ] Repeated open/close and navigation cause no frame leaks.
@@ -374,7 +382,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Refresh on `CRITERIA_UPDATE` + `MAP_EXPLORATION_UPDATED`, debounced; re-read current zone only | Observed event order on discovery |
 | 2026-11-07 | Visual preview: HTML mockups for design, addon-taken screenshots for verification | A full out-of-game WoW UI emulator would cost weeks and still be approximate |
 | 2026-11-07 | `Screenshot()` verified for addons | Phase 2 in-game check |
-| open | Gamepad support? Owner plays with a gamepad (client gamepad UI with "Previous/Next Frame" navigation). Decide before Phase 4 | Affects button sizing, focus order, and whether the window must work with the client's gamepad navigation |
+| 2026-11-07 | Gamepad first (spec §4.3), with an addon-owned input layer; never use Blizzard `SmartNavigation` | Owner plays with a controller; SmartNavigation needs secure callers and risks taint |
 
 ## 10. Definition of done (v1)
 

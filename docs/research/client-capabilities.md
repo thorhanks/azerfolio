@@ -112,6 +112,22 @@ Test frame screenshot and `SetTexture` results: [verified-ingame]
 
 Consequence: the art pipeline can ship **PNG** directly, with no TGA conversion needed. Always include the file extension in paths.
 
+## Gamepad
+
+The owner uses the client's gamepad UI (button prompts, "Focus/Unfocus Interface", "Previous/Next Frame"). [verified-ingame, screenshot 2026-11-07]
+
+**Blizzard SmartNavigation** (source: `Gethe/wow-ui-source`, branch `forever`, `Interface/AddOns/Blizzard_GamepadSmartNavigation/SmartNavigation.lua` and `Utility.lua`): [external, read 2026-11-07]
+- Panels become navigable only through `SmartNavigation:HandlePanelOpen(panel)`. Calling `:Show()` on a frame does nothing. That method and most setters (`SetTargetButtonForFrame`, `SetScrollFrameForFrame`, `RefreshButtonGroups`, `SetUseGridNavigation`) return early unless `issecure()`. **Addon code can't register a panel.**
+- Focus candidates: `Button`/`EditBox`, or frames with `OnMouseUp`/`OnMouseDown`, or frames marked through `SmartNavigation_MarkFrameFocusable`. Directions are chosen by angle and distance (45° cone), or by a grid mode.
+- Bindings: D-pad navigates, bottom face clicks, right face closes (`SmartNavigationCloseHandler`, then `frame.CloseButton`), right stick scrolls. **There are no LB/RB bindings.**
+- It hooks `CreateFrame` and rescans registered panels when children are created under them. ItemTree's comments say this tainted protected calls.
+
+**How installed addons do it** [verified-files]:
+- GatherLite builds an addon-owned input layer. It has a child frame with `EnableGamePadButton(true)`/`EnableGamePadStick(true)` and `OnGamePadButtonDown`/`Up` scripts, its own focus list and highlight border, and calls `owner:FocusGamepad()` / `UnfocusGamepad()`. It is active only when `InputUtil.IsGamepadUIEnabled()` is true and the player is out of combat. Its comment: never register with Blizzard's frame manager or binding stack, because their listeners call protected action-bar APIs.
+- ItemTree avoids creating frames under Blizzard panels while they're open, because of the `CreateFrame` hook.
+
+**To verify in game** (`/azfdiag pad`): whether an addon frame receives pad button and stick input, the button names (`PADDUP`, `PAD1`, `PADLSHOULDER`…), whether `FocusGamepad`/`UnfocusGamepad` and `InputUtil.IsGamepadUIEnabled` exist, and the `GAMEPAD_*` constants.
+
 ## Events seen in session
 
 `RECEIVED_ACHIEVEMENT_LIST` fires once after login. Achievement data should be read after it, or after `PLAYER_ENTERING_WORLD` plus a delay. [verified-ingame] The event sniffer is now on and will capture discovery events in Phase 1.

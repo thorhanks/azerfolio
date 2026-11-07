@@ -162,6 +162,23 @@ function R.art()
     end
 end
 
+function R.pad()
+    local pad = DB.pad
+    if not pad then p("no gamepad probe recorded") return end
+    local e = pad.env or {}
+    for _, k in ipairs(keys(e)) do
+        if type(e[k]) ~= "table" then p("  %-22s %s", k, tostring(e[k])) end
+    end
+    p("  frame methods:"); for _, k in ipairs(keys(e.frameMethods)) do p("    %-26s %s", k, tostring(e.frameMethods[k])) end
+    p("  C_GamePad: %s", table.concat(e.C_GamePadFunctions or {}, ", "))
+    p("  constants:"); for _, k in ipairs(keys(e.constants)) do p("    %-36s %s", k, tostring(e.constants[k])) end
+    p("  enableButton=%s enableStick=%s focusGamepad=%s stoppedBy=%s", tostring(pad.enableButton), tostring(pad.enableStick), tostring(pad.focusGamepad), tostring(pad.stoppedBy))
+    p("  presses: %d", #(pad.presses or {}))
+    for _, x in ipairs(pad.presses or {}) do if x.down then p("    %-16s @%.2f", x.key, (x.gt or 0) - (pad.startedAt or 0)) end end
+    p("  sticks: %d", #(pad.sticks or {}))
+    for i, s in ipairs(pad.sticks or {}) do if i <= 10 then p("    %s x=%.2f y=%.2f", s.stick, s.x or 0, s.y or 0) end end
+end
+
 function R.summary()
     R.errors(); print(); R.env(); print(); R.explore(); print(); R.quests(); print(); R.art()
 end

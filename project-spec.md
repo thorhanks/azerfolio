@@ -80,7 +80,30 @@ Public release and packaging, network or cloud features, sharing between players
 - Never performs protected actions; safe to open in combat.
 - Recovers if saved position is off-screen after a resolution or UI-scale change.
 
-### 4.3 Navigation
+### 4.3 Gamepad
+
+Azerfolio is **gamepad first**: the owner plays with a controller. Everything must be usable without a mouse, and the mouse must keep working too.
+
+- **Open/close:** a key binding (bindable to a controller button combo) as well as `/azf`.
+- **Focus:** the D-pad moves a clearly visible gold focus highlight between controls in a predictable order (rows and columns, not guesswork). Focus starts on a sensible element on each screen and is restored when returning to a screen.
+- **Buttons:**
+
+  | Input | Action |
+  |---|---|
+  | D-pad / left stick | Move focus |
+  | A (bottom face) | Activate the focused control |
+  | B (right face) | Back (Zone Detail → catalogue), otherwise close the window |
+  | LB / RB | Previous / next main tab |
+  | Right stick | Scroll the current list |
+  | Y / X | Context actions (e.g. toggle card/list view, open filters), shown in a hint bar |
+
+- **Hint bar:** the bottom of the window shows which buttons do what on the current screen.
+- **No hover-only information:** anything a mouse user sees on hover (tooltips, percentage explanations) also appears when the control has gamepad focus.
+- **Size:** focusable controls are large enough to read and to show a focus border clearly.
+- **Text entry:** zone search must be usable from a controller (the client's on-screen keyboard if available), and every filter must be reachable without typing.
+- **Combat:** custom gamepad input is released in combat so it never blocks gameplay.
+
+### 4.4 Navigation
 
 - Bottom tabs: Overview, Zones. No tabs for features that don't exist yet.
 - Zone Detail has a back button to the catalogue.
@@ -274,7 +297,8 @@ Runs entirely in the game client. No accounts, network, cloud, companion apps, o
 ## 12. Acceptance criteria (v1)
 
 ### Window
-- [ ] `/azerfolio` and `/azf` toggle the window; launcher button works.
+- [ ] `/azerfolio` and `/azf` toggle the window; launcher button works; key binding works from a controller.
+- [ ] Every screen and action is usable with the gamepad alone (spec §4.3), with a visible focus highlight and hint bar.
 - [ ] Draggable, resizable; position and size persist.
 - [ ] Overview and Zones tabs work; Escape closes.
 - [ ] Cohesive native Warcraft style.

@@ -31,6 +31,9 @@ for _, name in ipairs({ "SetSize", "SetPoint", "SetFrameStrata", "SetBackdrop", 
     "StopMovingOrSizing", "SetText", "SetAllPoints" }) do
     frameMethods[name] = function() end
 end
+function frameMethods:EnableGamePadButton(v) self.gamePadButton = v end
+function frameMethods:EnableGamePadStick(v) self.gamePadStick = v end
+for _, name in ipairs({ "SetJustifyH", "ClearAllPoints" }) do frameMethods[name] = function() end end
 function frameMethods:CreateFontString() return setmetatable({ scripts = {}, events = {} }, frameMethods) end
 function frameMethods:CreateTexture()
     local tex = setmetatable({ scripts = {}, events = {} }, frameMethods)

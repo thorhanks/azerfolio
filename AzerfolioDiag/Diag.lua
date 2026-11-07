@@ -545,6 +545,112 @@ local function showArt()
 end
 
 ---------------------------------------------------------------------------
+-- Gamepad probe: can an addon frame receive pad input, and what are the names?
+---------------------------------------------------------------------------
+
+local PAD_TIMEOUT = 25 -- seconds; the probe captures pad buttons, so it must never trap the player
+local padFrame, padStopTimer
+
+local function padEnvironment()
+    local env = { t = time() }
+    env.InputUtil = type(InputUtil)
+    env.IsGamepadUIEnabled = InputUtil and safePlain(try("IsGamepadUIEnabled", InputUtil.IsGamepadUIEnabled))
+    env.GamePadEnableCVar = safePlain(try("GetCVar", GetCVar, "GamePadEnable")
+        or (C_CVar and try("C_CVar.GetCVar", C_CVar.GetCVar, "GamePadEnable")))
+    env.C_GamePad = type(C_GamePad)
+    if C_GamePad then
+        env.IsEnabled = safePlain(try("C_GamePad.IsEnabled", C_GamePad.IsEnabled))
+        env.GetActiveDeviceID = safePlain(try("GetActiveDeviceID", C_GamePad.GetActiveDeviceID))
+        local fns = {}
+        for k, v in pairs(C_GamePad) do if type(v) == "function" then fns[#fns + 1] = k end end
+        table.sort(fns)
+        env.C_GamePadFunctions = fns
+    end
+    env.SmartNavigation = type(SmartNavigation)
+    env.GamepadMode = type(GamepadMode)
+    env.InCombatLockdown = safePlain(try("InCombatLockdown", InCombatLockdown))
+    local probe = CreateFrame("Frame")
+    env.frameMethods = {}
+    for _, m in ipairs({ "EnableGamePadButton", "EnableGamePadStick", "FocusGamepad", "UnfocusGamepad",
+        "SetPropagateKeyboardInput", "SetPropagateGamepadInput", "IsGamePadButtonEnabled" }) do
+        env.frameMethods[m] = type(probe[m])
+    end
+    probe:Hide()
+    env.constants = {}
+    for k, v in pairs(_G) do
+        if type(k) == "string" and (k:match("^GAMEPAD_") or k:match("^SMART_NAV")) and type(v) ~= "table" and type(v) ~= "function" then
+            env.constants[k] = safePlain(v)
+        end
+    end
+    return env
+end
+
+local function stopPad(reason)
+    if not padFrame then return end
+    pcall(padFrame.EnableGamePadButton, padFrame, false)
+    pcall(padFrame.EnableGamePadStick, padFrame, false)
+    if padFrame.UnfocusGamepad then pcall(padFrame.UnfocusGamepad, padFrame) end
+    padFrame:Hide()
+    DB.pad.stoppedBy = reason
+    msg(string.format("gamepad probe stopped (%s): %d presses recorded. /reload to save.", reason, #DB.pad.presses))
+end
+
+local function startPad()
+    DB.pad = { env = padEnvironment(), presses = {}, sticks = {}, startedAt = GetTime() }
+    if not padFrame then
+        local f = CreateFrame("Frame", "AzerfolioDiagPadFrame", UIParent, "BackdropTemplate")
+        f:SetSize(520, 120)
+        f:SetPoint("TOP", 0, -120)
+        f:SetFrameStrata("DIALOG")
+        if f.SetBackdrop then
+            f:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2 })
+            f:SetBackdropColor(0.05, 0.05, 0.05, 0.92)
+            f:SetBackdropBorderColor(0.83, 0.69, 0.22, 1)
+        end
+        f.text = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        f.text:SetPoint("TOPLEFT", 12, -12)
+        f.text:SetPoint("BOTTOMRIGHT", -12, 12)
+        f.text:SetJustifyH("LEFT")
+        local lastStick = -math.huge
+        f:SetScript("OnGamePadButtonDown", function(self, key)
+            local p = DB.pad.presses
+            p[#p + 1] = { key = tostring(key), down = true, gt = GetTime() }
+            self.text:SetText("Gamepad probe: press every button once (D-pad, A/B/X/Y, LB/RB, LT/RT, sticks, Start/Back).\nLast: " .. tostring(key) .. "   Total: " .. #p .. "\nStops by itself after " .. PAD_TIMEOUT .. " s.")
+        end)
+        f:SetScript("OnGamePadButtonUp", function(_, key)
+            local p = DB.pad.presses
+            p[#p + 1] = { key = tostring(key), down = false, gt = GetTime() }
+        end)
+        f:SetScript("OnGamePadStick", function(_, stick, x, y, len)
+            local now = GetTime()
+            if now - lastStick < 0.25 or #DB.pad.sticks >= 60 then return end
+            lastStick = now
+            local s = DB.pad.sticks
+            s[#s + 1] = { stick = tostring(stick), x = x, y = y, len = len, gt = now }
+        end)
+        padFrame = f
+    end
+    padFrame.text:SetText("Gamepad probe: press every button once (D-pad, A/B/X/Y, LB/RB, LT/RT, sticks, Start/Back).\nStops by itself after " .. PAD_TIMEOUT .. " s.")
+    padFrame:Show()
+    local okButton, errButton = pcall(padFrame.EnableGamePadButton, padFrame, true)
+    local okStick, errStick = pcall(padFrame.EnableGamePadStick, padFrame, true)
+    DB.pad.enableButton = okButton and true or tostring(errButton)
+    DB.pad.enableStick = okStick and true or tostring(errStick)
+    if padFrame.FocusGamepad then
+        local okFocus, errFocus = pcall(padFrame.FocusGamepad, padFrame)
+        DB.pad.focusGamepad = okFocus and true or tostring(errFocus)
+    end
+    local token = {}
+    padStopTimer = token
+    C_Timer.After(PAD_TIMEOUT, function() if padStopTimer == token and padFrame:IsShown() then stopPad("timeout") end end)
+    msg("gamepad probe started: press each controller button once. It stops by itself after " .. PAD_TIMEOUT .. " s.")
+end
+
+local function togglePad()
+    if padFrame and padFrame:IsShown() then stopPad("command") else startPad() end
+end
+
+---------------------------------------------------------------------------
 -- Event sniffer (counts every event name; records first few argument sets)
 ---------------------------------------------------------------------------
 
@@ -662,6 +768,7 @@ local HELP = {
     "/azfdiag zone   - snapshot the current zone",
     "/azfdiag sniff  - toggle logging of every event name",
     "/azfdiag art    - show the image-format test frame",
+    "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
     "/azfdiag status - show what has been recorded",
     "/azfdiag clear  - clear logs and diffs",
     "Then /reload to write results to disk.",
@@ -679,6 +786,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "zone" then dumpZone()
     elseif cmd == "sniff" then setSniff(not DB.sniffOn)
     elseif cmd == "art" then showArt()
+    elseif cmd == "pad" then togglePad()
     elseif cmd == "clear" then
         DB.log, DB.diffs, DB.zoneSnapshots, DB.errors, DB.eventCounts, DB.sniff = {}, {}, {}, {}, {}, nil
         msg("cleared")

@@ -38,6 +38,19 @@ Gideon has 7 undiscovered Elwynn areas: Stormwind City, Brackwell Pumpkin Patch,
 | 2026-11-07 | Owner (Thragor) | First try not captured (addon disabled for the character) |
 | 2026-11-07 | Owner (Thragor, Horde) | Pass. Elwynn 0/12 vs Gideon 7/12; Durotar 1/11 vs Gideon 0/11. Criteria are per character |
 
+## Gamepad probe (before Phase 4)
+
+**Steps (owner)**
+1. At character select, open **AddOns** and tick **Azerfolio Diagnostics** again. Log in out of combat.
+2. Type `/azfdiag pad`. A dark box appears near the top of the screen.
+3. Press each controller button once: D-pad up/down/left/right, A, B, X, Y, LB, RB, LT, RT, Start, Back/Select, and click both sticks. Wiggle the right stick a little. The box shows the last button seen.
+4. It stops by itself after 25 seconds; your controller works normally again. Then type `/reload`.
+5. Untick Azerfolio Diagnostics again if you like.
+
+| Date | By | Result |
+|---|---|---|
+| | | |
+
 ## Phase 2 — Addon foundation
 
 Automated: `luajit tests/run.lua` covers settings validation and migration, the event dispatcher, startup order, and all commands against mocks.
