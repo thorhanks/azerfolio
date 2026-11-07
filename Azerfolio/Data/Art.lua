@@ -4,5 +4,6 @@ local _, ns = ...
 ns.Art = {
     hasFallback = false,
     zones = {
+        [1429] = true,
     },
 }
