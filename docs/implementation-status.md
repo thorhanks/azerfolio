@@ -34,6 +34,14 @@
 
 **In game:** all steps passed. `Screenshot()` works for addons (3440×1440 JPG in `<game>\Screenshots\`). The owner plays with a gamepad and an ultrawide display; see the open question in the plan's decision log.
 
-**Next:** Phase 3 visual design with HTML mockups (plan §4.3), and Phase 4 main window with `/azf shots`.
+## Phase 3 — Visual design: first mockup ready for review (2026-11-07)
+
+- `mockups/`: an interactive HTML mockup of the window, served at http://localhost:8765 (`mockups` preview).
+  - Screens: Overview, Zones (cards and list), Zone Detail.
+  - Real zone and criteria data from the client; Gideon's real exploration state.
+  - Simulated controller with a focus highlight, hint bar and tooltips on focus.
+- Not yet: approved design, `art/style-guide.md`, real zone art (placeholders are generated landscapes), `UI/Theme.lua`.
+
+**Next:** owner reviews the mockup; iterate; then the style guide and art prompts, then Phase 4.
 
 The `AzerfolioDiag` event sniffer is still on; turn it off with `/azfdiag sniff` when convenient.

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Azerfolio Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="devbar">
+  <strong>Azerfolio mockup</strong>
+  <span>Design reference only — not the addon. Controller simulation:</span>
+  <kbd>Arrows</kbd> D-pad <kbd>Enter</kbd> A <kbd>Esc</kbd> B <kbd>Q</kbd>/<kbd>E</kbd> LB/RB <kbd>Y</kbd> Y <kbd>X</kbd> X <kbd>PgUp</kbd>/<kbd>PgDn</kbd> LT/RT
+  <label><input type="checkbox" id="scaleToggle" checked> Fit to screen</label>
+</div>
+
+<div class="stage" id="stage">
+  <div class="window" id="window">
+    <div class="titlebar">
+      <div class="title">Azerfolio</div>
+      <button class="close focusable" id="closeBtn" data-tip="Close Azerfolio" aria-label="Close">✕</button>
+    </div>
+
+    <header class="charheader">
+      <div class="portrait"><svg viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="pg" cx="50%" cy="40%"><stop offset="0" stop-color="#f6d6a8"/><stop offset="1" stop-color="#8a5a33"/></radialGradient></defs><circle cx="32" cy="32" r="30" fill="url(#pg)"/><path d="M32 12 L48 20 V34 C48 44 40 50 32 54 C24 50 16 44 16 34 V20 Z" fill="#f58cba" stroke="#5b2a3e" stroke-width="2"/><path d="M32 20 V46 M22 30 H42" stroke="#fff4d6" stroke-width="4" stroke-linecap="round"/></svg></div>
+      <div class="charinfo">
+        <div class="charname" id="charName"></div>
+        <div class="charline" id="charLine"></div>
+        <div class="xp"><div class="xpfill" id="xpFill"></div><span id="xpText"></span></div>
+      </div>
+      <div class="charzone" id="charZone"></div>
+    </header>
+
+    <main class="content" id="content"></main>
+
+    <footer class="bottom">
+      <nav class="tabs" id="tabs">
+        <span class="glyph shoulder">LB</span>
+        <button class="tab focusable" data-tab="overview" data-tip="Overview: your progress at a glance">Overview</button>
+        <button class="tab focusable" data-tab="zones" data-tip="Zones: every zone and its exploration">Zones</button>
+        <span class="glyph shoulder">RB</span>
+      </nav>
+      <div class="hints" id="hints"></div>
+    </footer>
+
+    <div class="tooltip" id="tooltip" hidden></div>
+    <div class="toast" id="toast" hidden></div>
+  </div>
+  <button class="reopen" id="reopen" hidden>Reopen Azerfolio (/azf)</button>
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
