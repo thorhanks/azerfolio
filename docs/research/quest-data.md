@@ -80,9 +80,12 @@ Guards: everything behind `pcall`; a missing addon or a contract mismatch makes 
 
 **The probe confirms it:** the API works under contract 4, the corrections change which zone 43 quests count in, and a full scalar read costs about 36 ms once (spread over frames) and under 1 MB.
 
-Open questions for the quest model (later Phase 9 steps, owner's call):
-1. Do dungeon quests that QuestieDB maps onto an outdoor zone (Gnomeregan, Zul'Farrak, Uldaman, Razorfen Kraul) count in that zone?
-2. Do capitals get a quest section? They have many quests but no exploration.
-3. What happens to the quests in unmapped areas, for example "Excavation Site: Wetlands" (14), which looks like part of Wetlands? Options: a small hand-curated area → zone table of our own, or leave them out with a coverage note.
-4. Class, profession and holiday quests (negative sorts) have no zone. Leave them out of zone counts, with a coverage note?
-5. Darkspear Islands (map type 6) has 18 quests and isn't in Azerfolio's zone list. Add it?
+## Quest model (decided 2026-11-08, owner approved the proposed defaults)
+
+1. **Dungeon quests that QuestieDB maps onto an outdoor zone** (Gnomeregan, Zul'Farrak, Uldaman, Razorfen Kraul): left out of that zone's count, with a coverage note. Azerfolio has no dungeon pages, and these quests aren't done in the open zone.
+2. **Capitals** get a quest section (Stormwind 131, Orgrimmar 92, Ironforge 84), though they have no exploration.
+3. **Unmapped areas:** a small hand-curated, unofficial area → zone table of our own, owner-approved, only for clear subzones (Excavation Site: Wetlands → Wetlands). The others (Blackrock Mountain, Sunken Temple, City of Dalaran, Ruins of Lordaeron, Hall of Thanes, Crafting) are left out with a note.
+4. **Class, profession and holiday quests** (negative sorts): left out of zone counts, with a note saying how many.
+5. **Darkspear Islands** (uiMap 2524, map type 6, 18 quests): added to the zone list as a quest-only zone without exploration. Needs a small `Systems/Maps` change for this one type-6 map.
+
+Every left-out quest is counted by reason, so the coverage note never hides anything.
