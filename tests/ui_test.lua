@@ -217,13 +217,13 @@ return function(t)
         t.eq(by[2521].state, "untracked")
         t.eq(all[1].name, "Dun Morogh", "continent order, then name")
         t.eq(by[1436].minLevel, 10); t.eq(by[1436].maxLevel, 20, "Westfall from the curated guide")
-        t.eq(by[2521].minLevel, nil, "Zephras Isle isn't in the guide")
+        t.eq(by[2521].minLevel, 1); t.eq(by[2521].maxLevel, 12, "Zephras Isle from the owner")
         local q = ns.Zones.Query(all, { level = "appropriate", sort = "recommended" }, { level = 9 })
         t.eq(q.available.levels, true)
         local fit = {}
         for _, z in ipairs(q.zones) do fit[#fit + 1] = z.name end
-        t.eq(table.concat(fit, ","), "Dun Morogh,Elwynn Forest,Durotar,Teldrassil,Westfall",
-            "level 9: the 1-10 zones, then Westfall (10-20, within 3 levels)")
+        t.eq(table.concat(fit, ","), "Dun Morogh,Elwynn Forest,Durotar,Teldrassil,Zephras Isle,Westfall",
+            "level 9: the 1-10 zones, Zephras Isle (1-12), then Westfall (10-20, within 3 levels)")
         t.eq(q.groups[1].title, "Levels 1-10"); t.eq(q.groups[2].title, "Levels 10-20")
         t.eq(#ns.Debug.errors, 0)
     end)

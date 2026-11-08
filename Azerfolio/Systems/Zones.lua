@@ -208,6 +208,7 @@ end
 function Zones.SectionOf(z)
     if type(z.minLevel) == "number" and type(z.maxLevel) == "number" then
         if z.minLevel < 10 then return "Levels 1-10" end
+        if z.minLevel >= 60 then return "Level 60" end -- the level cap; no 60-70 bracket
         local b = math.floor(z.minLevel / 10) * 10
         return string.format("Levels %d-%d", b, b + 10)
     end

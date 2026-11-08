@@ -192,6 +192,8 @@ return function(t)
         local Z = ns.Zones
         t.eq(Z.SectionOf({ minLevel = 1, maxLevel = 10 }), "Levels 1-10")
         t.eq(Z.SectionOf({ minLevel = 15, maxLevel = 25 }), "Levels 10-20")
+        t.eq(Z.SectionOf({ minLevel = 60, maxLevel = 60 }), "Level 60", "no bracket past the cap")
+        t.eq(Z.SectionOf({ minLevel = 55, maxLevel = 60 }), "Levels 50-60")
         t.eq(Z.SectionOf({ continent = "Kalimdor" }), "Kalimdor")
         local list = Z.Sort(catalogue(ns), "recommended")
         local g = Z.Groups(list, "recommended")
@@ -221,11 +223,14 @@ return function(t)
         local n = 0
         for mapID in pairs(ns.ZoneData.levels) do
             n = n + 1
-            t.ok(ns.ExplorationCatalogue.zones[mapID], "map " .. mapID .. " is a tracked zone")
+            t.ok(ns.ExplorationCatalogue.zones[mapID] or mapID == 2521,
+                "map " .. mapID .. " is a tracked zone (or Zephras Isle)")
             t.ok(ns.Zones.LevelsFor(ns.ZoneData, mapID), "map " .. mapID .. " has a sane range")
         end
-        t.eq(n, 40, "40 classic zones; Hyjal, Riverglades and Shen'dralas aren't in the guide")
-        for _, id in ipairs({ 2482, 2548, 2652, 2521 }) do t.eq(ns.ZoneData.levels[id], nil) end
+        t.eq(n, 44, "40 classic zones from the wiki + 4 Forever zones from the owner")
+        local function range(id) return table.concat(ns.ZoneData.levels[id], "-") end
+        t.eq(range(2521), "1-12"); t.eq(range(2548), "35-45"); t.eq(range(2652), "35-45"); t.eq(range(2482), "60-60")
+        for _, id in ipairs({ 1453, 1454, 1455, 1456, 1457, 1458 }) do t.eq(ns.ZoneData.levels[id], nil, "capital") end
         t.ok(ns.ZoneData.source:find("Warcraft Wiki"), "provenance recorded")
     end)
 

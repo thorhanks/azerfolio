@@ -3,12 +3,12 @@
 -- /azfdiag zones]. The owner approved an unofficial zone guide (2026-11-07).
 -- Source: https://warcraft.wiki.gg/wiki/Zones_by_level_(Classic), last edited 24 September 2026,
 -- fetched 2026-11-07. Forever may differ from Classic; the UI labels these as a guide.
--- Zones the page doesn't list (Mount Hyjal, Riverglades, Shen'dralas, Zephras Isle, capitals)
--- have no entry and stay unknown. Keyed by mapID; names are comments only.
+-- Forever-only zones the page doesn't list: ranges from the owner (2026-11-07), marked below.
+-- Capitals have no entry and stay unknown. Keyed by mapID; names are comments only.
 local _, ns = ...
 
 ns.ZoneData = {
-    source = "Warcraft Wiki, Zones by level (Classic)",
+    source = "Warcraft Wiki, Zones by level (Classic); Forever-only zones from the owner",
     levels = {
         -- Eastern Kingdoms
         [1416] = { 30, 40 }, -- Alterac Mountains
@@ -52,5 +52,10 @@ ns.ZoneData = {
         [1441] = { 25, 35 }, -- Thousand Needles
         [1449] = { 48, 55 }, -- Un'Goro Crater
         [1452] = { 53, 60 }, -- Winterspring
+        -- Forever-only zones (owner, 2026-11-07)
+        [2521] = { 1, 12 },  -- Zephras Isle: the Skyborn starting zone
+        [2548] = { 35, 45 }, -- Riverglades
+        [2652] = { 35, 45 }, -- Shen'dralas
+        [2482] = { 60, 60 }, -- Mount Hyjal: a level 60 zone
     },
 }
