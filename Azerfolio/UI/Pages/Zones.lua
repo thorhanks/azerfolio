@@ -1,136 +1,12 @@
 -- Zones tab, two views:
---   * list: every zone the client's map tree lists, grouped by continent (Systems/Maps.lua);
+--   * catalogue (UI/Pages/ZonesCatalogue.lua): toolbar plus illustrated cards or a compact
+--     list of every zone, filtered, sorted and grouped by ns.Zones;
 --   * detail: one zone's banner and its Explore areas, To discover / Discovered, read live from
 --     the game (Systems/Exploration.lua).
--- A (or a click) opens a zone; B (or the Back button) returns to the list with the same zone
--- focused. In a wide window both views show side by side (see build). Uses the one-line
--- character strip.
+-- A (or a click) opens a zone; B (or the Back button) returns to the catalogue with the same
+-- zone focused. Y cycles Cards / List, X searches. Level and Sort open a small popup. In a wide
+-- window the list and the detail show side by side (see build). Uses the one-line strip.
 local _, ns = ...
-
-local WHEEL_STEP = 72
-
----------------------------------------------------------------------------------------------
--- Shared pieces
----------------------------------------------------------------------------------------------
-
-local function newScroll(parent)
-    local scroll = CreateFrame("ScrollFrame", nil, parent)
-    local child = CreateFrame("Frame", nil, scroll)
-    child:SetSize(1, 1)
-    scroll:SetScrollChild(child)
-    scroll:SetScript("OnSizeChanged", function(_, w) child:SetWidth(w) end)
-    scroll:EnableMouseWheel(true)
-    scroll:SetScript("OnMouseWheel", function(self, delta)
-        local new = self:GetVerticalScroll() - delta * WHEEL_STEP
-        self:SetVerticalScroll(math.max(0, math.min(self:GetVerticalScrollRange() or 0, new)))
-    end)
-    scroll:SetScript("OnVerticalScroll", function() ns.Focus.Update(false) end)
-    scroll.child = child
-    return scroll
-end
-
-local function header(parent)
-    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
-    local h = CreateFrame("Frame", nil, parent)
-    h:SetHeight(L.listHeader)
-    local bg = h:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    T.SetAtlas(bg, T.atlas.listHeader)
-    h.text = T.Text(h, "md", "gold")
-    h.text:SetPoint("LEFT", S.s3, 0)
-    h.count = T.Text(h, "xs", "dim")
-    h.count:SetPoint("RIGHT", -S.s3, 0)
-    return h
-end
-
--- A focusable row with the native highlight (hover and controller focus).
-local function focusRow(parent, height)
-    local T = ns.Theme
-    local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(height)
-    T.RowHighlight(row, "HIGHLIGHT")
-    local focusHi = T.RowHighlight(row)
-    focusHi:SetShown(false)
-    -- The bar shows while the row is focused or selected (the zone the split view shows).
-    function row:SetFocused(on) self.focused = on; focusHi:SetShown(on or self.selected) end
-    function row:SetSelected(on) self.selected = on; focusHi:SetShown(on or self.focused) end
-    row:SetScript("OnEnter", function(self) if self.item then ns.UI.SetInfo(self.item.title, self.item.detail) end end)
-    row:SetScript("OnLeave", function() ns.UI.RestoreInfo() end)
-    return row
-end
-
----------------------------------------------------------------------------------------------
--- List view
----------------------------------------------------------------------------------------------
-
-local function buildList(page)
-    local S, L, T = ns.Theme.space, ns.Theme.layout, ns.Theme
-    local list = CreateFrame("Frame", nil, page)
-    list:SetAllPoints()
-    local scroll = newScroll(list)
-    scroll:SetPoint("TOPLEFT", 0, -S.s2)
-    scroll:SetPoint("BOTTOMRIGHT", 0, S.s2)
-    local child = scroll.child
-
-    -- The split view's divider on the list's right edge.
-    list.edge = T.Solid(list, "divider", "BORDER")
-    list.edge:SetPoint("TOPRIGHT"); list.edge:SetPoint("BOTTOMRIGHT"); list.edge:SetWidth(1)
-    list.edge:Hide()
-
-    local sections = ns.Maps.Sections()
-    local rows, byMap, y = {}, {}, 0
-    local function place(f, height)
-        f:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
-        f:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
-        y = y + height
-    end
-    for si, s in ipairs(sections) do
-        if si > 1 then y = y + S.s3 end
-        local h = header(child)
-        h.text:SetText(s.title)
-        h.count:SetText(#s.zones == 1 and "1 zone" or (#s.zones .. " zones"))
-        place(h, L.listHeader + S.s1)
-        for _, z in ipairs(s.zones) do
-            local row = focusRow(child, L.listRow)
-            local thumb = row:CreateTexture(nil, "ARTWORK")
-            thumb:SetSize(L.thumb[1], L.thumb[2])
-            thumb:SetPoint("LEFT", S.s2, 0)
-            local art = T.ZoneArt(z.mapID)
-            if art then thumb:SetTexture(art) else thumb:SetColorTexture(0, 0, 0, 0.5) end
-            local name = T.Text(row, "md", "white")
-            name:SetPoint("LEFT", thumb, "RIGHT", S.s3, 0)
-            name:SetText(z.name)
-            local zone = { mapID = z.mapID, name = z.name, continent = s.title }
-            row.item = {
-                key = z.mapID, frame = row, title = z.name, detail = s.title, scroll = scroll,
-                topGap = L.listHeader + S.s1 + S.s2, -- keep the section header in view after a jump
-                actionLabel = "Open", zone = zone,
-                onActivate = function() page:Open(zone) end,
-                -- Split view: A only means something if the zone has areas to move into.
-                canActivate = function()
-                    return not page.wide or not (page.zone and page.zone.mapID == zone.mapID)
-                        or (page.detailRows ~= nil and #page.detailRows > 0)
-                end,
-            }
-            row:SetScript("OnClick", function() page:Click(zone) end)
-            place(row, L.listRow + 2)
-            rows[#rows + 1] = { items = { row.item }, section = si }
-            byMap[z.mapID] = row
-            list.firstZone = list.firstZone or zone
-        end
-    end
-    child:SetHeight(math.max(1, y))
-
-    if #sections == 0 then
-        local empty = T.Text(list, "md", "dim")
-        empty:SetPoint("CENTER")
-        empty:SetText("The game didn't list any zone maps.")
-    end
-    list.rows = rows
-    list.byMap = byMap
-    list.sectionCount = #sections
-    return list
-end
 
 ---------------------------------------------------------------------------------------------
 -- Detail view
@@ -146,7 +22,7 @@ end
 
 local function checkRow(parent)
     local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
-    local row = focusRow(parent, L.checkRow)
+    local row = ns.Widgets.FocusRow(parent, L.checkRow)
     row.done = row:CreateTexture(nil, "ARTWORK")
     row.done:SetSize(L.checkIcon, L.checkIcon)
     row.done:SetPoint("LEFT", S.s2, 0)
@@ -204,11 +80,11 @@ local function buildDetail(page)
     d.back = back
     d.banner = banner
 
-    local scroll = newScroll(d)
+    local scroll = ns.Widgets.Scroll(d)
     scroll:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, -S.s3)
     scroll:SetPoint("BOTTOMRIGHT", 0, S.s2)
     d.scroll = scroll
-    d.headers = { header(scroll.child), header(scroll.child) }
+    d.headers = { ns.Widgets.Header(scroll.child), ns.Widgets.Header(scroll.child) }
     d.message = T.Text(scroll.child, "md", "dim")
     d.message:SetPoint("TOPLEFT", L.listInset, -S.s4)
     d.message:SetPoint("RIGHT", scroll.child, "RIGHT", -S.s6, 0)
@@ -222,6 +98,16 @@ local MESSAGES = {
     unavailable = "The game isn't returning achievement data right now. Try again in a moment.",
 }
 
+-- The banner's second line: continent and level range (from the zone guide).
+local function bannerSub(zone)
+    local parts = { zone.continent }
+    if zone.minLevel then
+        parts[#parts + 1] = zone.minLevel == zone.maxLevel and ("Level " .. zone.minLevel)
+            or string.format("Levels %d-%d", zone.minLevel, zone.maxLevel)
+    end
+    return table.concat(parts, "  ·  ")
+end
+
 -- Fills the detail view for a zone. Returns the focus rows.
 local function fillDetail(d, zone)
     local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
@@ -230,7 +116,7 @@ local function fillDetail(d, zone)
     d.banner.mapID = zone.mapID
     cropBanner(d.banner)
     d.banner.name:SetText(zone.name)
-    d.banner.sub:SetText(zone.continent or "")
+    d.banner.sub:SetText(bannerSub(zone))
     d.scroll:SetVerticalScroll(0)
 
     for _, r in ipairs(d.pool) do r:Hide() end
@@ -302,50 +188,112 @@ local function fillDetail(d, zone)
 end
 
 ---------------------------------------------------------------------------------------------
+-- Popup (Level, Sort, Show): a small list under its toolbar control; A picks, B closes.
+---------------------------------------------------------------------------------------------
+
+local function buildPopup(page)
+    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
+    local p = CreateFrame("Frame", nil, page)
+    p:SetFrameLevel((page:GetFrameLevel() or 1) + 20)
+    p:SetWidth(L.popupWidth)
+    p.bg = T.Solid(p, "ctlBg", "BACKGROUND", 0.98)
+    p.bg:SetAllPoints()
+    p.edge = ns.Widgets.Edge(p, "BORDER")
+    p.edge:SetColor("gold"); p.edge:SetThickness(2)
+    p:EnableMouse(true)
+    p.buttons = {}
+    p:Hide()
+
+    -- Shows the option's values under `control`. Returns the focus rows.
+    function p:Open(option, control)
+        self.option, self.control = option, control
+        local current = ns.db.zones[option.key]
+        local rows = {}
+        for i, it in ipairs(option.items) do
+            local b = self.buttons[i]
+            if not b then
+                b = ns.Widgets.FocusRow(self, L.popupRow)
+                b.text = T.Text(b, "sm", "text")
+                b.text:SetPoint("LEFT", S.s3, 0)
+                self.buttons[i] = b
+            end
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", self, "TOPLEFT", S.s1, -S.s1 - (i - 1) * L.popupRow)
+            b:SetPoint("TOPRIGHT", self, "TOPRIGHT", -S.s1, -S.s1 - (i - 1) * L.popupRow)
+            local on = it[1] == current
+            b.text:SetText((on and "|TInterface\\RaidFrame\\ReadyCheck-Ready:12|t " or "") .. it[2])
+            b.text:SetTextColor(T.RGB(on and "gold" or "text"))
+            local value = it[1]
+            b.item = { key = "pop:" .. value, frame = b, title = option.label .. ": " .. it[2],
+                actionLabel = "Choose", onActivate = function() page:ChoosePopup(value) end }
+            b:SetScript("OnClick", function() page:ChoosePopup(value) end)
+            b:Show()
+            rows[#rows + 1] = { items = { b.item } }
+        end
+        for i = #option.items + 1, #self.buttons do self.buttons[i]:Hide() end
+        self:SetHeight(#option.items * L.popupRow + 2 * S.s1)
+        self:ClearAllPoints()
+        self:SetPoint("TOPLEFT", control, "BOTTOMLEFT", 0, -S.s1)
+        self:Show()
+        self.rows = rows
+        return rows, "pop:" .. tostring(current)
+    end
+
+    function p:Close() self:Hide(); self.option, self.control, self.rows = nil, nil, nil end
+    return p
+end
+
+---------------------------------------------------------------------------------------------
 -- Page
 ---------------------------------------------------------------------------------------------
 
--- The zone the player stands in, if the list has it.
-local function playerZone(list)
+-- The zone the player stands in, if the catalogue lists it.
+local function playerZone(cat)
     local here = C_Map and C_Map.GetBestMapForUnit
         and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
-    local row = here and list.byMap[here]
-    return row and row.item.zone
+    local mapID = here and ns.Exploration.ZoneForMap(here) or here
+    return (mapID and cat:ZoneFor(mapID)) or (here and cat:ZoneFor(here))
 end
 
--- Two modes: "list" (focus in the zone list) and "detail" (focus in a zone's areas).
--- Narrow window: one view at a time. Wide window (UI.IsWide): split view, the list on the
--- left and the selected zone's detail on the right, following focus; A moves into the
--- areas, B comes back.
+-- Modes: "list" (focus in the catalogue) and "detail" (focus in a zone's areas); a popup
+-- over the toolbar takes focus while open. Narrow window: catalogue or detail. Wide window
+-- (UI.IsWide): toolbar on top, the compact list on the left and the selected zone's detail on
+-- the right, following focus; A moves into the areas, B comes back.
 local function build(parent)
     local page = CreateFrame("Frame", nil, parent)
-    page.list = buildList(page)
-    page.detail = buildDetail(page)
     page.mode = "list"
+    local cat = ns.ZonesCatalogue.New(page)
+    page.catalogue = cat
+    page.toolbar, page.list = cat.toolbar, cat.list
+    page.detail = buildDetail(page)
+    page.popup = buildPopup(page)
 
     local function arrange()
         local L = ns.Theme.layout
-        local list, d = page.list, page.detail
-        list:ClearAllPoints(); d:ClearAllPoints()
+        local tb, list, d = page.toolbar, page.list, page.detail
+        tb:ClearAllPoints(); list:ClearAllPoints(); d:ClearAllPoints()
+        tb:SetPoint("TOPLEFT"); tb:SetPoint("TOPRIGHT")
         if page.wide then
-            list:SetPoint("TOPLEFT"); list:SetPoint("BOTTOMLEFT")
+            list:SetPoint("TOPLEFT", tb, "BOTTOMLEFT"); list:SetPoint("BOTTOMLEFT")
             list:SetWidth(L.splitListWidth)
             d:SetPoint("TOPLEFT", list, "TOPRIGHT")
             d:SetPoint("BOTTOMRIGHT")
         else
-            list:SetAllPoints(); d:SetAllPoints()
+            list:SetPoint("TOPLEFT", tb, "BOTTOMLEFT"); list:SetPoint("BOTTOMRIGHT")
+            d:SetAllPoints()
         end
         list.edge:SetShown(page.wide)
-        d.back:SetShown(not page.wide)
-        for _, r in ipairs(list.rows) do r.items[1].actionLabel = page.wide and "Checklist" or "Open" end
+        page.detail.back:SetShown(not page.wide)
     end
 
     -- Marks the zone the split view shows (none in the narrow window).
     local function markSelected()
         local id = page.wide and page.zone and page.zone.mapID
-        for mapID, row in pairs(page.list.byMap) do
-            local on = mapID == id
-            if (row.selected or false) ~= on then row:SetSelected(on) end
+        for mapID, f in pairs(cat.byMap) do
+            if f.SetSelected then
+                local on = mapID == id
+                if (f.selected or false) ~= on then f:SetSelected(on) end
+            end
         end
     end
 
@@ -358,15 +306,33 @@ local function build(parent)
 
     local function refresh()
         local inDetail = page.mode == "detail"
+        page.toolbar:SetShown(page.wide or not inDetail)
         page.list:SetShown(page.wide or not inDetail)
         page.detail:SetShown(inDetail or (page.wide and page.zone ~= nil))
-        page.hasSections = inDetail and page.detailRows and #page.detailRows > 0
-            or (not inDetail and page.list.sectionCount > 1)
-        page.sectionLabel = inDetail and "Section" or "Continent"
-        page.backLabel = inDetail and "Back" or nil
+        if page.popup:IsShown() then
+            page.hasSections, page.backLabel = false, "Close"
+        else
+            page.hasSections = inDetail and page.detailRows and #page.detailRows > 0
+                or (not inDetail and cat.sectionCount > 1)
+            page.sectionLabel = "Section"
+            page.backLabel = inDetail and "Back" or nil
+        end
         markSelected()
         ns.Focus.Rebuild()
         ns.UI.RefreshHints()
+    end
+    page.Redraw = refresh
+
+    -- The catalogue redrew (filters, sort, view, data). In the split view keep a zone shown:
+    -- the same one if it's still listed, else the first one; none if nothing matches.
+    function page:OnCatalogueChanged()
+        if self.building then return end
+        if self.wide and self.mode == "list" then
+            local keep = self.zone and cat:ZoneFor(self.zone.mapID)
+            local zone = keep or cat.firstZone
+            if zone then show(zone) else self.zone, self.detailRows = nil, nil end
+        end
+        if ns.UI.CurrentTab() == "zones" then refresh() end
     end
 
     -- A on a zone: open its detail (narrow) or move into its areas (wide).
@@ -382,13 +348,36 @@ local function build(parent)
         refresh()
     end
 
-    -- A click on a zone row: in the split view it selects the zone and keeps focus in the list.
+    -- A click on a zone: in the split view it selects the zone and keeps focus in the list.
     function page:Click(zone)
         if not self.wide then return self:Open(zone) end
         self.mode = "list"
         show(zone)
         self.pendingFocusKey = zone.mapID
         refresh()
+    end
+
+    function page:OpenPopup(option, control)
+        if self.popup:IsShown() and self.popup.option == option then return self:ClosePopup() end
+        local _, key = self.popup:Open(option, control)
+        self.pendingFocusKey = key
+        refresh()
+    end
+
+    function page:ClosePopup()
+        local control = self.popup.control
+        self.popup:Close()
+        self.pendingFocusKey = control and control.item.key
+        refresh()
+    end
+
+    function page:ChoosePopup(value)
+        local option, control = self.popup.option, self.popup.control
+        if not option then return end
+        ns.db.zones[option.key] = value
+        self.popup:Close()
+        self.pendingFocusKey = control and control.item.key
+        cat:Refresh()
     end
 
     -- Split view: the detail follows the focused zone.
@@ -404,11 +393,16 @@ local function build(parent)
         local wide = ns.UI.IsWide()
         if wide == self.wide then return end
         self.wide = wide
+        if self.popup:IsShown() then self.popup:Close() end
         arrange()
+        self.building = true
+        cat:Refresh()
+        self.building = false
         if wide and self.mode == "list" then
             -- Show the focused zone, else the player's zone, else the first one.
             local item = ns.UI.CurrentTab() == "zones" and ns.Focus.Current()
-            local zone = (item and item.zone) or self.zone or playerZone(self.list) or self.list.firstZone
+            local zone = (item and item.zone and cat:ZoneFor(item.zone.mapID)) or
+                (self.zone and cat:ZoneFor(self.zone.mapID)) or playerZone(cat) or cat.firstZone
             if zone then
                 show(zone)
                 self.pendingFocusKey = zone.mapID
@@ -417,8 +411,10 @@ local function build(parent)
         refresh()
     end
 
-    -- B: back to the list with the same zone focused. Returns true if handled.
+    -- B: close the popup, leave the search box, or go back from the detail. True if handled.
     function page:Back()
+        if self.popup:IsShown() then self:ClosePopup(); return true end
+        if cat:SearchHasFocus() then cat.searchBox:ClearFocus(); return true end
         if self.mode ~= "detail" then return false end
         self.mode = "list"
         self.pendingFocusKey = self.zone and self.zone.mapID
@@ -426,34 +422,78 @@ local function build(parent)
         return true
     end
 
-    function page:GetFocusRows()
-        if self.mode == "detail" then return self.detailRows or {} end
-        return self.list.rows
+    -- X: search; Y: next view. Only on the catalogue.
+    function page:OnButton(name)
+        if self.popup:IsShown() or (self.mode == "detail" and not self.wide) then return false end
+        if name == "x" then
+            self.mode = "list"
+            self.pendingFocusKey = cat.search.item.key
+            refresh()
+            cat:FocusSearch()
+            return true
+        elseif name == "y" then
+            return cat:CycleView()
+        end
+        return false
     end
 
-    -- The tracker re-read some zones (nil = all). Redraw the detail if it shows one of them,
-    -- keeping focus on the same area; otherwise the next show reads fresh data.
+    function page:GetHints()
+        if self.popup:IsShown() or (self.mode == "detail" and not self.wide) then return {} end
+        local hints = {}
+        if not self.wide then hints[#hints + 1] = { "Y", "View" } end
+        hints[#hints + 1] = { "X", "Search" }
+        return hints
+    end
+
+    function page:GetFocusRows()
+        if self.popup:IsShown() then return self.popup.rows or {} end
+        if self.mode == "detail" then return self.detailRows or {} end
+        return cat.focusRows or {}
+    end
+
+    -- The tracker re-read some zones (nil = all): redraw the catalogue's numbers, and the
+    -- detail if it shows one of them, keeping focus on the same area.
     ns.Events.On("AZF_EXPLORATION_UPDATED", function(mapIDs)
         local zone = page.zone
-        if not zone then return end
-        if mapIDs then
-            local hit = false
-            for _, id in ipairs(mapIDs) do if id == zone.mapID then hit = true end end
-            if not hit then return end
+        local hit = zone ~= nil and mapIDs == nil
+        for _, id in ipairs(mapIDs or {}) do if zone and id == zone.mapID then hit = true end end
+        if not page:IsShown() then
+            page.dirty = true
+            if hit then page.detailRows = nil end
+            return
         end
-        local visible = page:IsShown() and page.detail:IsShown()
-        if not visible then page.detailRows = nil; return end
         local current = ns.UI.CurrentTab() == "zones" and ns.Focus.Current()
-        show(zone, true)
-        if current then page.pendingFocusKey = current.key end
-        if page.mode == "detail" and not page.detailRows[1] then -- nothing left to focus in it
-            page.mode = "list"
-            page.pendingFocusKey = zone.mapID
+        page.building = true
+        cat:Refresh()
+        page.building = false
+        if hit and page.detail:IsShown() then
+            show(zone, true)
+            if page.mode == "detail" and not page.detailRows[1] then -- nothing left to focus in it
+                page.mode = "list"
+                page.pendingFocusKey = zone.mapID
+            end
+        elseif hit then
+            page.detailRows = nil
         end
+        if current and page.pendingFocusKey == nil then page.pendingFocusKey = current.key end
         if ns.UI.CurrentTab() == "zones" then refresh() end
     end)
 
-    page:Layout()
+    -- Level-ups change "Your level"; redraw next time the page shows.
+    ns.Events.On("AZF_CHARACTER_UPDATED", function() page.dirty = true end)
+    page:SetScript("OnShow", function(self)
+        if self.dirty then
+            self.dirty = false
+            self.building = true
+            cat:Refresh()
+            self.building = false
+            refresh()
+        end
+    end)
+
+    page:Layout() -- first layout: page.wide is nil, so this arranges and draws
+    -- Open on the first zone, not the toolbar.
+    if page.pendingFocusKey == nil and cat.firstZone then page.pendingFocusKey = cat.firstZone.mapID end
     return page
 end
 

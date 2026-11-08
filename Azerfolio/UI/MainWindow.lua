@@ -387,11 +387,20 @@ local function currentHints()
     end
     local page = window and window.pages[current]
     for _, h in ipairs((def and def.hints) or {}) do list[#list + 1] = h end
+    if page and page.GetHints then
+        for _, h in ipairs(page:GetHints() or {}) do list[#list + 1] = h end
+    end
     if ns.Focus and ns.Focus.HasSections() then
         list[#list + 1] = { { "LT", "RT" }, (page and page.sectionLabel) or (def and def.sectionLabel) or "Section" }
     end
     list[#list + 1] = { "B", (page and page.backLabel) or "Close" }
     return list
+end
+
+-- X / Y: handed to the current page (page:OnButton(name) returns true if it used it).
+function UI.PageButton(name)
+    local page = window and window.pages[current]
+    if page and page.OnButton and page:OnButton(name) then UI.RefreshHints() end
 end
 
 -- B: the page goes back a level if it can (Zone Detail -> list); otherwise the window closes.

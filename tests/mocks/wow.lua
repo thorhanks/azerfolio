@@ -48,6 +48,11 @@ for _, name in ipairs({ "SetFrameStrata", "SetBackdrop", "SetBackdropColor",
     frameMethods[name] = function() end
 end
 function frameMethods:GetEffectiveScale() return 1 end
+-- EditBox
+for _, name in ipairs({ "SetAutoFocus", "SetMaxLetters", "SetTextInsets" }) do frameMethods[name] = function() end end
+function frameMethods:SetFocus() self.hasFocus = true end
+function frameMethods:ClearFocus() self.hasFocus = false end
+function frameMethods:HasFocus() return self.hasFocus == true end
 for _, name in ipairs({ "SetScrollChild", "EnableMouseWheel", "SetTexCoord", "RegisterForClicks" }) do
     frameMethods[name] = function() end
 end

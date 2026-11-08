@@ -24,6 +24,15 @@ Theme.color = {
     xpFill = hex("8a64e8"),
     todo = hex("e08a3c"),         -- state language: in progress / not yet discovered
     complete = hex("ffcc33"),     -- state language: complete / discovered
+    untouched = hex("5b5246"),    -- state language: untouched (empty pips)
+    fit = hex("5aa548"),          -- "Your level" tag and a fitting level range
+    levelBg = hex("2e261e"),      -- level bar well
+    levelRange = hex("8a7348"),   -- a zone's level range that doesn't fit
+    ctlBg = hex("1c140d"),        -- toolbar controls (mockups/style.css .seg, .select)
+    ctlOn = hex("5a3d1c"),        -- selected segment
+    ctlEdge = hex("5f5141"),
+    cardBg = hex("1a120b"),
+    cardEdge = hex("5a4128"),
     focus = { 1, 0.902, 0 },      -- GAMEPAD_SMARTNAV_CURSOR_COLOR [verified-ingame]
     black = { 0, 0, 0 },
     ink = hex("2b1a0c"),
@@ -69,6 +78,25 @@ Theme.layout = {
     bannerHeight = 124,        -- Zone Detail banner
     wideMinWidth = 1440,       -- window width from which Zones becomes a split view
     splitListWidth = 560,      -- the split view's list column
+    -- Zones catalogue (mockups/style.css .toolbar, .zcard, .zrow)
+    toolbarHeight = 44,
+    controlHeight = 28,
+    controlPad = 10,           -- text padding inside a toolbar control
+    searchWidth = 150,
+    popupRow = 30,
+    popupWidth = 200,
+    cardMinWidth = 240,        -- cards are at least this wide; the grid adds columns as it can
+    cardGap = 16,
+    cardArtAspect = 5 / 16,    -- art band height / width
+    cardBody = 78,             -- name line, pips, meta line
+    zoneRow = 48,              -- list view row
+    zoneThumb = { 64, 32 },
+    levelBarWidth = 120,
+    levelBarHeight = 8,
+    pctWidth = 56,
+    pip = 10,
+    pipGap = 3,
+    maxLevel = 60,             -- the level bar's scale
 }
 
 -- Space the window's outside parts take (tabs right, legend below, portrait ring and glow).

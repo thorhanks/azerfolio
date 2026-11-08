@@ -75,7 +75,18 @@ Planned steps (owner approves each):
    - Account schema 4: `zones.completion` is now `all`/`progress`/`untouched`/`complete` (old `completed` → `complete`, `incomplete` → `all`).
    - Probe `/azfdiag zones` (AzerfolioDiag): records, for every zone map, the raw returns of `C_Map.GetMapLevels` and `C_Map.GetMapRectOnMap(zone, parent)`, plus the player's level, faction and `GetZonePVPInfo`. Report: `luajit tools/diag-report.lua zones`. Level ranges and faction have no verified source until this runs.
    - Tests: 155 passed (14 catalogue tests in `tests/zones_test.lua`, a live `Zones.All` test, the schema 4 migration, two probe tests).
-2. **Catalogue page**: toolbar (status segments, Show / Level / Sort popups, count, search, view toggle), illustrated cards (default) and compact list, Y cycles views, X search, sticky section headers with LT/RT, empty state, settings saved, rows and cards pooled. Levels shown as a guide (curated, unofficial); no faction parts.
+2. **Catalogue page** (built 2026-11-07, waiting for the in-game check):
+   - `UI/Pages/ZonesCatalogue.lua` draws what `ns.Zones.Query` returns; `UI/Widgets.lua` holds the shared pieces (scroll, header, focus row, toolbar control, edge, pips, level bar); `UI/Pages/Zones.lua` keeps the page, Zone Detail, popup and split view.
+   - Toolbar: status segments (All / In progress / Untouched / Complete), Level and Sort controls that open a popup (A picks, B closes; current choice ticked), "n of m zones" count, search box, Cards / List toggle. The Show (faction) control isn't drawn: no data. On a narrow window the count hides first, then search shrinks.
+   - Cards (default): as many 240+ columns as fit (4 at 1160), 16:5 art crop (honours `bannerFocus`), name + percentage, pips (done gold, not done grey, unknown faint), "Lv a-b", green "Your level", "n/m" / "not tracked" / "no data"; gold edge and check emblem when complete, orange edge in progress, desaturated art when untouched or untracked; focus = 2 px yellow edge. Unknown shows "?", untracked "-": never 0%.
+   - List: thumbnail, name, pips with n/m, level bar (1-60 scale, green when it fits, your level marked), percentage with a check when complete. The wide split view always uses the list.
+   - Sections: level brackets under Recommended ("n of m complete"), none otherwise; LT/RT jump; the toolbar is the row above the first section. Empty state: "No zones match" with a hint.
+   - Gamepad: Y cycles Cards/List, X focuses search (B leaves the box), new hints "Y View · X Search". Face buttons X = PAD3, Y = PAD4 [verified-ingame, pad probe].
+   - Saved: status, level, sort and view (account); search is session-only. Discoveries redraw the cards' numbers; level-ups redraw on next show. Cards, rows and headers are pooled (frame count stays flat across filter and view changes).
+   - Info line: continent, "Levels a-b (zone guide)", "n of m areas discovered" (plus unknown count and catalogue-mismatch note). Zone Detail's banner line adds the level range.
+   - `/azf shots` takes 11: adds the other view and the Sort popup (view and popup restored after).
+   - Not yet: sticky section headers, the "Recommended next" ribbon (Phase 7 suggestions), the Atlas view (positions now known from `GetMapRectOnMap`), typing with a controller only (depends on whether the client opens an on-screen keyboard for an edit box) [unverified].
+   - Tests: 165 passed (8 new catalogue tests: cards layout and text, Y view, status filters, Sort popup with the controller, level filter, search and empty state, pooling, live redraw).
 3. **Zone Detail completion**: header with %, pips and progress, areas with unknown state listed, states for partial coverage, catalogue mismatch, fully complete and unavailable; World map action (X) if `OpenWorldMap` works.
 4. **In-game check** of spec §12 "Zones" and "Exploration".
 

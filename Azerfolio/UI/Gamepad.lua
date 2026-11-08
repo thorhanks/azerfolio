@@ -3,7 +3,7 @@
 -- client's gamepad UI is on, and the player is out of combat. Never touches Blizzard's
 -- SmartNavigation (secure-only registration; taint risk; see client-capabilities § Gamepad).
 -- LB/RB switch tabs, B closes, D-pad moves focus (UI/Focus.lua), A activates, LT/RT jump
--- between sections.
+-- between sections, X and Y go to the page (page:OnButton).
 local _, ns = ...
 
 local Gamepad = {}
@@ -28,6 +28,8 @@ local function actions()
         [name("GAMEPAD_SHOULDER_RIGHT", "PADRSHOULDER")] = "nextTab",
         [name("GAMEPAD_FACE_RIGHT", "PAD2")] = "back",
         [name("GAMEPAD_FACE_BOTTOM", "PAD1")] = "activate",
+        [name("GAMEPAD_FACE_LEFT", "PAD3")] = "x", -- [verified-ingame: /azfdiag pad]
+        [name("GAMEPAD_FACE_TOP", "PAD4")] = "y",
         [name("GAMEPAD_DPAD_TOP", "PADDUP")] = "up",
         [name("GAMEPAD_DPAD_BOTTOM", "PADDDOWN")] = "down",
         [name("GAMEPAD_DPAD_LEFT", "PADDLEFT")] = "left",
@@ -74,6 +76,8 @@ local function handle(action)
         ns.UI.Back()
     elseif action == "activate" then
         ns.Focus.Activate()
+    elseif action == "x" or action == "y" then
+        ns.UI.PageButton(action) -- the page decides (Zones: X search, Y next view)
     elseif action == "prevSection" or action == "nextSection" then
         ns.Focus.Jump(action == "nextSection" and 1 or -1)
         ns.UI.RefreshHints()

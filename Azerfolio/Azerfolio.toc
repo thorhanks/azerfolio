@@ -31,7 +31,9 @@ UI\FocusGrid.lua
 UI\MainWindow.lua
 UI\Gamepad.lua
 UI\Focus.lua
+UI\Widgets.lua
 UI\Pages\Overview.lua
+UI\Pages\ZonesCatalogue.lua
 UI\Pages\Zones.lua
 UI\Shots.lua
 UI\Launcher.lua

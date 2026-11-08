@@ -59,6 +59,25 @@ local function steps(which)
         UI.shotsFocusKey = item and item.key
         ns.Focus.Jump(1); UI.RefreshHints()
     end }
+    -- The catalogue's other view and the Sort popup (the view is restored at the end).
+    list[#list + 1] = { label = "zones, other view", fn = function()
+        UI.ApplyGeometry(); UI.SelectTab("zones")
+        local page = zonesPage()
+        if UI.shotsView == nil then UI.shotsView = ns.db.zones.displayMode end
+        page.catalogue:CycleView()
+    end }
+    list[#list + 1] = { label = "zones, sort popup", fn = function()
+        local page = zonesPage()
+        local cat = page.catalogue
+        for _, o in ipairs(ns.ZonesCatalogue.OPTIONS) do
+            if o.key == "sort" then page:OpenPopup(o, cat.options.sort) end
+        end
+    end }
+    list[#list + 1] = { label = "zones, popup closed", fn = function()
+        local page = zonesPage()
+        if page.popup:IsShown() then page:ClosePopup() end
+        if UI.shotsView and ns.db.zones.displayMode ~= UI.shotsView then page.catalogue:CycleView() end
+    end, skip = true }
     for _, def in ipairs(UI.tabs) do
         list[#list + 1] = { label = def.id .. " at minimum size", fn = function()
             UI.SelectTab(def.id); size(minW, minH)()
@@ -111,10 +130,16 @@ function UI.RunShots(which)
 
     local list, startTab, i = steps(which), UI.CurrentTab(), 0
     if #list == 0 then return ns.Print("Nothing to screenshot.") end
+    local pictures = 0
+    for _, s in ipairs(list) do if not s.skip then pictures = pictures + 1 end end
     UI.shotsRunning = true
     local function finish(msg)
         UI.shotsRunning = false
         UI.ApplyGeometry(); UI.Relayout()
+        local page = zonesPage()
+        if page and page.popup:IsShown() then page:ClosePopup() end
+        if page and UI.shotsView and ns.db.zones.displayMode ~= UI.shotsView then page.catalogue:CycleView() end
+        UI.shotsView = nil
         if UI.shotsOpenedDetail then
             UI.SelectTab("zones"); UI.GetFrame().pages.zones:Back(); UI.shotsOpenedDetail = nil
         end
@@ -128,12 +153,13 @@ function UI.RunShots(which)
         if not UI.IsShown() then return finish("Screenshots stopped: the window was closed.") end
         i = i + 1
         local s = list[i]
-        if not s then return finish(string.format("Took %d screenshots.", #list)) end
+        if not s then return finish(string.format("Took %d screenshots.", pictures)) end
         local ok, err = pcall(s.fn)
         if not ok then
             ns.Debug.Error("shots " .. s.label, err)
             return finish("Screenshots stopped: " .. tostring(err))
         end
+        if s.skip then return C_Timer.After(SETTLE, nextStep) end -- a tidy-up step, no picture
         C_Timer.After(SETTLE, function()
             local sok, serr = pcall(Screenshot)
             if not sok then ns.Debug.Error("Screenshot", serr) end
@@ -141,6 +167,6 @@ function UI.RunShots(which)
             C_Timer.After(GAP, nextStep)
         end)
     end
-    ns.Printf("Taking %d screenshots; keep the window open.", #list)
+    ns.Printf("Taking %d screenshots; keep the window open.", pictures)
     nextStep()
 end
