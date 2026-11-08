@@ -204,6 +204,31 @@ return function(t)
         t.eq(#Z.Groups({}, "recommended"), 0)
     end)
 
+    t.test("levels: only sane curated ranges are used", function()
+        local ns = load()
+        local L = ns.Zones.LevelsFor
+        local data = { levels = { [1] = { 1, 10 }, [2] = { 10, 5 }, [3] = { 0, 10 }, [4] = { 50, 61 },
+            [5] = { 1.5, 10 }, [6] = "1-10", [7] = { 12 } } }
+        local lo, hi = L(data, 1); t.eq(lo, 1); t.eq(hi, 10)
+        for id = 2, 8 do t.eq((L(data, id)), nil, "entry " .. id .. " is unknown") end
+        t.eq((L(nil, 1)), nil); t.eq((L({}, 1)), nil)
+    end)
+
+    t.test("levels: the curated data covers exactly the catalogue's classic zones, all sane", function()
+        local ns = load()
+        wow.loadAddonFile("Azerfolio/Data/Exploration.lua", "Azerfolio", ns)
+        wow.loadAddonFile("Azerfolio/Data/Zones.lua", "Azerfolio", ns)
+        local n = 0
+        for mapID in pairs(ns.ZoneData.levels) do
+            n = n + 1
+            t.ok(ns.ExplorationCatalogue.zones[mapID], "map " .. mapID .. " is a tracked zone")
+            t.ok(ns.Zones.LevelsFor(ns.ZoneData, mapID), "map " .. mapID .. " has a sane range")
+        end
+        t.eq(n, 40, "40 classic zones; Hyjal, Riverglades and Shen'dralas aren't in the guide")
+        for _, id in ipairs({ 2482, 2548, 2652, 2521 }) do t.eq(ns.ZoneData.levels[id], nil) end
+        t.ok(ns.ZoneData.source:find("Warcraft Wiki"), "provenance recorded")
+    end)
+
     t.test("query: filter, sort and group together; counts come with it", function()
         local ns = load()
         local q = ns.Zones.Query(catalogue(ns), { completion = "untouched", sort = "recommended" })

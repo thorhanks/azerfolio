@@ -3,9 +3,9 @@
 -- sorts and section groups (spec §6.2-6.4). The UI shows what this returns and never counts.
 -- Everything except Zones.All() is pure, so tests can load it without the client.
 --
--- Level range and faction territory have no verified client source yet (probe:
--- /azfdiag zones), so every entry's minLevel, maxLevel and faction are nil (unknown). The
--- rules below already handle known values, so a verified source only has to fill them in.
+-- The client gives no level ranges or faction territory (probe /azfdiag zones). Level ranges
+-- come from the hand-curated, unofficial guide in Data/Zones.lua (owner-approved); zones it
+-- doesn't list stay unknown (nil). Faction is unknown (nil) for every zone.
 local _, ns = ...
 
 local Zones = {}
@@ -50,12 +50,27 @@ function Zones.Entry(zone, ex)
     }
 end
 
+-- Pure: a zone's level range from the curated data, or nil, nil when it has none or the entry
+-- isn't a sane range (two whole numbers, 1 <= min <= max <= 60).
+function Zones.LevelsFor(data, mapID)
+    local r = type(data) == "table" and type(data.levels) == "table" and data.levels[mapID]
+    if type(r) ~= "table" then return nil, nil end
+    local lo, hi = r[1], r[2]
+    if type(lo) ~= "number" or type(hi) ~= "number" or lo ~= math.floor(lo) or hi ~= math.floor(hi)
+        or lo < 1 or hi > 60 or lo > hi then
+        return nil, nil
+    end
+    return lo, hi
+end
+
 -- Every zone, in the client's continent order (live: reads the map tree and the tracker).
 function Zones.All()
     local out = {}
     for rank, s in ipairs(ns.Maps.Sections()) do
         for _, z in ipairs(s.zones) do
-            local zone = { mapID = z.mapID, name = z.name, continent = s.title, rank = rank }
+            local lo, hi = Zones.LevelsFor(ns.ZoneData, z.mapID)
+            local zone = { mapID = z.mapID, name = z.name, continent = s.title, rank = rank,
+                minLevel = lo, maxLevel = hi }
             out[#out + 1] = Zones.Entry(zone, ns.Exploration.ForZone(z.mapID))
         end
     end
