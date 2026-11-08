@@ -1,5 +1,10 @@
 # Implementation status
 
+## Phase 9 — Quests (v1.1): in progress (2026-11-08)
+
+Planned steps (owner approves each):
+1. **QuestieDB integration decision** (research done, decision pending): `docs/research/quest-data.md`. QuestieDB 1.0.12 (Forever, baked mode, contract 4) keeps 5,233 quests in its TOC metadata as base64 CBOR, read lazily through a public API (`LibQuestieDB`, `QuestDB.<field>(id)`, `RequireContract`); Forever corrections are applied at runtime, so only the runtime view is corrected [verified-files]. Offline survey of the base rows: 3,910 quests with an area, 1,258 with a quest sort, 739 repeatable, 100 areas (battlegrounds, raids and a crafting sort among them); Darkspear Islands (uiMap 2524) isn't in Azerfolio's zone list. Recommendation: runtime optional dependency; first an in-game probe of load cost, corrections and race masks.
+
 ## Phase 0 — Client capabilities: done (2026-11-07)
 
 - Client facts: `wowf` 1.60.1.70862, interface 16001, Lua 5.1, modern API (272 `C_*` namespaces).
