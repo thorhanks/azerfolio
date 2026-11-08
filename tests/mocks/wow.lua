@@ -43,7 +43,7 @@ for _, name in ipairs({ "SetFrameStrata", "SetBackdrop", "SetBackdropColor",
     "SetResizeBounds", "SetClipsChildren", "SetColorTexture", "SetGradient", "SetTextColor",
     "SetShadowColor", "SetShadowOffset", "SetFontObject", "SetWordWrap", "SetStatusBarTexture",
     "SetStatusBarColor", "SetMinMaxValues", "SetValue", "SetNormalTexture", "SetHighlightTexture",
-    "SetPushedTexture", "SetAlpha", "SetVertexColor", "SetAtlas", "SetFrameLevel", "StartSizing", "AddMaskTexture", "SetJustifyH",
+    "SetPushedTexture", "SetAlpha", "SetVertexColor", "SetAtlas", "SetDesaturated", "SetTitle", "SetHorizTile", "SetVertTile", "SetFrameLevel", "StartSizing", "AddMaskTexture", "SetJustifyH",
     "ClearAllPoints" }) do
     frameMethods[name] = function() end
 end
@@ -92,9 +92,22 @@ function M.install(overrides)
         if template and M.unknownTemplates and M.unknownTemplates[template] then
             error("Couldn't find inherited node \"" .. template .. "\"")
         end
-        local f = setmetatable({ type = frameType, name = name, scripts = {}, events = {}, shown = true }, frameMethods)
+        local f = setmetatable({ type = frameType, name = name, template = template, scripts = {}, events = {}, shown = true }, frameMethods)
         frames[#frames + 1] = f
         if name then _G[name] = f end
+        -- PortraitFrameTemplate children as recorded in game by /azfdiag skin.
+        if template == "PortraitFrameTemplate" then
+            local function child(shown)
+                local c = setmetatable({ scripts = {}, events = {}, shown = shown }, frameMethods)
+                frames[#frames + 1] = c
+                return c
+            end
+            f.NineSlice, f.TitleContainer, f.CloseButton = child(true), child(true), child(true)
+            f.PortraitContainer = child(true)
+            f.PortraitContainer.portrait = f:CreateTexture()
+            f.FrameGlow = child(false)
+            function f:SetTitle(text) self.title = text end
+        end
         return f
     end
     _G.time = os.time

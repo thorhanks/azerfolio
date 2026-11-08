@@ -49,6 +49,13 @@ local function status()
         ns.Debug.IsEnabled() and "on" or "off", #ns.Debug.errors)
     ns.Printf("Character: %s, level %s %s %s (%s)", tostring(c.name), tostring(c.level),
         tostring(c.race), tostring(c.className), tostring(c.faction))
+    if ns.Theme and ns.Theme.GlyphAtlas then
+        local parts = {}
+        for _, b in ipairs({ "A", "B", "X", "Y", "LB" }) do
+            parts[#parts + 1] = b .. "=" .. tostring(ns.Theme.GlyphAtlas(b) or "drawn")
+        end
+        ns.Printf("Glyphs: %s", table.concat(parts, ", "))
+    end
     for i = math.max(1, #ns.Debug.errors - 2), #ns.Debug.errors do
         local e = ns.Debug.errors[i]
         ns.Printf("  error: %s: %s", e.label, e.err)

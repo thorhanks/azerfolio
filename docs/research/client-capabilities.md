@@ -182,6 +182,8 @@ From `Gethe/wow-ui-source`, branch `forever` [external, read 2026-11-07]:
   | Focus pointer | `SmartNavigation.Pointer.Icon`: `gamepad-largecursor-white` | Yellow chevron |
   | Font | `Fonts\FRIZQT__.TTF` 14 everywhere | Names white, headers gold (1, 0.82, 0) |
 
+- `PortraitFrameTemplate` children on this client [verified-ingame]: `Bg` (file 374155), `TopTileStreaks`, `NineSlice` (corners 95×95/100), `PortraitContainer.portrait` (62×62) with `CircleMask` (file 130924), `FrameGlow` (hidden; `GlowTexture` = `gamepad-uiframemetal-largeportrait-focus`), `TitleContainer.TitleText` (gold FRIZQT 14), `LeftJumpHint` / `RightJumpHint` / `FocusJumpHint` (hidden LT/RT/View glyphs), `CloseButton` (`RedButton-Exit`, 28×28). Azerfolio's window uses it (screenshots `WoWScrnShot_110726_171831`–`171835`).
+- Face-button glyph atlases: `gamepad-xbox1-buttona-normal`, `-buttonb-`, `-buttonx-`, `-buttony-` (also `-over`, `-down`, `-focus`, `-disabled`); D-pad `gamepad-xbox1-dpadall-normal`, `-dpadupdown-`, `-dpadleftright-`, `-dpadup-` etc. Source: `Blizzard_SharedXML/Shared/InputIcons/InputIconTexture.lua` [external]. Guesses like `Gamepad-Xbox1-A-Normal` do **not** exist [verified-ingame: `/azf status`]. Atlas names are case-insensitive (`Gamepad-Xbox1-Trigger-LB-Normal` resolves although the source writes it lowercase) [verified-ingame].
 - The CharacterFrame walk hit the 1,500-node cap (paperdoll), so some Character tabs are incomplete; the Reputation subtree (183 nodes) is complete.
 
 Consequence: build the window on `PortraitFrameTemplate` (native chrome for free, no custom frame art) and use the native chevron for focus.

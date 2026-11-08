@@ -1,6 +1,10 @@
--- The main window: header (character, zone, wordmark, close), parchment content area, and the
--- footer (tabs | info line | button hints). Built lazily on first open; nothing touches the
--- client at load time. Layout follows mockups/DESIGN.md "Window chrome".
+-- The main window, in the native Forever look (mockups/DESIGN.md § Native look):
+--   * the client's PortraitFrameTemplate: gold metal frame, portrait ring, title band, close,
+--     and its FrameGlow while the controller drives the window;
+--   * a character strip and the content area on the native pane background;
+--   * native side tabs on the right edge (LB above, RB below);
+--   * a legend box below the frame: info line (what the focused control is) and button hints.
+-- Built lazily on first open; nothing touches the client at load time.
 local _, ns = ...
 
 local UI = {}
@@ -19,20 +23,27 @@ local hintPool = {}
 ---------------------------------------------------------------------------------------------
 
 -- Fits a saved window into the parent. x/y are the window centre's offset from the parent
--- centre. Returns x, y, w, h so the whole window is on screen (off-screen recovery).
-function UI.ClampGeometry(x, y, w, h, parentW, parentH, minW, minH)
-    local maxW = math.max(1, parentW - 2 * SCREEN_MARGIN)
-    local maxH = math.max(1, parentH - 2 * SCREEN_MARGIN)
-    w = math.min(math.max(w, minW), maxW)
-    h = math.min(math.max(h, minH), maxH)
-    local limX = math.max(0, (maxW - w) / 2)
-    local limY = math.max(0, (maxH - h) / 2)
-    x = math.min(math.max(x, -limX), limX)
-    y = math.min(math.max(y, -limY), limY)
-    return math.floor(x + 0.5), math.floor(y + 0.5), math.floor(w + 0.5), math.floor(h + 0.5)
+-- centre. `outside` = { left, right, top, bottom }: space the window's parts take beyond its
+-- edges (side tabs, legend box). Returns x, y, w, h with everything on screen.
+function UI.ClampGeometry(x, y, w, h, parentW, parentH, minW, minH, outside)
+    local o = outside or {}
+    local L, R, T, B = o.left or 0, o.right or 0, o.top or 0, o.bottom or 0
+    local maxW = math.max(1, parentW - 2 * SCREEN_MARGIN - L - R)
+    local maxH = math.max(1, parentH - 2 * SCREEN_MARGIN - T - B)
+    local function round(v) return math.floor(v + 0.5) end
+    w = math.floor(math.min(math.max(w, minW), maxW))
+    h = math.floor(math.min(math.max(h, minH), maxH))
+    -- Whole-unit bounds, rounded inward so nothing ends half a unit off screen.
+    local loX = math.ceil(-parentW / 2 + SCREEN_MARGIN + w / 2 + L)
+    local hiX = math.floor(parentW / 2 - SCREEN_MARGIN - w / 2 - R)
+    local loY = math.ceil(-parentH / 2 + SCREEN_MARGIN + h / 2 + B)
+    local hiY = math.floor(parentH / 2 - SCREEN_MARGIN - h / 2 - T)
+    x = math.min(math.max(round(x), loX), math.max(loX, hiX))
+    y = math.min(math.max(round(y), loY), math.max(loY, hiY))
+    return x, y, w, h
 end
 
--- Registers a tab. def = { id, label, order, info, compactHeader, hints, build(parent) }.
+-- Registers a tab. def = { id, label, icon, order, info, compactHeader, hints, build(parent) }.
 -- Adding a tab is this one call; the window picks it up when it's built.
 function UI.RegisterTab(def)
     assert(type(def.id) == "string" and type(def.build) == "function", "tab needs id and build")
@@ -65,7 +76,7 @@ local function applyGeometry()
     local w = ns.db.window
     local minW, minH = minSize()
     local x, y, width, height = UI.ClampGeometry(w.x, w.y, w.width, w.height,
-        UIParent:GetWidth(), UIParent:GetHeight(), minW, minH)
+        UIParent:GetWidth(), UIParent:GetHeight(), minW, minH, ns.Theme.outside)
     window:ClearAllPoints()
     window:SetPoint("CENTER", UIParent, "CENTER", x, y)
     window:SetSize(width, height)
@@ -80,11 +91,11 @@ local function saveGeometry()
     w.point, w.relativePoint = "CENTER", "CENTER"
     w.x, w.y = math.floor(cx - px + 0.5), math.floor(cy - py + 0.5)
     w.width, w.height = math.floor(window:GetWidth() + 0.5), math.floor(window:GetHeight() + 0.5)
-    applyGeometry() -- re-anchor to CENTER (moving and sizing leave other anchors behind)
+    applyGeometry() -- re-anchor to CENTER and pull the tabs and legend back on screen
 end
 
 ---------------------------------------------------------------------------------------------
--- Header
+-- Character strip
 ---------------------------------------------------------------------------------------------
 
 local function classColorCode(classFile)
@@ -114,6 +125,16 @@ local function characterLine(c, withName)
     return line
 end
 
+-- Native stat bar (common-stat-bar): dark well, tinted fill, rounded mask.
+local function setXP(xp, value, max)
+    local L = ns.Theme.layout
+    local inner = L.xpWidth - 2 * L.xpFillInset
+    local width = math.floor(inner * math.min(1, math.max(0, value / max)) + 0.5)
+    xp.fill:SetShown(width >= 1)
+    xp.fill:SetWidth(math.max(1, width))
+    xp.text:SetText(string.format("%d / %d XP", value, max))
+end
+
 local function refreshHeader()
     if not window then return end
     local h = window.header
@@ -124,11 +145,7 @@ local function refreshHeader()
 
     local xpKnown = not c.isMaxLevel and type(c.xp) == "number" and type(c.xpMax) == "number" and c.xpMax > 0
     h.xp:SetShown(xpKnown and not compact)
-    if xpKnown then
-        h.xp:SetMinMaxValues(0, c.xpMax)
-        h.xp:SetValue(c.xp)
-        h.xp.text:SetText(string.format("%d / %d XP", c.xp, c.xpMax))
-    end
+    if xpKnown then setXP(h.xp, c.xp, c.xpMax) end
 
     local zone = ns.Debug.Try("GetZoneText", GetZoneText) or ""
     local sub = ns.Debug.Try("GetSubZoneText", GetSubZoneText) or ""
@@ -140,90 +157,71 @@ local function refreshHeader()
         h.zone:SetText("")
     end
 
-    if not compact and type(SetPortraitTexture) == "function" then
-        pcall(SetPortraitTexture, h.portrait, "player")
+    if window.portrait and type(SetPortraitTexture) == "function" then
+        pcall(SetPortraitTexture, window.portrait, "player")
     end
 end
 
--- Full header (76) on most tabs; compact (44) where the tab asks for it.
+-- Full strip (52) on most tabs; one line (40) where the tab asks for it.
 local function setHeaderMode(compact)
-    local L, T = ns.Theme.layout, ns.Theme
+    local L = ns.Theme.layout
     local h = window.header
     h.compact = compact and true or false
     h:SetHeight(compact and L.headerCompactHeight or L.headerHeight)
-    h.portrait:SetShown(not compact)
     h.name:SetShown(not compact)
     h.line:ClearAllPoints()
     if compact then
-        h.line:SetPoint("LEFT", h, "LEFT", T.space.s6, 0)
-        T.SetFont(h.wordmark, "title", "md")
+        h.line:SetPoint("LEFT", h, "LEFT", L.portraitClear, 0)
     else
         h.line:SetPoint("TOPLEFT", h.name, "BOTTOMLEFT", 0, -2)
-        T.SetFont(h.wordmark, "title", "lg")
     end
     refreshHeader()
 end
 
 local function buildHeader(f)
     local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
-    local inset = L.border + L.innerLine
-    local h = CreateFrame("Frame", nil, f)
-    h:SetPoint("TOPLEFT", inset, -inset)
-    h:SetPoint("TOPRIGHT", -inset, -inset)
+    local h = CreateFrame("Frame", nil, f.content)
+    h:SetPoint("TOPLEFT")
+    h:SetPoint("TOPRIGHT")
     h:SetHeight(L.headerHeight)
-    local bg = T.Gradient(h, "headerTop", "headerBottom", "BACKGROUND")
-    bg:SetAllPoints()
-    local rule = T.Solid(h, "goldDark", "BORDER")
-    rule:SetPoint("BOTTOMLEFT"); rule:SetPoint("BOTTOMRIGHT"); rule:SetHeight(2)
+    local rule = T.Solid(h, "divider", "BORDER")
+    rule:SetPoint("BOTTOMLEFT"); rule:SetPoint("BOTTOMRIGHT"); rule:SetHeight(1)
 
-    -- The header is the drag handle (there is no separate title bar).
+    -- The strip is the drag handle (with the title band, see buildWindow).
     h:EnableMouse(true)
     h:RegisterForDrag("LeftButton")
     h:SetScript("OnDragStart", function() f:StartMoving() end)
     h:SetScript("OnDragStop", function() f:StopMovingOrSizing(); saveGeometry() end)
 
-    h.portrait = h:CreateTexture(nil, "ARTWORK")
-    h.portrait:SetSize(L.portrait, L.portrait)
-    h.portrait:SetPoint("LEFT", S.s6, 0)
-    local mask = h:CreateMaskTexture()
+    h.name = T.Text(h, "lg", "gold")
+    h.name:SetPoint("TOPLEFT", h, "TOPLEFT", L.portraitClear, -S.s2)
+    h.line = T.Text(h, "sm", "text")
+
+    local xp = CreateFrame("Frame", nil, h)
+    xp:SetSize(L.xpWidth, L.xpHeight)
+    xp:SetPoint("CENTER", h, "CENTER", 0, 0)
+    xp.bg = xp:CreateTexture(nil, "BACKGROUND")
+    xp.bg:SetAllPoints()
+    T.SetAtlas(xp.bg, T.atlas.statBarBg)
+    xp.fill = xp:CreateTexture(nil, "BORDER")
+    T.SetAtlas(xp.fill, T.atlas.statBarFill)
+    xp.fill:SetVertexColor(T.RGB("xpFill"))
+    xp.fill:SetPoint("LEFT", xp, "LEFT", L.xpFillInset, 0)
+    xp.fill:SetHeight(L.xpFillHeight)
+    local mask = xp:CreateMaskTexture()
     if mask then
-        mask:SetAllPoints(h.portrait)
-        mask:SetTexture(T.textures.portraitMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-        pcall(h.portrait.AddMaskTexture, h.portrait, mask)
+        mask:SetAllPoints()
+        T.SetAtlas(mask, T.atlas.statBarMask)
+        pcall(xp.fill.AddMaskTexture, xp.fill, mask)
     end
+    xp.text = T.Text(xp, "xs", "white", "ARTWORK")
+    xp.text:SetPoint("CENTER", 0, 0)
+    h.xp = xp
 
-    h.name = T.Text(h, "title", "lg", "wowGold")
-    h.name:SetPoint("TOPLEFT", h.portrait, "TOPRIGHT", S.s4, -2)
-    h.line = T.Text(h, "body", "sm", "white")
-
-    h.xp = CreateFrame("StatusBar", nil, h)
-    h.xp:SetSize(L.xpWidth, L.xpHeight)
-    h.xp:SetPoint("TOPLEFT", h.line, "BOTTOMLEFT", 0, -S.s1)
-    h.xp:SetStatusBarTexture(T.textures.white)
-    h.xp:SetStatusBarColor(T.RGB("xpFill"))
-    local xbg = T.Solid(h.xp, "xpBg", "BACKGROUND")
-    xbg:SetAllPoints()
-    T.Edge(h.xp, "black", 1, 0, "OVERLAY")
-    h.xp.text = T.Text(h.xp, "body", "xs", "white")
-    h.xp.text:SetPoint("CENTER", 0, 0)
-
-    h.close = CreateFrame("Button", nil, h, "UIPanelCloseButton")
-    h.close:SetPoint("RIGHT", -S.s3, 0)
-    h.close:SetScript("OnClick", function() UI.Hide() end)
-
-    h.wordmark = T.Text(h, "title", "lg", "wowGold")
-    h.wordmark:SetText("AZERFOLIO")
-    h.wordmark:SetPoint("RIGHT", h.close, "LEFT", -S.s4, 0)
-    local div = T.Solid(h, "goldDark", "ARTWORK")
-    div:SetWidth(1)
-    div:SetPoint("RIGHT", h.wordmark, "LEFT", -S.s4, 0)
-    div:SetPoint("TOP", 0, -S.s3)
-    div:SetPoint("BOTTOM", 0, S.s3)
-
-    h.zone = T.Text(h, "body", "sm", "muted")
-    h.zone:SetPoint("RIGHT", div, "LEFT", -S.s4, 0)
+    h.zone = T.Text(h, "sm", "dim")
+    h.zone:SetPoint("RIGHT", h, "RIGHT", -S.s4, 0)
     h.zone:SetJustifyH("RIGHT")
-    h.subzone = T.Text(h, "title", "sm", "white")
+    h.subzone = T.Text(h, "sm", "white")
     h.subzone:SetPoint("RIGHT", h.zone, "LEFT", -S.s2, 0)
     h.subzone:SetJustifyH("RIGHT")
 
@@ -231,92 +229,97 @@ local function buildHeader(f)
 end
 
 ---------------------------------------------------------------------------------------------
--- Footer: tabs | info line | hints
+-- Side tabs (common-sidetab), LB above and RB below
 ---------------------------------------------------------------------------------------------
 
 local function styleTab(btn, active)
-    local T = ns.Theme
-    if active then
-        btn.bgTop:SetShown(false); btn.bgActive:SetShown(true)
-        btn.text:SetTextColor(T.RGB("ink")); btn.text:SetShadowOffset(0, 0)
-        btn:SetHeight(T.layout.tabHeight + 4)
-    else
-        btn.bgTop:SetShown(true); btn.bgActive:SetShown(false)
-        btn.text:SetTextColor(T.RGB("tabText")); btn.text:SetShadowOffset(1, -1)
-        btn:SetHeight(T.layout.tabHeight)
-    end
+    btn.selected:SetShown(active)
+    btn.icon:SetDesaturated(not active)
+    btn.icon:SetAlpha(active and 1 or 0.8)
 end
 
-local function buildTabs(footer)
-    local T, S = ns.Theme, ns.Theme.space
-    footer.lb = T.Glyph(footer, "LB")
-    footer.lb:SetPoint("LEFT", S.s4, 0)
-    local x = S.s4 + footer.lb:GetWidth() + S.s1
-    footer.tabButtons = {}
+local function buildTabs(f)
+    local T, L = ns.Theme, ns.Theme.layout
+    local tabs = CreateFrame("Frame", nil, f)
+    tabs:SetPoint("TOPLEFT", f, "TOPRIGHT", 0, -L.tabsTop)
+    tabs:SetSize(L.tabSize, 1)
+
+    tabs.lb = T.Glyph(tabs, "LB")
+    tabs.lb:SetPoint("TOP", tabs, "TOP", 0, 0)
+    local y = -(L.glyphSize + L.tabGap)
+    tabs.buttons = {}
     for _, def in ipairs(UI.tabs) do
-        local btn = CreateFrame("Button", nil, footer)
-        btn.bgTop = T.Gradient(btn, "tabTop", "tabBottom", "BACKGROUND")
-        btn.bgTop:SetAllPoints()
-        btn.bgActive = T.Gradient(btn, "tabActiveTop", "tabActiveBottom", "BACKGROUND")
-        btn.bgActive:SetAllPoints()
-        T.Edge(btn, "goldDark", 2, 0, "BORDER")
-        btn.text = T.Text(btn, "title", "sm", "tabText")
-        btn.text:SetPoint("CENTER", 0, 0)
-        btn.text:SetText(string.upper(def.label or def.id))
-        local width = math.floor((btn.text:GetStringWidth() or 60) + 2 * T.layout.tabPadX + 0.5)
-        btn:SetWidth(width)
-        -- Tabs hang from the footer's top edge, like the mockup.
-        btn:SetPoint("TOPLEFT", footer, "TOPLEFT", x, 2)
+        local btn = CreateFrame("Button", nil, tabs)
+        btn:SetSize(L.tabSize, L.tabSize)
+        btn:SetPoint("TOP", tabs, "TOP", 0, y)
+        local function art(layer, atlas)
+            local t = btn:CreateTexture(nil, layer)
+            t:SetSize(L.tabArt[1], L.tabArt[2])
+            t:SetPoint("CENTER")
+            T.SetAtlas(t, atlas)
+            return t
+        end
+        btn.bg = art("BACKGROUND", T.atlas.sideTab)
+        btn.icon = btn:CreateTexture(nil, "ARTWORK")
+        btn.icon:SetSize(L.tabIcon, L.tabIcon)
+        btn.icon:SetPoint("CENTER")
+        btn.icon:SetTexture(def.icon)
+        local mask = btn:CreateMaskTexture()
+        if mask then
+            mask:SetSize(L.tabArt[1], L.tabArt[2])
+            mask:SetPoint("CENTER")
+            T.SetAtlas(mask, T.atlas.sideTabMask)
+            pcall(btn.icon.AddMaskTexture, btn.icon, mask)
+        end
+        btn.selected = art("OVERLAY", T.atlas.sideTabSelected)
+        btn.hover = art("HIGHLIGHT", T.atlas.sideTabHover)
         btn:SetScript("OnClick", function() UI.SelectTab(def.id) end)
         btn:SetScript("OnEnter", function() UI.SetInfo(def.label, def.info) end)
         btn:SetScript("OnLeave", function() UI.RestoreInfo() end)
         styleTab(btn, false)
-        footer.tabButtons[def.id] = btn
-        x = x + width + S.s1
+        tabs.buttons[def.id] = btn
+        y = y - L.tabSize - L.tabGap
     end
-    footer.rb = T.Glyph(footer, "RB")
-    footer.rb:SetPoint("LEFT", footer, "LEFT", x, 0)
+    tabs.rb = T.Glyph(tabs, "RB")
+    tabs.rb:SetPoint("TOP", tabs, "TOP", 0, y)
+    f.tabs = tabs
 end
 
-local function buildFooter(f)
+---------------------------------------------------------------------------------------------
+-- Legend box: info line | hints
+---------------------------------------------------------------------------------------------
+
+local function buildLegend(f)
     local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
-    local inset = L.border + L.innerLine
-    local footer = CreateFrame("Frame", nil, f)
-    footer:SetPoint("BOTTOMLEFT", inset, inset)
-    footer:SetPoint("BOTTOMRIGHT", -inset, inset)
-    footer:SetHeight(L.footerHeight)
-    local bg = T.Gradient(footer, "footerTop", "footerBottom", "BACKGROUND")
-    bg:SetAllPoints()
-    local rule = T.Solid(footer, "goldDark", "BORDER")
-    rule:SetPoint("TOPLEFT"); rule:SetPoint("TOPRIGHT"); rule:SetHeight(2)
+    local lg = CreateFrame("Frame", nil, f)
+    lg:SetPoint("TOPLEFT", f, "BOTTOMLEFT", 0, -L.legendGap)
+    lg:SetPoint("TOPRIGHT", f, "BOTTOMRIGHT", 0, -L.legendGap)
+    lg:SetHeight(L.legendHeight)
+    lg:EnableMouse(true)
+    local bg = lg:CreateTexture(nil, "BACKGROUND")
+    bg:SetPoint("TOPLEFT", L.legendEdge, -L.legendEdge)
+    bg:SetPoint("BOTTOMRIGHT", -L.legendEdge, L.legendEdge)
+    bg:SetTexture(T.files.legendBg)
+    T.NineSlice(lg, T.atlas.diamond, "BORDER")
 
-    buildTabs(footer)
-
-    footer.hints = CreateFrame("Frame", nil, footer)
-    footer.hints:SetPoint("RIGHT", -S.s4, 0)
-    footer.hints:SetSize(1, L.glyphHeight)
-
-    local div = T.Solid(footer, "divider", "ARTWORK")
-    div:SetWidth(1)
-    div:SetPoint("LEFT", footer.rb, "RIGHT", S.s4, 0)
-    div:SetPoint("TOP", 0, -S.s3)
-    div:SetPoint("BOTTOM", 0, S.s3)
-    footer.info = T.Text(footer, "body", "sm", "infoText")
-    footer.info:SetPoint("LEFT", div, "RIGHT", S.s4, 0)
-    footer.info:SetPoint("RIGHT", footer.hints, "LEFT", -S.s4, 0)
-    footer.info:SetJustifyH("LEFT")
-    footer.info:SetWordWrap(false)
-
-    f.footer = footer
+    lg.hints = CreateFrame("Frame", nil, lg)
+    lg.hints:SetPoint("RIGHT", -S.s4, 0)
+    lg.hints:SetSize(1, L.glyphSize)
+    lg.info = T.Text(lg, "sm", "text")
+    lg.info:SetPoint("LEFT", lg, "LEFT", S.s4, 0)
+    lg.info:SetPoint("RIGHT", lg.hints, "LEFT", -S.s4, 0)
+    lg.info:SetJustifyH("LEFT")
+    lg.info:SetWordWrap(false)
+    f.legend = lg
 end
 
--- Info line: "<b>Title</b> detail". Describes the focused control (gamepad users' tooltip).
+-- Info line: "<gold>Title</gold> detail". Describes the focused control (gamepad users' tooltip).
 function UI.SetInfo(title, detail)
     if not window then return end
     local text = ""
     if title and title ~= "" then text = "|cffffd100" .. title .. "|r" end
     if detail and detail ~= "" then text = text .. (text ~= "" and "   " or "") .. detail end
-    window.footer.info:SetText(text)
+    window.legend.info:SetText(text)
 end
 
 -- Back to the current tab's own description.
@@ -326,19 +329,18 @@ function UI.RestoreInfo()
 end
 
 -- hints = { { "A", "Select" }, { "B", "Close" }, ... }, drawn right to left from the edge.
--- Hidden when the controller isn't driving the window (mouse users, or in combat).
+-- Shown only while the controller drives the window.
 function UI.SetHints(hints)
     if not window then return end
     local T, S = ns.Theme, ns.Theme.space
-    local row = window.footer.hints
-    local show = ns.Gamepad and ns.Gamepad.IsActive()
-    hints = show and hints or {}
+    local row = window.legend.hints
+    hints = (ns.Gamepad and ns.Gamepad.IsActive()) and hints or {}
     local x = 0
     for i = #hints, 1, -1 do
         local slot = #hints - i + 1
         local e = hintPool[slot]
         if not e then
-            e = { glyph = T.Glyph(row, "A"), text = T.Text(row, "body", "sm", "infoText") }
+            e = { glyph = T.Glyph(row, "A"), text = T.Text(row, "sm", "gold") }
             hintPool[slot] = e
         end
         T.SetGlyph(e.glyph, hints[i][1])
@@ -348,14 +350,12 @@ function UI.SetHints(hints)
         e.glyph:ClearAllPoints()
         e.glyph:SetPoint("RIGHT", e.text, "LEFT", -S.s1, 0)
         e.glyph:Show(); e.text:Show()
-        x = x + (e.text:GetStringWidth() or 0) + S.s1 + e.glyph:GetWidth() + S.s3
+        x = x + (e.text:GetStringWidth() or 0) + S.s1 + e.glyph:GetWidth() + S.s4
     end
     for slot = #hints + 1, #hintPool do
         hintPool[slot].glyph:Hide(); hintPool[slot].text:Hide()
     end
-    row:SetWidth(math.max(1, x - S.s3))
-    window.footer.lb:SetShown(show)
-    window.footer.rb:SetShown(show)
+    row:SetWidth(math.max(1, x - S.s4))
 end
 
 -- The current tab's hints, then the window's own (B closes).
@@ -367,7 +367,14 @@ local function currentHints()
     return list
 end
 
+-- Everything that depends on whether the controller drives the window: the frame's focus
+-- glow, the LB/RB glyphs on the tabs, and the button hints.
 function UI.RefreshHints()
+    if not window then return end
+    local active = ns.Gamepad and ns.Gamepad.IsActive() or false
+    if window.FrameGlow then window.FrameGlow:SetShown(active) end
+    window.tabs.lb:SetShown(active)
+    window.tabs.rb:SetShown(active)
     UI.SetHints(currentHints())
 end
 
@@ -377,10 +384,9 @@ end
 
 local function buildWindow()
     local T, L = ns.Theme, ns.Theme.layout
-    local f = CreateFrame("Frame", FRAME_NAME, UIParent)
+    local f = CreateFrame("Frame", FRAME_NAME, UIParent, "PortraitFrameTemplate")
     f:SetFrameStrata("HIGH")
     f:SetToplevel(true)
-    f:SetClampedToScreen(true)
     f:SetMovable(true)
     f:SetResizable(true)
     local minW, minH = minSize()
@@ -394,38 +400,57 @@ local function buildWindow()
     f:EnableMouse(true) -- clicks on the window don't fall through to the world
     f:Hide()
 
-    local bg = T.Solid(f, "stone", "BACKGROUND")
-    bg:SetAllPoints()
-    T.Edge(f, "goldDark", L.border, 0, "BORDER")
-    T.Edge(f, "gold", L.innerLine, L.border, "BORDER")
+    if f.SetTitle then
+        pcall(f.SetTitle, f, "Azerfolio")
+    elseif f.TitleContainer and f.TitleContainer.TitleText then
+        f.TitleContainer.TitleText:SetText("Azerfolio")
+    end
+    window = f
+    f.portrait = f.PortraitContainer and f.PortraitContainer.portrait
+    if f.CloseButton then f.CloseButton:SetScript("OnClick", function() UI.Hide() end) end
+
+    -- Content: the native pane background between the title band and the frame edge.
+    local content = CreateFrame("Frame", nil, f)
+    content:SetPoint("TOPLEFT", f, "TOPLEFT", L.edgeInset, -L.titleHeight)
+    content:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -L.edgeInset, L.edgeInset)
+    local pane = content:CreateTexture(nil, "BACKGROUND")
+    pane:SetAllPoints()
+    T.SetAtlas(pane, T.atlas.pane)
+    f.content = content
 
     buildHeader(f)
-    buildFooter(f)
-
-    local content = CreateFrame("Frame", nil, f)
-    content:SetPoint("TOPLEFT", f.header, "BOTTOMLEFT", L.contentInset, 0)
-    content:SetPoint("BOTTOMRIGHT", f.footer, "TOPRIGHT", -L.contentInset, 0)
-    content:SetClipsChildren(true)
-    -- Light, even parchment colour (design), with the native texture only as faint grain:
-    -- at full strength its dark blotches hid ink text (shot 2026-11-07 16:37:11).
-    local base = content:CreateTexture(nil, "BACKGROUND", nil, -8)
-    base:SetAllPoints()
-    base:SetColorTexture(T.RGB("parchment"))
-    local grain = content:CreateTexture(nil, "BACKGROUND", nil, -7)
-    grain:SetAllPoints()
-    grain:SetTexture(T.textures.parchment)
-    grain:SetAlpha(T.layout.parchmentGrain)
-    T.Edge(content, "inkSoft", 1, 0, "BORDER")
-    f.content = content
+    local body = CreateFrame("Frame", nil, content)
+    body:SetPoint("TOPLEFT", f.header, "BOTTOMLEFT")
+    body:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT")
+    body:SetClipsChildren(true)
+    f.body = body
     f.pages = {}
+
+    -- The template's frame art draws over the content (its metal edge overlaps the pane).
+    local top = content:GetFrameLevel() + 5
+    for _, key in ipairs({ "NineSlice", "PortraitContainer", "TitleContainer", "CloseButton" }) do
+        if f[key] and f[key].SetFrameLevel then f[key]:SetFrameLevel(top) end
+    end
+
+    -- Drag by the title band too.
+    local drag = CreateFrame("Frame", nil, f)
+    drag:SetPoint("TOPLEFT", f, "TOPLEFT", L.portraitClear, 0)
+    drag:SetPoint("BOTTOMRIGHT", f, "TOPRIGHT", -32, -L.titleHeight)
+    drag:EnableMouse(true)
+    drag:RegisterForDrag("LeftButton")
+    drag:SetScript("OnDragStart", function() f:StartMoving() end)
+    drag:SetScript("OnDragStop", function() f:StopMovingOrSizing(); saveGeometry() end)
+
+    buildTabs(f)
+    buildLegend(f)
 
     local grip = CreateFrame("Button", nil, f)
     grip:SetSize(16, 16)
-    grip:SetPoint("BOTTOMRIGHT", -L.border - 2, L.border + 2)
-    grip:SetFrameLevel(f.footer:GetFrameLevel() + 5)
-    grip:SetNormalTexture(T.textures.resizeUp)
-    grip:SetHighlightTexture(T.textures.resizeHighlight)
-    grip:SetPushedTexture(T.textures.resizeDown)
+    grip:SetPoint("BOTTOMRIGHT", -4, 4)
+    grip:SetFrameLevel(top + 1)
+    grip:SetNormalTexture(T.files.resizeUp)
+    grip:SetHighlightTexture(T.files.resizeHighlight)
+    grip:SetPushedTexture(T.files.resizeDown)
     grip:SetScript("OnMouseDown", function() f:StartSizing("BOTTOMRIGHT") end)
     grip:SetScript("OnMouseUp", function() f:StopMovingOrSizing(); saveGeometry() end)
     f.grip = grip
@@ -451,7 +476,6 @@ local function buildWindow()
         ns.Events.Register(e, onChange)
     end
 
-    window = f
     if ns.Gamepad then ns.Gamepad.Attach(f) end
     applyGeometry()
     UI.SelectTab(ns.db.lastTab)
@@ -463,12 +487,12 @@ function UI.SelectTab(id)
     local def = UI.tabs[tabIndex(id)]
     local page = window.pages[id]
     if not page then
-        page = def.build(window.content)
-        page:SetAllPoints(window.content)
+        page = def.build(window.body)
+        page:SetAllPoints(window.body)
         window.pages[id] = page
     end
     for pid, p in pairs(window.pages) do p:SetShown(pid == id) end
-    for tid, btn in pairs(window.footer.tabButtons) do styleTab(btn, tid == id) end
+    for tid, btn in pairs(window.tabs.buttons) do styleTab(btn, tid == id) end
     current = id
     ns.db.lastTab = id
     setHeaderMode(def.compactHeader)
