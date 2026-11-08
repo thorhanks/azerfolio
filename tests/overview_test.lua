@@ -98,6 +98,22 @@ return function(t)
         t.eq(m.hero.zone.name, "Westfall", "current zone unknown")
     end)
 
+    t.test("overview: in a capital, next-for-level prefers the capital's continent", function()
+        local ns = load()
+        local i = input(ns, { current = 1453 })
+        local keep = {}
+        for _, z in ipairs(i.zones) do if z.state ~= "progress" then keep[#keep + 1] = z end end
+        i.zones = keep
+        i.zones[#i.zones + 1] = zone(ns, 1439, "Darkshore", 0, 9, 0, { minLevel = 10, maxLevel = 20,
+            faction = "Alliance", continent = "Kalimdor" })
+        local m = ns.Overview.Build(i)
+        t.eq(m.hero.zone.name, "Loch Modan", "Stormwind City is in the Eastern Kingdoms; Darkshore isn't")
+        t.eq(m.current.state, "untracked")
+        i.current = false
+        m = ns.Overview.Build(i)
+        t.eq(m.hero.zone.name, "Darkshore", "without a continent: by name")
+    end)
+
     t.test("overview: with nothing in progress, Continue is the next zone for your level", function()
         local ns = load()
         local i = input(ns, { current = false })

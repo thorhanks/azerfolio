@@ -163,9 +163,27 @@ function Exploration.CurrentZone()
     return Exploration.ZoneForMap(here)
 end
 
-local function refreshCurrent()
+-- After a discovery burst: re-read the zone the player is in. If MAP_EXPLORATION_UPDATED fired
+-- (a real discovery) and that zone didn't change, the area belongs to another zone (e.g.
+-- Elwynn's "Stormwind City" is discovered on the Stormwind City map, which has no Explore
+-- achievement) [verified-ingame, trace 2026-11-07 22:17], so every tracked zone is re-read.
+local mapExplored = false
+local function refreshAfterDiscovery()
+    local explored = mapExplored
+    mapExplored = false
     local mapID = Exploration.CurrentZone()
-    if mapID then Exploration.RefreshZone(mapID, true) end
+    local changed = false
+    if mapID then _, changed = Exploration.RefreshZone(mapID, true) end
+    if changed or not explored then return end
+    local found = 0
+    -- Only zones read before: an unreadable zone has nothing to compare (it would look changed).
+    for id in pairs(catalogue().zones) do
+        if id ~= mapID and cache[id] then
+            local _, diff = Exploration.RefreshZone(id, true)
+            if diff then found = found + 1 end
+        end
+    end
+    ns.Debug.Trace("exploration", { scan = true, current = mapID, changedZones = found })
 end
 
 -- Reads every zone once, so each one has a baseline before the player discovers anything in
@@ -193,7 +211,8 @@ end)
 -- only announces a change when a criterion actually flipped.
 local function onDiscoveryEvent(event)
     if not ns.ready then return end
-    ns.Events.Debounce("exploration", Exploration.REFRESH_DELAY, refreshCurrent)
+    if event == "MAP_EXPLORATION_UPDATED" then mapExplored = true end
+    ns.Events.Debounce("exploration", Exploration.REFRESH_DELAY, refreshAfterDiscovery)
 end
 
 ns.Events.Register("CRITERIA_UPDATE", function() onDiscoveryEvent("CRITERIA_UPDATE") end)

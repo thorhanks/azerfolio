@@ -274,6 +274,16 @@ end
 local function dayOf(t) return date("%Y-%m-%d", t) end
 local function clock(t) return date("%H:%M", t) end
 
+-- The player's zone: the tracked zone they're in, else the map itself (a capital such as
+-- Stormwind City is a listed zone without exploration; its continent still orders the
+-- "next for your level" picks).
+local function currentMap()
+    local tracked = ns.Exploration.CurrentZone()
+    if tracked then return tracked end
+    return C_Map and C_Map.GetBestMapForUnit
+        and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player") or nil
+end
+
 function Overview.Gather()
     local hasDate = type(date) == "function"
     return {
@@ -283,7 +293,7 @@ function Overview.Gather()
             return ex.status == "tracked" and ex.objectives or nil
         end,
         overall = ns.Exploration.Overall(),
-        current = ns.Exploration.CurrentZone(),
+        current = currentMap(),
         recent = ns.charDB and ns.charDB.recentZones or {},
         milestones = ns.charDB and ns.charDB.milestones or {},
         char = ns.character or {},

@@ -78,7 +78,9 @@ Built in steps the owner approves one at a time:
 - `UI/FocusGrid.lua`: items may carry a `group` (a column). Up/down stay in the group and skip rows without it; left/right cross. The Overview pairs left rows with right panels; LT/RT jump Continue → each suggestion group.
 - `/azf debug overview` (chat + trace `overview`); `/azf shots` adds "overview, suggestions" (12 shots).
 - Tests: 196 passed (10 model tests in `tests/overview_test.lua`, 1 FocusGrid group test, 8 page tests; the old placeholder-Overview focus test now checks the Overview's own focus memory). The UI test boot now mocks `UnitFactionGroup` (Alliance) instead of relying on an earlier test's global.
-- Not yet: in-game check (`docs/testing.md` § Phase 7); the completion celebration and Atlas from the design.
+- Not yet: the rest of the in-game check (`docs/testing.md` § Phase 7); the completion celebration and Atlas from the design.
+- **First in-game look** (Gideon in Stormwind City; shots `WoWScrnShot_110726_221635`–`221652`, files written 22:17:22): no errors. Verified [verified-ingame]: both columns at 1160 wide and at the 1000×640 minimum, Continue card (Elwynn 11 of 12, 91%, "Continue exploring" since Stormwind isn't tracked), chips with the focus chevron and highlight, Tracked completion 2% (11 of 549), Zones 0 of 39 complete, Recent zones, the activity strip and both milestones ("Today, 20:02", "time not seen"). At the minimum size the left column scrolls (the last group's "+5 more" is below the fold).
+- **Fixed after:** discovering Elwynn's "Stormwind City" area while on the Stormwind City map wasn't seen live (discovery events re-read only the current tracked zone, and Stormwind has none), so its milestone had no time. Now, when `MAP_EXPLORATION_UPDATED` fired and the current zone didn't change, every zone read before is re-read (trace `scan`). Also, in a capital the Overview uses the capital as the current zone, so "next for your level" prefers its continent (it picked Darkshore over Loch Modan by name). Tests: 198 passed. Not re-checked in game.
 
 ## Phase 6 — Zones catalogue and Zone Detail: done (2026-11-07)
 

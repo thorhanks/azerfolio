@@ -951,6 +951,23 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
+    t.test("tracker: a discovery outside the current zone's map is found live by a full re-read", function()
+        here = 2521 -- standing on a map without an Explore achievement (like Stormwind City)
+        local ns = boot()
+        ns.Exploration.Overall() -- baseline of every zone
+        local got = listen(ns)
+        CRITERIA[776][4][2] = true -- an Elwynn Forest area
+        wow.fire("CRITERIA_UPDATE")
+        wow.fire("MAP_EXPLORATION_UPDATED")
+        wow.runTimers()
+        CRITERIA[776][4][2] = false
+        here = 1429
+        t.eq(#got, 1); t.same(got[1], { 1429 })
+        local m = ns.charDB.milestones[#ns.charDB.milestones]
+        t.eq(m.id, 1149); t.ok(m.time ~= nil, "seen live, so it has a time")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
     t.test("tracker: an unrelated CRITERIA_UPDATE announces nothing", function()
         local ns = boot()
         ns.Exploration.ForZone(1429)

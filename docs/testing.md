@@ -135,3 +135,4 @@ Automated: `luajit tests/run.lua` covers the Overview's picks (Continue, next go
 
 | Date | By | Result |
 |---|---|---|
+| 2026-11-07 | Owner (Gideon) + agent | Partial. `/azf shots` and `/azf debug overview` run in Stormwind City (shots `WoWScrnShot_110726_221635`-`221652`, trace written 22:17:22): Overview renders at default and minimum size, numbers match the trace (11/549, Elwynn 11/12, 0 of 39 zones), chips focusable. Found: Elwynn's "Stormwind City" area discovered on the Stormwind map got no time (not seen live); fixed (tests). Steps 3-6 not reported yet |
