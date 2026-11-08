@@ -480,6 +480,25 @@ function Quests.DebugReport()
         ap.unavailable, ap.eligibilityUnknown, ap.coverage)
     ns.Printf("  reasons: %s", table.concat(top(reasons, 8), ", "))
 
+    -- Where the character's completed quests fall: in a zone count, or left out and why.
+    local done = {}
+    if completed and lib then
+        local Q = lib.Quest
+        for id in pairs(completed) do
+            local kind
+            if type(Q.Exists) == "function" and not try("QuestDB.Exists", Q.Exists, id) then
+                kind = "not in QuestieDB"
+            else
+                local zs = try("QuestDB.zoneOrSort", Q.zoneOrSort, id)
+                local sf = try("QuestDB.specialFlags", Q.specialFlags, id)
+                local qf = type(Q.questFlags) == "function" and try("QuestDB.questFlags", Q.questFlags, id) or nil
+                kind = Quests.IsRepeatable(sf, qf) and "repeatable" or Quests.Place(zs, ns.QuestAreaData)
+            end
+            done[kind] = (done[kind] or 0) + 1
+        end
+        ns.Printf("  your completed quests by place: %s", table.concat(top(done, 10), ", "))
+    end
+
     local here = ns.Exploration and ns.Exploration.CurrentZone and ns.Exploration.CurrentZone()
     local hq = here and Quests.ForZone(here)
     local hereList = {}
@@ -506,5 +525,5 @@ function Quests.DebugReport()
         all = { completed = ap.completed, denominator = ap.denominator, eligible = ap.eligible, locked = ap.locked,
             unavailable = ap.unavailable, unknown = ap.eligibilityUnknown, completionUnknown = ap.completionUnknown,
             coverage = ap.coverage, percent = ap.percent },
-        reasons = reasons, here = here, hereList = hereList })
+        reasons = reasons, here = here, hereList = hereList, completedByPlace = done })
 end

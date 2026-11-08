@@ -14,7 +14,7 @@ local HELP = {
     "/azf debug zones - show the Zones catalogue's counts and filters",
     "/azf debug overview - show what the Overview picks and counts",
     "/azf debug quests - show the quest catalogue from QuestieDB (counts per zone, what's left out)",
-    "/azf debug perf - event counts, timings and memory since debug was turned on (reset: start over)",
+    "/azf debug perf - event counts, timings and memory since debug was turned on (reset: start over; gc: collect garbage first)",
     "/azf shot - take a test screenshot (development)",
     "/azf shots - screenshot every tab and state (development)",
     "/azf shots banners - screenshot the zones with a banner offset (development)",
@@ -137,12 +137,22 @@ local function debugPerf(sub)
         top[#top + 1] = { name = s.name, count = s.count, ms = math.floor(s.ms * 100 + 0.5) / 100,
             max = math.floor(s.max * 100 + 0.5) / 100 }
     end
+    -- "gc": a full garbage collection first, so memory is live data, not uncollected garbage.
+    -- It can stall a frame on a large heap, so it only runs when asked for.
+    local gcBefore
+    if sub == "gc" then
+        gcBefore = collectgarbage("count")
+        collectgarbage("collect")
+    end
     local m = clientMetrics()
     local sizes = Commands.Sizes()
     ns.Printf("  memory %s KB; trace %d, milestones %d, recent zones %d, baseline %d zones / %d areas, cache %d zones",
         m.memoryKB and string.format("%.0f", m.memoryKB) or "unknown", sizes.trace, sizes.milestones,
         sizes.recentZones, sizes.baselineZones, sizes.baselineAreas, sizes.cachedZones)
-    ns.Debug.Trace("perf", { seconds = since and (now - since) or 0, top = top, memoryKB = m.memoryKB,
+    if gcBefore then
+        ns.Printf("  after a full garbage collection (Lua heap %.0f -> %.0f KB)", gcBefore, collectgarbage("count"))
+    end
+    ns.Debug.Trace("perf", { seconds = since and (now - since) or 0, top = top, memoryKB = m.memoryKB, gc = gcBefore ~= nil,
         profilerEnabled = m.profilerEnabled, profiler = m.profiler, sizes = sizes })
 end
 

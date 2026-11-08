@@ -173,15 +173,24 @@ return function(t)
                 specialFlags = function(id) return rows[id][2] end,
             },
         }
-        local ns = boot()
+        local ns = boot(nil, nil, { C_QuestLog = { GetAllCompletedQuestIDs = function() return { 1, 3 } end } })
         wow.runTimers()
-        _G.LibQuestieDB = nil
         t.eq(ns.Quests.State().status, "ready")
         slash("debug quests")
+        _G.LibQuestieDB = nil
         local all = table.concat(wow.chat, "\n")
         t.ok(all:find("Quests: 3 in QuestieDB, 1 in zone counts"), all)
         t.ok(all:find("dungeon 1"), all)
-        t.ok(all:find("this zone %(1429%): 1 quests"), all)
+        t.ok(all:find("this zone %(1429%): 1 quests, 1/1 done"), all)
+        t.ok(all:find("your completed quests by place: sort 1, zone 1"), all)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("/azf debug perf gc collects garbage first", function()
+        local ns = boot()
+        slash("debug")
+        slash("debug perf gc")
+        t.ok(table.concat(wow.chat, "\n"):find("after a full garbage collection"), table.concat(wow.chat, "\n"))
         t.eq(#ns.Debug.errors, 0)
     end)
 
