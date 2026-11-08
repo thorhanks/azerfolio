@@ -76,6 +76,18 @@ Which of them fire on discovery, and in what order, is **not yet observed** (no 
 3. Does the in-game Achievements window show Elwynn 5/12 for Gideon (cross-check)?
 4. Are any criteria faction-restricted (`eligible` false) on a Horde character?
 
+## Zone metadata (probe `/azfdiag zones`, 2026-11-07)
+
+Run on Gideon (level 9, Alliance, in Elwynn Forest), 51 zone maps, 0 errors. Report: `luajit tools/diag-report.lua zones`.
+
+| API | Result | Evidence |
+|---|---|---|
+| `C_Map.GetMapLevels(mapID)` | Exists, but returns `0, 0, 0, 0` for **every** zone map, capitals included. **No level ranges from the client.** | [verified-ingame] |
+| `GetZonePVPInfo` | Doesn't exist. No client source for a zone's faction territory found. | [verified-ingame] |
+| `C_Map.GetMapRectOnMap(zone, continent)` | Works: `minX, maxX, minY, maxY` as fractions of the continent map, plausible for all 50 zones under a continent (e.g. Elwynn 0.41–0.51 × 0.66–0.76, Teldrassil at Kalimdor's top, Tanaris at its bottom). Zephras Isle (parent = world 947) gives `0, 0, 0, 0`; its parentless duplicate 2665 gives nothing. Usable for an Atlas view. | [verified-ingame] |
+| `C_Map.OpenWorldMap` | Exists (not yet called). | [verified-ingame] |
+| `GetMapInfo(...).flags` | 2 on every questing zone, 0 on the six capitals and the 2665 duplicate. Meaning not known; not relied on. | [verified-ingame] |
+
 ## Quests
 
 | API | Status | Evidence |
