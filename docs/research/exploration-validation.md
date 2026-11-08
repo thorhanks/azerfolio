@@ -35,6 +35,7 @@ Two new areas were discovered on Gideon. Both were detected, and each flipped ex
 - `CRITERIA_UPDATE` carries no arguments and fires for unrelated criteria too (8 times in one short session). The debounce makes that cheap.
 - On refresh, re-read criteria only for the current zone's achievement. A discovery always happens in the zone the player is standing in. Recompute only that zone's summary and the totals.
 - `UI_INFO_MESSAGE` with "Discovered:" isn't needed as a trigger, but it's a handy debug signal.
+- `RECEIVED_ACHIEVEMENT_LIST` does **not** fire on `/reload` (Phase 5 trace, 2026-11-07) [verified-ingame]. Azerfolio reads every zone 3 s after `AZF_READY` as well; after a reload that read found all 43 zones readable [verified-ingame].
 - Initial read: after `PLAYER_ENTERING_WORLD`; achievement data was readable 3 s after it. `RECEIVED_ACHIEVEMENT_LIST` fires about 2 s after it on login. Read on that event when it arrives, with `PLAYER_ENTERING_WORLD` + delay as a fallback.
 
 ## Zone coverage
