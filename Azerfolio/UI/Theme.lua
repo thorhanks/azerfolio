@@ -46,7 +46,7 @@ Theme.color = {
 }
 
 -- Type scale (nothing below 12: couch distance).
-Theme.size = { xs = 12, sm = 14, md = 16, lg = 20, xl = 26, xxl = 32 }
+Theme.size = { xs = 12, sm = 14, md = 16, lg = 20, xl = 26, xxl = 32, huge = 42 } -- huge: the zone's % in the dashboard header
 
 -- 4 px spacing grid.
 Theme.space = { s1 = 4, s2 = 8, s3 = 12, s4 = 16, s6 = 24 }
@@ -110,7 +110,7 @@ Theme.layout = {
     overviewLeft = 0.6,        -- left column's share (grid 1.5fr 1fr)
     heroHeight = 164,
     heroArt = 190,
-    heroScore = 120,           -- right part of the Continue card (big percentage)
+    heroScore = 180,           -- right part of the Continue card (big percentage and the mini standard)
     goalHeight = 40,
     chipHeight = 28,
     chipPad = 10,
@@ -127,15 +127,107 @@ Theme.layout = {
     milestoneIcon = 18,
 }
 
--- Zone completion categories (spec §7.7), in display order: label, unit, icon.
--- Icons: the map is the Zones tab's [verified-ingame]; the other two are classic client files
--- [unverified on Forever: check in /azf shots].
+-- Painted art from tools/process-art.ps1 (Data/Art.lua lists what exists; the client can't
+-- test whether a file exists). Icons: Media\Icons\icon-<name>.blp; chrome: Media\Chrome.
+Theme.mediaDir = "Interface\\AddOns\\Azerfolio\\Media\\"
+function Theme.Icon(name, fallback)
+    local art = ns.Art and ns.Art.icons
+    if art and art[name] then return Theme.mediaDir .. "Icons\\icon-" .. name .. ".blp" end
+    return fallback
+end
+-- The chrome piece's file and its nine-slice border ({ x, y } fractions, or true), or nil.
+function Theme.Chrome(name)
+    local c = ns.Art and ns.Art.chrome and ns.Art.chrome[name]
+    if not c then return nil end
+    return Theme.mediaDir .. "Chrome\\" .. name .. ".blp", c
+end
+
+-- Zone completion categories (spec §7.7), in display order: label, unit, icon. Icons: the
+-- owner's painted set when present (design round 2), else client icons (the map is the Zones
+-- tab's [verified-ingame]; the quest "!" and gryphon loaded in game, 2026-11-08).
 Theme.categoryOrder = { "explore", "quests", "flights" }
 Theme.category = {
-    explore = { label = "Exploration", unit = "areas", icon = "Interface\\Icons\\INV_Misc_Map_01" },
-    quests = { label = "Quests", unit = "quests", icon = "Interface\\GossipFrame\\AvailableQuestIcon" },
-    flights = { label = "Flight paths", unit = "flight paths", icon = "Interface\\Icons\\Ability_Mount_Gryphon_01" },
+    explore = { label = "Exploration", unit = "areas", icon = Theme.Icon("explore", "Interface\\Icons\\INV_Misc_Map_01") },
+    quests = { label = "Quests", unit = "quests", icon = Theme.Icon("quests", "Interface\\GossipFrame\\AvailableQuestIcon") },
+    flights = { label = "Flight paths", unit = "flight paths", icon = Theme.Icon("flights", "Interface\\Icons\\Ability_Mount_Gryphon_01") },
 }
+
+-- The painted card frame (frame-card, nine-slice) drawn over `frame`'s edge, `out` units
+-- outside it, corners `corner` units square. The centre stays empty. Returns a handle with
+-- SetShown(on) and SetVertexColor(r, g, b), or nil without the art.
+function Theme.CardFrame(frame, corner, out, layer)
+    local file, slice = Theme.Chrome("frame-card")
+    if not file or type(slice) ~= "table" then return nil end
+    corner, out = corner or 24, out or 4
+    local sx, sy = slice.x, slice.y
+    local pieces = {}
+    local function piece(l, r, t, b)
+        local tex = frame:CreateTexture(nil, layer or "OVERLAY", nil, 6)
+        tex:SetTexture(file)
+        tex:SetTexCoord(l, r, t, b)
+        pieces[#pieces + 1] = tex
+        return tex
+    end
+    local tl, tr = piece(0, sx, 0, sy), piece(1 - sx, 1, 0, sy)
+    local bl, br = piece(0, sx, 1 - sy, 1), piece(1 - sx, 1, 1 - sy, 1)
+    for _, c in ipairs({ tl, tr, bl, br }) do c:SetSize(corner, corner) end
+    tl:SetPoint("TOPLEFT", frame, "TOPLEFT", -out, out)
+    tr:SetPoint("TOPRIGHT", frame, "TOPRIGHT", out, out)
+    bl:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", -out, -out)
+    br:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", out, -out)
+    local top, bottom = piece(sx, 1 - sx, 0, sy), piece(sx, 1 - sx, 1 - sy, 1)
+    top:SetPoint("TOPLEFT", tl, "TOPRIGHT"); top:SetPoint("BOTTOMRIGHT", tr, "BOTTOMLEFT")
+    bottom:SetPoint("TOPLEFT", bl, "TOPRIGHT"); bottom:SetPoint("BOTTOMRIGHT", br, "BOTTOMLEFT")
+    local left, right = piece(0, sx, sy, 1 - sy), piece(1 - sx, 1, sy, 1 - sy)
+    left:SetPoint("TOPLEFT", tl, "BOTTOMLEFT"); left:SetPoint("BOTTOMRIGHT", bl, "TOPRIGHT")
+    right:SetPoint("TOPLEFT", tr, "BOTTOMLEFT"); right:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT")
+    local h = {}
+    function h:SetShown(on) for _, p in ipairs(pieces) do p:SetShown(on) end end
+    function h:SetVertexColor(r, g, b) for _, p in ipairs(pieces) do p:SetVertexColor(r, g, b) end end
+    return h
+end
+
+-- A gilded progress bar (frame-bar housing, three-slice, over a dark well, with the bar-fill
+-- gold): :Set(fraction, state) (state "complete" = gold, otherwise amber). Falls back to a
+-- plain well and fill without the art. height in UI units.
+function Theme.GildedBar(parent, height)
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetHeight(height or 20)
+    local file, slice = Theme.Chrome("frame-bar")
+    local fill = Theme.Chrome("bar-fill")
+    local inset = file and math.floor((height or 20) * 0.3 + 0.5) or 0
+    local endW = file and math.floor((height or 20) * 0.9 + 0.5) or 0
+    f.well = f:CreateTexture(nil, "BACKGROUND")
+    f.well:SetPoint("TOPLEFT", endW * 0.5, -inset); f.well:SetPoint("BOTTOMRIGHT", -endW * 0.5, inset)
+    f.well:SetColorTexture(0.055, 0.027, 0.004, 1)
+    f.fill = f:CreateTexture(nil, "BORDER")
+    f.fill:SetPoint("TOPLEFT", f.well, "TOPLEFT"); f.fill:SetPoint("BOTTOMLEFT", f.well, "BOTTOMLEFT")
+    if fill then f.fill:SetTexture(fill) end
+    if file and type(slice) == "table" then
+        local sx = slice.x
+        local l, m, r = f:CreateTexture(nil, "ARTWORK"), f:CreateTexture(nil, "ARTWORK"), f:CreateTexture(nil, "ARTWORK")
+        for _, t in ipairs({ l, m, r }) do t:SetTexture(file) end
+        l:SetTexCoord(0, sx, 0, 1); m:SetTexCoord(sx, 1 - sx, 0, 1); r:SetTexCoord(1 - sx, 1, 0, 1)
+        l:SetPoint("TOPLEFT"); l:SetPoint("BOTTOMLEFT"); l:SetWidth(endW)
+        r:SetPoint("TOPRIGHT"); r:SetPoint("BOTTOMRIGHT"); r:SetWidth(endW)
+        m:SetPoint("TOPLEFT", l, "TOPRIGHT"); m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
+    end
+    function f:Set(frac, state)
+        frac = math.max(0, math.min(1, frac or 0))
+        local w = self.well:GetWidth() or 0
+        if w <= 0 then w = (self:GetWidth() or 0) - endW end
+        self.fill:SetWidth(math.max(0.001, w * frac))
+        self.fill:SetShown(frac > 0)
+        if fill then
+            self.fill:SetTexCoord(0, math.max(0.001, frac), 0, 1)
+            if state == "complete" then self.fill:SetVertexColor(1, 1, 1) else self.fill:SetVertexColor(1, 0.72, 0.42) end
+        else
+            local r, g, b = Theme.RGB(state == "complete" and "complete" or "todo")
+            self.fill:SetColorTexture(r, g, b, 1)
+        end
+    end
+    return f
+end
 Theme.layout.catBar = 6          -- category bar height (cards, rows)
 Theme.layout.catIcon = 14
 Theme.layout.catSlot = 14        -- one category's line on a card

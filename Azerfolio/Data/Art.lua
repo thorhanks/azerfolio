@@ -62,5 +62,21 @@ ns.Art = {
         ["banner-horde"] = true,
         ["pole-alliance"] = true,
         ["pole-horde"] = true,
+        ["streamer-alliance"] = true,
+        ["streamer-horde"] = true,
+    },
+    chrome = {
+        ["bar-fill"] = true,
+        ["divider"] = true,
+        ["frame-bar"] = { x = 0.082, y = 0.3281 },
+        ["frame-card"] = { x = 0.16, y = 0.16 },
+        ["plate-header"] = { x = 0.19, y = 0 },
+    },
+    icons = {
+        ["explore"] = true,
+        ["flights"] = true,
+        ["overview"] = true,
+        ["quests"] = true,
+        ["zones"] = true,
     },
 }

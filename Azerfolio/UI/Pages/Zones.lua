@@ -479,7 +479,7 @@ end
 ns.UI.RegisterTab({
     id = "zones",
     label = "Zones",
-    icon = "Interface\\Icons\\INV_Misc_Map_01",
+    icon = ns.Theme.Icon("zones", "Interface\\Icons\\INV_Misc_Map_01"),
     order = 2,
     compactHeader = true,
     info = "Every zone: exploration, quests and flight paths.",

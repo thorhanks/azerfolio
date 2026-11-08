@@ -144,8 +144,20 @@ local function buildHero(parent)
     h.glyph = T.Glyph(h, "A")
     h.glyph:SetPoint("BOTTOMLEFT", h, "BOTTOMLEFT", x - 4, S.s2)
     h.go = T.Text(h, "sm", "gold")
+    -- Round 2: the painted frame, and the zone's mini standard right of its %.
+    h.frame = T.CardFrame(h, 22, 4)
+    if h.frame then
+        local paint = h.Paint
+        function h:Paint()
+            paint(self)
+            for i = 1, 4 do self.edge[i]:SetShown(self.focused == true) end
+        end
+        h:Paint()
+    end
+    h.banner = ns.ZoneBanner.New(h)
+    h.banner:SetPoint("RIGHT", h, "RIGHT", -20, 0) -- offset in the banner's own (scaled) units
     h.pct = T.Text(h, "xxl", "white")
-    h.pct:SetPoint("RIGHT", h, "RIGHT", -S.s4, S.s2)
+    h.pct:SetPoint("RIGHT", h.banner, "LEFT", -S.s1, S.s2)
     h.count = T.Text(h, "xs", "dim")
     h.count:SetPoint("TOPRIGHT", h.pct, "BOTTOMRIGHT", 0, -S.s1)
     -- Shown instead of the card when there is nothing to continue.
@@ -391,10 +403,17 @@ local function build(parent)
             end
             hero.left:SetText(z.state == "complete" and "Every category complete"
                 or (#left > 0 and (table.concat(left, "  ·  ") .. " to go") or ""))
+            local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"
+            hero.banner:Set(z, faction, false)
+            hero.banner:SetScale((L.heroHeight - 12) / math.max(1, hero.banner:GetHeight() or 1))
             local cp = z.combined
             hero.pct:SetText(z.state == "complete" and "Claimed" or (cp and ns.Progression.PercentText(cp) or "-"))
             hero.pct:SetTextColor(T.RGB(z.state == "complete" and "complete" or ((cp and cp.completed > 0) and "todo" or "white")))
-            hero.count:SetText(p and string.format("%d of %d areas", p.completed, p.denominator) or "")
+            -- Right after login QuestieDB is still being read: say so, so the % (which can't
+            -- include quests yet) isn't taken for the whole zone (seen in game, 2026-11-08).
+            local reading = false
+            for _, c in ipairs(z.cats or {}) do if c.pending == "building" then reading = true end end
+            hero.count:SetText(reading and "Reading quests..." or (p and string.format("%d of %d areas", p.completed, p.denominator) or ""))
             local pad = ns.Gamepad and ns.Gamepad.IsActive()
             hero.glyph:SetShown(pad)
             hero.go:ClearAllPoints()
@@ -720,7 +739,7 @@ end
 ns.UI.RegisterTab({
     id = "overview",
     label = "Overview",
-    icon = "Interface\\Icons\\INV_Misc_Book_11",
+    icon = ns.Theme.Icon("overview", "Interface\\Icons\\INV_Misc_Book_11"),
     order = 1,
     info = "Your character's progress at a glance.",
     build = build,

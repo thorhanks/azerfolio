@@ -1,3 +1,4 @@
 {
-  "plate-header": { "x": 0.12, "y": 0 }
+  "frame-card": { "x": 0.16, "y": 0.16 },
+  "plate-header": { "x": 0.19, "y": 0 }
 }

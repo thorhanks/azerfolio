@@ -480,8 +480,50 @@ h2.section small { font-size: var(--fs-xs); color: var(--dim); }
 .celebrate.claim .card { padding-top: 0; }
 .celebrate.claim .claimart { width: 260px; height: 330px; margin: 0 auto var(--s2); }
 .celebrate.claim .claimart svg { width: 100%; height: 100%; overflow: visible; }
+/* ---- Design round 2 (owner, 2026-11-08): painted standard, taller header, frame kit, icons ---- */
+.detail:not(.paged) { grid-template-rows: 196px 1fr; }
+.detail-hero .zscore { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding: var(--s2) var(--s3);
+  background: radial-gradient(ellipse at 70% 60%, rgba(10,6,2,.7), rgba(10,6,2,0) 75%); }
+.detail-hero .zpct { font: 44px var(--font); line-height: 1; color: var(--white); text-shadow: 0 2px 6px #000; }
+.detail-hero .zscore.progress .zpct { color: #ffd9a8; }
+.detail-hero .zscore.complete .zpct { color: var(--st-complete); }
+.detail-hero .zcats { display: flex; gap: var(--s4); font-size: var(--fs-sm); color: var(--text); text-shadow: 0 1px 2px #000; }
+.detail-hero .zcats span { display: inline-flex; align-items: center; gap: 6px; }
+.detail-hero .zcats .complete { color: var(--st-complete); }
+.detail-hero .znote { font-size: var(--fs-xs); color: var(--dim); text-shadow: 0 1px 2px #000; }
+.dashgrid { grid-template-columns: 236px 1fr; }
+.standard { padding: 0; justify-content: flex-end; }
+.standard svg.painted { width: 100%; height: 100%; max-width: none; max-height: none; position: relative; z-index: 1; }
+.warbanner.painted .flutter2 { transform-box: view-box; transform-origin: 110px 60px; animation: flutter2 4.5s ease-in-out infinite; }
+@keyframes flutter2 { 0%, 100% { transform: skewX(0deg); } 40% { transform: skewX(-1.2deg); } 75% { transform: skewX(.7deg); } }
+.warbanner.painted .streamer { transform-box: fill-box; transform-origin: 50% 0; animation: swing 3.2s ease-in-out infinite; }
+img.cimg { width: 20px; height: 20px; border-radius: 3px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #6b4c2a; flex: none; }
+img.cimg.sm { width: 16px; height: 16px; }
+.catbar img.cimg { width: 14px; height: 14px; box-shadow: 0 0 0 1px #000; }
+.tab img { width: 40px; height: 40px; border-radius: 4px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #8a6d3b; filter: saturate(.85) brightness(.85); }
+.tab.active img { filter: none; box-shadow: 0 0 0 1px #000, 0 0 0 2px var(--wow-gold), 0 0 10px rgba(255,209,0,.45); }
+/* Frame kit: a nine-slice frame drawn over the element's edge. */
+body.chrome :is(.zcard, .ctile, .hero, .standard) { border-color: transparent; box-shadow: none; border-radius: 2px; }
+body.chrome :is(.zcard, .ctile, .hero, .standard)::before { content: ""; position: absolute; inset: -5px; pointer-events: none; z-index: 4;
+  border: 22px solid transparent; border-image: url(chrome-art/frame-card.png) var(--card-slice) / 22px stretch; }
+body.chrome .hero { position: relative; overflow: visible; height: 186px; }
+body.chrome .hero .art { margin: 4px 0 4px 4px; border-radius: 2px; overflow: hidden; }
+body.chrome .standard::before { inset: 0; }
+body.chrome .standard { border: 0; }
+body.chrome .zcard.complete { box-shadow: 0 0 14px rgba(255,209,0,.35); }
+body.chrome .ctile { background: linear-gradient(180deg, rgba(36,26,17,.92), rgba(16,10,5,.95)); }
+body.chrome .ctile.na, body.chrome .ctile.inert { background: rgba(14,9,5,.75); }
+body.chrome .focused:is(.zcard, .ctile, .hero) { box-shadow: 0 0 0 2px rgba(255,230,0,.8), 0 0 16px rgba(255,230,0,.3); }
+body.chrome .ctile .tbar { height: 22px; border: solid transparent; border-width: 7px 16px; border-image: url(chrome-art/frame-bar.png) var(--bar-slice) / 7px 16px stretch;
+  background: #0e0701; background-clip: padding-box; overflow: hidden; border-radius: 0; }
+body.chrome .ctile .tbar i { background: url(chrome-art/bar-fill.png) left center / auto 100% repeat-x; }
+body.chrome .ctile .tbar.progress i { filter: hue-rotate(-16deg) saturate(1.25) brightness(.92); }
+body.chrome .catbar .ctrack i { background: url(chrome-art/bar-fill.png) left center / auto 100% repeat-x; }
+body.chrome .catbar.progress .ctrack i { filter: hue-rotate(-16deg) saturate(1.25) brightness(.92); }
 .hero .score.mini { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 110px; }
 .hero .score.mini svg { width: 96px; height: auto; max-height: 120px; }
+.hero .score.mini:has(svg.painted) { flex-direction: row-reverse; align-items: center; width: auto; gap: var(--s2); padding-right: var(--s4); }
+.hero .score.mini svg.painted { width: auto; height: 140px; max-height: 140px; }
 .hero .score.mini b { font: var(--fs-xl) var(--font); }
 @keyframes flashNew { 0% { background: rgba(255,209,0,.45); box-shadow: 0 0 16px #ffd100; } 100% { } }
 .mapside { border-left: 1px solid var(--divider); box-shadow: inset 1px 0 0 #000; padding: var(--s4); background: rgba(0,0,0,.22); display: flex; flex-direction: column; gap: var(--s3); min-height: 0; overflow: hidden; }

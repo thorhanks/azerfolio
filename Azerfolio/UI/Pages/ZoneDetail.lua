@@ -13,7 +13,8 @@ Detail.PAGES = { "explore", "quests", "flights" }
 local NODE_W, NODE_H, NODE_DOT = 88, 58, 22
 local CHIP_H, CHIP_COLS = 30, 3
 local TILE_H = 104
-local STANDARD_W = 300
+local STANDARD_W = 236   -- design round 2: narrower, the standard fills it
+local DASH_HEADER = 196  -- design round 2: the dashboard's taller header (pages keep bannerHeight)
 
 local DIFF_COLOR = { red = { 1, 0.13, 0.13 }, orange = { 1, 0.5, 0.25 }, yellow = { 1, 1, 0 },
     green = { 0.25, 0.75, 0.25 }, grey = { 0.62, 0.62, 0.62 } }
@@ -209,6 +210,14 @@ function Detail.New(page)
     banner.pct:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", -S.s6, S.s6 + S.s2)
     banner.count = T.Text(banner, "sm", "text")
     banner.count:SetPoint("RIGHT", banner.pct, "LEFT", -S.s3, 0)
+    -- The dashboard's score (round 2): the zone's %, one line per category, what's unchecked.
+    banner.zpct = T.Text(banner, "xxl", "white")
+    T.SetFont(banner.zpct, "huge")
+    banner.znote = T.Text(banner, "xs", "dim")
+    banner.znote:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", -S.s6, S.s4)
+    banner.zcats = T.Text(banner, "sm", "text")
+    banner.zcats:SetPoint("BOTTOMRIGHT", banner.znote, "TOPRIGHT", 0, S.s1)
+    banner.zpct:SetPoint("BOTTOMRIGHT", banner.zcats, "TOPRIGHT", 0, S.s1)
     d.banner = banner
 
     -- Dashboard -------------------------------------------------------------------------------
@@ -223,16 +232,12 @@ function Detail.New(page)
     std.art:SetAllPoints()
     std.edge = W.Edge(std, "BORDER")
     std.edge:SetColor("cardEdge")
+    std.frame = T.CardFrame(std, 24, 0)
+    std.edge[1]:SetShown(std.frame == nil); std.edge[2]:SetShown(std.frame == nil)
+    std.edge[3]:SetShown(std.frame == nil); std.edge[4]:SetShown(std.frame == nil)
+    -- The standard stands on the panel's floor; no text under it (round 2).
     std.banner = ns.ZoneBanner.New(std)
-    std.banner:SetPoint("TOP", std, "TOP", 0, -S.s2)
-    std.pct = T.Text(std, "xxl", "white")
-    std.pct:SetPoint("TOP", std.banner, "BOTTOM", 0, -S.s3) -- -24 cut the note off in the split view
-    std.cap = T.Text(std, "sm", "dim")
-    std.cap:SetPoint("TOP", std.pct, "BOTTOM", 0, -S.s1)
-    std.note = T.Text(std, "xs", "dim")
-    std.note:SetPoint("TOP", std.cap, "BOTTOM", 0, -S.s2)
-    std.note:SetWidth(STANDARD_W - 2 * S.s4)
-    std.note:SetJustifyH("CENTER")
+    std.banner:SetPoint("BOTTOM", std, "BOTTOM", 0, 2)
     d.standard = std
     d.tiles = {}
     for i, key in ipairs(T.categoryOrder) do
@@ -254,15 +259,14 @@ function Detail.New(page)
         tile.pct:SetPoint("TOPRIGHT", -S.s4, -S.s3)
         tile.count = T.Text(tile, "md", "white")
         tile.count:SetPoint("RIGHT", tile.pct, "LEFT", -S.s3, 0)
-        tile.well = T.Solid(tile, "well", "BORDER", 1)
-        tile.well:SetHeight(8)
-        tile.well:SetPoint("TOPLEFT", tile.icon, "BOTTOMLEFT", 0, -S.s2)
-        tile.well:SetPoint("RIGHT", tile, "RIGHT", -S.s4, 0)
-        tile.fill = T.Solid(tile, "todo", "ARTWORK")
-        tile.fill:SetHeight(8)
-        tile.fill:SetPoint("TOPLEFT", tile.well, "TOPLEFT")
+        -- A gilded bar (painted housing and gold), or the gold pips on Exploration (round 2).
+        tile.bar = T.GildedBar(tile, 18)
+        tile.bar:SetPoint("TOPLEFT", tile.icon, "BOTTOMLEFT", -4, -S.s1)
+        tile.bar:SetPoint("RIGHT", tile, "RIGHT", -S.s3, 0)
+        tile.pips = W.Pips(tile)
+        tile.pips:SetPoint("LEFT", tile.bar, "LEFT", 4, 0)
         tile.line1 = T.Text(tile, "sm", "text")
-        tile.line1:SetPoint("TOPLEFT", tile.well, "BOTTOMLEFT", 0, -S.s2)
+        tile.line1:SetPoint("TOPLEFT", tile.bar, "BOTTOMLEFT", 4, -S.s1)
         tile.line1:SetPoint("RIGHT", tile, "RIGHT", -S.s4, 0)
         tile.line1:SetJustifyH("LEFT"); tile.line1:SetWordWrap(false)
         tile.line2 = T.Text(tile, "sm", "dim")
@@ -274,10 +278,18 @@ function Detail.New(page)
         tile.glyph = T.Glyph(tile, "A")
         tile.glyph:SetPoint("RIGHT", tile.hint, "LEFT", -2, 0)
         T.RowHighlight(tile, "HIGHLIGHT")
+        tile.frame = T.CardFrame(tile, 24, 4)
         function tile:SetFocused(on) self.focused = on; self:Paint() end
+        -- With the painted frame the plain edge only shows focus; without it, the state too.
         function tile:Paint()
-            if self.focused then self.edge:SetColor("focus"); self.edge:SetThickness(2)
-            else self.edge:SetColor(self.state == "complete" and "complete" or "cardEdge"); self.edge:SetThickness(1) end
+            if self.focused then
+                self.edge:SetColor("focus"); self.edge:SetThickness(2)
+                for i = 1, 4 do self.edge[i]:Show() end
+            elseif self.frame then
+                for i = 1, 4 do self.edge[i]:Hide() end
+            else
+                self.edge:SetColor(self.state == "complete" and "complete" or "cardEdge"); self.edge:SetThickness(1)
+            end
         end
         W.HoverInfo(tile)
         tile.key = key
@@ -382,6 +394,10 @@ local function fillBanner(d, zone, entry, pageKey)
     b.crumb:SetText(pageKey and ("·  " .. zone.name) or "")
     b.sub:SetText(bannerSub(zone))
     d.back:SetText(pageKey and zone.name or "Zones")
+    -- The dashboard's header is taller (round 2), with the zone's score on the right; a page
+    -- keeps the usual height with its category's count.
+    b:SetHeight(pageKey and T.layout.bannerHeight or DASH_HEADER)
+    cropBanner(b)
     local c = pageKey and catOf(entry, pageKey)
     if c and not c.pending then
         b.pct:SetText(ns.Progression.PercentText(c.progress) or "-")
@@ -389,6 +405,29 @@ local function fillBanner(d, zone, entry, pageKey)
         b.count:SetText(string.format("%d of %d", c.completed, c.denominator))
     else
         b.pct:SetText(""); b.count:SetText("")
+    end
+    local dash = pageKey == nil and entry.tracked
+    b.zpct:SetShown(dash); b.zcats:SetShown(dash); b.znote:SetShown(dash)
+    if dash then
+        local claimed = entry.state == "complete"
+        b.zpct:SetText(claimed and "Claimed" or (entry.combined and ns.Progression.PercentText(entry.combined) or "-"))
+        b.zpct:SetTextColor(T.RGB(claimed and "complete" or "white"))
+        local parts, notes = {}, {}
+        for _, cat in ipairs(entry.cats or {}) do
+            local meta = T.category[cat.key]
+            local icon = "|T" .. meta.icon .. ":16:16|t "
+            if cat.pending then
+                parts[#parts + 1] = icon .. "?"
+            else
+                local col = cat.state == "complete" and "|cffffcc33" or "|cfff0e8d8"
+                parts[#parts + 1] = icon .. col .. cat.completed .. "/" .. cat.denominator .. "|r"
+                if cat.unchecked and cat.unchecked > 0 and not claimed then
+                    notes[#notes + 1] = cat.unchecked .. " " .. meta.unit .. " can't be checked yet"
+                end
+            end
+        end
+        b.zcats:SetText(table.concat(parts, "    "))
+        b.znote:SetText(table.concat(notes, "  ·  "))
     end
 end
 
@@ -419,25 +458,14 @@ local function fillDashboard(d, zone, entry, page)
     std.art:SetVertexColor(0.38, 0.36, 0.34)
     local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"
     std.banner:Set(entry, faction, page.animateBanner)
-    -- Fill the panel's height: room left after the texts below (about 150), within 0.75-1.4.
-    local panelH, bannerH = std:GetHeight() or 0, std.banner:GetHeight() or 0
-    if panelH > 0 and bannerH > 0 then
-        std.banner:SetScale(math.max(0.75, math.min(1.4, (panelH - 150) / bannerH)))
+    -- The standard fills the panel (no text under it, round 2), as large as its height and
+    -- width allow.
+    local panelW, panelH = std:GetWidth() or 0, std:GetHeight() or 0
+    local bannerW, bannerH = std.banner:GetWidth() or 0, std.banner:GetHeight() or 0
+    if panelH > 0 and bannerH > 0 and bannerW > 0 then
+        std.banner:SetScale(math.max(0.5, math.min(1.4, (panelH - 6) / bannerH, (panelW - 4) / bannerW)))
     end
     page.animateBanner = false
-    local claimed = entry.state == "complete"
-    std.pct:SetText(claimed and "Claimed" or (entry.combined and ns.Progression.PercentText(entry.combined) or "-"))
-    std.pct:SetTextColor(T.RGB(claimed and "complete" or "white"))
-    local applies = entry.combined and entry.combined.applies or 0
-    std.cap:SetText(claimed and (zone.name .. " is complete") or string.format("%s  ·  %d %s", zone.name, applies,
-        applies == 1 and "category" or "categories"))
-    local note = ""
-    if entry.combined and entry.combined.unchecked and not claimed then
-        note = "Some objectives can't be checked yet, so this zone can't be claimed in full."
-    elseif entry.combined and entry.combined.pending then
-        note = "Some categories aren't known yet; see their tiles."
-    end
-    std.note:SetText(note)
 
     local ex, q, f = ns.Exploration.ForZone(zone), ns.Quests.ForZone(zone.mapID), ns.FlightPaths.ForZone(zone.mapID)
     for i, key in ipairs(T.categoryOrder) do
@@ -496,17 +524,20 @@ local function fillDashboard(d, zone, entry, page)
             tile.pct:SetText(ns.Progression.PercentText(c.progress) or "-")
             tile.pct:SetTextColor(T.RGB(c.state == "complete" and "complete" or "todo"))
             local frac = c.denominator > 0 and c.completed / c.denominator or 0
-            local w = (tile:GetWidth() or 0) - 2 * S.s4
-            if w <= 0 then w = 400 end
-            tile.fill:SetWidth(math.max(0.001, w * frac))
-            tile.fill:SetShown(frac > 0)
-            local r, g, b = T.RGB(c.state == "complete" and "complete" or "todo")
-            tile.fill:SetColorTexture(r, g, b, 1)
-            tile.well:Show()
+            -- Exploration: the gold pips (round 2); the others: the gilded bar.
+            local p = key == "explore" and c.progress
+            tile.pips:SetShown(p ~= nil and p ~= false)
+            tile.bar:SetShown(not p)
+            if p then
+                tile.pips:Set(p.complete, p.incomplete, p.completionUnknown, (tile:GetWidth() or 400) - 2 * S.s4)
+            else
+                tile.bar:Set(frac, c.state)
+            end
         else
             tile.count:SetText(""); tile.pct:SetText(c and c.pending and "?" or "")
             tile.pct:SetTextColor(T.RGB("dim"))
-            tile.fill:Hide(); tile.well:SetShown(c ~= nil)
+            tile.bar:SetShown(c ~= nil); if c then tile.bar:Set(0) end
+            tile.pips:Hide()
         end
         tile.line1:SetText(line1)
         tile.line2:SetText(line2)

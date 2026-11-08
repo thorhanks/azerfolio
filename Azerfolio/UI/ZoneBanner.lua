@@ -17,13 +17,17 @@ Banner.MEDIA = "Interface\\AddOns\\Azerfolio\\Media\\Banner\\"
 -- With the painted pieces: a war standard, the pole up the middle behind the banner and the
 -- banner's own crossbar hoisted up it. The cloth canvas is 1:2 with the 2:3 painting centred
 -- (a quarter of the canvas height padding top and bottom, half each side: 64/512).
-Banner.ART = { size = { 170, 344 }, pole = { 86, 344 }, cloth = { 136, 272 } }
+-- Design round 2 (approved 2026-11-08, mockups/DESIGN.md): a 220x440 box, the pole (1:4) as
+-- tall as the box, a smaller cloth so the hoist has real travel, no badges on the cloth.
+Banner.ART = { size = { 220, 440 }, pole = { 110, 440 }, cloth = { 150, 300 } }
 Banner.ART.pad = Banner.ART.cloth[2] * 64 / 512          -- canvas above the crossbar
 Banner.ART.visible = Banner.ART.cloth[2] * 384 / 512     -- the painting's height
-Banner.ART.top = 46                                      -- crossbar at 100%: just under the finial (22 hid it)
-Banner.ART.rise = Banner.ART.size[2] - 6 - Banner.ART.visible - Banner.ART.top
-Banner.ART.badgeAt = 0.68                                -- badges this far down the painting (0.64 touched the shield)
-Banner.ART.badge = 30
+Banner.ART.top = 58                                      -- crossbar at 100%: just under the finial
+Banner.ART.rise = Banner.ART.size[2] - 8 - Banner.ART.visible - Banner.ART.top
+-- Battle streamers: one per finished category, tied at the crossbar's ends (left, right,
+-- outer left). Canvas 1:8 with the 1:6 painting centred.
+Banner.ART.streamer = { 26, 208 }
+Banner.ART.streamerX = { -6, Banner.ART.cloth[1] - 26 + 6, -22 }
 
 Banner.LOOK = {
     Alliance = { cloth = { 0.14, 0.32, 0.72 }, dark = { 0.06, 0.15, 0.34 }, trim = { 0.89, 0.73, 0.31 },
@@ -102,6 +106,13 @@ function Banner.New(parent)
         b.icon:SetSize(14, 14); b.icon:SetPoint("CENTER")
         c.badges[i] = b
     end
+    c.streamers = {}
+    for i = 1, 3 do
+        local s = c:CreateTexture(nil, "ARTWORK", nil, 3)
+        s:SetSize(Banner.ART.streamer[1], Banner.ART.streamer[2])
+        s:Hide()
+        c.streamers[i] = s
+    end
     -- Hoist: rise from the ground to the banner's height.
     if c.CreateAnimationGroup then
         local ag = c:CreateAnimationGroup()
@@ -149,19 +160,16 @@ function Banner.New(parent)
         end
         f.finial:SetShown(pole == nil)
         for _, r in ipairs(f.rings) do r.tex:SetShown(pole == nil) end
-        for _, b in ipairs(c.badges) do
-            local size = badge and A.badge or 26
-            b:SetSize(size, size); b.ring:SetSize(size, size)
-            if badge then b.ring:SetTexture(badge); b.inner:Hide() else b.inner:Show() end
-        end
-        return cloth ~= nil, pole ~= nil, badge ~= nil
+        local streamer = cloth and piece("streamer-" .. key) or nil
+        for _, s in ipairs(c.streamers) do if streamer then s:SetTexture(streamer) end; s:Hide() end
+        return cloth ~= nil, pole ~= nil, streamer
     end
 
     -- entry: a ns.Zones entry (state, percent, cats); faction: "Alliance" | "Horde".
     -- animate: rise from the ground now.
     function f:Set(entry, faction, animate)
         local look = Banner.LOOK[faction] or Banner.LOOK.Alliance
-        local hasCloth, hasPole, hasBadge = applyArt(faction)
+        local hasCloth, hasPole, streamer = applyArt(faction)
         local pct = math.max(0, math.min(100, entry.percent or 0)) / 100
         local claimed = entry.state == "complete"
         if not hasPole then self.pole:SetColorTexture(look.pole[1], look.pole[2], look.pole[3], 1) end
@@ -187,39 +195,42 @@ function Banner.New(parent)
         c.glow:SetColorTexture(1, 0.8, 0.2, (claimed and not hasCloth) and 0.35 or 0)
         c.emblem:SetTexture(look.emblem)
         c.emblem:SetTexCoord(0, 0.62, 0, 0.62) -- the crest sits top-left in these files [unverified]
-        -- Badges: one per category, gold when that category is done, orange ring while in progress.
         local cats = entry.cats or {}
-        local n = 0
-        for _, cat in ipairs(cats) do if not cat.pending then n = n + 1 end end
-        local i = 0
         for _, b in ipairs(c.badges) do b:Hide() end
-        for _, cat in ipairs(cats) do
-            if not cat.pending then
-                i = i + 1
-                local b = c.badges[i]
-                b:ClearAllPoints()
-                if hasCloth then
-                    b:SetPoint("CENTER", c, "TOPLEFT", A.cloth[1] * i / (n + 1), -(A.pad + A.badgeAt * A.visible))
-                else
+        if hasCloth then
+            -- Painted: a streamer at the crossbar's ends for each finished category.
+            local k = 0
+            for _, cat in ipairs(cats) do
+                if not cat.pending and cat.state == "complete" and streamer and k < #c.streamers then
+                    k = k + 1
+                    local s = c.streamers[k]
+                    s:ClearAllPoints()
+                    s:SetPoint("TOPLEFT", c, "TOPLEFT", A.streamerX[k],
+                        -(A.pad - (A.streamer[2] - A.streamer[1] * 6) / 2 - 4))
+                    s:Show()
+                end
+            end
+        else
+            -- Stand-in: one badge per category, gold when done, orange while in progress.
+            local n, i = 0, 0
+            for _, cat in ipairs(cats) do if not cat.pending then n = n + 1 end end
+            for _, cat in ipairs(cats) do
+                if not cat.pending then
+                    i = i + 1
+                    local b = c.badges[i]
+                    b:ClearAllPoints()
                     b:SetPoint("CENTER", c, "BOTTOMLEFT", Banner.CLOTH[1] * i / (n + 1), 30)
-                end
-                local ring = cat.state == "complete" and T.color.complete or (cat.state == "progress" and T.color.todo or { 0.36, 0.32, 0.27 })
-                if hasBadge then
-                    -- The painted badge keeps its colours; untouched categories are dimmed, done
-                    -- ones warmed towards gold.
-                    if cat.state == "complete" then b.ring:SetVertexColor(1, 0.9, 0.55) else b.ring:SetVertexColor(1, 1, 1) end
-                    b:SetAlpha(cat.state == "untouched" and 0.55 or 1)
-                else
+                    local ring = cat.state == "complete" and T.color.complete or (cat.state == "progress" and T.color.todo or { 0.36, 0.32, 0.27 })
                     b.ring:SetColorTexture(ring[1], ring[2], ring[3], 1)
-                    b:SetAlpha(1)
+                    local inner = cat.state == "complete" and T.color.complete or look.dark
+                    b.inner:SetColorTexture(inner[1], inner[2], inner[3], 1)
+                    b.icon:SetTexture(T.category[cat.key] and T.category[cat.key].icon)
+                    b:Show()
                 end
-                local inner = cat.state == "complete" and T.color.complete or look.dark
-                b.inner:SetColorTexture(inner[1], inner[2], inner[3], 1)
-                b.icon:SetTexture(T.category[cat.key] and T.category[cat.key].icon)
-                b:Show()
             end
         end
-        self.claimText:SetText(claimed and ("Claimed for the " .. (faction or "Alliance")) or "")
+        -- Painted: no text under the banner (round 2); the header says "Claimed".
+        self.claimText:SetText((claimed and not hasCloth) and ("Claimed for the " .. (faction or "Alliance")) or "")
         if self.hoist then
             self.hoist:Stop()
             if animate and pct > 0 then

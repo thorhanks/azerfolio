@@ -71,6 +71,14 @@ The owner chose the **full native Forever look**: Azerfolio looks like the clien
 - **Zone Detail sections**, each under a major heading with its icon, count and %: Exploration (To discover / Discovered), Quests, Flight paths (known ✓ / not discovered ✈).
 - **Quests:** *Ready now* (chips with the quest level in the client's difficulty colour), *Storylines* (one track per chain: dots for done ✓ gold, ready orange, locked 🔒, unknown ?; branches stack in a column; nodes are focus stops, name below, details in the info line), *Single quests*, *Finished* (one gold row per finished storyline; A unfolds it). Footer: the coverage note and "Show n you can't do" (B-safe toggle, default hidden).
 
+**Design round 2 (owner feedback 2026-11-08; approved and built the same day, checked in game 16:36).** Uses the owner's painted art (art/prompts.md, `tools/process-art.ps1`).
+- **Zone Detail header** is taller (196 px) to show off the zone art; the right side carries the zone's score: a big % (gold "Claimed" when complete), one small line per category with its icon and n/m, and what can't be checked yet.
+- **The war standard** (painted): the pole up the middle of a narrower panel (236 px) with the zone art cropped behind it; the banner's own crossbar is hoisted up the pole (the finial stays clear at 100%; travel is about 37% of the panel's height, so 58% looks partway). **No text under the banner.** No badges on the cloth: a **battle streamer** hangs from the crossbar's ends for each finished category (left, right, then outer left); the cloth sways gently.
+- **Tiles**: framed with the painted card frame (nine-slice); category icons are the painted icons; the Exploration tile shows the gold pips, the others a gilded bar (the painted bar housing with the molten-gold fill, tinted amber while in progress).
+- **Frame kit everywhere**: zone cards, dashboard tiles, the banner panel and the Continue card get the painted frame; card bars use the gold fill.
+- **Tabs** use the painted icons (journal for Overview, map and compass for Zones).
+- **Continue card** always shows your zone ("Continue · your zone", "Your zone · claimed"), the mini standard beside the zone's %.
+
 **Wide window (ultrawide, about 1640 px):** Zones becomes a split view: compact list on the left, Zone Detail on the right, updating as focus moves. The Atlas view is available too; choosing a tile switches to the split view with that zone selected. A moves into the checklist; B returns to the list.
 
 **Completion moment:** a toast, pip pop and row flash, then a full-window celebration (emblem, "<Zone> Explored", soft rays masked to the centre, A to continue), and a highlighted milestone.

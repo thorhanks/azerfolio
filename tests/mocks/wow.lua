@@ -48,6 +48,8 @@ for _, name in ipairs({ "SetFrameStrata", "SetBackdrop", "SetBackdropColor",
     frameMethods[name] = function() end
 end
 function frameMethods:GetEffectiveScale() return 1 end
+function frameMethods:SetScale(s) self.scale = s end
+function frameMethods:GetScale() return self.scale or 1 end
 -- EditBox
 for _, name in ipairs({ "SetAutoFocus", "SetMaxLetters", "SetTextInsets" }) do frameMethods[name] = function() end end
 function frameMethods:SetFocus() self.hasFocus = true end

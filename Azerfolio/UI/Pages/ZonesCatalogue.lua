@@ -128,10 +128,15 @@ local function newCard(parent)
         self.focused = on
         self:Paint()
     end
+    -- The painted card frame (round 2); the plain edge then only shows focus.
+    c.frame = T.CardFrame(c, 22, 4)
     function c:Paint()
         local z = self.zone
         if self.focused then
             self.edge:SetColor("focus"); self.edge:SetThickness(2)
+            for i = 1, 4 do self.edge[i]:Show() end
+        elseif self.frame then
+            for i = 1, 4 do self.edge[i]:Hide() end
         else
             self.edge:SetColor(STATE_EDGE[z and z.state] or "cardEdge"); self.edge:SetThickness(1)
         end

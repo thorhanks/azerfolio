@@ -257,7 +257,7 @@
     if (!z.cats.length) return `<div class="bar unknown small"></div>`;
     // One fixed slot per category, so columns line up; a category that doesn't apply leaves its slot empty.
     return `<div class="catbars ${size}">${Object.keys(CATS).map(k => { const c = catOf(z, k);
-      return c ? `<div class="catbar ${catState(c)}"><span class="cicon">${c.icon}</span>
+      return c ? `<div class="catbar ${catState(c)}">${catIcon(c.key)}
       <span class="ctrack"><i style="width:${(c.pct * 100).toFixed(1)}%"></i></span><span class="cn">${c.done}/${c.total}</span></div>` : `<div class="catbar na"></div>`; }).join("")}</div>`;
   }
   // A zone's quests the way Quests.ForZone will return them (Systems/Quests.lua plus
@@ -446,9 +446,10 @@
   function renderOverview() {
     const cur = byName[CHAR.zone];
     const inProgress = tracked.filter(z => z.state === "progress").sort((a, b) => b.pct - a.pct);
-    const hero = cur.state !== "complete" ? cur : inProgress[0] || nextForLevel(cur);
-    const heroKicker = hero === cur ? (cur.done ? "Continue exploring · current zone" : "Start exploring · current zone")
-      : cur.state === "complete" ? `${cur.name} complete · next up` : "Continue exploring";
+    // Your zone whenever it's tracked, even claimed (owner, 2026-11-08).
+    const hero = cur && cur.tracked ? cur : inProgress[0] || nextForLevel(cur);
+    const heroKicker = hero === cur ? (cur.state === "complete" ? "Your zone · claimed" : cur.state === "untouched" ? "Start · your zone" : "Continue · your zone")
+      : "Continue exploring";
     const goal = inProgress.find(z => z !== hero); // never repeat the Continue card
     const next = nextForLevel(hero);
     const p = totals.done / totals.areas;
@@ -647,6 +648,16 @@
   function renderDetailInto(container, z, opts) {
     if (!z) { container.innerHTML = `<div class="empty"><b>Select a zone</b></div>`; return; }
     const page = ui.detailPage && (ui.detailPage !== "explore" || z.total) ? ui.detailPage : null;
+    // Dev bar "Preview claimed": the same zone with every category done (design preview only).
+    if (!page && ui.claimPreview && z.tracked) z = { ...z, pct: 1, state: "complete", unchecked: false,
+      cats: z.cats.map(c => ({ ...c, done: c.total, pct: 1, unchecked: 0, nodes: c.nodes && c.nodes.map(n => ({ ...n, known: true })) })), criteria: z.criteria.map(c => ({ ...c, done: true })), done: z.total };
+    // The dashboard's score, right side of the taller header (design round 2): the zone's %,
+    // one line per category, and why it can't be claimed yet if so.
+    const zscore = !page && z.tracked ? `<div class="zscore ${z.state}">
+        <div class="zpct">${z.state === "complete" ? "Claimed" : pctText(z.pct)}</div>
+        <div class="zcats">${z.cats.map(c => `<span class="${catState(c)}">${catIcon(c.key, "cimg sm")}${c.done}/${c.total}</span>`).join("")}</div>
+        ${z.unchecked && z.state !== "complete" ? `<div class="znote">${z.cats.filter(c => c.unchecked).map(c => `${c.unchecked} ${c.unit} can't be checked yet`).join(" · ")}</div>` : ""}
+      </div>` : "";
     const next = z.tracked ? tracked.filter(x => x !== z && relevant(x) && x.state !== "complete" && x.minLevel != null && z.minLevel != null && x.minLevel > z.minLevel)
       .sort((a, b) => a.minLevel - b.minLevel || (b.continent === z.continent) - (a.continent === z.continent) || a.name.localeCompare(b.name))[0] : null;
     const backLabel = page ? `‹ ${esc(z.name)}` : "‹ Zones";
@@ -656,7 +667,7 @@
         <div class="info"><div><h1>${page ? `${CATS[page].label}<span class="crumb"> · ${esc(z.name)}</span>` : esc(z.name)}</h1>
           <div class="sub"><span>${levels(z)}</span>${facBadge(z)}<span>${esc(z.continent)}</span>
           ${next && !page ? `<span class="next">· Next: ${esc(next.name)} (${shortLv(next)})</span>` : ""}</div></div>
-          ${page ? `<div class="pagescore">${catOf(z, page) ? `${catOf(z, page).done} of ${catOf(z, page).total}<b>${pctText(catOf(z, page).pct)}</b>` : ""}</div>` : ""}</div></div>`;
+          ${page ? `<div class="pagescore">${catOf(z, page) ? `${catOf(z, page).done} of ${catOf(z, page).total}<b>${pctText(catOf(z, page).pct)}</b>` : ""}</div>` : zscore}</div></div>`;
     const scrollId = opts.back ? "scroll" : "detailscroll";
     let body;
     if (!page) body = `<div class="detail-body dash"><div class="scroll" id="${scrollId}">${dashboard(z)}</div></div>`;
@@ -683,18 +694,15 @@
 
   // ---- Zone dashboard: the zone's standard (progress art) and one tile per category ----
   function dashboard(z) {
-    // Dev bar "Preview claimed": the same zone with every category done (design preview only).
-    if (ui.claimPreview && z.tracked) z = { ...z, pct: 1, state: "complete", unchecked: false,
-      cats: z.cats.map(c => ({ ...c, done: c.total, pct: 1, unchecked: 0, nodes: c.nodes && c.nodes.map(n => ({ ...n, known: true })) })), criteria: z.criteria.map(c => ({ ...c, done: true })), done: z.total };
     if (!z.tracked) return `<div class="empty"><b>Nothing to track here yet</b>No exploration, quests or flight paths Azerfolio can verify in ${esc(z.name)}.</div>`;
     const tile = (key, inner, opts = {}) => {
       const c = catOf(z, key), d = CATS[key];
       const st = c ? catState(c) : "na";
       return `<button class="ctile ${st} ${opts.open ? "focusable" : "focusable inert"}" ${opts.open ? `data-page="${key}"` : `data-na="${key}"`}
         data-tip="<b>${d.label}</b>${esc(opts.tip || "")}">
-        <div class="thead"><span class="cicon">${d.icon}</span><span class="tname">${d.label}</span>
+        <div class="thead">${catIcon(key)}<span class="tname">${d.label}</span>
           ${c ? `<span class="tcount">${c.done} <small>of ${c.total}</small></span><span class="tpct">${pctText(c.pct)}</span>` : ""}</div>
-        ${c ? `<div class="tbar"><i style="width:${(c.pct * 100).toFixed(1)}%"></i></div>` : ""}
+        ${c && !opts.noBar ? `<div class="tbar ${st}"><i style="width:${(c.pct * 100).toFixed(1)}%"></i></div>` : ""}
         <div class="tbody">${inner}</div>
         ${opts.open ? `<span class="topen"><span class="glyph A">A</span>${opts.open}</span>` : ""}</button>`;
     };
@@ -702,7 +710,7 @@
     const exTile = ex ? tile("explore", (() => {
       const todo = z.criteria.filter(c => !c.done);
       return `${pips(z)}<div class="tline">${todo.length ? `Next: <b>${esc(todo[0].name)}</b>${todo.length > 1 ? ` and ${todo.length - 1} more` : ""}` : "Every area discovered ✦"}</div>`;
-    })(), { open: "Areas", tip: `${ex.done} of ${ex.total} areas discovered. A shows the list and the map.` })
+    })(), { open: "Areas", noBar: true, tip: `${ex.done} of ${ex.total} areas discovered. A shows the list and the map.` })
       : tile("explore", `<div class="tline dim">The game has no Explore achievement for ${esc(z.name)}.</div>`, { tip: "Not tracked here." });
     const q = catOf(z, "quests"), r = questsFor(z);
     const qTile = z.questsMissing ? tile("quests", `<div class="tline dim">${ui.quests === "building" ? "Reading QuestieDB…" : "Needs the QuestieDB addon, which isn't loaded."}</div>`, { tip: "Quests unavailable." })
@@ -715,13 +723,8 @@
     const fTile = f ? tile("flights", `<div class="tline">${f.nodes.map(n => `<span class="fnode ${n.known ? "on" : ""}">${n.known ? "✓" : "✈"} ${esc(n.name)}</span>`).join("")}</div>`,
         { open: "Flight paths", tip: `${f.done} of ${f.total} flight paths known.` })
       : tile("flights", `<div class="tline dim">No flight master for you in ${esc(z.name)}.</div>`, { tip: "Left out of the zone's progress." });
-    const done = z.state === "complete";
     return `<div class="dashgrid">
-      <div class="standard ${z.state}"><div class="sbg">${art(z)}</div>${progressArt(z, { animate: true })}
-        <div class="spct">${done ? "✓" : pctText(z.pct)}</div>
-        <div class="scap">${done ? `${esc(z.name)} claimed for the ${ui.look}` : `${esc(z.name)} · ${z.cats.length} ${z.cats.length === 1 ? "category" : "categories"}`}</div>
-        ${z.unchecked && !done ? `<div class="snote">Some quests can't be checked yet, so this zone can't be claimed in full.</div>` : ""}
-      </div>
+      <div class="standard ${z.state}" data-tip-none><div class="sbg">${art(z)}</div>${progressArt(z, { animate: true })}</div>
       <div class="tiles">${exTile}${qTile}${fTile}</div></div>`;
   }
 
@@ -830,7 +833,40 @@
       ${sparkles}
     </svg>`;
   }
-  function progressArt(z, opts) { return bannerArt(z, opts); }
+  // Painted art (tools/process-art.ps1 -> banner-art/, chrome-art/, icon-art/), when present.
+  const ART = window.AZF_ART || {};
+  const hasPiece = (n) => (ART.banner || []).includes(n);
+  const hasChrome = (n) => !!(ART.chrome && ART.chrome[n]);
+  const hasIcon = (n) => (ART.icons || []).includes(n);
+  const ICON_OF = { explore: "explore", quests: "quests", flights: "flights" };
+  const catIcon = (key, cls = "cimg") => hasIcon(ICON_OF[key]) ? `<img class="${cls}" src="icon-art/icon-${ICON_OF[key]}.png" alt="">` : `<span class="cicon">${CATS[key].icon}</span>`;
+  function progressArt(z, opts) {
+    const k = ui.look === "Horde" ? "horde" : "alliance";
+    return hasPiece("banner-" + k) && hasPiece("pole-" + k) ? paintedStandard(z, opts || {}) : bannerArt(z, opts);
+  }
+  // The painted war standard (design round 2): the pole up the middle, the banner's own crossbar
+  // hoisted up it, a streamer tied at the crossbar's ends for each finished category. Units:
+  // a 220x440 box. The pole is 1:4 (110x440, finial in its top ~12%); the cloth canvas is 1:2
+  // with the 2:3 painting centred; streamers 1:8 canvases.
+  function paintedStandard(z, opts) {
+    const k = ui.look === "Horde" ? "horde" : "alliance", p = z.pct || 0, done = z.state === "complete";
+    const W = 220, H = 440, cw = opts.mini ? 170 : 150, ch = cw * 2, pad = ch * 64 / 512, vis = ch * 384 / 512;
+    const top = 58, rise = H - 8 - vis - top;
+    const y = top + (1 - p) * rise, cx = (W - cw) / 2;
+    const finished = z.cats.filter(c => catState(c) === "complete");
+    const sw = 26, sh = sw * 8, slots = [cx - 6, cx + cw - sw + 6, cx - 22];
+    const streamers = hasPiece("streamer-" + k) ? finished.slice(0, 3).map((c, i) =>
+      `<image class="streamer" style="animation-delay:${i * .6}s" href="banner-art/streamer-${k}.png" x="${slots[i]}" y="${y - (sh - sw * 6) / 2 - 4}" width="${sw}" height="${sh}"/>`).join("") : "";
+    const drop = opts.animate ? (opts.from != null ? (opts.from - p) * rise : p * rise) : 0;
+    return `<svg class="warbanner painted ${done ? "claimed" : ""}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax meet">
+      <defs><filter id="pglow"><feGaussianBlur stdDeviation="10"/></filter></defs>
+      ${done ? `<ellipse cx="${W / 2}" cy="${top + vis / 2}" rx="${cw * .62}" ry="${vis * .6}" fill="#ffd35a" opacity=".22" filter="url(#pglow)"/>` : ""}
+      <image href="banner-art/pole-${k}.png" x="${(W - 110) / 2}" y="0" width="110" height="${H}"/>
+      <g class="hoist" style="--drop:${drop.toFixed(1)}px">
+        <g class="flutter2"><image href="banner-art/banner-${k}.png" x="${cx}" y="${y - pad}" width="${cw}" height="${ch}"/></g>
+        ${streamers}
+      </g></svg>`;
+  }
   // Small pennant for claimed zones on catalogue cards and Atlas tiles.
   function pennant() {
     const F = FACTION[ui.look];
@@ -1285,6 +1321,18 @@
   }
   window.addEventListener("resize", fit);
   $("#scaleToggle").addEventListener("change", (e) => { fit(); e.target.blur(); });
+
+  // Painted tab icons and chrome, when the art pipeline has produced them.
+  for (const t of ["overview", "zones"]) {
+    const b = $(`.tab[data-tab="${t}"]`);
+    if (b && hasIcon(t)) b.innerHTML = `<img src="icon-art/icon-${t}.png" alt="">`;
+  }
+  document.body.classList.toggle("chrome", hasChrome("frame-card"));
+  if (hasChrome("frame-card")) {
+    const r = document.documentElement.style, card = ART.chrome["frame-card"], bar = ART.chrome["frame-bar"] || { x: .08, y: .33 };
+    r.setProperty("--card-slice", `${Math.round(card.y * 100)}% ${Math.round(card.x * 100)}%`);
+    r.setProperty("--bar-slice", `${Math.round(bar.y * 100)}% ${Math.round(bar.x * 100)}%`);
+  }
 
   loadScenario("today");
   render();

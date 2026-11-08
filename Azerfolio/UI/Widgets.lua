@@ -218,8 +218,14 @@ function W.CatBars(parent)
                     local frac = c.denominator > 0 and c.completed / c.denominator or 0
                     s.fill:SetWidth(math.max(0.001, wellW * frac))
                     s.fill:SetShown(frac > 0 and wellW >= 16)
-                    local r, g, b = T.RGB(c.state == "complete" and "complete" or "todo")
-                    s.fill:SetColorTexture(r, g, b, 1)
+                    local gold = T.Chrome("bar-fill")
+                    if gold then -- the painted molten gold (round 2), amber while in progress
+                        s.fill:SetTexture(gold); s.fill:SetTexCoord(0, math.max(0.001, frac), 0, 1)
+                        if c.state == "complete" then s.fill:SetVertexColor(1, 1, 1) else s.fill:SetVertexColor(1, 0.72, 0.42) end
+                    else
+                        local r, g, b = T.RGB(c.state == "complete" and "complete" or "todo")
+                        s.fill:SetColorTexture(r, g, b, 1)
+                    end
                     s.count:SetText(c.completed .. "/" .. c.denominator)
                     s.count:SetTextColor(T.RGB(c.state == "complete" and "complete" or "dim"))
                     if s.icon.SetDesaturated then s.icon:SetDesaturated(c.state == "untouched") end
