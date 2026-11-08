@@ -1095,6 +1095,17 @@ return function(t)
         t.eq(list[100].id, 1148); t.eq(list[1].id, 90002)
     end)
 
+    t.test("/azf shots starts the Zones shots on the catalogue even from Zone Detail", function()
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        slash("")
+        local p = ns.UI.GetFrame().pages.zones
+        p:Open({ mapID = 1429, name = "Elwynn Forest", continent = "Eastern Kingdoms" })
+        local modes = {}
+        local steps = ns.UI.ShotSteps()
+        for i = 1, 2 do steps[i].fn(); modes[i] = ns.UI.CurrentTab() .. ":" .. p.mode end
+        t.eq(modes[2], "zones:list")
+    end)
+
     t.test("/azf shots stops if the window is closed", function()
         local ns = boot()
         slash("shots")

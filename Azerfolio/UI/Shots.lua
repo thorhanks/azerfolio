@@ -50,7 +50,12 @@ local function steps(which)
     local function size(w, h) return function() UI.FitSize(w, h) end end
     local list = {}
     for _, def in ipairs(UI.tabs) do
-        list[#list + 1] = { label = def.id, fn = function() UI.ApplyGeometry(); UI.SelectTab(def.id) end }
+        list[#list + 1] = { label = def.id, fn = function()
+            UI.ApplyGeometry(); UI.SelectTab(def.id)
+            -- Start the Zones shots on the catalogue, even if Zone Detail was left open.
+            local page = def.id == "zones" and zonesPage()
+            if page and page.mode == "detail" then page:Back() end
+        end }
     end
     -- Focus after an RT jump: chevron, row highlight and scroll-into-view in one picture.
     list[#list + 1] = { label = "zones, next section", fn = function()

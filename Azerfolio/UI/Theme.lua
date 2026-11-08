@@ -79,6 +79,7 @@ Theme.layout = {
     checkRow = 32,             -- Zone Detail area row
     checkIcon = 20,
     bannerHeight = 124,        -- Zone Detail banner
+    bannerRightShade = 420,    -- dark band behind the banner's progress
     wideMinWidth = 1440,       -- window width from which Zones becomes a split view
     splitListWidth = 560,      -- the split view's list column
     -- Zones catalogue (mockups/style.css .toolbar, .zcard, .zrow)

@@ -83,6 +83,15 @@ local function buildDetail(page)
     map:SetText("World map")
     map:SetScript("OnClick", function() page:OpenMap() end)
     d.mapButton = map
+    -- A dark band on the right so the progress reads over bright art (the left shade fades out
+    -- there; WoWScrnShot_110726_211556 had "83%" on a sunlit sky).
+    local rshade = banner:CreateTexture(nil, "BORDER", nil, 1)
+    rshade:SetPoint("TOPRIGHT"); rshade:SetPoint("BOTTOMRIGHT")
+    rshade:SetWidth(L.bannerRightShade)
+    rshade:SetColorTexture(1, 1, 1, 1)
+    local rok = type(CreateColor) == "function" and pcall(rshade.SetGradient, rshade, "HORIZONTAL",
+        CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, 0.8))
+    if not rok then rshade:SetColorTexture(0, 0, 0, 0.45) end
     -- Progress, right side: big percentage over the pips, "n of m discovered" to the left.
     banner.pct = T.Text(banner, "xxl", "white")
     banner.pct:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", -S.s6, S.s6 + S.s2)
