@@ -78,13 +78,31 @@ local function buildDetail(page)
     back:SetText("Zones")
     back:SetScript("OnClick", function() page:Back() end)
     d.back = back
+    local map = CreateFrame("Button", nil, banner, "UIPanelButtonTemplate")
+    map:SetSize(110, 24)
+    map:SetText("World map")
+    map:SetScript("OnClick", function() page:OpenMap() end)
+    d.mapButton = map
+    -- Progress, right side: big percentage over the pips, "n of m discovered" to the left.
+    banner.pct = T.Text(banner, "xxl", "white")
+    banner.pct:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", -S.s6, S.s6 + S.s2)
+    banner.pips = ns.Widgets.Pips(banner)
+    banner.pips:SetPoint("TOPRIGHT", banner.pct, "BOTTOMRIGHT", 0, -S.s1)
+    banner.count = T.Text(banner, "sm", "text")
+    banner.count:SetPoint("RIGHT", banner.pct, "LEFT", -S.s3, 0)
     d.banner = banner
 
     local scroll = ns.Widgets.Scroll(d)
     scroll:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, -S.s3)
     scroll:SetPoint("BOTTOMRIGHT", 0, S.s2)
     d.scroll = scroll
-    d.headers = { ns.Widgets.Header(scroll.child), ns.Widgets.Header(scroll.child) }
+    d.headers = { ns.Widgets.Header(scroll.child), ns.Widgets.Header(scroll.child),
+        ns.Widgets.Header(scroll.child) }
+    -- Notes above the checklist: fully explored, unknown areas, catalogue differences.
+    d.note = T.Text(scroll.child, "sm", "text")
+    d.note:SetPoint("TOPLEFT", L.listInset, -S.s1)
+    d.note:SetPoint("RIGHT", scroll.child, "RIGHT", -S.s6, 0)
+    d.note:SetJustifyH("LEFT")
     d.message = T.Text(scroll.child, "md", "dim")
     d.message:SetPoint("TOPLEFT", L.listInset, -S.s4)
     d.message:SetPoint("RIGHT", scroll.child, "RIGHT", -S.s6, 0)
@@ -124,24 +142,63 @@ local function fillDetail(d, zone)
     for _, r in ipairs(d.pool) do r:Hide() end
     for _, h in ipairs(d.headers) do h:Hide() end
     d.message:Hide()
+    d.note:Hide()
 
     local ex = ns.Exploration.ForZone(zone)
     local rows, child = {}, d.scroll.child
+    local b = d.banner
     if ex.status ~= "tracked" then
+        b.pct:SetText(""); b.count:SetText(""); b.pips:Hide()
         d.message:SetText(string.format(MESSAGES[ex.status] or MESSAGES.unavailable, zone.name))
         d.message:Show()
         child:SetHeight(100)
         return rows, ex
     end
 
-    local groups = { { title = "To discover", list = {} }, { title = "Discovered", list = {} } }
+    -- Banner progress: the percentage only when Progression gives one ("-" otherwise).
+    local p = ex.progress
+    local complete = p.trackedComplete
+    b.pct:SetText(ns.Progression.PercentText(p) or "-")
+    b.pct:SetTextColor(T.RGB(complete and "complete" or (p.completed > 0 and "todo" or "white")))
+    b.count:SetText(p.denominator > 0 and string.format("%d of %d discovered", p.completed, p.denominator) or "")
+    b.pips:Set(p.complete, p.incomplete, p.completionUnknown, 300)
+    b.pips:Show()
+
+    -- Notes: what the numbers alone don't say.
+    local notes = {}
+    if complete then
+        notes[#notes + 1] = "|cffffcc33Fully explored:|r every area the game lists for this zone is discovered."
+    end
+    if p.completionUnknown > 0 then
+        notes[#notes + 1] = string.format("The game didn't say whether %d %s discovered; %s under State unknown and not counted.",
+            p.completionUnknown, p.completionUnknown == 1 and "area is" or "areas are",
+            p.completionUnknown == 1 and "it's listed" or "they're listed")
+    end
+    if p.coverage ~= "complete" and p.completionUnknown == 0 and not complete then
+        notes[#notes + 1] = "Some areas couldn't be identified, so this zone has no percentage."
+    end
+    if ex.uncertain then
+        notes[#notes + 1] = "The game's list of areas differs from Azerfolio's catalogue (a game update?). Showing the game's list."
+    end
+    local y, used = 0, 0
+    if #notes > 0 then
+        d.note:SetText(table.concat(notes, "\n"))
+        d.note:Show()
+        local h = d.note.GetStringHeight and d.note:GetStringHeight() or 0
+        y = math.max(h, #notes * (T.size.sm + 4)) + S.s3
+    end
+
+    local groups = { { title = "To discover", list = {} }, { title = "Discovered", list = {} },
+        { title = "State unknown", list = {} } }
     for _, c in ipairs(ex.objectives) do
         if c.completion == "complete" then table.insert(groups[2].list, c)
-        elseif c.completion == "incomplete" then table.insert(groups[1].list, c) end
+        elseif c.completion == "incomplete" then table.insert(groups[1].list, c)
+        else table.insert(groups[3].list, c) end
     end
-    local counts = { ex.progress.remaining, ex.progress.completed }
+    if #groups[3].list == 0 then groups[3] = nil end
+    -- Listed counts (every area shown), not the percentage's denominator.
+    local counts = { p.incomplete, p.complete, p.completionUnknown }
 
-    local y, used = 0, 0
     for gi, g in ipairs(groups) do
         if gi > 1 then y = y + S.s3 end
         local h = d.headers[gi]
@@ -170,12 +227,16 @@ local function fillDetail(d, zone)
                         row:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
                     end
                     local done = c.completion == "complete"
+                    local unknown = c.completion ~= "complete" and c.completion ~= "incomplete"
                     row.done:SetShown(done)
                     row.todo:SetShown(not done)
+                    local tr, tg, tb = T.RGB(unknown and "untouched" or "todo")
+                    row.todo:SetColorTexture(tr, tg, tb, 1)
                     row.name:SetText(c.name or "?")
-                    row.name:SetTextColor(T.RGB(done and "dim" or "white"))
+                    row.name:SetTextColor(T.RGB((done or unknown) and "dim" or "white"))
                     row.item = { key = "c" .. tostring(c.id), frame = row, title = c.name,
-                        detail = done and "Discovered" or "Not discovered yet", scroll = d.scroll,
+                        detail = done and "Discovered" or (unknown and "The game didn't say whether this is discovered")
+                            or "Not discovered yet", scroll = d.scroll,
                         topGap = L.listHeader + S.s1 + S.s2 }
                     row:Show()
                     items[#items + 1] = row.item
@@ -286,6 +347,13 @@ local function build(parent)
         end
         list.edge:SetShown(page.wide)
         page.detail.back:SetShown(not page.wide)
+        local map, S = page.detail.mapButton, ns.Theme.space
+        map:ClearAllPoints()
+        if page.wide then
+            map:SetPoint("TOPRIGHT", page.detail.banner, "TOPRIGHT", -S.s4, -S.s3)
+        else
+            map:SetPoint("RIGHT", page.detail.back, "LEFT", -S.s2, 0)
+        end
     end
 
     -- Marks the zone the split view shows (none in the narrow window).
@@ -424,9 +492,48 @@ local function build(parent)
         return true
     end
 
-    -- X: search; Y: next view. Only on the catalogue.
+    -- Opens the world map on the shown zone. The map needs the controller, so Azerfolio hides
+    -- while it's open and comes back when it closes. Returns true if the map opened.
+    function page:OpenMap()
+        local zone = self.zone
+        if not zone then return false end
+        if type(InCombatLockdown) == "function" and InCombatLockdown() then
+            ns.Print("The world map can't be opened from Azerfolio during combat.")
+            return false
+        end
+        local ok, how = false, nil
+        if type(OpenWorldMap) == "function" then
+            ok = pcall(OpenWorldMap, zone.mapID); how = "OpenWorldMap"
+        end
+        if not ok and C_Map and type(C_Map.OpenWorldMap) == "function" then
+            ok = pcall(C_Map.OpenWorldMap, zone.mapID); how = "C_Map.OpenWorldMap"
+        end
+        local wm = WorldMapFrame
+        local shown = ok and wm ~= nil and wm.IsShown ~= nil and wm:IsShown() and true or false
+        ns.Debug.Trace("worldmap", { mapID = zone.mapID, ok = ok, how = how, shown = shown,
+            mapShown = shown and wm.GetMapID and ns.Debug.Try("GetMapID", wm.GetMapID, wm) or nil })
+        if not shown then
+            ns.Print("Couldn't open the world map.")
+            return false
+        end
+        if wm.HookScript and not self.mapHooked then
+            self.mapHooked = true
+            wm:HookScript("OnHide", function()
+                if page.reopenAfterMap then page.reopenAfterMap = false; ns.UI.Show() end
+            end)
+        end
+        self.reopenAfterMap = self.mapHooked == true
+        ns.UI.Hide()
+        return true
+    end
+
+    -- X: search on the catalogue, world map in Zone Detail; Y: next view (catalogue only).
     function page:OnButton(name)
-        if self.popup:IsShown() or (self.mode == "detail" and not self.wide) then return false end
+        if self.popup:IsShown() then return false end
+        if self.mode == "detail" then
+            if name == "x" then return self:OpenMap() end
+            return false
+        end
         if name == "x" then
             self.mode = "list"
             self.pendingFocusKey = cat.search.item.key
@@ -440,7 +547,8 @@ local function build(parent)
     end
 
     function page:GetHints()
-        if self.popup:IsShown() or (self.mode == "detail" and not self.wide) then return {} end
+        if self.popup:IsShown() then return {} end
+        if self.mode == "detail" then return { { "X", "World map" } } end
         local hints = {}
         if not self.wide then hints[#hints + 1] = { "Y", "View" } end
         hints[#hints + 1] = { "X", "Search" }

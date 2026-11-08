@@ -284,6 +284,83 @@ return function(t)
         t.eq(page(ns).detail.banner.sub:GetText(), "Eastern Kingdoms  ·  Levels 10-20  ·  Alliance territory")
     end)
 
+    t.test("zone detail: banner progress, and a note when the game's list differs", function()
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        slash("")
+        page(ns):Open({ mapID = 1429, name = "Elwynn Forest", continent = "Eastern Kingdoms" })
+        local d = page(ns).detail
+        t.eq(d.banner.pct:GetText(), "40%"); t.eq(d.banner.count:GetText(), "2 of 5 discovered")
+        t.eq(d.banner.pips:IsShown(), true)
+        t.ok(d.note:IsShown() and d.note:GetText():find("differs from Azerfolio's catalogue"), "fixture IDs differ")
+        t.eq(d.headers[3]:IsShown(), false, "no unknown areas: no third section")
+    end)
+
+    t.test("zone detail: areas with unknown state are listed, not counted, and explained", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        slash("")
+        local real = _G.GetAchievementCriteriaInfo
+        _G.GetAchievementCriteriaInfo = function(achID, i)
+            local r = { real(achID, i) }
+            if achID == 776 and i == 3 then r[3] = nil end -- Fargodeep Mine: no flag
+            return unpack(r, 1, 11)
+        end
+        ns.Exploration.InvalidateAll()
+        page(ns):Open({ mapID = 1429, name = "Elwynn Forest", continent = "Eastern Kingdoms" })
+        _G.GetAchievementCriteriaInfo = real
+        local d = page(ns).detail
+        t.eq(d.headers[3].text:GetText(), "State unknown"); t.eq(d.headers[3].count:GetText(), "1 area")
+        t.eq(d.headers[1].count:GetText(), "2 areas", "To discover lists the other two")
+        t.ok(d.note:GetText():find("didn't say whether 1 area is discovered"), d.note:GetText())
+        t.eq(d.banner.count:GetText(), "2 of 4 discovered", "the unknown one isn't counted")
+        press(ns, "PADRTRIGGER"); press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().title, "Fargodeep Mine", "RT reaches the third section")
+        t.ok(ns.Focus.Current().detail:find("didn't say"))
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("zone detail: a fully explored zone says so in gold, 100%", function()
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        slash("")
+        page(ns):Open({ mapID = 1426, name = "Dun Morogh", continent = "Eastern Kingdoms" })
+        local d = page(ns).detail
+        t.eq(d.banner.pct:GetText(), "100%")
+        t.ok(d.note:GetText():find("Fully explored"), d.note:GetText())
+    end)
+
+    t.test("zone detail: X opens the world map on the zone; Azerfolio hides and comes back", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { displayMode = "list" } })
+        local wm = _G.CreateFrame("Frame", "WorldMapFrame", _G.UIParent)
+        wm:Hide()
+        _G.OpenWorldMap = function(mapID) wm.mapID = mapID; wm:Show() end
+        slash("")
+        press(ns, "PADDDOWN"); press(ns, "PAD1") -- Elwynn Forest
+        t.eq(page(ns).mode, "detail")
+        local hints = ns.UI.GetFrame().legend.hints
+        t.ok(hints:GetWidth() > 1)
+        press(ns, "PAD3")
+        t.eq(wm:IsShown(), true); t.eq(wm.mapID, 1429)
+        t.eq(ns.UI.IsShown(), false, "Azerfolio steps aside for the map")
+        wm:Hide()
+        t.eq(ns.UI.IsShown(), true, "back when the map closes")
+        t.eq(page(ns).mode, "detail", "still on the zone")
+        t.eq(ns.Focus.Current().title, "Fargodeep Mine", "focus kept")
+        ns.UI.Hide(); wm:Show(); wm:Hide()
+        t.eq(ns.UI.IsShown(), false, "closing a map Azerfolio didn't open doesn't reopen it")
+        _G.OpenWorldMap, _G.WorldMapFrame = nil, nil
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("zone detail: if the map doesn't open, Azerfolio stays and says so", function()
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        slash("")
+        page(ns):Open({ mapID = 1429, name = "Elwynn Forest", continent = "Eastern Kingdoms" })
+        t.eq(page(ns):OpenMap(), false)
+        t.eq(ns.UI.IsShown(), true)
+        t.ok(table.concat(wow.chat, "\n"):find("Couldn't open the world map"))
+    end)
+
     t.test("catalogue: For my level uses the zone guide; Show hides the other faction's territory", function()
         _G.UnitFactionGroup = function() return "Alliance", "Alliance" end
         local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { level = "appropriate", faction = "all" } })
