@@ -24,6 +24,7 @@ Systems\Objectives.lua
 Systems\Progression.lua
 Systems\Milestones.lua
 Systems\Exploration.lua
+Systems\Zones.lua
 UI\Theme.lua
 UI\FocusGrid.lua
 UI\MainWindow.lua

@@ -109,6 +109,32 @@ return function(t)
         t.ok(db.zoneSnapshots[1].exploreAchievement, "zone snapshot found the achievement")
     end)
 
+    t.test("/azfdiag zones records raw levels and map rects per zone", function()
+        boot()
+        _G.C_Map.GetMapLevels = function(id) if id == ELWYNN then return 1, 10, 1, 10 end end
+        _G.C_Map.GetMapRectOnMap = function() return 0.4, 0.5, 0.7, 0.8 end
+        _G.GetZonePVPInfo = function() return "friendly" end
+        _G.SlashCmdList.AZERFOLIODIAG("zones")
+        local z = _G.AzerfolioDiagDB.zoneMeta
+        t.eq(z.count, 1, "one zone map in the fixture")
+        local e = z.zones[ELWYNN]
+        t.eq(e.name, "Elwynn Forest")
+        t.eq(e.levels.n, 4); t.eq(e.levels[1], 1); t.eq(e.levels[2], 10)
+        t.eq(e.rect[3], 0.7)
+        t.eq(z.player.pvp[1], "friendly")
+        t.eq(z.has.GetMapLevels, "function")
+        t.eq(#_G.AzerfolioDiagDB.errors, 0)
+    end)
+
+    t.test("/azfdiag zones copes with a client without GetMapLevels", function()
+        boot()
+        _G.SlashCmdList.AZERFOLIODIAG("zones")
+        local z = _G.AzerfolioDiagDB.zoneMeta
+        t.eq(z.has.GetMapLevels, "nil")
+        t.eq(z.zones[ELWYNN].levels[1], nil, "nothing recorded")
+        t.eq(#_G.AzerfolioDiagDB.errors, 0)
+    end)
+
     t.test("discovering an area records a criteria diff", function()
         local criteria, explored = boot()
         criteria[3].done = true

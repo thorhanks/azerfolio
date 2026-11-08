@@ -203,6 +203,22 @@ return function(t)
         t.eq(ns.Exploration.ForZone({ mapID = 1436, name = "Westfall" }).status, "unavailable", "in the catalogue, no data")
     end)
 
+    t.test("zones catalogue: every listed zone with its live exploration state", function()
+        local ns = boot()
+        local all = ns.Zones.All()
+        t.eq(#all, 6, "the fixture's zone maps, orphan dropped")
+        local by = {}
+        for _, z in ipairs(all) do by[z.mapID] = z end
+        t.eq(by[1429].state, "progress"); t.eq(by[1429].progress.completed, 2)
+        t.eq(by[1429].continent, "Eastern Kingdoms"); t.eq(by[1429].rank, 1)
+        t.eq(by[1426].state, "complete", "Dun Morogh's only fixture area is done")
+        t.eq(by[1411].state, "untouched"); t.eq(by[1411].rank, 2)
+        t.eq(by[1436].state, "unknown", "Westfall: tracked, no data")
+        t.eq(by[2521].state, "untracked")
+        t.eq(all[1].name, "Dun Morogh", "continent order, then name")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
     t.test("a non-boolean done flag is unknown, never done or not done", function()
         local ns = boot()
         local real = _G.GetAchievementCriteriaInfo

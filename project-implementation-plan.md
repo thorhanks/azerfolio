@@ -398,6 +398,8 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Milestones only for a confirmed not-discovered → discovered change against a per-zone baseline of confirmed states; every zone is read once after login to set it; only changes seen live get a time | Spec: no milestones for pre-existing progress, no timestamps the game didn't confirm |
 | 2026-11-07 | Phase 5 accepted; the separate step 5 check wasn't run | Steps 3 and 4 met every done-when item in game; the owner closed the phase on that evidence |
 | 2026-11-07 | Debug mode writes a capped trace to `AzerfolioDB.trace` (100 entries, addon state only) | In-game results are read from files (plan §2.1) |
+| 2026-11-07 | Zones catalogue logic lives in `Systems/Zones.lua`; no `Data/Zones.lua` until a verified level or faction source exists (probe `/azfdiag zones` first) | Everything else in the planned metadata (name, continent, art, categories, coverage) already comes from the client, the catalogue and `Data/Art.lua`; don't guess levels or faction |
+| 2026-11-07 | Completion filter = the design's status segments (All / In progress / Untouched / Complete), account schema 4; unknown and untracked zones show only under All; a filter whose data is unknown everywhere isn't offered | Approved design; spec §6.2 (unknown is never "incomplete"); a filter that can't filter is noise |
 
 ## 10. Definition of done (v1)
 

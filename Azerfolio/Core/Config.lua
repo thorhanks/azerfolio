@@ -4,7 +4,7 @@ local _, ns = ...
 local Config = {}
 ns.Config = Config
 
-Config.ACCOUNT_SCHEMA = 3
+Config.ACCOUNT_SCHEMA = 4
 Config.CHAR_SCHEMA = 1
 
 -- Account-wide settings (AzerfolioDB).
@@ -47,7 +47,8 @@ Config.ENUMS = {
     },
     ["zones.displayMode"] = { cards = true, list = true },
     ["zones.faction"] = { relevant = true, all = true },
-    ["zones.completion"] = { all = true, incomplete = true, completed = true },
+    -- The design's status segments (mockups/DESIGN.md): All / In progress / Untouched / Complete.
+    ["zones.completion"] = { all = true, progress = true, untouched = true, complete = true },
     ["zones.level"] = { all = true, appropriate = true },
     ["zones.sort"] = { recommended = true, alphabetical = true, highest = true, lowest = true, closest = true },
 }

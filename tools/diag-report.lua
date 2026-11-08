@@ -1,6 +1,6 @@
 -- Summarizes the AzerfolioDiag SavedVariables dump.
 -- Usage: luajit tools/diag-report.lua [section] [param]
--- Sections: summary (default), env, ach, explore, maps, quests, zone, events, art, errors,
+-- Sections: summary (default), env, ach, explore, maps, quests, zone, zones, events, art, errors,
 --           criteria <achID>, ns <filter>, log [n], skin [tree [filter]]
 -- Set AZF_DIAG_FILE to read a different dump.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
@@ -124,6 +124,37 @@ function R.zone()
         local t1 = z.exploredTextures and z.exploredTextures[1]
         if t1 then for _, k in ipairs(keys(t1)) do p("    tex[1].%s = %s", k, s(t1[k])) end end
         if z.exploreAchievement then p("  achievement %s %s", tostring(z.exploreAchievement.id), tostring(z.exploreAchievement.name)) end
+    end
+end
+
+-- zones: the raw zone metadata probe (/azfdiag zones), one line per zone map.
+function R.zones()
+    local z = DB.zoneMeta
+    if not z then p("no zone metadata recorded (/azfdiag zones)") return end
+    local pl = z.player or {}
+    p("recorded %s: %s zones; player level %s faction %s map %s pvp %s", tostring(z.t), tostring(z.count),
+        tostring(pl.level), s(pl.faction), tostring(pl.map), s(pl.pvp))
+    for _, k in ipairs(keys(z.has)) do p("  has %-16s %s", k, tostring(z.has[k])) end
+    local function packed(t)
+        if type(t) ~= "table" then return tostring(t) end
+        local o = {}
+        for i = 1, (t.n or #t) do
+            local v = t[i]
+            if type(v) == "table" then
+                local f = {}
+                for _, k in ipairs(keys(v)) do f[#f + 1] = k .. "=" .. tostring(v[k]) end
+                v = "{" .. table.concat(f, " ") .. "}"
+            end
+            o[#o + 1] = tostring(v)
+        end
+        return "(" .. table.concat(o, ", ") .. ")"
+    end
+    local ids = keys(z.zones)
+    table.sort(ids, function(a, b) return a < b end)
+    for _, id in ipairs(ids) do
+        local x = z.zones[id]
+        p("  %-5d %-28s parent %-5s flags %-6s levels %-22s rect %s", id, tostring(x.name), tostring(x.parent),
+            tostring(x.flags), packed(x.levels), packed(x.rect))
     end
 end
 

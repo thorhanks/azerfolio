@@ -487,6 +487,48 @@ local function dumpZone()
 end
 
 ---------------------------------------------------------------------------
+-- Zone metadata probe (Azerfolio Phase 6): does the client give level ranges, faction or
+-- map positions for each zone? Records raw returns only; the agent judges them.
+---------------------------------------------------------------------------
+
+local function dumpZoneMeta()
+    if not (C_Map and C_Map.GetMapInfo) then DB.zoneMeta = { missing = true }; return end
+    local zoneType = Enum and Enum.UIMapType and Enum.UIMapType.Zone or 3
+    local z = {
+        t = time(),
+        player = {
+            level = try("UnitLevel", UnitLevel, "player"),
+            faction = packArgs(try("UnitFactionGroup", UnitFactionGroup, "player")),
+            map = currentMapID(),
+            pvp = packArgs(try("GetZonePVPInfo", GetZonePVPInfo)),
+        },
+        has = {
+            GetMapLevels = type(C_Map.GetMapLevels),
+            GetMapRectOnMap = type(C_Map.GetMapRectOnMap),
+            GetZonePVPInfo = type(GetZonePVPInfo),
+            OpenWorldMap = type(C_Map.OpenWorldMap),
+        },
+        zones = {},
+    }
+    local count = 0
+    for id = 1, 3000 do
+        local info = try("GetMapInfo", C_Map.GetMapInfo, id)
+        if info and info.mapType == zoneType then
+            local parent = info.parentMapID
+            z.zones[id] = {
+                name = info.name, parent = parent, flags = info.flags,
+                levels = packArgs(try("GetMapLevels", C_Map.GetMapLevels, id)),
+                rect = parent and packArgs(try("GetMapRectOnMap", C_Map.GetMapRectOnMap, id, parent)) or nil,
+            }
+            count = count + 1
+        end
+    end
+    z.count = count
+    DB.zoneMeta = z
+    msg(string.format("zone metadata: %d zones. Type /reload to save.", count))
+end
+
+---------------------------------------------------------------------------
 -- Image format / native texture test
 ---------------------------------------------------------------------------
 
@@ -949,6 +991,7 @@ end
 local HELP = {
     "/azfdiag all    - dump everything (env, maps, achievements, quests, current zone)",
     "/azfdiag zone   - snapshot the current zone",
+    "/azfdiag zones  - record each zone's level range, faction info and map position (raw)",
     "/azfdiag sniff  - toggle logging of every event name",
     "/azfdiag art    - show the image-format test frame",
     "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
@@ -968,6 +1011,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "ach" then DB.achievements = scanAchievements(true); matchExploreToMaps(); msg("achievements dumped")
     elseif cmd == "quests" then dumpQuests(); msg("quests dumped")
     elseif cmd == "zone" then dumpZone()
+    elseif cmd == "zones" then dumpZoneMeta()
     elseif cmd == "sniff" then setSniff(not DB.sniffOn)
     elseif cmd == "art" then showArt()
     elseif cmd == "pad" then togglePad()

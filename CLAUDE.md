@@ -12,7 +12,7 @@ Read before working:
 
 ## Current state (2026-11-07)
 
-- Phases 0–5 done. The window has the **native Forever look** (`PortraitFrameTemplate` and the atlases in `mockups/DESIGN.md` § Native look), gamepad focus, Zones list / Zone Detail / wide split view (window ≥ 1440), launchers and a key binding. Exploration: generated catalogue (`Data/Exploration.lua`, regenerate with `luajit tools/gen-exploration.lua`), `Systems/Objectives`, `Progression` (all counts), `Exploration` (tracker, live refresh, `AZF_EXPLORATION_UPDATED`), `Milestones` (per-character baseline, `AZF_MILESTONE`). **Next: Phase 6** (Zones catalogue and Zone Detail).
+- Phases 0–5 done. The window has the **native Forever look** (`PortraitFrameTemplate` and the atlases in `mockups/DESIGN.md` § Native look), gamepad focus, Zones list / Zone Detail / wide split view (window ≥ 1440), launchers and a key binding. Exploration: generated catalogue (`Data/Exploration.lua`, regenerate with `luajit tools/gen-exploration.lua`), `Systems/Objectives`, `Progression` (all counts), `Exploration` (tracker, live refresh, `AZF_EXPLORATION_UPDATED`), `Milestones` (per-character baseline, `AZF_MILESTONE`). **Phase 6 in progress** (Zones catalogue and Zone Detail): step 1 built (`Systems/Zones` filters/sorts/sections, account schema 4, probe `/azfdiag zones` for level ranges); waiting for the probe run before the catalogue page.
 - Debug mode (`/azf debug`) writes a capped trace to `AzerfolioDB.trace`; read it after `/reload`. `/azf debug exploration` prints the current zone, the total and milestones. `RECEIVED_ACHIEVEMENT_LIST` doesn't fire on `/reload`.
 - Banner crop offsets: `Theme.bannerFocus`; check with `/azf shots banners`.
 - In game, the owner may still have **Azerfolio Diagnostics** enabled with its event sniffer on. Ask them to turn it off (`/azfdiag sniff`, then untick the addon) when it's no longer needed.
@@ -55,7 +55,7 @@ Read before working:
 - Link addons: `powershell -File tools/link-addons.ps1` (`-Unlink` to remove)
 - Tests: `luajit tests/run.lua` (from repo root)
 - Read the diagnostic dump: `luajit tools/diag-report.lua [summary|env|explore|criteria <achID>|maps|zone|events|log [n]|quests|art|ns <filter>|errors]`
-- Diagnostics in game: `/azfdiag` (help), `/azfdiag all`, `/azfdiag zone`, `/azfdiag sniff`, `/azfdiag art`, `/azfdiag skin` (native frame textures; report `skin [tree [filter]]`)
+- Diagnostics in game: `/azfdiag` (help), `/azfdiag all`, `/azfdiag zone`, `/azfdiag zones` (level ranges, map rects; report `zones`), `/azfdiag sniff`, `/azfdiag art`, `/azfdiag skin` (native frame textures; report `skin [tree [filter]]`)
 - Addon in game: `/azf help`, `/azf status`, `/azf debug [zone]`, `/azf refresh`, `/azf shot`, `/azf shots` (screenshots every tab and state), `/azf shots banners`
 - Mockups: start the `mockups` preview (`.claude/launch.json`, serves `mockups/` on http://localhost:8765 via `tools/serve-mockups.ps1`). Regenerate zone data with `luajit tools/export-mock-data.lua | Out-File -Encoding utf8 mockups/data.js`. Mockup state (Gideon's progress, level ranges, factions) is sample data in `mockups/app.js`, not addon data.
 - Zone art: owner saves generated images as `art/source/<mapID>-<slug>.png` (prompts in `art/prompts.md`, rules in `art/style-guide.md`), then `powershell -File tools/process-art.ps1`. This writes `Azerfolio/Media/Zones/<mapID>.blp` (1024×512 BLP2 DXT1 + mips, via `tools/Blp.cs`), the mockup PNGs, and `Azerfolio/Data/Art.lua`. Never hand-edit `Data/Art.lua`. Use the `.blp` extension in texture paths. Review with `tools/art-contact-sheet.ps1`. Only BLPs are committed; `art/source/` and mockup PNGs are git-ignored.
@@ -64,7 +64,7 @@ Read before working:
 ## Code layout
 
 - `Azerfolio/Core/` — `Init` (namespace `ns`), `Config` (defaults/enums/ranges), `SavedVariables` (pure: validate/migrate), `Debug` (`Try`, error log), `Events` (dispatcher, `On`/`Send` messages, `Debounce`), `Character`, `Commands`, `Lifecycle` (loaded last).
-- `Azerfolio/Systems/` — `Maps` (zone list from the client's map tree).
+- `Azerfolio/Systems/` — `Maps` (zone list from the client's map tree), `Objectives`, `Progression`, `Exploration`, `Milestones`, `Zones` (catalogue entries, filters, sorts, sections).
 - `Azerfolio/UI/` — `Theme` (all style constants and native atlases), `FocusGrid` (pure focus logic), `MainWindow` (`ns.UI`: native frame, tabs via `UI.RegisterTab`, legend, geometry), `Gamepad` (addon-owned input layer), `Focus` (per-tab focus, chevron, scroll into view), `Pages/` (one file per tab; `page:GetFocusRows()` opts into focus), `Shots` (`/azf shots`).
 - New files go in the TOC in dependency order; `tests/addon_smoke_test.lua` loads the addon from the TOC, so a missing file fails the tests.
 - Internal messages are named `AZF_*`. Startup: `ADDON_LOADED` → `PLAYER_LOGIN` → `AZF_READY`.

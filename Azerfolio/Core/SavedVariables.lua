@@ -85,6 +85,14 @@ SV.ACCOUNT_MIGRATIONS = {
         local l = db.launcher
         if type(l) == "table" and l.minimapAngle == 200 then l.minimapAngle = 140 end
     end,
+    -- 4: the completion filter became the design's status segments. "completed" is now
+    -- "complete"; "incomplete" (in progress or untouched) has no single segment, so it shows all.
+    [4] = function(db)
+        local z = db.zones
+        if type(z) ~= "table" then return end
+        if z.completion == "completed" then z.completion = "complete"
+        elseif z.completion == "incomplete" then z.completion = "all" end
+    end,
 }
 SV.CHAR_MIGRATIONS = {}
 
