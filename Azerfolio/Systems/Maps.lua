@@ -9,6 +9,10 @@ ns.Maps = Maps
 local ZONE, CONTINENT, WORLD = 3, 2, 1 -- Enum.UIMapType values [verified-ingame]
 local SCAN_MAX = 3000                  -- the Phase 0 scan found every map below this
 local CONTINENT_ORDER = { [1415] = 1, [1414] = 2 } -- Eastern Kingdoms, Kalimdor, then others
+-- Maps of another type listed as zones anyway. Darkspear Islands (2524) is map type 6
+-- [verified-ingame, /azfdiag questdb] but has 18 quests, so it's a quest-only zone (no
+-- exploration achievement). Owner-approved 2026-11-08.
+Maps.EXTRA_ZONES = { [2524] = true }
 
 local cache
 
@@ -64,7 +68,7 @@ function Maps.Sections()
         end
         for id = 1, SCAN_MAX do
             local m = info(id)
-            if m and m.mapType == ZONE then
+            if m and (m.mapType == ZONE or Maps.EXTRA_ZONES[id]) then
                 local parent = m.parentMapID and m.parentMapID > 0 and info(m.parentMapID)
                 zones[#zones + 1] = {
                     mapID = id, name = m.name,

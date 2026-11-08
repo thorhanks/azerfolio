@@ -13,6 +13,7 @@ local HELP = {
     "/azf debug exploration - show the current zone's exploration and the total",
     "/azf debug zones - show the Zones catalogue's counts and filters",
     "/azf debug overview - show what the Overview picks and counts",
+    "/azf debug quests - show the quest catalogue from QuestieDB (counts per zone, what's left out)",
     "/azf debug perf - event counts, timings and memory since debug was turned on (reset: start over)",
     "/azf shot - take a test screenshot (development)",
     "/azf shots - screenshot every tab and state (development)",
@@ -191,6 +192,8 @@ function Commands.Handle(input)
             ns.Zones.DebugReport()
         elseif sub == "overview" then
             ns.Overview.DebugReport()
+        elseif sub == "quests" then
+            ns.Quests.DebugReport()
         elseif sub == "perf" then
             debugPerf(words[3])
         else

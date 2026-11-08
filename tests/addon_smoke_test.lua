@@ -157,6 +157,34 @@ return function(t)
         t.eq(#ns.Debug.errors, 1)
     end)
 
+    t.test("/azf debug quests reports the catalogue, and says why without QuestieDB", function()
+        _G.LibQuestieDB = nil
+        boot()
+        slash("debug quests")
+        t.ok(lastChat():find("unavailable %(QuestieDB is not loaded%)"), lastChat())
+
+        local ids = { 1, 2, 3 }
+        local rows = { [1] = { 12, 0 }, [2] = { 133, 0 }, [3] = { -284, 0 } }
+        _G.LibQuestieDB = {
+            RequireContract = function() return true end,
+            Quest = {
+                GetAllIds = function() return ids end,
+                zoneOrSort = function(id) return rows[id][1] end,
+                specialFlags = function(id) return rows[id][2] end,
+            },
+        }
+        local ns = boot()
+        wow.runTimers()
+        _G.LibQuestieDB = nil
+        t.eq(ns.Quests.State().status, "ready")
+        slash("debug quests")
+        local all = table.concat(wow.chat, "\n")
+        t.ok(all:find("Quests: 3 in QuestieDB, 1 in zone counts"), all)
+        t.ok(all:find("dungeon 1"), all)
+        t.ok(all:find("this zone %(1429%): 1 quests"), all)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
     t.test("level-up refreshes the character once per burst", function()
         local level = 9
         local ns = boot(nil, nil, { UnitLevel = function() return level end })

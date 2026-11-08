@@ -5,6 +5,7 @@
 ## Version: 1.0.0
 ## SavedVariables: AzerfolioDB
 ## SavedVariablesPerCharacter: AzerfolioCharDB
+## OptionalDeps: QuestieDB
 ## IconTexture: Interface\Icons\INV_Misc_Book_11
 ## AddonCompartmentFunc: Azerfolio_OnAddonCompartmentClick
 ## AddonCompartmentFuncOnEnter: Azerfolio_OnAddonCompartmentEnter
@@ -14,6 +15,7 @@ Core\Init.lua
 Data\Art.lua
 Data\Exploration.lua
 Data\Zones.lua
+Data\QuestAreas.lua
 Core\Config.lua
 Core\SavedVariables.lua
 Core\Debug.lua
@@ -25,6 +27,7 @@ Systems\Objectives.lua
 Systems\Progression.lua
 Systems\Milestones.lua
 Systems\Exploration.lua
+Systems\Quests.lua
 Systems\Zones.lua
 Systems\Overview.lua
 UI\Theme.lua

@@ -89,3 +89,5 @@ Guards: everything behind `pcall`; a missing addon or a contract mismatch makes 
 5. **Darkspear Islands** (uiMap 2524, map type 6, 18 quests): added to the zone list as a quest-only zone without exploration. Needs a small `Systems/Maps` change for this one type-6 map.
 
 Every left-out quest is counted by reason, so the coverage note never hides anything.
+
+Owner's note (2026-11-08): a Dungeons tracking tab comes later, and dungeon quests will be tracked there. The quest index therefore keeps dungeon and raid quests per instance area instead of dropping them. The area table is our own (`Azerfolio/Data/QuestAreas.lua`), built from the probe above, so Azerfolio doesn't read QuestieDB's private zone tables.
