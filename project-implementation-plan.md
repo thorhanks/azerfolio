@@ -258,7 +258,7 @@ Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue for
 1. Main frame: title, character header, close button, drag, resize with min/max, clipping, content region.
 2. Bottom tabs (Overview, Zones) built so adding a tab is one registration call.
 3. Zones subview navigation (catalogue ↔ detail) with preserved state.
-4. Launcher: addon compartment entry (needs no library) and a lightweight minimap button written in-house. Persist button position. Key binding via `Bindings.xml`.
+4. Launcher: addon compartment entry (needs no library) and a lightweight minimap button written in-house. Persist button position. (A key binding via `Bindings.xml` was built here and removed on 2026-11-08.)
 5. Escape-to-close (register in `UISpecialFrames`), position persistence, off-screen recovery.
 6. **Gamepad input layer** (`UI/Gamepad.lua`), addon-owned, following spec §4.3:
    - An input frame on the window with `EnableGamePadButton`/`EnableGamePadStick`, active only while the window is shown, the gamepad UI is on, and the player is out of combat.
@@ -414,6 +414,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Level-dependent pages listen to `AZF_LEVEL_CHANGED`, not `AZF_CHARACTER_UPDATED` | XP updates fire on every kill; only the header shows XP |
 | 2026-11-07 | Zone Detail of a fully explored zone has no "To discover" section; the "Fully explored" note replaces it | Owner's request after the Phase 8 visual review: an empty "0 areas" header looked unfinished |
 | 2026-11-07 | Malformed milestone and recent-zone entries are dropped on load | A damaged file must not break the Overview; a bad time is removed, never replaced (honest data) |
+| 2026-11-08 | Key binding removed (`Bindings.xml`, `Azerfolio_Toggle`); spec §4.3 and the §12 Window criterion no longer ask for one | Opening from a controller-bound key didn't work in game, and the owner doesn't need a key binding; `/azf`, the minimap button and the compartment open it |
 
 ## 10. Definition of done (v1)
 

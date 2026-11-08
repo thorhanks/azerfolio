@@ -1,7 +1,7 @@
 -- Ways to open the window besides /azf (plan Phase 4 task 4), all without libraries:
 --   * the client's addon compartment (TOC AddonCompartmentFunc*, globals below);
---   * an in-house minimap button, dragged around the minimap edge, angle saved;
---   * a key binding (Bindings.xml -> Azerfolio_Toggle), assignable to a controller combo.
+--   * an in-house minimap button, dragged around the minimap edge, angle saved.
+-- No key binding: the owner doesn't need one (removed 2026-11-08).
 local _, ns = ...
 
 local Launcher = {}
@@ -124,17 +124,12 @@ function Launcher.ToggleMinimapButton()
 end
 
 ---------------------------------------------------------------------------------------------
--- Globals the client calls (TOC compartment fields, Bindings.xml)
+-- Globals the client calls (TOC compartment fields)
 ---------------------------------------------------------------------------------------------
 
 local function safely(label, fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok then ns.Debug.Error(label, err) end
-end
-
-function Azerfolio_Toggle()
-    if not ns.ready then return end
-    safely("key binding", ns.UI.Toggle)
 end
 
 function Azerfolio_OnAddonCompartmentClick()
@@ -149,8 +144,5 @@ end
 function Azerfolio_OnAddonCompartmentLeave()
     hideTooltip()
 end
-
-BINDING_HEADER_AZERFOLIO = "Azerfolio"
-BINDING_NAME_AZERFOLIO_TOGGLE = "Open or close Azerfolio"
 
 ns.Events.On("AZF_READY", function() Launcher.Refresh() end)

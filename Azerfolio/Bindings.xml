@@ -1,6 +1,0 @@
-<Bindings>
-	<!-- Key Bindings > AddOns > Azerfolio. Assign a key or a controller combo. -->
-	<Binding name="AZERFOLIO_TOGGLE" header="AZERFOLIO" category="ADDONS">
-		Azerfolio_Toggle()
-	</Binding>
-</Bindings>

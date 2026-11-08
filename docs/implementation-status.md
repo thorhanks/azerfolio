@@ -81,7 +81,7 @@ Planned steps (owner approves each):
    - Owner's answers: no Lua errors during play; position, size, tab and view kept after the full restart; Thragor's Zone Detail (The Barrens, Durotar) correct [verified-ingame, owner]. **Step 2 done** except two items the owner deferred: opening from a controller-bound key (none bound yet) and Escape in game.
    - Escape closes the window in game (owner).
    - Owner approved: a fully explored zone's detail has no empty "To discover · 0 areas" section; the "Fully explored" note stands above "Discovered". Mockup first (`mockups/app.js`, `DESIGN.md`; checked in the preview, Veteran scenario, Elwynn), then `UI/Pages/Zones.lua`. Untouched and in-progress zones keep both sections. Tests: 206 passed. Owner checked it in game on Elwynn Forest [verified-ingame, owner].
-3. **Close v1** (waiting): every spec §12 criterion is met (`docs/testing.md` § Phase 8 status table) except opening from a controller-bound key, which the owner will test later. Optional: attribute the 39.5 ms peak frame with `/azf debug perf` now that window opens, page builds and shots are timed.
+3. **Close v1** (ready): opening from a controller-bound key didn't work (2026-11-08), and the owner doesn't need a key binding, so it was removed (`Bindings.xml`, `Azerfolio_Toggle`, binding labels, help line) and spec §4.3 and §12 no longer ask for it. Every spec §12 criterion is now met (`docs/testing.md` § Phase 8 status table). Optional: attribute the 39.5 ms peak frame with `/azf debug perf` now that window opens, page builds and shots are timed.
 
 ## Phase 7 — Overview dashboard: done (2026-11-07)
 

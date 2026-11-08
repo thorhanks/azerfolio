@@ -18,7 +18,6 @@ local HELP = {
     "/azf shots - screenshot every tab and state (development)",
     "/azf shots banners - screenshot the zones with a banner offset (development)",
     "/azf minimap - show or hide the minimap button",
-    "Key binding: Key Bindings > AddOns > Azerfolio",
 }
 
 local function toggleWindow()

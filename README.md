@@ -21,7 +21,7 @@ Personal project, English only, not published. Everything runs inside the game c
 ## Features (v1)
 
 - **Window:** native Forever frame (portrait, gold chrome, side tabs, legend box with the info line and button hints). Drag, resize (1000×640 up to 1800×1100), position and size saved. Escape closes it. From 1440 wide the Zones tab splits into the list and Zone Detail side by side.
-- **Opening:** `/azf` or `/azerfolio`, the minimap button (drag it around the edge; `/azf minimap` hides it), the addon compartment, or a key binding (Key Bindings > AddOns > Azerfolio).
+- **Opening:** `/azf` or `/azerfolio`, the minimap button (drag it around the edge; `/azf minimap` hides it), or the addon compartment. There's no key binding.
 - **Gamepad:** LB/RB switch tabs, D-pad moves focus, A selects, B goes back or closes, LT/RT jump between sections, X searches (type with the keyboard: the client opens no on-screen keyboard) or opens the world map in Zone Detail, Y switches between cards and list.
 - **Overview:** Continue card for the zone to work on, next goal, up to three groups of suggested areas, tracked completion, a Zones stat, recent zones, a 14-day activity strip and recent milestones.
 - **Zones:** illustrated cards or a compact list; status (All / In progress / Untouched / Complete), Show (your faction's zones or all), Level and Sort filters; search; level-bracket sections.
@@ -73,7 +73,7 @@ Debug output is off by default. The trace is capped at 100 entries and holds onl
 
 ### 0.1.0 (in development)
 
-- Phase 8: performance counters (`/azf debug perf`), cheaper re-read after a discovery outside the current zone (fully explored zones skipped), Overview no longer rebuilds on every XP gain, damaged milestone and recent-zone entries cleaned on load, this README.
+- Phase 8: key binding removed (not needed), performance counters (`/azf debug perf`), cheaper re-read after a discovery outside the current zone (fully explored zones skipped), Overview no longer rebuilds on every XP gain, damaged milestone and recent-zone entries cleaned on load, this README.
 - Phase 7: Overview dashboard (Continue card, suggestions, tracked completion, Zones stat, recent zones, activity, milestones).
 - Phase 6: Zones catalogue (cards and list, filters, sort, search) and Zone Detail (banner, unknown areas, notes, world map).
 - Phase 5: exploration catalogue, progression service, live tracker, per-character baseline and milestones.

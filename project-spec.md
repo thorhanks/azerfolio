@@ -84,7 +84,7 @@ Public release and packaging, network or cloud features, sharing between players
 
 Azerfolio is **gamepad first**: the owner plays with a controller. Everything must be usable without a mouse, and the mouse must keep working too.
 
-- **Open/close:** a key binding (bindable to a controller button combo) as well as `/azf`.
+- **Open/close:** `/azf`, the minimap button or the addon compartment. No key binding (removed 2026-11-08: the owner doesn't need one).
 - **Focus:** the D-pad moves a clearly visible gold focus highlight between controls in a predictable order (rows and columns, not guesswork). Focus starts on a sensible element on each screen and is restored when returning to a screen.
 - **Buttons:**
 
@@ -297,7 +297,7 @@ Runs entirely in the game client. No accounts, network, cloud, companion apps, o
 ## 12. Acceptance criteria (v1)
 
 ### Window
-- [ ] `/azerfolio` and `/azf` toggle the window; launcher button works; key binding works from a controller.
+- [ ] `/azerfolio` and `/azf` toggle the window; launcher button works.
 - [ ] Every screen and action is usable with the gamepad alone (spec §4.3), with a visible focus highlight and hint bar.
 - [ ] Draggable, resizable; position and size persist.
 - [ ] Overview and Zones tabs work; Escape closes.
