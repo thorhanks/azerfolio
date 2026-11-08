@@ -135,6 +135,94 @@ return function(t)
         t.eq(#_G.AzerfolioDiagDB.errors, 0)
     end)
 
+    -- A tiny stand-in for QuestieDB's public API (contract 4): three quests, one corrected.
+    local function fakeQuestieDB()
+        local base = {
+            [7] = { name = "Kobold Camp Cleanup", questLevel = 2, requiredLevel = 1, requiredRaces = 77, zoneOrSort = 12,
+                    specialFlags = 0, exclusiveTo = { 8 }, startedBy = { { 197 } } },
+            [8] = { name = "Repeat Me", questLevel = 5, requiredLevel = 4, zoneOrSort = 12, specialFlags = 1 },
+            [9] = { name = "Warrior Training", questLevel = 10, requiredLevel = 10, requiredClasses = 1, zoneOrSort = -81 },
+        }
+        local corrected = { [7] = { requiredLevel = 2 } }
+        local Q = {}
+        local fields = { "name", "questLevel", "requiredLevel", "requiredMaxLevel", "requiredRaces", "requiredClasses",
+            "zoneOrSort", "specialFlags", "questFlags", "nextQuestInChain", "breadcrumbForQuestId", "availableUntilCompleted",
+            "parentQuest", "exclusiveTo", "preQuestSingle", "preQuestGroup", "requiredSkill", "requiredMinRep",
+            "requiredMaxRep", "startedBy" }
+        for _, f in ipairs(fields) do
+            Q[f] = function(id)
+                local c = corrected[id]
+                if c and c[f] ~= nil then return c[f] end
+                return base[id] and base[id][f]
+            end
+        end
+        Q.GetRaw = function(id, f) return base[id] and base[id][f] end
+        Q.GetAllIds = function(hashmap)
+            if hashmap then return { [7] = true, [8] = true, [9] = true } end
+            return { 7, 8, 9 }
+        end
+        return {
+            Quest = Q, contractVersion = 4, minSupportedContract = 1, readMode = "baked",
+            RequireContract = function(n) return n == 4, n ~= 4 and "mismatch" or nil end,
+            flavor = { expansion = "Forever", rules = "Classic" },
+            Enum = { factionRaceMasks = { Alliance = 77, Horde = 178 }, classKeys = { WARRIOR = 1 },
+                     byExpansion = { Forever = { raceKeys = { HUMAN = 1, ALL_ALLIANCE = 77 } } } },
+            Support = { Get = function(name)
+                if name == "ZoneDB" then
+                    return { private = { areaIdToUiMapId = "return { [12] = 1429 }", areaIdToUiMapIdOverride = "return { [0] = 0 }" } }
+                end
+            end },
+        }
+    end
+
+    t.test("/azfdiag questdb records the API, read cost, corrections, masks and areas", function()
+        boot()
+        local tick = 0
+        _G.debugprofilestop = function() tick = tick + 0.5; return tick end
+        _G.LibQuestieDB = fakeQuestieDB()
+        _G.C_CreatureInfo = { GetRaceInfo = function(i) if i == 1 then return { raceName = "Human", clientFileString = "Human", raceID = 1 } end end }
+        _G.GetClassInfo = function(i) if i == 1 then return "Warrior", "WARRIOR", 1 end end
+        _G.C_AddOns.GetAddOnMetadata = function(_, key) if key == "Version" then return "1.0.12" end end
+        _G.C_QuestLog.GetAllCompletedQuestIDs = function() return { 7, 4242 } end
+
+        _G.SlashCmdList.AZERFOLIODIAG("questdb")
+        wow.runTimers()
+        local r = _G.AzerfolioDiagDB.questdb
+        t.eq(#_G.AzerfolioDiagDB.errors, 0)
+        t.eq(r.usable, true)
+        t.eq(r.version, "1.0.12")
+        t.eq(r.contractVersion, 4); t.eq(r.require4[1], true)
+        t.eq(r.idCount, 3)
+        t.eq(#r.stages, 7, "every stage ran")
+        t.eq(r.scalarPass.reads, 3 * 13); t.eq(r.scalarPass.errors, 0)
+        t.ok(r.scalarPass.ms > 0, "scalar pass timed")
+        t.eq(r.areas[12], 2); t.eq(r.sorts[-81], 1); t.eq(r.missingZone, 0)
+        t.eq(r.repeatable, 1)
+        t.eq(r.tablePass.present.exclusiveTo, 1)
+        t.eq(r.compare.changed.requiredLevel, 1, "the correction is seen")
+        t.eq(r.compare.samples[1].base, 1); t.eq(r.compare.samples[1].composed, 2)
+        t.eq(r.areaTable.base, true)
+        t.eq(r.areaMap[12].uiMap, 1429)
+        t.eq(r.areaMap[12].mapName, "Elwynn Forest"); t.eq(r.areaMap[12].isZone, true)
+        t.eq(r.completed.count, 2); t.eq(r.completed.known, 1); t.same(r.completed.missing, { 4242 })
+        t.eq(r.clientRaces[1].file, "Human"); t.eq(r.clientClasses[1].file, "WARRIOR")
+        t.eq(r.factionRaceMasks.Alliance, 77); t.eq(r.raceKeys.HUMAN, 1)
+        t.eq(r.sampleArea, 12, "samples from the player's zone")
+        t.eq(#r.samples, 2); t.eq(r.samples[1].name, "Kobold Camp Cleanup")
+        _G.LibQuestieDB, _G.debugprofilestop, _G.C_CreatureInfo, _G.GetClassInfo = nil, nil, nil, nil
+    end)
+
+    t.test("/azfdiag questdb without QuestieDB records that and stops", function()
+        boot()
+        _G.LibQuestieDB = nil
+        _G.SlashCmdList.AZERFOLIODIAG("questdb")
+        wow.runTimers()
+        local r = _G.AzerfolioDiagDB.questdb
+        t.eq(r.usable, false)
+        t.eq(r.has.LibQuestieDB, "nil")
+        t.eq(#_G.AzerfolioDiagDB.errors, 0)
+    end)
+
     t.test("discovering an area records a criteria diff", function()
         local criteria, explored = boot()
         criteria[3].done = true

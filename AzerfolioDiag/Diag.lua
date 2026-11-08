@@ -447,6 +447,281 @@ local function dumpQuests()
 end
 
 ---------------------------------------------------------------------------
+-- QuestieDB probe (Azerfolio Phase 9): is QuestieDB's public API usable, what does a full read
+-- of the quest fields Azerfolio needs cost, do its corrections change those fields, which race
+-- and class masks does it use, and how do its quest areas map to the client's zone maps?
+-- Read-only: it never invalidates QuestieDB's cache or registers corrections. Runs in stages,
+-- one per frame, so no single frame does all the work. Records counts and small samples only.
+---------------------------------------------------------------------------
+
+local QDB_SCALARS = { "name", "questLevel", "requiredLevel", "requiredMaxLevel", "requiredRaces",
+    "requiredClasses", "zoneOrSort", "specialFlags", "questFlags", "nextQuestInChain",
+    "breadcrumbForQuestId", "availableUntilCompleted", "parentQuest" }
+local QDB_TABLES = { "exclusiveTo", "preQuestSingle", "preQuestGroup", "requiredSkill",
+    "requiredMinRep", "requiredMaxRep", "startedBy" }
+local QDB_COMPARE = { "zoneOrSort", "specialFlags", "requiredRaces", "requiredClasses", "questLevel",
+    "requiredLevel", "requiredMaxLevel", "name" }
+local QDB_SAMPLE_DIFFS, QDB_SAMPLE_QUESTS, QDB_SAMPLE_MISSING = 30, 8, 30
+
+local function clock()
+    if type(debugprofilestop) == "function" then return debugprofilestop(), "debugprofilestop" end
+    return (GetTime and GetTime() or 0) * 1000, "GetTime"
+end
+
+local function luaKB()
+    local ok, kb = pcall(collectgarbage, "count")
+    return ok and kb or nil
+end
+
+local function addonKB(name)
+    local update = (C_AddOns and C_AddOns.UpdateAddOnMemoryUsage) or UpdateAddOnMemoryUsage
+    local get = (C_AddOns and C_AddOns.GetAddOnMemoryUsage) or GetAddOnMemoryUsage
+    if type(update) ~= "function" or type(get) ~= "function" then return nil end
+    try("UpdateAddOnMemoryUsage", update)
+    return try("GetAddOnMemoryUsage", get, name)
+end
+
+local function metadata(name, key)
+    local get = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    return try("GetAddOnMetadata", get, name, key)
+end
+
+-- Runs a QuestDB field reader over every ID, timed. Returns ms, read count, error count.
+local function timedPass(Q, ids, fields, onValue)
+    local start = clock()
+    local reads, errs = 0, 0
+    for i = 1, #ids do
+        local id = ids[i]
+        for f = 1, #fields do
+            local reader = Q[fields[f]]
+            local ok, v = pcall(reader, id)
+            if ok then
+                reads = reads + 1
+                if onValue then onValue(id, fields[f], v) end
+            else
+                errs = errs + 1
+                if errs <= 5 then recordError("questdb:" .. fields[f], v) end
+            end
+        end
+    end
+    return clock() - start, reads, errs
+end
+
+local function scalarOrType(v)
+    local t = type(v)
+    if t == "number" or t == "string" or t == "boolean" or t == "nil" then return safePlain(v) end
+    return "<" .. t .. ">"
+end
+
+local questdbRunning = false
+
+local function probeQuestDB()
+    if questdbRunning then msg("questdb probe already running"); return end
+    local r = { t = time(), stages = {} }
+    DB.questdb = r
+    local lib = rawget(_G, "LibQuestieDB")
+    r.loaded = C_AddOns and try("IsAddOnLoaded", C_AddOns.IsAddOnLoaded, "QuestieDB")
+    r.questieLoaded = C_AddOns and try("IsAddOnLoaded", C_AddOns.IsAddOnLoaded, "Questie")
+    r.version = metadata("QuestieDB", "Version")
+    r.flavorMeta = metadata("QuestieDB", "X-Flavor")
+    r.modeMeta = metadata("QuestieDB", "X-Mode")
+    r.has = {
+        LibQuestieDB = type(lib), QuestDB = type(rawget(_G, "QuestDB")),
+        C_EncodingUtil = type(rawget(_G, "C_EncodingUtil")), debugprofilestop = type(debugprofilestop),
+        RequireContract = lib and type(lib.RequireContract) or "nil",
+    }
+    local Q = lib and lib.Quest
+    if type(Q) ~= "table" or type(Q.GetAllIds) ~= "function" then
+        r.usable = false
+        msg("questdb: LibQuestieDB.Quest not available (is QuestieDB enabled?). Type /reload to save.")
+        return
+    end
+    r.contractVersion, r.minSupportedContract, r.readMode = lib.contractVersion, lib.minSupportedContract, lib.readMode
+    r.require4 = packArgs(try("RequireContract", lib.RequireContract, 4))
+    r.flavor = safePlain(lib.flavor)
+
+    -- Player and the client's race and class tables, to read the masks against.
+    local _, _, raceID = UnitRace("player")
+    local _, _, classID = UnitClass("player")
+    r.player = { raceID = raceID, classID = classID, faction = (UnitFactionGroup("player")),
+        level = UnitLevel("player"), map = currentMapID() }
+    r.clientRaces, r.clientClasses = {}, {}
+    if C_CreatureInfo and C_CreatureInfo.GetRaceInfo then
+        for i = 1, 40 do
+            local info = try("GetRaceInfo", C_CreatureInfo.GetRaceInfo, i)
+            if type(info) == "table" then
+                r.clientRaces[i] = { name = info.raceName, file = info.clientFileString, id = info.raceID }
+            end
+        end
+    end
+    if GetClassInfo then
+        for i = 1, 20 do
+            local name, file, id = try("GetClassInfo", GetClassInfo, i)
+            if name then r.clientClasses[i] = { name = name, file = file, id = id } end
+        end
+    end
+    local enum = lib.Enum or {}
+    r.factionRaceMasks = safePlain(enum.factionRaceMasks)
+    r.classKeys = safePlain(enum.classKeys)
+    local exp = lib.flavor and lib.flavor.expansion
+    r.raceKeys = safePlain(exp and enum.byExpansion and enum.byExpansion[exp] and enum.byExpansion[exp].raceKeys)
+
+    local ids
+    local stages = {
+        { "ids", function()
+            local t0 = clock()
+            ids = Q.GetAllIds()
+            r.idsMs = clock() - t0
+            r.idCount = type(ids) == "table" and #ids or nil
+            if type(ids) ~= "table" then error("GetAllIds returned " .. type(ids)) end
+            r.memBefore = { lua = luaKB(), questiedb = addonKB("QuestieDB") }
+        end },
+        { "scalars", function()
+            local areas, sorts, missingZone, repeatable = {}, {}, 0, 0
+            local ms, reads, errs = timedPass(Q, ids, QDB_SCALARS, function(_, field, v)
+                if field == "zoneOrSort" then
+                    if type(v) == "number" and v > 0 then
+                        areas[v] = (areas[v] or 0) + 1
+                    elseif type(v) == "number" and v < 0 then
+                        sorts[v] = (sorts[v] or 0) + 1
+                    else
+                        missingZone = missingZone + 1
+                    end
+                elseif field == "specialFlags" and type(v) == "number" and v % 2 == 1 then
+                    repeatable = repeatable + 1
+                end
+            end)
+            r.scalarPass = { ms = ms, reads = reads, errors = errs, fields = #QDB_SCALARS, clock = select(2, clock()) }
+            r.areas, r.sorts, r.missingZone, r.repeatable = areas, sorts, missingZone, repeatable
+            r.memAfterScalars = { lua = luaKB(), questiedb = addonKB("QuestieDB") }
+        end },
+        { "scalars again", function()
+            local ms, reads, errs = timedPass(Q, ids, QDB_SCALARS)
+            r.scalarPassCached = { ms = ms, reads = reads, errors = errs }
+        end },
+        { "tables", function()
+            local present = {}
+            local ms, reads, errs = timedPass(Q, ids, QDB_TABLES, function(_, field, v)
+                if type(v) == "table" then present[field] = (present[field] or 0) + 1 end
+            end)
+            r.tablePass = { ms = ms, reads = reads, errors = errs, fields = #QDB_TABLES, present = present }
+            r.memAfterTables = { lua = luaKB(), questiedb = addonKB("QuestieDB") }
+        end },
+        { "compare", function()
+            -- Composed (corrected) value vs base data, for the fields Azerfolio would count with.
+            if type(Q.GetRaw) ~= "function" then r.compare = { missing = true }; return end
+            local cmp = { changed = {}, samples = {} }
+            local t0 = clock()
+            for i = 1, #ids do
+                local id = ids[i]
+                for _, field in ipairs(QDB_COMPARE) do
+                    local okA, a = pcall(Q[field], id)
+                    local okB, b = pcall(Q.GetRaw, id, field)
+                    if okA and okB and type(a) ~= "table" and a ~= b then
+                        cmp.changed[field] = (cmp.changed[field] or 0) + 1
+                        if #cmp.samples < QDB_SAMPLE_DIFFS then
+                            cmp.samples[#cmp.samples + 1] = { id = id, field = field,
+                                composed = scalarOrType(a), base = scalarOrType(b) }
+                        end
+                    end
+                end
+            end
+            cmp.ms = clock() - t0
+            r.compare = cmp
+        end },
+        { "areas", function()
+            -- QuestieDB's area -> uiMap table (private support data) for the quest areas, checked
+            -- against the client's own names.
+            local zoneDB = lib.Support and lib.Support.Get and lib.Support.Get("ZoneDB")
+            local private = zoneDB and zoneDB.private
+            local function load(src)
+                if type(src) ~= "string" then return nil end
+                local chunk = loadstring(src)
+                if not chunk then return nil end
+                setfenv(chunk, {})
+                local ok, t = pcall(chunk)
+                return ok and type(t) == "table" and t or nil
+            end
+            local base = load(private and private.areaIdToUiMapId)
+            local over = load(private and private.areaIdToUiMapIdOverride)
+            r.areaTable = { base = base ~= nil, override = over ~= nil }
+            local zoneType = Enum and Enum.UIMapType and Enum.UIMapType.Zone or 3
+            r.areaMap = {}
+            for area, n in pairs(r.areas or {}) do
+                local ui = (over and over[area]) or (base and base[area])
+                local e = { quests = n, uiMap = ui,
+                    areaName = C_Map and try("GetAreaInfo", C_Map.GetAreaInfo, area) }
+                if ui and ui > 0 and C_Map then
+                    local info = try("GetMapInfo", C_Map.GetMapInfo, ui)
+                    if info then e.mapName, e.mapType, e.parent = info.name, info.mapType, info.parentMapID end
+                    e.isZone = info and info.mapType == zoneType or false
+                end
+                r.areaMap[area] = e
+            end
+        end },
+        { "completed", function()
+            local done = C_QuestLog and try("GetAllCompletedQuestIDs", C_QuestLog.GetAllCompletedQuestIDs)
+            local c = { count = type(done) == "table" and #done or nil, known = 0, missing = {} }
+            if type(done) == "table" then
+                local known = Q.GetAllIds(true)
+                for _, id in ipairs(done) do
+                    if type(known) == "table" and known[id] then
+                        c.known = c.known + 1
+                    elseif #c.missing < QDB_SAMPLE_MISSING then
+                        c.missing[#c.missing + 1] = id
+                    end
+                end
+            end
+            r.completed = c
+            -- A few full records from the player's current zone, to see real shapes.
+            r.samples = {}
+            local here = r.player.map
+            for area, e in pairs(r.areaMap or {}) do
+                if e.uiMap and e.uiMap == here then r.sampleArea = area end
+            end
+            if r.sampleArea then
+                for i = 1, #ids do
+                    if #r.samples >= QDB_SAMPLE_QUESTS then break end
+                    local okZ, z = pcall(Q.zoneOrSort, ids[i])
+                    if okZ and z == r.sampleArea then
+                        local rec = { id = ids[i] }
+                        for _, f in ipairs(QDB_SCALARS) do rec[f] = scalarOrType((select(2, pcall(Q[f], ids[i])))) end
+                        for _, f in ipairs(QDB_TABLES) do rec[f] = safePlain((select(2, pcall(Q[f], ids[i])))) end
+                        r.samples[#r.samples + 1] = rec
+                    end
+                end
+            end
+        end },
+    }
+
+    questdbRunning = true
+    local i = 0
+    local function step()
+        i = i + 1
+        local s = stages[i]
+        if not s then
+            questdbRunning = false
+            r.usable = true
+            msg(string.format("questdb: %s quests, scalar pass %.1f ms (cached %.1f ms), table pass %.1f ms, %d errors. Type /reload to save.",
+                tostring(r.idCount), r.scalarPass and r.scalarPass.ms or -1, r.scalarPassCached and r.scalarPassCached.ms or -1,
+                r.tablePass and r.tablePass.ms or -1, #DB.errors))
+            return
+        end
+        local ok, err = pcall(s[2])
+        r.stages[#r.stages + 1] = { name = s[1], ok = ok, err = not ok and tostring(err) or nil }
+        if not ok then
+            recordError("questdb:" .. s[1], err)
+            questdbRunning = false
+            msg("questdb probe stopped at '" .. s[1] .. "': " .. tostring(err))
+            return
+        end
+        C_Timer.After(0.05, step)
+    end
+    msg("questdb probe running (a few seconds)...")
+    C_Timer.After(0, step)
+end
+
+---------------------------------------------------------------------------
 -- Current-zone snapshot
 ---------------------------------------------------------------------------
 
@@ -992,6 +1267,7 @@ local HELP = {
     "/azfdiag all    - dump everything (env, maps, achievements, quests, current zone)",
     "/azfdiag zone   - snapshot the current zone",
     "/azfdiag zones  - record each zone's level range, faction info and map position (raw)",
+    "/azfdiag questdb - QuestieDB probe: API, read cost, corrections, race masks, quest areas",
     "/azfdiag sniff  - toggle logging of every event name",
     "/azfdiag art    - show the image-format test frame",
     "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
@@ -1012,6 +1288,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "quests" then dumpQuests(); msg("quests dumped")
     elseif cmd == "zone" then dumpZone()
     elseif cmd == "zones" then dumpZoneMeta()
+    elseif cmd == "questdb" then probeQuestDB()
     elseif cmd == "sniff" then setSniff(not DB.sniffOn)
     elseif cmd == "art" then showArt()
     elseif cmd == "pad" then togglePad()

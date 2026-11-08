@@ -1,6 +1,6 @@
 -- Summarizes the AzerfolioDiag SavedVariables dump.
 -- Usage: luajit tools/diag-report.lua [section] [param]
--- Sections: summary (default), env, ach, explore, maps, quests, zone, zones, events, art, errors,
+-- Sections: summary (default), env, ach, explore, maps, quests, questdb [areas], zone, zones, events, art, errors,
 --           criteria <achID>, ns <filter>, log [n], skin [tree [filter]]
 -- Set AZF_DIAG_FILE to read a different dump.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
@@ -112,6 +112,57 @@ function R.quests()
     for _, k in ipairs(keys(q.has)) do p("  %-40s %s", k, tostring(q.has[k])) end
     p("allCompletedCount %s legacyCompletedCount %s logEntries %s", tostring(q.allCompletedCount), tostring(q.legacyCompletedCount), tostring(q.logEntries))
     for _, x in ipairs(q.samples or {}) do p("  quest %s done=%s title=%s", tostring(x.id), tostring(x.done), tostring(x.title)) end
+end
+
+-- questdb: the QuestieDB probe (/azfdiag questdb). `questdb areas` lists every quest area.
+function R.questdb()
+    local r = DB.questdb
+    if not r then p("no QuestieDB probe recorded (/azfdiag questdb)") return end
+    p("recorded %s: loaded %s (Questie %s), version %s, flavor %s, mode %s, usable %s", tostring(r.t), tostring(r.loaded),
+        tostring(r.questieLoaded), tostring(r.version), tostring(r.flavorMeta), tostring(r.readMode or r.modeMeta), tostring(r.usable))
+    for _, k in ipairs(keys(r.has)) do p("  has %-18s %s", k, tostring(r.has[k])) end
+    p("contract %s (min %s); RequireContract(4) = %s", tostring(r.contractVersion), tostring(r.minSupportedContract), s(r.require4))
+    for _, st in ipairs(r.stages or {}) do p("  stage %-14s %s %s", st.name, st.ok and "ok" or "FAILED", st.err or "") end
+    local pl = r.player or {}
+    p("player race %s class %s faction %s level %s map %s", tostring(pl.raceID), tostring(pl.classID), tostring(pl.faction), tostring(pl.level), tostring(pl.map))
+    local function mem(m) return m and string.format("lua %s KB, QuestieDB %s KB", tostring(m.lua), tostring(m.questiedb)) or "-" end
+    p("quests %s (GetAllIds %.2f ms)", tostring(r.idCount), r.idsMs or -1)
+    local sp, sc, tp = r.scalarPass or {}, r.scalarPassCached or {}, r.tablePass or {}
+    p("scalar pass: %d fields, %s reads, %.1f ms (%s), %s errors; again %.1f ms", sp.fields or 0, tostring(sp.reads), sp.ms or -1, tostring(sp.clock), tostring(sp.errors), sc.ms or -1)
+    p("table pass: %d fields, %s reads, %.1f ms, %s errors; present %s", tp.fields or 0, tostring(tp.reads), tp.ms or -1, tostring(tp.errors),
+        (function() local o = {} for _, k in ipairs(keys(tp.present)) do o[#o + 1] = k .. "=" .. tp.present[k] end return table.concat(o, " ") end)())
+    p("memory before: %s", mem(r.memBefore)); p("after scalars: %s", mem(r.memAfterScalars)); p("after tables: %s", mem(r.memAfterTables))
+    p("zoneOrSort: %d areas, %d sorts, %s missing; repeatable %s", count(r.areas), count(r.sorts), tostring(r.missingZone), tostring(r.repeatable))
+    local c = r.compare or {}
+    p("composed vs base (%.1f ms): %s", c.ms or -1,
+        (function() local o = {} for _, k in ipairs(keys(c.changed)) do o[#o + 1] = k .. "=" .. c.changed[k] end return #o > 0 and table.concat(o, " ") or "no changes" end)())
+    for _, d in ipairs(c.samples or {}) do p("  quest %-6s %-16s base %s -> %s", tostring(d.id), d.field, tostring(d.base), tostring(d.composed)) end
+    local done = r.completed or {}
+    p("completed %s, known to QuestieDB %s; unknown sample %s", tostring(done.count), tostring(done.known), s(done.missing))
+    local function kv(t) local o = {} for _, k in ipairs(keys(t)) do o[#o + 1] = tostring(k) .. "=" .. tostring(t[k]) end return table.concat(o, " ") end
+    p("race masks: %s", kv(r.factionRaceMasks)); p("class keys: %s", kv(r.classKeys)); p("race keys: %s", kv(r.raceKeys))
+    p("client races:"); for _, i in ipairs(keys(r.clientRaces)) do local x = r.clientRaces[i] p("  %2s %-14s %-12s id %s", tostring(i), tostring(x.name), tostring(x.file), tostring(x.id)) end
+    p("client classes:"); for _, i in ipairs(keys(r.clientClasses)) do local x = r.clientClasses[i] p("  %2s %-12s %-10s id %s", tostring(i), tostring(x.name), tostring(x.file), tostring(x.id)) end
+    local zones, other = 0, 0
+    for _, e in pairs(r.areaMap or {}) do if e.isZone then zones = zones + 1 else other = other + 1 end end
+    p("area table: base %s override %s; quest areas on a zone map %d, elsewhere or unmapped %d", tostring(r.areaTable and r.areaTable.base),
+        tostring(r.areaTable and r.areaTable.override), zones, other)
+    if arg2 == "areas" then
+        local ids = keys(r.areaMap); table.sort(ids, function(a, b) return a < b end)
+        for _, a in ipairs(ids) do
+            local e = r.areaMap[a]
+            p("  area %-6d %-26s quests %-4d -> map %-5s %-26s type %s parent %s", a, tostring(e.areaName), e.quests or 0,
+                tostring(e.uiMap), tostring(e.mapName), tostring(e.mapType), tostring(e.parent))
+        end
+        p("sorts:"); for _, k in ipairs(keys(r.sorts)) do p("  %s: %s", tostring(k), tostring(r.sorts[k])) end
+    end
+    p("samples (area %s):", tostring(r.sampleArea))
+    for _, q in ipairs(r.samples or {}) do
+        p("  %s %s lvl %s req %s races %s classes %s flags %s/%s next %s excl %s pre %s/%s start %s", tostring(q.id), tostring(q.name),
+            tostring(q.questLevel), tostring(q.requiredLevel), tostring(q.requiredRaces), tostring(q.requiredClasses), tostring(q.specialFlags),
+            tostring(q.questFlags), tostring(q.nextQuestInChain), s(q.exclusiveTo), s(q.preQuestSingle), s(q.preQuestGroup),
+            type(q.startedBy) == "table" and s(q.startedBy[1]) or tostring(q.startedBy))
+    end
 end
 
 function R.zone()
