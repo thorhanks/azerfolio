@@ -136,6 +136,7 @@ function SV.Load(account, char)
     char, charFixes = SV.Normalize(char, Config.CHAR_DEFAULTS)
     for _, f in ipairs(charFixes) do fixes[#fixes + 1] = "character " .. f end
 
+    SV.TrimList(account.trace, Config.LIMITS.trace)
     SV.TrimList(char.milestones, Config.LIMITS.milestones)
     SV.TrimList(char.recentZones, Config.LIMITS.recentZones)
 

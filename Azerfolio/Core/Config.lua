@@ -26,6 +26,7 @@ Config.ACCOUNT_DEFAULTS = {
     -- owner's client (WoWScrnShot_110726_181323).
     launcher = { minimapAngle = 140, minimapHidden = false },
     notifications = { enabled = true },
+    trace = {}, -- debug mode only (Debug.Trace); capped at LIMITS.trace
 }
 
 -- Per-character data (AzerfolioCharDB).
@@ -65,4 +66,5 @@ Config.LIMITS = {
     milestones = 100,  -- newest kept
     recentZones = 10,
     errors = 50,       -- in-memory error log
+    trace = 100,       -- debug trace in AzerfolioDB
 }

@@ -75,7 +75,14 @@ Planned steps (owner approves each):
    - `Exploration.ForZone` now returns `objectives` and `progress` (from Progression) instead of its own summary; the Zone Detail counts read `progress`. A criterion the game returns without an ID makes the zone's coverage `partial`.
    - Not yet: objectives with unknown completion aren't listed in Zone Detail (no design for it yet; Phase 6).
    - Tests: 110 passed (16 new Progression/model tests, plus an unknown-flag test through the reader).
-3. `ExplorationTracker`: zone lookup by mapID from the catalogue, live criteria with a catalogue check, per-zone cache, refresh on `RECEIVED_ACHIEVEMENT_LIST` / `CRITERIA_UPDATE` / `MAP_EXPLORATION_UPDATED` (debounced, current zone only), `AZF_EXPLORATION_UPDATED` to the open UI.
+3. **Exploration tracker** (built 2026-11-07, waiting for the in-game check). `Systems/Exploration.lua` is now the tracker (kept as `ns.Exploration`):
+   - Zones come from the catalogue by mapID (no more name matching). Not in the catalogue = "not tracked"; in it but no readable criteria = "unavailable" (not cached, retried).
+   - Live criteria are compared with the catalogue. A difference keeps the game's list and counts and sets `uncertain` (plan §8); a criterion without an ID makes coverage `partial`.
+   - Per-zone cache; `Invalidate`, `InvalidateAll`, `RefreshZone`; `ZoneForMap` walks up from a micro map to its zone; `Overall()` aggregates every zone (no percentage while any zone is unreadable).
+   - Events: `CRITERIA_UPDATE` and `MAP_EXPLORATION_UPDATED`, debounced 0.5 s, re-read only the player's current zone and send `AZF_EXPLORATION_UPDATED({ mapID })` only if a criterion changed. `RECEIVED_ACHIEVEMENT_LIST` and `/azf refresh` clear the cache and send it for all zones.
+   - Zones page: redraws the shown detail on an update for its zone, keeping focus on the same area.
+   - `/azf debug exploration`: the current zone's counts, %, coverage and catalogue check, plus the total. Debug mode writes a capped trace (`AzerfolioDB.trace`, 100 entries; addon state only) so in-game results can be read from the file.
+   - Tests: 122 passed (12 new: catalogue match, cache, micro map, one update per discovery with the detail and focus following, unrelated events ignored, login/refresh, totals, trace, debug report).
 4. Baseline and milestones: first load records the baseline; only later transitions become milestones (deduplicated, capped).
 5. In-game end to end on Elwynn Forest: discover an area, watch it update, `/reload`.
 

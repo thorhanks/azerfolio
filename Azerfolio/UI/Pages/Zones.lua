@@ -431,6 +431,28 @@ local function build(parent)
         return self.list.rows
     end
 
+    -- The tracker re-read some zones (nil = all). Redraw the detail if it shows one of them,
+    -- keeping focus on the same area; otherwise the next show reads fresh data.
+    ns.Events.On("AZF_EXPLORATION_UPDATED", function(mapIDs)
+        local zone = page.zone
+        if not zone then return end
+        if mapIDs then
+            local hit = false
+            for _, id in ipairs(mapIDs) do if id == zone.mapID then hit = true end end
+            if not hit then return end
+        end
+        local visible = page:IsShown() and page.detail:IsShown()
+        if not visible then page.detailRows = nil; return end
+        local current = ns.UI.CurrentTab() == "zones" and ns.Focus.Current()
+        show(zone, true)
+        if current then page.pendingFocusKey = current.key end
+        if page.mode == "detail" and not page.detailRows[1] then -- nothing left to focus in it
+            page.mode = "list"
+            page.pendingFocusKey = zone.mapID
+        end
+        if ns.UI.CurrentTab() == "zones" then refresh() end
+    end)
+
     page:Layout()
     return page
 end

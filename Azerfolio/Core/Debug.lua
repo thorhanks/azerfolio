@@ -16,6 +16,18 @@ function Debug.Print(fmt, ...)
     DEFAULT_CHAT_FRAME:AddMessage("|cff8888ffAzerfolio debug|r " .. (ok and text or tostring(fmt)))
 end
 
+-- Debug mode only: appends { t = GetTime(), kind, ... } to AzerfolioDB.trace (newest last,
+-- capped), so in-game behaviour can be read from the SavedVariables file after /reload.
+-- Only addon state goes here; never chat or other players' data.
+function Debug.Trace(kind, fields)
+    if not Debug.IsEnabled() or type(ns.db.trace) ~= "table" then return end
+    local entry = { t = GetTime(), kind = tostring(kind) }
+    for k, v in pairs(fields or {}) do entry[k] = v end
+    local list = ns.db.trace
+    list[#list + 1] = entry
+    ns.SavedVariables.TrimList(list, ns.Config.LIMITS.trace)
+end
+
 -- Records an error without stopping the caller. Always kept; printed only in debug mode.
 function Debug.Error(label, err)
     local list = Debug.errors

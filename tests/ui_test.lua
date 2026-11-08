@@ -29,13 +29,14 @@ local CRITERIA = {
     [728] = { { "Valley of Trials", false, 1300 } },
 }
 local achievementsReady = true
+local here = 1429 -- the player's map
 
 local function boot(savedAccount)
     wow.install({
-        C_Map = { GetMapInfo = function(id) return MAPS[id] end },
+        C_Map = { GetMapInfo = function(id) return MAPS[id] end, GetBestMapForUnit = function() return here end },
         GetCategoryNumAchievements = function(cat) return achievementsReady and #(ACH[cat] or {}) or 0 end,
         GetAchievementInfo = function(cat, i) local a = ACH[cat] and ACH[cat][i]; if a then return a.id, a.name end end,
-        GetAchievementNumCriteria = function(id) return #(CRITERIA[id] or {}) end,
+        GetAchievementNumCriteria = function(id) return achievementsReady and #(CRITERIA[id] or {}) or 0 end,
         GetAchievementCriteriaInfo = function(id, i)
             local c = CRITERIA[id][i]
             return c[1], 43, c[2], c[2] and 1 or 0, 1, "", 0, 0, "", c[3], true
@@ -197,7 +198,9 @@ return function(t)
         t.eq(o.eligibility, "eligible"); t.eq(o.category, "exploration"); t.eq(o.zone, 1429)
         t.eq(ex.progress.completed, 2); t.eq(ex.progress.remaining, 3); t.eq(ex.progress.total, 5)
         t.eq(ex.progress.coverage, "complete"); t.eq(ns.Progression.PercentText(ex.progress), "40%")
-        t.eq(ns.Exploration.ForZone({ mapID = 1436, name = "Westfall" }).status, "untracked")
+        t.eq(ex.catalogueMatch, false, "the fixture IDs differ from the catalogue: trusted, but flagged")
+        t.eq(ns.Exploration.ForZone({ mapID = 2521, name = "Zephras Isle" }).status, "untracked", "not in the catalogue")
+        t.eq(ns.Exploration.ForZone({ mapID = 1436, name = "Westfall" }).status, "unavailable", "in the catalogue, no data")
     end)
 
     t.test("a non-boolean done flag is unknown, never done or not done", function()
@@ -251,9 +254,9 @@ return function(t)
         local ns = boot({ schemaVersion = 2, lastTab = "zones" })
         slash("")
         local page = ns.UI.GetFrame().pages.zones
-        page:Open({ mapID = 1436, name = "Westfall", continent = "Eastern Kingdoms" })
+        page:Open({ mapID = 2521, name = "Zephras Isle", continent = "Other places" })
         t.ok(page.detail.message:IsShown())
-        t.ok(page.detail.message:GetText():find("no Explore achievement for Westfall"))
+        t.ok(page.detail.message:GetText():find("no Explore achievement for Zephras Isle"))
         t.eq(#page:GetFocusRows(), 0)
     end)
 
@@ -331,11 +334,11 @@ return function(t)
         local f = ns.UI.GetFrame()
         f:SetSize(1640, 740); ns.UI.Relayout()
         local page = f.pages.zones
-        local row = page.list.byMap[1436]
+        local row = page.list.byMap[2521]
         row.scripts.OnClick(row)
         t.eq(page.mode, "list")
-        t.eq(page.detail.banner.name:GetText(), "Westfall")
-        t.eq(ns.Focus.Current().title, "Westfall", "focus follows the click")
+        t.eq(page.detail.banner.name:GetText(), "Zephras Isle")
+        t.eq(ns.Focus.Current().title, "Zephras Isle", "focus follows the click")
         t.eq(row.item.canActivate(), false, "no A hint: nothing to move into")
         t.eq(page.list.byMap[1429].item.canActivate(), true, "another zone still can")
         page:Open(row.item.zone)
@@ -568,6 +571,149 @@ return function(t)
         wow.runTimers()
         t.eq(_G.screenshotsTaken, 3, "Westfall, Teldrassil and Zephras Isle in the fixture")
         t.eq(ns.UI.GetFrame().pages.zones.mode, "list")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    -- Exploration tracker -------------------------------------------------------------------
+
+    local function listen(ns)
+        local got = {}
+        ns.Events.On("AZF_EXPLORATION_UPDATED", function(ids) got[#got + 1] = ids or "all" end)
+        return got
+    end
+
+    t.test("tracker: catalogue match is flagged, a matching list is not uncertain", function()
+        local ns = boot()
+        local saved = CRITERIA[776]
+        local real = {}
+        for i, id in ipairs(ns.ExplorationCatalogue.zones[1429].criteria) do real[i] = { "Area " .. i, i <= 7, id } end
+        CRITERIA[776] = real
+        local ex = ns.Exploration.ForZone(1429)
+        CRITERIA[776] = saved
+        t.eq(ex.catalogueMatch, true); t.eq(ex.uncertain, false)
+        t.eq(ex.progress.completed, 7); t.eq(ex.progress.denominator, 12)
+        t.eq(ns.Progression.PercentText(ex.progress), "58%")
+    end)
+
+    t.test("tracker: Compare reports missing and extra IDs", function()
+        local ns = boot()
+        local match, missing, extra = ns.Exploration.Compare({ 1, 2, 3 }, { 3, 2, 4 })
+        t.eq(match, false); t.same(missing, { 1 }); t.same(extra, { 4 })
+        t.eq((ns.Exploration.Compare({ 1, 2 }, { 2, 1 })), true, "order doesn't matter")
+    end)
+
+    t.test("tracker: results are cached until invalidated", function()
+        local ns = boot()
+        local a = ns.Exploration.ForZone(1429)
+        t.ok(ns.Exploration.ForZone({ mapID = 1429 }) == a, "same result")
+        ns.Exploration.Invalidate(1429)
+        t.ok(ns.Exploration.ForZone(1429) ~= a, "re-read")
+    end)
+
+    t.test("tracker: a micro map finds its zone; other maps have none", function()
+        local ns = boot()
+        MAPS[9001] = { name = "Lion's Pride Inn", mapType = 5, parentMapID = 1429 }
+        t.eq(ns.Exploration.ZoneForMap(9001), 1429)
+        t.eq(ns.Exploration.ZoneForMap(1429), 1429)
+        t.eq(ns.Exploration.ZoneForMap(1415), nil, "a continent")
+        t.eq(ns.Exploration.ZoneForMap(nil), nil)
+        MAPS[9001] = nil
+    end)
+
+    t.test("tracker: a discovery refreshes the current zone once and the open detail follows", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 3, lastTab = "zones" })
+        slash("")
+        local got = listen(ns)
+        local page = ns.UI.GetFrame().pages.zones
+        page:Open({ mapID = 1429, name = "Elwynn Forest" })
+        t.eq(ns.Focus.Current().title, "Fargodeep Mine")
+        t.eq(page.detail.headers[1].count:GetText(), "3 areas")
+        t.eq(page.detail.headers[2].count:GetText(), "2 areas")
+        CRITERIA[776][3][2] = true -- Fargodeep Mine discovered
+        wow.fire("CRITERIA_UPDATE")
+        wow.fire("UI_INFO_MESSAGE", 412, "Discovered: Fargodeep Mine")
+        wow.fire("MAP_EXPLORATION_UPDATED")
+        wow.runTimers()
+        CRITERIA[776][3][2] = false
+        t.eq(#got, 1, "one update per discovery")
+        t.same(got[1], { 1429 })
+        t.eq(page.detail.headers[1].count:GetText(), "2 areas")
+        t.eq(page.detail.headers[2].count:GetText(), "3 areas")
+        t.eq(ns.Focus.Current().title, "Fargodeep Mine", "focus stays on the area")
+        t.eq(ns.Focus.Current().detail, "Discovered")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("tracker: an unrelated CRITERIA_UPDATE announces nothing", function()
+        local ns = boot()
+        ns.Exploration.ForZone(1429)
+        local got = listen(ns)
+        wow.fire("CRITERIA_UPDATE")
+        wow.runTimers()
+        t.eq(#got, 0)
+    end)
+
+    t.test("tracker: outside a tracked zone, discovery events read nothing", function()
+        here = 2521
+        local ns = boot()
+        local got = listen(ns)
+        wow.fire("CRITERIA_UPDATE"); wow.runTimers()
+        here = 1429
+        t.eq(#got, 0)
+    end)
+
+    t.test("tracker: login achievement data and /azf refresh re-read every zone", function()
+        local ns = boot()
+        local a = ns.Exploration.ForZone(1429)
+        local got = listen(ns)
+        wow.fire("RECEIVED_ACHIEVEMENT_LIST")
+        t.eq(got[1], "all")
+        t.ok(ns.Exploration.ForZone(1429) ~= a, "cache cleared")
+        slash("refresh")
+        t.eq(got[2], "all")
+    end)
+
+    t.test("tracker: an update for a zone that isn't shown leaves the detail alone", function()
+        local ns = boot({ schemaVersion = 3, lastTab = "zones" })
+        slash("")
+        local page = ns.UI.GetFrame().pages.zones
+        page:Open({ mapID = 1429, name = "Elwynn Forest" })
+        local rows = page.detailRows
+        ns.Events.Send("AZF_EXPLORATION_UPDATED", { 1426 })
+        t.ok(page.detailRows == rows, "not redrawn")
+        ns.Events.Send("AZF_EXPLORATION_UPDATED", nil)
+        t.ok(page.detailRows ~= rows, "redrawn for all")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("tracker: totals have no percentage while any zone is unreadable", function()
+        local ns = boot()
+        local all = ns.Exploration.Overall()
+        t.eq(all.zones, 43)
+        t.eq(all.unavailable, 40, "the fixture has data for 3 zones")
+        t.eq(all.progress.percent, nil)
+        t.eq(all.progress.coverage, "unavailable")
+        t.eq(all.progress.total, 7, "objectives still counted")
+    end)
+
+    t.test("tracker: debug trace goes to SavedVariables only in debug mode, capped", function()
+        local ns = boot()
+        ns.Exploration.RefreshZone(1429)
+        t.eq(#ns.db.trace, 0, "off by default")
+        ns.db.debug = true
+        for _ = 1, ns.Config.LIMITS.trace + 5 do ns.Exploration.RefreshZone(1429) end
+        t.eq(#ns.db.trace, ns.Config.LIMITS.trace)
+        local e = ns.db.trace[#ns.db.trace]
+        t.eq(e.kind, "exploration"); t.eq(e.mapID, 1429); t.eq(e.completed, 2); t.eq(e.denominator, 5)
+    end)
+
+    t.test("/azf debug exploration reports the current zone and the total", function()
+        local ns = boot()
+        slash("debug exploration")
+        local all = table.concat(wow.chat, "\n")
+        t.ok(all:find("Exploration 1429 %(achievement 776%): 2/5 discovered, 40%%, coverage complete, catalogue differs"), all)
+        t.ok(all:find("All zones: no total yet, coverage unavailable %(43 zones, 40 unreadable%)"), all)
         t.eq(#ns.Debug.errors, 0)
     end)
 

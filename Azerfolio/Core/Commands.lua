@@ -10,6 +10,7 @@ local HELP = {
     "/azf status - show version and state",
     "/azf debug - turn debug output on or off",
     "/azf debug zone - show the current map and zone",
+    "/azf debug exploration - show the current zone's exploration and the total",
     "/azf shot - take a test screenshot (development)",
     "/azf shots - screenshot every tab and state (development)",
     "/azf shots banners - screenshot the zones with a banner offset (development)",
@@ -105,7 +106,7 @@ function Commands.Handle(input)
         elseif sub == "zone" then
             debugZone()
         elseif sub == "exploration" or sub == "progress" then
-            ns.Print("Not available yet: arrives with the progression engine (Phase 5).")
+            ns.Exploration.DebugReport()
         else
             ns.Print("Unknown debug option. Type /azf help.")
         end
