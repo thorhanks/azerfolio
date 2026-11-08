@@ -296,37 +296,39 @@ Runs entirely in the game client. No accounts, network, cloud, companion apps, o
 
 ## 12. Acceptance criteria (v1)
 
+All v1 criteria met 2026-11-08 (evidence: `docs/testing.md` § Phase 8).
+
 ### Window
-- [ ] `/azerfolio` and `/azf` toggle the window; launcher button works.
-- [ ] Every screen and action is usable with the gamepad alone (spec §4.3), with a visible focus highlight and hint bar.
-- [ ] Draggable, resizable; position and size persist.
-- [ ] Overview and Zones tabs work; Escape closes.
-- [ ] Cohesive native Warcraft style.
+- [x] `/azerfolio` and `/azf` toggle the window; launcher button works.
+- [x] Every screen and action is usable with the gamepad alone (spec §4.3), with a visible focus highlight and hint bar.
+- [x] Draggable, resizable; position and size persist.
+- [x] Overview and Zones tabs work; Escape closes.
+- [x] Cohesive native Warcraft style.
 
 ### Overview
-- [ ] Accurate character info.
-- [ ] Tracked completion with listed categories; unavailable data clearly marked.
-- [ ] Current-zone progress with link to Zone Detail.
-- [ ] Suggestions only from eligible, known objectives.
-- [ ] Milestones recorded only for progress observed after baseline.
+- [x] Accurate character info.
+- [x] Tracked completion with listed categories; unavailable data clearly marked.
+- [x] Current-zone progress with link to Zone Detail.
+- [x] Suggestions only from eligible, known objectives.
+- [x] Milestones recorded only for progress observed after baseline.
 
 ### Zones
-- [ ] Applicable zones listed; illustrated cards by default; compact mode; mode persists.
-- [ ] Faction and completion filters, search, sorting.
-- [ ] Zone Detail opens; back restores catalogue state.
+- [x] Applicable zones listed; illustrated cards by default; compact mode; mode persists.
+- [x] Faction and completion filters, search, sorting.
+- [x] Zone Detail opens; back restores catalogue state.
 
 ### Exploration
-- [ ] Azerfolio's own tracking; no other addon required.
-- [ ] Verified per-objective states; discovered vs. undiscovered correct.
-- [ ] Refreshes when a new area is discovered.
-- [ ] Missing data never produces a false completion claim.
+- [x] Azerfolio's own tracking; no other addon required.
+- [x] Verified per-objective states; discovered vs. undiscovered correct.
+- [x] Refreshes when a new area is discovered.
+- [x] Missing data never produces a false completion claim.
 
 ### Quality
-- [ ] No Lua errors in normal use.
-- [ ] No noticeable performance impact during gameplay.
-- [ ] SavedVariables survive reloads and restarts; invalid settings recover to defaults.
-- [ ] Usable across supported window sizes and UI scales.
-- [ ] Automated tests pass for pure-logic modules.
+- [x] No Lua errors in normal use.
+- [x] No noticeable performance impact during gameplay.
+- [x] SavedVariables survive reloads and restarts; invalid settings recover to defaults.
+- [x] Usable across supported window sizes and UI scales.
+- [x] Automated tests pass for pure-logic modules.
 
 ### v1.1 Quests
 - [ ] Reads quest completion; shows known quests per zone.

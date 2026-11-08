@@ -71,7 +71,9 @@ Debug output is off by default. The trace is capped at 100 entries and holds onl
 
 ## Changelog
 
-### 0.1.0 (in development)
+### 1.0.0 (2026-11-08): v1
+
+Every spec §12 v1 criterion met in game (`docs/testing.md` § Phase 8).
 
 - Phase 8: key binding removed (not needed), performance counters (`/azf debug perf`), cheaper re-read after a discovery outside the current zone (fully explored zones skipped), Overview no longer rebuilds on every XP gain, damaged milestone and recent-zone entries cleaned on load, this README.
 - Phase 7: Overview dashboard (Continue card, suggestions, tracked completion, Zones stat, recent zones, activity, milestones).

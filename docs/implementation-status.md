@@ -65,7 +65,9 @@ Built in steps the owner approves one at a time:
 - **Lua restyle (in-game check passed 2026-11-07, shots `WoWScrnShot_110726_171831`–`171835`):** frame, portrait ring, title, glow, strip, XP bar, side tabs, LB/RB glyphs and the diamond-metal legend all render natively. The first face-glyph name guesses failed (drawn square fallback); now using the source's `gamepad-xbox1-button*-normal` names and a round fallback — needs one more look.
 - Restyle details: the window is `PortraitFrameTemplate` (title, portrait ring, close, `FrameGlow` shown while the controller drives it); character strip with the native stat-bar XP; content on `UI-Character-Info-General-BG`; side tabs (`common-sidetab` + masked icon, `-selected`, `-hover`) with LB/RB glyph atlases; legend box below the frame (diamond-metal nine-slice over file 131071) with the info line and hints. Off-screen recovery now keeps the tabs and legend on screen. Face-button glyph atlas names are guesses with a drawn fallback; `/azf status` prints which were found. Tests: 62 passed.
 
-## Phase 8 — Polish and v1 validation: in progress (2026-11-07)
+## Phase 8 — Polish and v1 validation: done (2026-11-08)
+
+**Phase 8 result (v1, version 1.0.0):** every spec §12 v1 criterion is met with evidence in `docs/testing.md` § Phase 8: visual review at two UI scales, a play session with performance counters (about 10 ms of callbacks in 369 s, 0 errors), controller-only pass, Escape, full restart, Azerfolio alone, Thragor and contested zones. The key binding was removed (the controller test failed and the owner doesn't need it). Left open: the 39.5 ms peak frame from the first play session isn't attributed (opening the window, page builds and shots are now timed in debug mode, so `/azf debug perf` can attribute it later). **Next: Phase 9** (Quests, v1.1), starting with the QuestieDB integration decision.
 
 Planned steps (owner approves each):
 1. **Performance, robustness and README** (built 2026-11-07; not yet run in game):
@@ -81,7 +83,7 @@ Planned steps (owner approves each):
    - Owner's answers: no Lua errors during play; position, size, tab and view kept after the full restart; Thragor's Zone Detail (The Barrens, Durotar) correct [verified-ingame, owner]. **Step 2 done** except two items the owner deferred: opening from a controller-bound key (none bound yet) and Escape in game.
    - Escape closes the window in game (owner).
    - Owner approved: a fully explored zone's detail has no empty "To discover · 0 areas" section; the "Fully explored" note stands above "Discovered". Mockup first (`mockups/app.js`, `DESIGN.md`; checked in the preview, Veteran scenario, Elwynn), then `UI/Pages/Zones.lua`. Untouched and in-progress zones keep both sections. Tests: 206 passed. Owner checked it in game on Elwynn Forest [verified-ingame, owner].
-3. **Close v1** (ready): opening from a controller-bound key didn't work (2026-11-08), and the owner doesn't need a key binding, so it was removed (`Bindings.xml`, `Azerfolio_Toggle`, binding labels, help line) and spec §4.3 and §12 no longer ask for it. Every spec §12 criterion is now met (`docs/testing.md` § Phase 8 status table). Optional: attribute the 39.5 ms peak frame with `/azf debug perf` now that window opens, page builds and shots are timed.
+3. **Close v1** (done 2026-11-08, owner approved; version 1.0.0): opening from a controller-bound key didn't work (2026-11-08), and the owner doesn't need a key binding, so it was removed (`Bindings.xml`, `Azerfolio_Toggle`, binding labels, help line) and spec §4.3 and §12 no longer ask for it. Every spec §12 criterion is now met (`docs/testing.md` § Phase 8 status table). Optional: attribute the 39.5 ms peak frame with `/azf debug perf` now that window opens, page builds and shots are timed.
 
 ## Phase 7 — Overview dashboard: done (2026-11-07)
 

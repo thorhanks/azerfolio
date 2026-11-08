@@ -329,7 +329,7 @@ Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue for
 5. Compatibility: reload, restart, combat, UI scale, resolution, with and without other installed addons, corrupt settings.
 6. Update `README.md`: install (link script), features, known limitations, coverage, debug commands, changelog.
 
-**Done when:** All spec §12 v1 criteria are checked off with evidence in `docs/testing.md`.
+**Done when:** All spec §12 v1 criteria are checked off with evidence in `docs/testing.md`. *(Met 2026-11-08; v1 = version 1.0.0.)*
 
 ### Phase 9 — Quests (v1.1)
 
@@ -415,6 +415,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Zone Detail of a fully explored zone has no "To discover" section; the "Fully explored" note replaces it | Owner's request after the Phase 8 visual review: an empty "0 areas" header looked unfinished |
 | 2026-11-07 | Malformed milestone and recent-zone entries are dropped on load | A damaged file must not break the Overview; a bad time is removed, never replaced (honest data) |
 | 2026-11-08 | Key binding removed (`Bindings.xml`, `Azerfolio_Toggle`); spec §4.3 and the §12 Window criterion no longer ask for one | Opening from a controller-bound key didn't work in game, and the owner doesn't need a key binding; `/azf`, the minimap button and the compartment open it |
+| 2026-11-08 | Phase 8 accepted; v1 closed as version 1.0.0 | Every spec §12 v1 criterion met in game (`docs/testing.md` § Phase 8); the unattributed 39.5 ms peak frame is left as a known item, not a blocker (session average 0.0016 ms per frame). Owner approved |
 
 ## 10. Definition of done (v1)
 

@@ -2,7 +2,7 @@
 ## Title: Azerfolio
 ## Notes: Completionist dashboard and progression journal. Type /azf to open.
 ## Author: Thor Hanks
-## Version: 0.1.0
+## Version: 1.0.0
 ## SavedVariables: AzerfolioDB
 ## SavedVariablesPerCharacter: AzerfolioCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Book_11
