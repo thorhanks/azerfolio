@@ -1022,6 +1022,36 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
+    t.test("perf: opening the window, tab switches and relayouts are timed in debug mode", function()
+        local tick = 0
+        _G.debugprofilestop = function() tick = tick + 1; return tick end
+        local ns = boot({ schemaVersion = 4, debug = true })
+        slash(""); slash(""); slash("")
+        ns.UI.SelectTab("zones"); ns.UI.Relayout()
+        local s = ns.Events.stats
+        _G.debugprofilestop = nil
+        t.eq(s["ui:open (first, builds the window)"].count, 1)
+        t.eq(s["ui:open"].count, 1, "the second open; the third /azf closed it")
+        t.ok(s["ui:tab overview (first, builds the page)"], "first Overview build")
+        t.ok(s["ui:tab zones (first, builds the page)"], "first Zones build")
+        t.ok(s["ui:relayout"].count >= 1)
+        t.ok(s["ui:open (first, builds the window)"].ms > 0, "timed")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("shots: the wide split view leaves out the 'other view' shot", function()
+        local ns = boot()
+        slash("")
+        local narrow = {}
+        for _, s in ipairs(ns.UI.ShotSteps()) do narrow[s.label] = true end
+        t.ok(narrow["zones, other view"], "narrow window has it")
+        ns.UI.GetFrame():SetSize(1640, 740)
+        local wide = {}
+        for _, s in ipairs(ns.UI.ShotSteps()) do wide[s.label] = true end
+        t.eq(wide["zones, other view"], nil)
+        t.ok(wide["zones, sort popup"], "the popup shot stays")
+    end)
+
     t.test("perf: client memory and profiler metrics are read when the client has them", function()
         local ns = boot({ schemaVersion = 4, debug = true })
         _G.UpdateAddOnMemoryUsage = function() end

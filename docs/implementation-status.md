@@ -77,6 +77,8 @@ Planned steps (owner approves each):
    - `docs/testing.md` § Phase 8: every spec §12 v1 criterion with its evidence so far, what's open, the code performance review and the owner steps.
    - Tests: 204 passed (rescan skip and cost, counters and report, client metrics, XP vs level redraw, damaged lists, a fully corrupted SavedVariables boot).
 2. **In-game validation** (`docs/testing.md` § Phase 8 steps): visual review shots, a play session with `/azf debug perf`, controller-only pass, Escape and the controller key binding, another UI scale, a full restart, Azerfolio alone, Thragor and contested zones. Fixes from what it finds.
+   - First run (2026-11-07, owner ran steps 1-10; results in `docs/testing.md`): every screen renders at UI scale 0.65 and 0.8 and with Azerfolio alone; 369 s of play cost about 10 ms of addon callbacks in total, 0 errors, 2410 KB; Thragor's faction and level filters are correct [verified-ingame]. The client profiler's 39.5 ms peak frame wasn't attributed, so opening the window (`ui:open`), tab switches and page builds (`ui:tab …`), relayouts and each `/azf shots` step are now timed too (debug mode only). In the wide split view `/azf shots` no longer takes the "other view" shot (it repeated the previous one). Tests: 206 passed.
+   - Open: the owner's answers for Lua errors, the controller key binding and Escape, persistence after the full restart, and Thragor's Zone Detail. Design question: hide the empty "To discover · 0 areas" header on a fully explored zone (mockup first).
 3. **Close v1:** every §12 criterion checked off with evidence.
 
 ## Phase 7 — Overview dashboard: done (2026-11-07)

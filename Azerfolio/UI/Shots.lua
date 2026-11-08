@@ -71,13 +71,14 @@ local function steps(which)
         UI.shotsFocusKey = item and item.key
         ns.Focus.Jump(1); UI.RefreshHints()
     end }
-    -- The catalogue's other view and the Sort popup (the view is restored at the end).
-    list[#list + 1] = { label = "zones, other view", fn = function()
+    -- The catalogue's other view and the Sort popup (the view is restored at the end). The wide
+    -- split view always shows the list, so there the other view would repeat the last shot.
+    if not UI.IsWide() then list[#list + 1] = { label = "zones, other view", fn = function()
         UI.ApplyGeometry(); UI.SelectTab("zones")
         local page = zonesPage()
         if UI.shotsView == nil then UI.shotsView = ns.db.zones.displayMode end
         page.catalogue:CycleView()
-    end }
+    end } end
     list[#list + 1] = { label = "zones, sort popup", fn = function()
         local page = zonesPage()
         local cat = page.catalogue
@@ -169,7 +170,9 @@ function UI.RunShots(which)
         i = i + 1
         local s = list[i]
         if not s then return finish(string.format("Took %d screenshots.", pictures)) end
+        local t = ns.Events.StartTiming()
         local ok, err = pcall(s.fn)
+        ns.Events.StopTiming("shots: " .. s.label, t)
         if not ok then
             ns.Debug.Error("shots " .. s.label, err)
             return finish("Screenshots stopped: " .. tostring(err))

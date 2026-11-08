@@ -530,8 +530,10 @@ end
 function UI.SelectTab(id)
     if not tabIndex(id) then id = UI.tabs[1] and UI.tabs[1].id end
     if not id or not window then return end
+    local t = ns.Events.StartTiming()
     local def = UI.tabs[tabIndex(id)]
     local page = window.pages[id]
+    local built = not page
     if not page then
         page = def.build(window.body)
         page:SetAllPoints(window.body)
@@ -544,6 +546,7 @@ function UI.SelectTab(id)
     setHeaderMode(def.compactHeader)
     if ns.Focus then ns.Focus.SetPage(id, page) end
     UI.RefreshHints()
+    ns.Events.StopTiming("ui:tab " .. id .. (built and " (first, builds the page)" or ""), t)
 end
 
 function UI.CurrentTab() return current end
@@ -556,9 +559,11 @@ end
 -- Lets built pages adapt to the window's size (page:Layout()). Called on every resize.
 function UI.Relayout()
     if not window then return end
+    local t = ns.Events.StartTiming()
     for _, page in pairs(window.pages) do
         if page.Layout then page:Layout() end
     end
+    ns.Events.StopTiming("ui:relayout", t)
 end
 
 function UI.NextTab(delta)
@@ -576,10 +581,13 @@ function UI.Show()
         ns.Print("Still loading, try again in a moment.")
         return
     end
+    local t = ns.Events.StartTiming()
+    local first = not window
     if not window then buildWindow() end
     applyGeometry()
     window:Show()
     playSound("IG_CHARACTER_INFO_OPEN")
+    ns.Events.StopTiming(first and "ui:open (first, builds the window)" or "ui:open", t)
 end
 
 function UI.Hide()

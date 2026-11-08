@@ -61,6 +61,18 @@ function Events.ResetStats()
     Events.statsSince = nil
 end
 
+-- For work that doesn't run through the dispatcher (opening the window, tab switches, shots):
+-- local t = Events.StartTiming() ... Events.StopTiming("ui:open", t). Free when debug is off.
+function Events.StartTiming()
+    if not counting() then return false end
+    return clock() or true
+end
+
+function Events.StopTiming(name, started)
+    if started == false or started == nil then return end
+    record(name, type(started) == "number" and started or nil)
+end
+
 -- Runs fn under pcall and counts it as `name` while debug mode is on.
 function Events.Measure(name, fn, ...)
     local on = counting()
