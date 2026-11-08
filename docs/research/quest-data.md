@@ -74,7 +74,7 @@ A throwaway LuaJIT script decoded every `X-Quest-<id>-S` row (base, without corr
 
 ## Recommendation
 
-**A, runtime optional dependency.** QuestieDB is already installed and enabled for Questie, so it costs nothing extra to load. It has a versioned public API built for other addons, and only the runtime view includes the Forever corrections, which matter for honest numbers. Build-time extraction would either lose the corrections or need an in-game dump plus a generator, and it would go stale.
+**Decided 2026-11-08 (owner approved): A, runtime optional dependency.** QuestieDB is already installed and enabled for Questie, so it costs nothing extra to load. It has a versioned public API built for other addons, and only the runtime view includes the Forever corrections, which matter for honest numbers. Build-time extraction would either lose the corrections or need an in-game dump plus a generator, and it would go stale.
 
 Guards: everything behind `pcall`; a missing addon or a contract mismatch makes the quest category "unavailable" with the reason, never zero. Exploration never depends on it. For the area → zone mapping, use QuestieDB's support table when present, but check it against the client (`C_Map.GetAreaInfo` names) or keep our own small table for our 50 zones, since it's private.
 

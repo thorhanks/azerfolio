@@ -334,7 +334,7 @@ Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue for
 ### Phase 9 — Quests (v1.1)
 
 **Tasks**
-1. Decide QuestieDB integration: runtime optional dependency vs. build-time extraction. Inspect its data format and load cost first. Record the decision.
+1. Decide QuestieDB integration: runtime optional dependency vs. build-time extraction. Inspect its data format and load cost first. Record the decision. *(Done 2026-11-08: runtime optional dependency.)*
 2. Quest completion reader (`C_QuestLog.IsQuestFlaggedCompleted`; completed-quest list API if present). Events for turn-in.
 3. Quest catalogue per zone: ID, name, zone, faction, class, profession, prerequisites, type, repeatable, exclusive groups.
 4. Eligibility: completed / available / locked / unavailable / unknown. Never infer "unavailable" just because a quest isn't in the log.
@@ -415,6 +415,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Zone Detail of a fully explored zone has no "To discover" section; the "Fully explored" note replaces it | Owner's request after the Phase 8 visual review: an empty "0 areas" header looked unfinished |
 | 2026-11-07 | Malformed milestone and recent-zone entries are dropped on load | A damaged file must not break the Overview; a bad time is removed, never replaced (honest data) |
 | 2026-11-08 | Key binding removed (`Bindings.xml`, `Azerfolio_Toggle`); spec §4.3 and the §12 Window criterion no longer ask for one | Opening from a controller-bound key didn't work in game, and the owner doesn't need a key binding; `/azf`, the minimap button and the compartment open it |
+| 2026-11-08 | Quest catalogue: read QuestieDB **at runtime** as an optional dependency (`## OptionalDeps: QuestieDB`, `LibQuestieDB.RequireContract(4)`, `QuestDB` field readers), not build-time extraction. Without it, or on a contract mismatch, quests are "unavailable" with the reason; exploration never depends on it | Probe (`docs/research/quest-data.md`): only the runtime view has the Forever corrections (43 quests change zone); a full scalar read costs 36 ms once and under 1 MB; nothing added to the repo; follows QuestieDB updates. Owner approved |
 | 2026-11-08 | Phase 8 accepted; v1 closed as version 1.0.0 | Every spec §12 v1 criterion met in game (`docs/testing.md` § Phase 8); the unattributed 39.5 ms peak frame is left as a known item, not a blocker (session average 0.0016 ms per frame). Owner approved |
 
 ## 10. Definition of done (v1)

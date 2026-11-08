@@ -258,7 +258,7 @@ The bundled exploration catalogue uses game IDs (not names) as keys, is versione
 ### 8.4 Quests (v1.1)
 
 - Completion: client quest-completion APIs.
-- Catalogue: QuestieDB (installed on this machine). Whether Azerfolio reads it at runtime as an optional dependency or extracts data from it at build time is decided at the start of v1.1. Note that QuestieDB is GPL-3.0 licensed; either approach is fine for personal use.
+- Catalogue: QuestieDB (installed on this machine). Azerfolio reads it **at runtime as an optional dependency** through its public API (decided 2026-11-08; `docs/research/quest-data.md`). Without QuestieDB, quests are shown as unavailable with the reason; nothing else changes. Note that QuestieDB is GPL-3.0 licensed; either approach is fine for personal use.
 - Must handle faction, class, profession, prerequisites, exclusive choices, repeatables, breadcrumbs.
 - A partial catalogue is never presented as exhaustive.
 
