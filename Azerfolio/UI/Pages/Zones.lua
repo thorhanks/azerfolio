@@ -3,11 +3,11 @@
 --   * detail: one zone's banner and its Explore areas, To discover / Discovered, read live from
 --     the game (Systems/Exploration.lua).
 -- A (or a click) opens a zone; B (or the Back button) returns to the list with the same zone
--- focused. Uses the one-line character strip.
+-- focused. In a wide window both views show side by side (see build). Uses the one-line
+-- character strip.
 local _, ns = ...
 
 local WHEEL_STEP = 72
-local BANNER_HEIGHT = 124
 
 ---------------------------------------------------------------------------------------------
 -- Shared pieces
@@ -51,7 +51,9 @@ local function focusRow(parent, height)
     T.RowHighlight(row, "HIGHLIGHT")
     local focusHi = T.RowHighlight(row)
     focusHi:SetShown(false)
-    function row:SetFocused(on) focusHi:SetShown(on) end
+    -- The bar shows while the row is focused or selected (the zone the split view shows).
+    function row:SetFocused(on) self.focused = on; focusHi:SetShown(on or self.selected) end
+    function row:SetSelected(on) self.selected = on; focusHi:SetShown(on or self.focused) end
     row:SetScript("OnEnter", function(self) if self.item then ns.UI.SetInfo(self.item.title, self.item.detail) end end)
     row:SetScript("OnLeave", function() ns.UI.RestoreInfo() end)
     return row
@@ -70,8 +72,13 @@ local function buildList(page)
     scroll:SetPoint("BOTTOMRIGHT", 0, S.s2)
     local child = scroll.child
 
+    -- The split view's divider on the list's right edge.
+    list.edge = T.Solid(list, "divider", "BORDER")
+    list.edge:SetPoint("TOPRIGHT"); list.edge:SetPoint("BOTTOMRIGHT"); list.edge:SetWidth(1)
+    list.edge:Hide()
+
     local sections = ns.Maps.Sections()
-    local rows, y = {}, 0
+    local rows, byMap, y = {}, {}, 0
     local function place(f, height)
         f:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
         f:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
@@ -97,12 +104,19 @@ local function buildList(page)
             row.item = {
                 key = z.mapID, frame = row, title = z.name, detail = s.title, scroll = scroll,
                 topGap = L.listHeader + S.s1 + S.s2, -- keep the section header in view after a jump
-                actionLabel = "Open",
+                actionLabel = "Open", zone = zone,
                 onActivate = function() page:Open(zone) end,
+                -- Split view: A only means something if the zone has areas to move into.
+                canActivate = function()
+                    return not page.wide or not (page.zone and page.zone.mapID == zone.mapID)
+                        or (page.detailRows ~= nil and #page.detailRows > 0)
+                end,
             }
-            row:SetScript("OnClick", function() page:Open(zone) end)
+            row:SetScript("OnClick", function() page:Click(zone) end)
             place(row, L.listRow + 2)
             rows[#rows + 1] = { items = { row.item }, section = si }
+            byMap[z.mapID] = row
+            list.firstZone = list.firstZone or zone
         end
     end
     child:SetHeight(math.max(1, y))
@@ -113,6 +127,7 @@ local function buildList(page)
         empty:SetText("The game didn't list any zone maps.")
     end
     list.rows = rows
+    list.byMap = byMap
     list.sectionCount = #sections
     return list
 end
@@ -121,11 +136,12 @@ end
 -- Detail view
 ---------------------------------------------------------------------------------------------
 
--- Crops the 2:1 zone art to a wide banner (centre band; per-zone offsets come later).
-local function cropBanner(tex, w, h)
+-- Crops the 2:1 zone art to the banner, centred on the zone's landmark (Theme.bannerFocus).
+local function cropBanner(banner)
+    local w, h = banner:GetWidth(), banner:GetHeight()
     if not (w and h and w > 0) then return end
-    local f = math.min(1, (h / w) * 2)
-    tex:SetTexCoord(0, 1, 0.5 - f / 2, 0.5 + f / 2)
+    local top, bottom = ns.Theme.BannerCrop(banner.mapID, w, h)
+    banner.art:SetTexCoord(0, 1, top, bottom)
 end
 
 local function checkRow(parent)
@@ -164,10 +180,10 @@ local function buildDetail(page)
 
     local banner = CreateFrame("Frame", nil, d)
     banner:SetPoint("TOPLEFT"); banner:SetPoint("TOPRIGHT")
-    banner:SetHeight(BANNER_HEIGHT)
+    banner:SetHeight(L.bannerHeight)
     banner.art = banner:CreateTexture(nil, "BACKGROUND")
     banner.art:SetAllPoints()
-    banner:SetScript("OnSizeChanged", function(self, w, h) cropBanner(self.art, w, h) end)
+    banner:SetScript("OnSizeChanged", cropBanner)
     local shade = banner:CreateTexture(nil, "BORDER")
     shade:SetAllPoints()
     shade:SetColorTexture(1, 1, 1, 1)
@@ -185,6 +201,7 @@ local function buildDetail(page)
     back:SetPoint("TOPRIGHT", -S.s4, -S.s3)
     back:SetText("Zones")
     back:SetScript("OnClick", function() page:Back() end)
+    d.back = back
     d.banner = banner
 
     local scroll = newScroll(d)
@@ -210,6 +227,8 @@ local function fillDetail(d, zone)
     local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
     local art = T.ZoneArt(zone.mapID)
     if art then d.banner.art:SetTexture(art) else d.banner.art:SetColorTexture(0, 0, 0, 1) end
+    d.banner.mapID = zone.mapID
+    cropBanner(d.banner)
     d.banner.name:SetText(zone.name)
     d.banner.sub:SetText(zone.continent or "")
     d.scroll:SetVerticalScroll(0)
@@ -286,30 +305,115 @@ end
 -- Page
 ---------------------------------------------------------------------------------------------
 
+-- The zone the player stands in, if the list has it.
+local function playerZone(list)
+    local here = C_Map and C_Map.GetBestMapForUnit
+        and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
+    local row = here and list.byMap[here]
+    return row and row.item.zone
+end
+
+-- Two modes: "list" (focus in the zone list) and "detail" (focus in a zone's areas).
+-- Narrow window: one view at a time. Wide window (UI.IsWide): split view, the list on the
+-- left and the selected zone's detail on the right, following focus; A moves into the
+-- areas, B comes back.
 local function build(parent)
     local page = CreateFrame("Frame", nil, parent)
     page.list = buildList(page)
     page.detail = buildDetail(page)
     page.mode = "list"
 
+    local function arrange()
+        local L = ns.Theme.layout
+        local list, d = page.list, page.detail
+        list:ClearAllPoints(); d:ClearAllPoints()
+        if page.wide then
+            list:SetPoint("TOPLEFT"); list:SetPoint("BOTTOMLEFT")
+            list:SetWidth(L.splitListWidth)
+            d:SetPoint("TOPLEFT", list, "TOPRIGHT")
+            d:SetPoint("BOTTOMRIGHT")
+        else
+            list:SetAllPoints(); d:SetAllPoints()
+        end
+        list.edge:SetShown(page.wide)
+        d.back:SetShown(not page.wide)
+        for _, r in ipairs(list.rows) do r.items[1].actionLabel = page.wide and "Checklist" or "Open" end
+    end
+
+    -- Marks the zone the split view shows (none in the narrow window).
+    local function markSelected()
+        local id = page.wide and page.zone and page.zone.mapID
+        for mapID, row in pairs(page.list.byMap) do
+            local on = mapID == id
+            if (row.selected or false) ~= on then row:SetSelected(on) end
+        end
+    end
+
+    -- Fills the detail view for `zone` (re-read from the game when `force`).
+    local function show(zone, force)
+        if not force and page.zone and page.zone.mapID == zone.mapID and page.detailRows then return end
+        page.zone = zone
+        page.detailRows = fillDetail(page.detail, zone)
+    end
+
     local function refresh()
         local inDetail = page.mode == "detail"
-        page.list:SetShown(not inDetail)
-        page.detail:SetShown(inDetail)
+        page.list:SetShown(page.wide or not inDetail)
+        page.detail:SetShown(inDetail or (page.wide and page.zone ~= nil))
         page.hasSections = inDetail and page.detailRows and #page.detailRows > 0
             or (not inDetail and page.list.sectionCount > 1)
         page.sectionLabel = inDetail and "Section" or "Continent"
         page.backLabel = inDetail and "Back" or nil
+        markSelected()
         ns.Focus.Rebuild()
         ns.UI.RefreshHints()
     end
 
+    -- A on a zone: open its detail (narrow) or move into its areas (wide).
     function page:Open(zone)
-        self.zone = zone
-        self.mode = "detail"
-        self.detailRows = fillDetail(self.detail, zone)
+        show(zone, true)
         local first = self.detailRows[1] and self.detailRows[1].items[1]
-        self.pendingFocusKey = first and first.key
+        if self.wide and not first then -- nothing to move into; the detail already shows why
+            self.mode = "list"
+        else
+            self.mode = "detail"
+            self.pendingFocusKey = first and first.key
+        end
+        refresh()
+    end
+
+    -- A click on a zone row: in the split view it selects the zone and keeps focus in the list.
+    function page:Click(zone)
+        if not self.wide then return self:Open(zone) end
+        self.mode = "list"
+        show(zone)
+        self.pendingFocusKey = zone.mapID
+        refresh()
+    end
+
+    -- Split view: the detail follows the focused zone.
+    function page:OnFocusChanged(item)
+        if self.wide and self.mode == "list" and item and item.zone then
+            show(item.zone)
+            markSelected()
+        end
+    end
+
+    -- Called on every window resize (UI.Relayout); acts when the window crosses the wide size.
+    function page:Layout()
+        local wide = ns.UI.IsWide()
+        if wide == self.wide then return end
+        self.wide = wide
+        arrange()
+        if wide and self.mode == "list" then
+            -- Show the focused zone, else the player's zone, else the first one.
+            local item = ns.UI.CurrentTab() == "zones" and ns.Focus.Current()
+            local zone = (item and item.zone) or self.zone or playerZone(self.list) or self.list.firstZone
+            if zone then
+                show(zone)
+                self.pendingFocusKey = zone.mapID
+            end
+        end
         refresh()
     end
 
@@ -327,8 +431,7 @@ local function build(parent)
         return self.list.rows
     end
 
-    page.hasSections = page.list.sectionCount > 1
-    page.sectionLabel = "Continent"
+    page:Layout()
     return page
 end
 

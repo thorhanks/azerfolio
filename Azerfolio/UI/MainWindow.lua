@@ -382,7 +382,9 @@ local function currentHints()
     local def = UI.tabs[tabIndex(current) or 0]
     local list = {}
     local item = ns.Focus and ns.Focus.Current()
-    if item and item.onActivate then list[#list + 1] = { "A", item.actionLabel or "Select" } end
+    if item and item.onActivate and not (item.canActivate and not item.canActivate(item)) then
+        list[#list + 1] = { "A", item.actionLabel or "Select" }
+    end
     local page = window and window.pages[current]
     for _, h in ipairs((def and def.hints) or {}) do list[#list + 1] = h end
     if ns.Focus and ns.Focus.HasSections() then
@@ -488,6 +490,7 @@ local function buildWindow()
     grip:SetScript("OnMouseUp", function() f:StopMovingOrSizing(); saveGeometry() end)
     f.grip = grip
 
+    f:SetScript("OnSizeChanged", function() UI.Relayout() end)
     f:SetScript("OnShow", function()
         refreshHeader()
         if ns.Gamepad then ns.Gamepad.Update() end
@@ -535,6 +538,19 @@ function UI.SelectTab(id)
 end
 
 function UI.CurrentTab() return current end
+
+-- Is the window wide enough for split views (ultrawide; Zones list + detail side by side)?
+function UI.IsWide()
+    return window ~= nil and (window:GetWidth() or 0) >= ns.Theme.layout.wideMinWidth
+end
+
+-- Lets built pages adapt to the window's size (page:Layout()). Called on every resize.
+function UI.Relayout()
+    if not window then return end
+    for _, page in pairs(window.pages) do
+        if page.Layout then page:Layout() end
+    end
+end
 
 function UI.NextTab(delta)
     if window then UI.SelectTab(UI.TabAfter(current, delta)) end

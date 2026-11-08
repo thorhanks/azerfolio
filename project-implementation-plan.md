@@ -269,11 +269,11 @@ Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue for
 7. `/azf shots`: open the window and screenshot each tab and state for agent review (plan §4.3).
 
 **Done when:**
-- [ ] Opens from both commands, the launcher and the key binding; tabs switch with mouse and LB/RB.
-- [ ] D-pad focus, A, B and the hint bar work on every screen; input is released in combat.
-- [ ] Drag, resize, and persistence work across reload and relog.
-- [ ] Escape closes; no errors opening during combat.
-- [ ] Repeated open/close and navigation cause no frame leaks.
+- [x] Opens from both commands, the launcher and the key binding; tabs switch with mouse and LB/RB. (Owner, in game.)
+- [x] D-pad focus, A, B and the hint bar work on every screen; input is released in combat. (Shots in game; combat release covered by tests.)
+- [ ] Drag, resize, and persistence work across reload and relog. (Reload verified in game; relog not checked separately.)
+- [ ] Escape closes; no errors opening during combat. (Covered by tests; not tried in game.)
+- [x] Repeated open/close and navigation cause no frame leaks. (Tests count frames.)
 
 ### Phase 5 — Exploration catalogue and progression engine
 
@@ -389,6 +389,9 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | **Full native look**: match the Forever UI (gold glowing frame, round portrait, dark brown panes instead of parchment, native tabs, prompts and focus pointer). Probe the live frames first (`/azfdiag skin`), then update the mockup, then Lua | Owner's request; native look fits the gamepad UI. Supersedes the parchment and custom chrome in `mockups/DESIGN.md` once the new mockup is approved |
 | 2026-11-07 | Native-look mockup approved: portrait frame, character strip, dark panes, right-side tabs with LB/RB, legend box below the frame, chevron focus pointer. `mockups/DESIGN.md` maps each part to its native template or atlas | Owner approval; next is the Lua restyle of the window shell, then Phase 4 step 2 |
 | 2026-11-07 | Window default 1160×740 (account schema 2); footer tabs are custom buttons, not `PanelTabButtonTemplate` | The design lays out at 1160×740 and puts tabs inside the footer with LB/RB glyphs; the template hangs tabs below the frame |
+| 2026-11-07 | Wide split view is automatic: Zones splits (list 560 + detail) when the window is at least 1440 wide; no setting | The owner's ultrawide fits it; resizing is the switch, and the narrow layout stays unchanged |
+| 2026-11-07 | Banner crop offsets live in `Theme.bannerFocus` (fraction of art height), tuned from in-game shots (`/azf shots banners`) | `Data/Art.lua` is generated; offsets are a UI concern; 7 zones need one |
+| 2026-11-07 | Phase 4 accepted (all 5 steps verified with in-game shots) | Relog persistence and Escape/combat opening rest on tests, not a separate in-game check |
 
 ## 10. Definition of done (v1)
 

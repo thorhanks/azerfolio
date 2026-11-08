@@ -3,7 +3,8 @@
 -- control's highlight, scrolling it into view, and the info line.
 -- Pages opt in with page:GetFocusRows() returning FocusGrid rows of items:
 --   { key, frame, title, detail, scroll = ScrollFrame or nil, onActivate = fn or nil }
--- An item's frame may implement SetFocused(on) to draw its own highlight.
+-- An item's frame may implement SetFocused(on) to draw its own highlight. A page may implement
+-- page:OnFocusChanged(item) to follow focus.
 local _, ns = ...
 
 local Focus = {}
@@ -14,6 +15,7 @@ local grids = {}   -- [tabId] = FocusGrid
 local pages = {}   -- [tabId] = page frame
 local tabId
 local highlighted  -- item whose frame currently shows the focus highlight
+local notified = {} -- [tabId] = focused key the page was last told about
 
 local SCROLL_PAD = 8
 
@@ -72,6 +74,13 @@ end
 function Focus.Update(scroll)
     if not window then return end
     local item = Focus.Current()
+    -- Tell the page when the focused key changes (the wide Zones split follows focus).
+    local page = tabId and pages[tabId]
+    local key = item and item.key
+    if page and page.OnFocusChanged and key ~= notified[tabId] then
+        notified[tabId] = key
+        page:OnFocusChanged(item)
+    end
     local show = active() and item ~= nil and window:IsShown()
     if highlighted and (highlighted ~= item or not show) then
         if highlighted.frame.SetFocused then highlighted.frame:SetFocused(false) end

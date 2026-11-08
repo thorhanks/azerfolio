@@ -12,8 +12,8 @@ Read before working:
 
 ## Current state (2026-11-07)
 
-- Phases 0–2 done. Phase 3 design is approved and all zone art is done (51 BLPs). Phase 4 in progress: step 1 (window shell) done; the owner then chose the **native Forever look** and approved the reworked mockup. **Next: restyle the Lua window to the native look** (`PortraitFrameTemplate` and the atlases in `mockups/DESIGN.md` § Native look), then Phase 4 step 2 (focus grid).
-- Open for Phase 4: a per-zone banner offset for tall landmarks (see the status doc).
+- Phases 0–4 done. The window has the **native Forever look** (`PortraitFrameTemplate` and the atlases in `mockups/DESIGN.md` § Native look), gamepad focus, Zones list / Zone Detail / wide split view (window ≥ 1440), launchers and a key binding. **Next: Phase 5** (exploration catalogue and progression engine).
+- Banner crop offsets: `Theme.bannerFocus`; check with `/azf shots banners`.
 - In game, the owner may still have **Azerfolio Diagnostics** enabled with its event sniffer on. Ask them to turn it off (`/azfdiag sniff`, then untick the addon) when it's no longer needed.
 
 ## How the owner likes to work
@@ -55,7 +55,7 @@ Read before working:
 - Tests: `luajit tests/run.lua` (from repo root)
 - Read the diagnostic dump: `luajit tools/diag-report.lua [summary|env|explore|criteria <achID>|maps|zone|events|log [n]|quests|art|ns <filter>|errors]`
 - Diagnostics in game: `/azfdiag` (help), `/azfdiag all`, `/azfdiag zone`, `/azfdiag sniff`, `/azfdiag art`, `/azfdiag skin` (native frame textures; report `skin [tree [filter]]`)
-- Addon in game: `/azf help`, `/azf status`, `/azf debug [zone]`, `/azf refresh`, `/azf shot`, `/azf shots` (screenshots every tab and state)
+- Addon in game: `/azf help`, `/azf status`, `/azf debug [zone]`, `/azf refresh`, `/azf shot`, `/azf shots` (screenshots every tab and state), `/azf shots banners`
 - Mockups: start the `mockups` preview (`.claude/launch.json`, serves `mockups/` on http://localhost:8765 via `tools/serve-mockups.ps1`). Regenerate zone data with `luajit tools/export-mock-data.lua | Out-File -Encoding utf8 mockups/data.js`. Mockup state (Gideon's progress, level ranges, factions) is sample data in `mockups/app.js`, not addon data.
 - Zone art: owner saves generated images as `art/source/<mapID>-<slug>.png` (prompts in `art/prompts.md`, rules in `art/style-guide.md`), then `powershell -File tools/process-art.ps1`. This writes `Azerfolio/Media/Zones/<mapID>.blp` (1024×512 BLP2 DXT1 + mips, via `tools/Blp.cs`), the mockup PNGs, and `Azerfolio/Data/Art.lua`. Never hand-edit `Data/Art.lua`. Use the `.blp` extension in texture paths. Review with `tools/art-contact-sheet.ps1`. Only BLPs are committed; `art/source/` and mockup PNGs are git-ignored.
 - Git: not on PATH; use `C:\Users\thorh\AppData\Local\GitHubDesktop\app-3.6.10\resources\app\git\cmd\git.exe`. Pass commit messages with `-F <file>` (PowerShell 5.1 mangles quotes in arguments). Pushing needs the owner (GitHub Desktop holds the login).

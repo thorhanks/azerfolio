@@ -7,10 +7,47 @@ local UI = ns.UI
 local SETTLE = 0.5 -- seconds after a change before the screenshot
 local GAP = 1.0    -- seconds after a screenshot before the next change
 
+local function zonesPage() return UI.GetFrame().pages.zones end
+
+-- Every listed zone as { mapID, name, continent }.
+local function allZones()
+    local out = {}
+    for _, s in ipairs(ns.Maps.Sections()) do
+        for _, z in ipairs(s.zones) do out[#out + 1] = { mapID = z.mapID, name = z.name, continent = s.title } end
+    end
+    return out
+end
+
+-- Opens a zone's detail in the normal-size window (restored when the shots end).
+local function openDetail(zone)
+    UI.ApplyGeometry(); UI.Relayout(); UI.SelectTab("zones")
+    local page = zonesPage()
+    if zone and page and page.Open then page:Open(zone); UI.shotsOpenedDetail = true end
+end
+
+-- The wide split view's size: the design's 1640, within the allowed range.
+local function wideSize()
+    local r = ns.Config.RANGES
+    local w = math.max(ns.Theme.layout.wideMinWidth, math.min(1640, r["window.width"][2]))
+    return w, ns.db.window.height
+end
+
+-- /azf shots banners: the Zone Detail of every zone with a banner offset.
+local function bannerSteps()
+    local list = {}
+    for _, z in ipairs(allZones()) do
+        if ns.Theme.bannerFocus[z.mapID] then
+            list[#list + 1] = { label = "banner " .. z.name, fn = function() openDetail(z) end }
+        end
+    end
+    return list
+end
+
 -- Each step changes the window, then one screenshot is taken.
-local function steps()
+local function steps(which)
+    if which == "banners" then return bannerSteps() end
     local minW, minH = ns.Config.RANGES["window.width"][1], ns.Config.RANGES["window.height"][1]
-    local function size(w, h) return function() UI.GetFrame():SetSize(w, h) end end
+    local function size(w, h) return function() UI.GetFrame():SetSize(w, h); UI.Relayout() end end
     local list = {}
     for _, def in ipairs(UI.tabs) do
         list[#list + 1] = { label = def.id, fn = function() UI.ApplyGeometry(); UI.SelectTab(def.id) end }
@@ -28,24 +65,38 @@ local function steps()
         end }
     end
     -- Zone Detail for the zone the player stands in (or the first listed zone).
-    list[#list + 1] = { label = "zone detail", fn = function()
-        UI.ApplyGeometry(); UI.SelectTab("zones")
-        local here = C_Map and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
-        local pick
-        for _, s in ipairs(ns.Maps.Sections()) do
-            for _, z in ipairs(s.zones) do
-                pick = pick or { mapID = z.mapID, name = z.name, continent = s.title }
-                if z.mapID == here then pick = { mapID = z.mapID, name = z.name, continent = s.title } end
-            end
+    local zones = allZones()
+    local here = C_Map and C_Map.GetBestMapForUnit
+        and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
+    local pick = zones[1]
+    for _, z in ipairs(zones) do if z.mapID == here then pick = z end end
+    list[#list + 1] = { label = "zone detail", fn = function() openDetail(pick) end }
+    -- A zone the game has no Explore achievement for (the "can't track" message).
+    for _, z in ipairs(zones) do
+        local ok, ex = pcall(ns.Exploration.ForZone, z)
+        if ok and ex and ex.status == "untracked" then
+            list[#list + 1] = { label = "zone detail, not tracked", fn = function() openDetail(z) end }
+            break
         end
-        local page = UI.GetFrame().pages.zones
-        if pick and page and page.Open then page:Open(pick); UI.shotsOpenedDetail = true end
+    end
+    -- Wide window: the split view with focus in the list, then in the selected zone's areas.
+    list[#list + 1] = { label = "zones wide", fn = function()
+        local page = zonesPage()
+        if page and page.mode == "detail" then page:Back() end
+        UI.shotsOpenedDetail = nil
+        UI.SelectTab("zones"); size(wideSize())()
+        if page and pick then page:Click(pick) end -- start on the player's zone, which has areas
+    end }
+    list[#list + 1] = { label = "zones wide, checklist", fn = function()
+        local page = zonesPage()
+        local item = ns.Focus.Current()
+        if page and item and item.zone then page:Open(item.zone); UI.shotsOpenedDetail = true end
     end }
     return list
 end
 UI.ShotSteps = steps
 
-function UI.RunShots()
+function UI.RunShots(which)
     if type(Screenshot) ~= "function" then
         ns.Print("Screenshot() is not available on this client.")
         return
@@ -58,11 +109,12 @@ function UI.RunShots()
     UI.Show()
     if not UI.IsShown() then return end
 
-    local list, startTab, i = steps(), UI.CurrentTab(), 0
+    local list, startTab, i = steps(which), UI.CurrentTab(), 0
+    if #list == 0 then return ns.Print("Nothing to screenshot.") end
     UI.shotsRunning = true
     local function finish(msg)
         UI.shotsRunning = false
-        UI.ApplyGeometry()
+        UI.ApplyGeometry(); UI.Relayout()
         if UI.shotsOpenedDetail then
             UI.SelectTab("zones"); UI.GetFrame().pages.zones:Back(); UI.shotsOpenedDetail = nil
         end

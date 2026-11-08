@@ -66,6 +66,9 @@ Theme.layout = {
     rowHiSide = 6,             -- row highlight end caps
     checkRow = 32,             -- Zone Detail area row
     checkIcon = 20,
+    bannerHeight = 124,        -- Zone Detail banner
+    wideMinWidth = 1440,       -- window width from which Zones becomes a split view
+    splitListWidth = 560,      -- the split view's list column
 }
 
 -- Space the window's outside parts take (tabs right, legend below, portrait ring and glow).
@@ -97,6 +100,30 @@ function Theme.ZoneArt(mapID)
     local art = ns.Art
     if art and art.zones and art.zones[mapID] then return Theme.zoneArtDir .. mapID .. ".blp" end
     if art and art.hasFallback then return Theme.zoneArtDir .. "fallback.blp" end
+end
+
+-- Where the Zone Detail banner's thin crop is centred, as a fraction of the art's height
+-- (0 = top, 0.5 = middle, the default). For art whose landmark sits high; picked by eye from
+-- the art, check with /azf shots banners.
+Theme.bannerFocus = {
+    -- Second pass after the in-game shots (WoWScrnShot_110726_193026-193036), which cut the tops.
+    [1436] = 0.29, -- Westfall: lighthouse
+    [1421] = 0.26, -- Silverpine Forest: Shadowfang Keep
+    [1438] = 0.36, -- Teldrassil: the tree's palace
+    [2482] = 0.22, -- Mount Hyjal: Nordrassil's crown
+    [1430] = 0.27, -- Deadwind Pass: Karazhan
+    [1442] = 0.24, -- Stonetalon Mountains: the peak
+    [2521] = 0.28, -- Zephras Isle: the tower
+}
+
+-- Pure: the vertical texture coordinates that crop 2:1 zone art to a w×h banner, centred on
+-- the zone's banner focus and kept inside the art. Returns top, bottom.
+function Theme.BannerCrop(mapID, w, h)
+    local f = 1
+    if w and h and w > 0 then f = math.min(1, (h / w) * 2) end
+    local centre = Theme.bannerFocus[mapID] or 0.5
+    local top = math.max(0, math.min(1 - f, centre - f / 2))
+    return top, top + f
 end
 
 -- The highlight atlas is plain white; the client dims it. Measured from the Reputation frame
