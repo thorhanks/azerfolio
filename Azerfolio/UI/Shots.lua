@@ -15,6 +15,13 @@ local function steps()
     for _, def in ipairs(UI.tabs) do
         list[#list + 1] = { label = def.id, fn = function() UI.ApplyGeometry(); UI.SelectTab(def.id) end }
     end
+    -- Focus after an RT jump: chevron, row highlight and scroll-into-view in one picture.
+    list[#list + 1] = { label = "zones, next section", fn = function()
+        UI.ApplyGeometry(); UI.SelectTab("zones")
+        local item = ns.Focus.Current()
+        UI.shotsFocusKey = item and item.key
+        ns.Focus.Jump(1); UI.RefreshHints()
+    end }
     for _, def in ipairs(UI.tabs) do
         list[#list + 1] = { label = def.id .. " at minimum size", fn = function()
             UI.SelectTab(def.id); size(minW, minH)()
@@ -42,6 +49,9 @@ function UI.RunShots()
     local function finish(msg)
         UI.shotsRunning = false
         UI.ApplyGeometry()
+        if UI.shotsFocusKey ~= nil then
+            UI.SelectTab("zones"); ns.Focus.FocusKey(UI.shotsFocusKey); UI.shotsFocusKey = nil
+        end
         UI.SelectTab(startTab)
         ns.Print(msg)
     end

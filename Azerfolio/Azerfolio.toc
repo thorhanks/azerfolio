@@ -15,9 +15,12 @@ Core\Debug.lua
 Core\Events.lua
 Core\Character.lua
 Core\Commands.lua
+Systems\Maps.lua
 UI\Theme.lua
+UI\FocusGrid.lua
 UI\MainWindow.lua
 UI\Gamepad.lua
+UI\Focus.lua
 UI\Pages\Overview.lua
 UI\Pages\Zones.lua
 UI\Shots.lua

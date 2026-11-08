@@ -56,6 +56,12 @@ Theme.layout = {
     legendEdge = 7,            -- diamond-metal border thickness over the background
     glyphSize = 24,            -- frame
     glyphArt = 34,             -- atlas drawn larger than the frame, like the client's legend
+    pointer = { 21, 35 },      -- focus chevron (half the 42x70 atlas) [unverified size]
+    listHeader = 30,           -- group header row
+    listRow = 36,              -- zone row
+    listInset = 32,            -- list rows start here (room for the chevron)
+    thumb = { 56, 28 },        -- zone art thumbnail (2:1)
+    rowHiSide = 6,             -- row highlight end caps
 }
 
 -- Space the window's outside parts take (tabs right, legend below, portrait ring and glow).
@@ -74,7 +80,43 @@ Theme.atlas = {
     sideTabSelected = "common-sidetab-selected",
     sideTabMask = "common-sidetab-mask",
     diamond = "UI-Frame-DiamondMetal", -- -CornerTopLeft, _..-EdgeTop, !..-EdgeLeft, ...
+    pointer = "gamepad-largecursor-white",
+    listHeader = "common-button-list-collapseExpand",
+    rowHiSide = "charactercreate-customize-dropdown-linemouseover-side",
+    rowHiMiddle = "charactercreate-customize-dropdown-linemouseover-middle",
 }
+
+Theme.zoneArtDir = "Interface\\AddOns\\Azerfolio\\Media\\Zones\\"
+
+-- The zone's illustration (or the fallback), or nil if neither exists.
+function Theme.ZoneArt(mapID)
+    local art = ns.Art
+    if art and art.zones and art.zones[mapID] then return Theme.zoneArtDir .. mapID .. ".blp" end
+    if art and art.hasFallback then return Theme.zoneArtDir .. "fallback.blp" end
+end
+
+-- The highlight atlas is plain white; the client dims it. Measured from the Reputation frame
+-- (WoWScrnShot_110726_165420): a selected row is #5f5d5a over a #120a07 pane, about 0.32 white.
+Theme.rowHighlightAlpha = { focus = 0.32, hover = 0.18 }
+
+-- The native list-row highlight (rounded light bar) on a frame. Returns a handle with
+-- SetShown(on). layer "HIGHLIGHT" makes it a mouse-hover highlight (dimmer).
+function Theme.RowHighlight(frame, layer)
+    local alpha = layer == "HIGHLIGHT" and Theme.rowHighlightAlpha.hover or Theme.rowHighlightAlpha.focus
+    local L, A = Theme.layout, Theme.atlas
+    local left = frame:CreateTexture(nil, layer or "BACKGROUND", nil, 1)
+    local right = frame:CreateTexture(nil, layer or "BACKGROUND", nil, 1)
+    local mid = frame:CreateTexture(nil, layer or "BACKGROUND", nil, 1)
+    Theme.SetAtlas(left, A.rowHiSide); Theme.SetAtlas(right, A.rowHiSide); Theme.SetAtlas(mid, A.rowHiMiddle)
+    right:SetTexCoord(1, 0, 0, 1)
+    left:SetPoint("TOPLEFT"); left:SetPoint("BOTTOMLEFT"); left:SetWidth(L.rowHiSide)
+    right:SetPoint("TOPRIGHT"); right:SetPoint("BOTTOMRIGHT"); right:SetWidth(L.rowHiSide)
+    mid:SetPoint("TOPLEFT", left, "TOPRIGHT"); mid:SetPoint("BOTTOMRIGHT", right, "BOTTOMLEFT")
+    local h = { left, right, mid }
+    for i = 1, 3 do h[i]:SetAlpha(alpha) end
+    function h:SetShown(on) for i = 1, 3 do self[i]:SetShown(on) end end
+    return h
+end
 Theme.files = {
     legendBg = 131071, -- background under the client's input legend
     resizeUp = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up",

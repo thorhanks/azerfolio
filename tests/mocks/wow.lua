@@ -47,6 +47,15 @@ for _, name in ipairs({ "SetFrameStrata", "SetBackdrop", "SetBackdropColor",
     "ClearAllPoints" }) do
     frameMethods[name] = function() end
 end
+for _, name in ipairs({ "SetScrollChild", "EnableMouseWheel", "SetTexCoord" }) do
+    frameMethods[name] = function() end
+end
+function frameMethods:SetVerticalScroll(v) self.vscroll = v end
+function frameMethods:GetVerticalScroll() return self.vscroll or 0 end
+function frameMethods:GetVerticalScrollRange() return 0 end
+-- No layout engine: edges are unknown (code must cope with nil before the first layout).
+function frameMethods:GetTop() return nil end
+function frameMethods:GetBottom() return nil end
 function frameMethods:SetFont() return true end
 function frameMethods:SetText(text) self.text = text end
 function frameMethods:GetText() return self.text end

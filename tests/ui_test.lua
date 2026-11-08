@@ -3,8 +3,23 @@ local wow = require("mocks.wow")
 
 local padUI = true
 
+-- A slice of the real map tree (Phase 0 dump): world, two continents, zones, an orphan.
+local MAPS = {
+    [947] = { name = "Azeroth", mapType = 1, parentMapID = 0 },
+    [1414] = { name = "Kalimdor", mapType = 2, parentMapID = 947 },
+    [1415] = { name = "Eastern Kingdoms", mapType = 2, parentMapID = 947 },
+    [1411] = { name = "Durotar", mapType = 3, parentMapID = 1414 },
+    [1438] = { name = "Teldrassil", mapType = 3, parentMapID = 1414 },
+    [1429] = { name = "Elwynn Forest", mapType = 3, parentMapID = 1415 },
+    [1426] = { name = "Dun Morogh", mapType = 3, parentMapID = 1415 },
+    [1436] = { name = "Westfall", mapType = 3, parentMapID = 1415 },
+    [2521] = { name = "Zephras Isle", mapType = 3, parentMapID = 947 },
+    [2665] = { name = "Zephras Isle", mapType = 3, parentMapID = 0 },
+}
+
 local function boot(savedAccount)
     wow.install({
+        C_Map = { GetMapInfo = function(id) return MAPS[id] end },
         UnitName = function() return "Gideon" end,
         UnitLevel = function() return 9 end,
         UnitXP = function() return 273 end,
@@ -94,6 +109,61 @@ return function(t)
         local a = ns.Theme.Glyph(_G.UIParent, "A")
         t.eq(a.art:IsShown(), true); t.eq(a.label:IsShown(), false)
         _G.C_Texture = nil
+    end)
+
+    t.test("zones are grouped by continent (EK, Kalimdor, other), sorted, orphans dropped", function()
+        local ns = boot()
+        local s = ns.Maps.Sections()
+        t.eq(#s, 3)
+        t.eq(s[1].title, "Eastern Kingdoms"); t.eq(s[2].title, "Kalimdor"); t.eq(s[3].title, "Other places")
+        t.eq(s[1].zones[1].name, "Dun Morogh"); t.eq(s[1].zones[3].name, "Westfall")
+        t.eq(#s[3].zones, 1, "the parentless Zephras Isle duplicate is dropped")
+        t.eq(s[3].zones[1].mapID, 2521)
+    end)
+
+    t.test("D-pad moves focus through the zone list; info line follows", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 2, lastTab = "zones" })
+        slash("")
+        local info = function() return ns.UI.GetFrame().legend.info:GetText() end
+        t.eq(ns.Focus.Current().title, "Dun Morogh", "starts on the first zone")
+        t.ok(info():find("Dun Morogh"), info())
+        t.eq(ns.Focus.pointer:IsShown(), true, "chevron shown")
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().title, "Elwynn Forest")
+        t.ok(info():find("Elwynn Forest") and info():find("Eastern Kingdoms"), info())
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().title, "Durotar", "RT: next continent")
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().title, "Zephras Isle")
+        press(ns, "PADLTRIGGER")
+        t.eq(ns.Focus.Current().title, "Durotar", "LT: previous continent")
+        press(ns, "PADDUP")
+        t.eq(ns.Focus.Current().title, "Westfall", "up crosses into the previous continent")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("focus is remembered per tab", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 2, lastTab = "zones" })
+        slash("")
+        press(ns, "PADDDOWN"); press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().title, "Westfall")
+        press(ns, "PADLSHOULDER")
+        t.eq(ns.UI.CurrentTab(), "overview")
+        t.eq(ns.Focus.Current(), nil, "the placeholder Overview has nothing to focus")
+        t.eq(ns.Focus.pointer:IsShown(), false)
+        press(ns, "PADRSHOULDER")
+        t.eq(ns.Focus.Current().title, "Westfall", "back where it was")
+    end)
+
+    t.test("no chevron when the controller isn't driving the window", function()
+        padUI = false
+        local ns = boot({ schemaVersion = 2, lastTab = "zones" })
+        slash("")
+        t.eq(ns.Focus.pointer:IsShown(), false)
+        t.ok(ns.UI.GetFrame().legend.info:GetText():find("Every zone"), "tab info for mouse users")
+        padUI = true
     end)
 
     t.test("tabs are registered in order and wrap around", function()
@@ -227,7 +297,7 @@ return function(t)
         slash("shots")
         wow.runTimers()
         t.eq(_G.screenshotsTaken, #ns.UI.ShotSteps())
-        t.eq(_G.screenshotsTaken, 4)
+        t.eq(_G.screenshotsTaken, 5)
         t.eq(ns.UI.CurrentTab(), "zones", "tab restored")
         t.eq(ns.UI.GetFrame():GetWidth(), 1160, "size restored")
         t.eq(ns.UI.shotsRunning, false)

@@ -63,6 +63,7 @@ Read before working:
 ## Code layout
 
 - `Azerfolio/Core/` — `Init` (namespace `ns`), `Config` (defaults/enums/ranges), `SavedVariables` (pure: validate/migrate), `Debug` (`Try`, error log), `Events` (dispatcher, `On`/`Send` messages, `Debounce`), `Character`, `Commands`, `Lifecycle` (loaded last).
-- `Azerfolio/UI/` — `Theme` (all style constants), `MainWindow` (`ns.UI`: chrome, tabs via `UI.RegisterTab`, geometry), `Gamepad` (addon-owned input layer), `Pages/` (one file per tab), `Shots` (`/azf shots`).
+- `Azerfolio/Systems/` — `Maps` (zone list from the client's map tree).
+- `Azerfolio/UI/` — `Theme` (all style constants and native atlases), `FocusGrid` (pure focus logic), `MainWindow` (`ns.UI`: native frame, tabs via `UI.RegisterTab`, legend, geometry), `Gamepad` (addon-owned input layer), `Focus` (per-tab focus, chevron, scroll into view), `Pages/` (one file per tab; `page:GetFocusRows()` opts into focus), `Shots` (`/azf shots`).
 - New files go in the TOC in dependency order; `tests/addon_smoke_test.lua` loads the addon from the TOC, so a missing file fails the tests.
 - Internal messages are named `AZF_*`. Startup: `ADDON_LOADED` → `PLAYER_LOGIN` → `AZF_READY`.

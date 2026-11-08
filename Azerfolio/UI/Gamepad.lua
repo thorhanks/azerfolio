@@ -2,7 +2,8 @@
 -- One input frame on the window takes controller buttons only while the window is shown, the
 -- client's gamepad UI is on, and the player is out of combat. Never touches Blizzard's
 -- SmartNavigation (secure-only registration; taint risk; see client-capabilities § Gamepad).
--- This step: LB/RB switch tabs, B closes. D-pad focus and A arrive with the focus grid.
+-- LB/RB switch tabs, B closes, D-pad moves focus (UI/Focus.lua), A activates, LT/RT jump
+-- between sections.
 local _, ns = ...
 
 local Gamepad = {}
@@ -26,6 +27,13 @@ local function actions()
         [name("GAMEPAD_SHOULDER_LEFT", "PADLSHOULDER")] = "prevTab",
         [name("GAMEPAD_SHOULDER_RIGHT", "PADRSHOULDER")] = "nextTab",
         [name("GAMEPAD_FACE_RIGHT", "PAD2")] = "back",
+        [name("GAMEPAD_FACE_BOTTOM", "PAD1")] = "activate",
+        [name("GAMEPAD_DPAD_TOP", "PADDUP")] = "up",
+        [name("GAMEPAD_DPAD_BOTTOM", "PADDDOWN")] = "down",
+        [name("GAMEPAD_DPAD_LEFT", "PADDLEFT")] = "left",
+        [name("GAMEPAD_DPAD_RIGHT", "PADDRIGHT")] = "right",
+        [name("GAMEPAD_TRIGGER_LEFT", "PADLTRIGGER")] = "prevSection",
+        [name("GAMEPAD_TRIGGER_RIGHT", "PADRTRIGGER")] = "nextSection",
     }
     return actionMap
 end
@@ -64,6 +72,14 @@ local function handle(action)
         ns.UI.NextTab(1)
     elseif action == "back" then
         ns.UI.Hide()
+    elseif action == "activate" then
+        ns.Focus.Activate()
+    elseif action == "prevSection" or action == "nextSection" then
+        ns.Focus.Jump(action == "nextSection" and 1 or -1)
+        ns.UI.RefreshHints()
+    else
+        ns.Focus.Move(action)
+        ns.UI.RefreshHints()
     end
 end
 

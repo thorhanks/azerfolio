@@ -322,14 +322,20 @@ function UI.SetInfo(title, detail)
     window.legend.info:SetText(text)
 end
 
--- Back to the current tab's own description.
-function UI.RestoreInfo()
+-- The current tab's own description.
+function UI.ShowTabInfo()
     local def = UI.tabs[tabIndex(current) or 0]
     if def then UI.SetInfo(def.label, def.info) else UI.SetInfo() end
 end
 
--- hints = { { "A", "Select" }, { "B", "Close" }, ... }, drawn right to left from the edge.
--- Shown only while the controller drives the window.
+-- Back to what the info line should say now: the focused control, or the tab.
+function UI.RestoreInfo()
+    if ns.Focus then ns.Focus.RestoreInfo() else UI.ShowTabInfo() end
+end
+
+-- hints = { { "A", "Select" }, { { "LT", "RT" }, "Continent" }, ... }: one or two glyphs and a
+-- label each, drawn right to left from the edge. Shown only while the controller drives
+-- the window.
 function UI.SetHints(hints)
     if not window then return end
     local T, S = ns.Theme, ns.Theme.space
@@ -340,41 +346,60 @@ function UI.SetHints(hints)
         local slot = #hints - i + 1
         local e = hintPool[slot]
         if not e then
-            e = { glyph = T.Glyph(row, "A"), text = T.Text(row, "sm", "gold") }
+            e = { glyph = T.Glyph(row, "A"), glyph2 = T.Glyph(row, "A"), text = T.Text(row, "sm", "gold") }
             hintPool[slot] = e
         end
-        T.SetGlyph(e.glyph, hints[i][1])
+        local buttons = hints[i][1]
+        if type(buttons) ~= "table" then buttons = { buttons } end
         e.text:SetText(hints[i][2])
         e.text:ClearAllPoints()
         e.text:SetPoint("RIGHT", row, "RIGHT", -x, 0)
-        e.glyph:ClearAllPoints()
-        e.glyph:SetPoint("RIGHT", e.text, "LEFT", -S.s1, 0)
-        e.glyph:Show(); e.text:Show()
-        x = x + (e.text:GetStringWidth() or 0) + S.s1 + e.glyph:GetWidth() + S.s4
+        x = x + (e.text:GetStringWidth() or 0) + S.s1
+        local anchor = e.text
+        for gi, g in ipairs({ e.glyph2, e.glyph }) do
+            local b = buttons[#buttons - gi + 1]
+            g:SetShown(b ~= nil)
+            if b then
+                T.SetGlyph(g, b)
+                g:ClearAllPoints()
+                g:SetPoint("RIGHT", anchor, "LEFT", gi == 1 and -S.s1 or 0, 0)
+                anchor = g
+                x = x + g:GetWidth()
+            end
+        end
+        e.text:Show()
+        x = x + S.s4
     end
     for slot = #hints + 1, #hintPool do
-        hintPool[slot].glyph:Hide(); hintPool[slot].text:Hide()
+        local e = hintPool[slot]
+        e.glyph:Hide(); e.glyph2:Hide(); e.text:Hide()
     end
     row:SetWidth(math.max(1, x - S.s4))
 end
 
--- The current tab's hints, then the window's own (B closes).
+-- The focused control's action, the current tab's hints, sections, then B to close.
 local function currentHints()
     local def = UI.tabs[tabIndex(current) or 0]
     local list = {}
+    local item = ns.Focus and ns.Focus.Current()
+    if item and item.onActivate then list[#list + 1] = { "A", item.actionLabel or "Select" } end
     for _, h in ipairs((def and def.hints) or {}) do list[#list + 1] = h end
+    if ns.Focus and ns.Focus.HasSections() then
+        list[#list + 1] = { { "LT", "RT" }, (def and def.sectionLabel) or "Section" }
+    end
     list[#list + 1] = { "B", "Close" }
     return list
 end
 
 -- Everything that depends on whether the controller drives the window: the frame's focus
--- glow, the LB/RB glyphs on the tabs, and the button hints.
+-- glow, the LB/RB glyphs on the tabs, the focus chevron and the button hints.
 function UI.RefreshHints()
     if not window then return end
     local active = ns.Gamepad and ns.Gamepad.IsActive() or false
     if window.FrameGlow then window.FrameGlow:SetShown(active) end
     window.tabs.lb:SetShown(active)
     window.tabs.rb:SetShown(active)
+    if ns.Focus then ns.Focus.Update(false) end
     UI.SetHints(currentHints())
 end
 
@@ -477,6 +502,7 @@ local function buildWindow()
     end
 
     if ns.Gamepad then ns.Gamepad.Attach(f) end
+    if ns.Focus then ns.Focus.Attach(f) end
     applyGeometry()
     UI.SelectTab(ns.db.lastTab)
 end
@@ -496,7 +522,7 @@ function UI.SelectTab(id)
     current = id
     ns.db.lastTab = id
     setHeaderMode(def.compactHeader)
-    UI.RestoreInfo()
+    if ns.Focus then ns.Focus.SetPage(id, page) end
     UI.RefreshHints()
 end
 
