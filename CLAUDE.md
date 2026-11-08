@@ -12,7 +12,8 @@ Read before working:
 
 ## Current state (2026-11-07)
 
-- Phases 0–4 done. The window has the **native Forever look** (`PortraitFrameTemplate` and the atlases in `mockups/DESIGN.md` § Native look), gamepad focus, Zones list / Zone Detail / wide split view (window ≥ 1440), launchers and a key binding. **Next: Phase 5** (exploration catalogue and progression engine).
+- Phases 0–5 done. The window has the **native Forever look** (`PortraitFrameTemplate` and the atlases in `mockups/DESIGN.md` § Native look), gamepad focus, Zones list / Zone Detail / wide split view (window ≥ 1440), launchers and a key binding. Exploration: generated catalogue (`Data/Exploration.lua`, regenerate with `luajit tools/gen-exploration.lua`), `Systems/Objectives`, `Progression` (all counts), `Exploration` (tracker, live refresh, `AZF_EXPLORATION_UPDATED`), `Milestones` (per-character baseline, `AZF_MILESTONE`). **Next: Phase 6** (Zones catalogue and Zone Detail).
+- Debug mode (`/azf debug`) writes a capped trace to `AzerfolioDB.trace`; read it after `/reload`. `/azf debug exploration` prints the current zone, the total and milestones. `RECEIVED_ACHIEVEMENT_LIST` doesn't fire on `/reload`.
 - Banner crop offsets: `Theme.bannerFocus`; check with `/azf shots banners`.
 - In game, the owner may still have **Azerfolio Diagnostics** enabled with its event sniffer on. Ask them to turn it off (`/azfdiag sniff`, then untick the addon) when it's no longer needed.
 

@@ -65,7 +65,14 @@ Built in steps the owner approves one at a time:
 - **Lua restyle (in-game check passed 2026-11-07, shots `WoWScrnShot_110726_171831`–`171835`):** frame, portrait ring, title, glow, strip, XP bar, side tabs, LB/RB glyphs and the diamond-metal legend all render natively. The first face-glyph name guesses failed (drawn square fallback); now using the source's `gamepad-xbox1-button*-normal` names and a round fallback — needs one more look.
 - Restyle details: the window is `PortraitFrameTemplate` (title, portrait ring, close, `FrameGlow` shown while the controller drives it); character strip with the native stat-bar XP; content on `UI-Character-Info-General-BG`; side tabs (`common-sidetab` + masked icon, `-selected`, `-hover`) with LB/RB glyph atlases; legend box below the frame (diamond-metal nine-slice over file 131071) with the info line and hints. Off-screen recovery now keeps the tabs and legend on screen. Face-button glyph atlas names are guesses with a drawn fallback; `/azf status` prints which were found. Tests: 62 passed.
 
-## Phase 5 — Exploration catalogue and progression engine: in progress
+## Phase 5 — Exploration catalogue and progression engine: done (2026-11-07)
+
+**Phase 5 result:** a generated catalogue (43 zones, 549 areas), the objective model, the single Progression service, the exploration tracker with live refresh, and the per-character baseline and milestones. Done-when, all met:
+- Elwynn Forest end to end: correct states and catalogue match, 8 → 9 → 10 of 12 on discovery with the open detail redrawing, and the result survives `/reload` [verified-ingame].
+- No milestones for existing progress: the baseline of all 43 zones produced none; one discovery produced one [verified-ingame].
+- Unknown never counted as complete or incomplete: covered by tests (the game returned no unknown areas in game).
+
+Step 5 (a separate Elwynn end-to-end check) wasn't run: steps 3 and 4 covered it in game, and the owner closed the phase on that evidence. Tests: 137 passed. Known gap for Phase 6: Zone Detail doesn't list areas with unknown state. **Next: Phase 6** (Zones catalogue and Zone Detail).
 
 Planned steps (owner approves each):
 1. **Catalogue** (done 2026-11-07): `tools/gen-exploration.lua` reads the AzerfolioDiag dump and writes `Azerfolio/Data/Exploration.lua` (`ns.ExplorationCatalogue`: data version 1, client 1.60.1.70862, zones keyed by mapID → achievementID and criteriaIDs in the game's order; names as comments only). It refuses to write if a zone matches more than one map, a criterion isn't type 43, or a criteriaID repeats. Result: 43 zones, 549 criteria, no duplicates; running it twice gives the same file. In the TOC after `Data\Art.lua`. Tests: 94 passed.
@@ -92,7 +99,7 @@ Planned steps (owner approves each):
    - `/azf debug exploration` also prints the baseline zone count, milestone count and the newest 3; debug trace records `baseline` and `milestone` entries.
    - Tests: 137 passed (9 pure rule tests in `tests/milestones_test.lua`, 6 end to end: login baseline, live milestone once across reload and refresh, untimed offline progress, zone completion, damaged baseline, cap).
    - In game (Gideon, files written 20:02:47): after `/reload` the login read took the baseline of **all 43 zones, 549 areas, 0 unreadable** (trace GetTime 43164.618), with Gideon's 9 discovered Elwynn areas and **no milestones** [verified-ingame]. Discovering Stone Cairn Lake (criteria 1157) gave exactly **one milestone**, `live = true`, time 2026-11-07 20:02:24, and the same refresh moved Elwynn to 10/12; the baseline now has 1157 = true [verified-ingame]. The milestone was still there after the final `/reload`. Finding: **`RECEIVED_ACHIEVEMENT_LIST` did not fire on `/reload`** (debug was on, and no "all" refresh is in the trace), so after a reload the 3 s fallback read is what sets the baseline; it worked [verified-ingame]. **Step 4 done.**
-5. In-game end to end on Elwynn Forest: discover an area, watch it update, `/reload`.
+5. In-game end to end on Elwynn Forest: covered by the checks in steps 3 and 4; not run separately.
 
 ## Phase 3 — Art pipeline ready; waiting for zone art (2026-11-07)
 

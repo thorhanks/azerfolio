@@ -288,9 +288,9 @@ Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue for
 **Tests:** aggregation math, unknown handling, coverage, dedup, baseline/milestone logic.
 
 **Done when:**
-- [ ] Elwynn Forest works end to end: correct states, correct %, updates on discovery, survives reload.
-- [ ] No milestones generated for pre-existing progress.
-- [ ] Unknown never counted as complete or incomplete.
+- [x] Elwynn Forest works end to end: correct states, correct %, updates on discovery, survives reload. (In game.)
+- [x] No milestones generated for pre-existing progress. (In game.)
+- [x] Unknown never counted as complete or incomplete. (Tests; the game returned no unknown areas.)
 
 ### Phase 6 — Zones catalogue and Zone Detail
 
@@ -396,6 +396,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Progression rules: denominator = eligible + locked objectives with known completion, from categories whose coverage is complete; a category with any partial set is left out of the percentage; duplicates count once (by category + ID) and conflicting duplicates become unknown; percentages round down | Spec §5.2 and §7.5; rounding up could show 100% before it's true |
 | 2026-11-07 | Tracker finds zones by mapID in the catalogue; live criteria that differ from it are trusted and flagged `uncertain` (counts unchanged); a criterion without an ID makes the zone `partial` | Plan §8: trust the game, don't silently change totals, mark uncertain |
 | 2026-11-07 | Milestones only for a confirmed not-discovered → discovered change against a per-zone baseline of confirmed states; every zone is read once after login to set it; only changes seen live get a time | Spec: no milestones for pre-existing progress, no timestamps the game didn't confirm |
+| 2026-11-07 | Phase 5 accepted; the separate step 5 check wasn't run | Steps 3 and 4 met every done-when item in game; the owner closed the phase on that evidence |
 | 2026-11-07 | Debug mode writes a capped trace to `AzerfolioDB.trace` (100 entries, addon state only) | In-game results are read from files (plan §2.1) |
 
 ## 10. Definition of done (v1)
