@@ -62,8 +62,9 @@
 
   const SCENARIOS = {
     today: () => ({
-      char: { name: "Gideon", level: 9, race: "Human", className: "Paladin", faction: "Alliance", xp: 273, xpMax: 6500, zone: "Elwynn Forest", subzone: "Goldshire" },
+      char: { name: "Gideon", level: 10, race: "Human", className: "Paladin", faction: "Alliance", xp: 273, xpMax: 7600, zone: "Elwynn Forest", subzone: "Goldshire" },
       done: { "Elwynn Forest": GIDEON_ELWYNN.slice() },
+      flights: ["Stormwind", "Sentinel Hill"], questScale: 1, // flight paths: real, from the flight master (2026-11-08)
       milestones: [
         { t: ago(0, 11, 26), kind: "area", area: "Forest's Edge", zone: "Elwynn Forest" },
         { t: ago(0, 11, 30), kind: "area", area: "Brackwell Pumpkin Patch", zone: "Elwynn Forest" },
@@ -81,6 +82,8 @@
       done: { "Elwynn Forest": all("Elwynn Forest"), "Westfall": all("Westfall"), "Loch Modan": all("Loch Modan"),
         "Dun Morogh": firstN("Dun Morogh", 12), "Redridge Mountains": firstN("Redridge Mountains", 9),
         "Duskwood": firstN("Duskwood", 7), "Wetlands": firstN("Wetlands", 4), "Darkshore": firstN("Darkshore", 3) },
+      flights: ["Stormwind", "Ironforge", "Sentinel Hill", "Lakeshire", "Darkshire", "Thelsamar", "Menethil Harbor", "Auberdine"],
+      questScale: "veteran",
       milestones: [
         { t: ago(12, 20, 10), kind: "zone", zone: "Elwynn Forest" }, { t: ago(9, 21, 40), kind: "zone", zone: "Westfall" },
         { t: ago(6, 19, 5), kind: "zone", zone: "Loch Modan" }, { t: ago(4, 22, 15), kind: "area", area: "Lakeridge Highway", zone: "Redridge Mountains" },
@@ -90,9 +93,106 @@
     }),
     fresh: () => ({
       char: { name: "Elowen", level: 1, race: "Human", className: "Paladin", faction: "Alliance", xp: 0, xpMax: 400, zone: "Elwynn Forest", subzone: "Northshire Abbey" },
-      done: {}, milestones: [],
+      done: {}, milestones: [], flights: [], questScale: 0,
     }),
   };
+  // Quests (Phase 9): Gideon's Elwynn Forest checklist as Quests.ForZone gave it in game
+  // (trace, Human Paladin 10, before one turn-in; 5545 marked done here to match 42/68).
+  // [id, name, questLevel, reqLevel, completion, eligibility, reason, prerequisite names]
+  // SAMPLE DATA: other zones have none in the mockup.
+  const C = "complete", I = "incomplete";
+  const ELWYNN_QUESTS = [
+    [6, "Bounty on Garrick Padfoot", 5, 2, C, "eligible", "completed"], [7, "Kobold Camp Cleanup", 2, 1, C, "eligible", "completed"],
+    [11, "Riverpaw Gnoll Bounty", 10, 6, I, "eligible"], [15, "Investigate Echo Ridge", 3, 1, C, "eligible", "completed"],
+    [18, "Brotherhood of Thieves", 4, 2, C, "eligible", "completed"], [21, "Skirmish at Echo Ridge", 5, 1, C, "eligible", "completed"],
+    [33, "Wolves Across the Border", 2, 1, C, "eligible", "completed"], [35, "Further Concerns", 10, 7, I, "eligible"],
+    [37, "Find the Lost Guards", 10, 7, I, "locked", "prerequisite", ["Further Concerns"]],
+    [39, "Deliver Thomas' Report", 10, 7, I, "locked", "prerequisite", ["Report to Thomas"]],
+    [40, "A Fishy Peril", 10, 7, C, "eligible", "completed"],
+    [45, "Discover Rolf's Fate", 10, 7, I, "locked", "prerequisite", ["Find the Lost Guards"]],
+    [46, "Bounty on Murlocs", 10, 7, I, "locked", "prerequisite", ["Deliver Thomas' Report"]],
+    [47, "Gold Dust Exchange", 7, 4, C, "eligible", "completed"], [52, "Protect the Frontier", 10, 7, I, "eligible"],
+    [54, "Report to Goldshire", 5, 1, C, "eligible", "completed"],
+    [59, "Cloth and Leather Armor", 10, 7, I, "locked", "prerequisite", ["Deliver Thomas' Report"]],
+    [60, "Kobold Candles", 7, 3, C, "eligible", "completed"], [61, "Shipment to Stormwind", 7, 3, I, "eligible"],
+    [62, "The Fargodeep Mine", 7, 4, C, "eligible", "completed"],
+    [71, "Report to Thomas", 10, 7, I, "locked", "prerequisite", ["Discover Rolf's Fate"]],
+    [76, "The Jasperlode Mine", 10, 4, C, "eligible", "completed"], [83, "Red Linen Goods", 9, 4, I, "eligible"],
+    [84, "Back to Billy", 6, 5, C, "eligible", "completed"], [85, "Lost Necklace", 6, 5, C, "eligible", "completed"],
+    [86, "Pie for Billy", 6, 5, C, "eligible", "completed"], [87, "Goldtooth", 8, 5, C, "eligible", "completed"],
+    [88, "Princess Must Die!", 9, 6, I, "eligible"], [106, "Young Lovers", 6, 5, C, "eligible", "completed"],
+    [107, "Note to William", 6, 5, C, "eligible", "completed"], [109, "Report to Gryan Stoutmantle", 10, 9, I, "eligible"],
+    [111, "Speak with Gramma", 6, 5, C, "eligible", "completed"], [112, "Collecting Kelp", 7, 5, C, "eligible", "completed"],
+    [114, "The Escape", 7, 5, C, "eligible", "completed"], [123, "The Collector", 10, 7, I, "eligible"],
+    [147, "Manhunt", 10, 7, I, "locked", "prerequisite", ["The Collector"]],
+    [176, "WANTED: \"Hogger\"", 11, 5, I, "eligible"], [239, "Westbrook Garrison Needs Help!", 10, 6, I, "eligible"],
+    [783, "A Threat Within", 1, 1, C, "eligible", "completed"], [2158, "Rest and Relaxation", 5, 1, C, "eligible", "completed"],
+    [3903, "Milly Osworth", 4, 2, C, "eligible", "completed"], [3904, "Milly's Harvest", 4, 2, C, "eligible", "completed"],
+    [3905, "Grape Manifest", 4, 2, C, "eligible", "completed"],
+    [5261, "Eagan Peltskinner", 2, 1, I, "unavailable", "chain moved on"],
+    [5545, "A Bundle of Trouble", 9, 5, C, "eligible", "completed"], [5805, "Welcome!", 1, 1, I, "eligible"],
+    [91723, "Delicate Instruments", 8, 7, I, "eligible"],
+    [91724, "Delicate Instruments", 10, 7, I, "locked", "prerequisite", ["Delicate Instruments"]],
+    [91725, "Stolen Enchanting Supplies", 10, 7, I, "eligible"], [91732, "Good Steel", 7, 7, I, "eligible"],
+    [91733, "Downstream", 10, 7, I, "eligible"], [91738, "An Apple Treat", 10, 7, I, "eligible"],
+    [91740, "Croaky's Head", 11, 7, I, "eligible"], [91741, "Nibbled-On Book", 2, 1, C, "eligible", "completed"],
+    [91743, "Rascally Rodents", 2, 1, C, "eligible", "completed"], [91745, "Mining Consultant", 3, 1, C, "eligible", "completed"],
+    [91746, "Elmpaw's Head", 12, 7, I, "eligible"],
+    [91751, "Rough Wolf Pelts", 8, 5, I, "unknown", "profession not checked"],
+    [91752, "The Big Picture", 3, 1, C, "eligible", "completed"],
+    [91753, "An Enchanting Lesson", 7, 5, I, "unknown", "profession not checked"],
+    [91758, "Follow That Kobold!", 4, 1, C, "eligible", "completed"], [91772, "Shhh! We're Hunting Kobolds", 4, 1, C, "eligible", "completed"],
+    [91775, "Book Return", 6, 1, C, "eligible", "completed"], [91777, "Rare Books", 7, 1, C, "eligible", "completed"],
+    [92124, "Book Inventory", 2, 1, C, "eligible", "completed"], [99127, "A Net Disaster", 7, 4, C, "eligible", "completed"],
+    [99128, "Slimy Menace", 7, 4, C, "eligible", "completed"], [99129, "A Man About a Murloc", 7, 4, C, "eligible", "completed"],
+    [99130, "An Enticing Offer", 7, 4, C, "eligible", "completed"], [99131, "Baited for Success", 7, 4, C, "eligible", "completed"],
+    [99143, "Bottles and Baubles", 7, 4, C, "eligible", "completed"],
+  ];
+  const QUEST_SAMPLES = { "Elwynn Forest": { quests: ELWYNN_QUESTS, repeatable: 4 } };
+  // Quest data states for the dev bar: QuestieDB loaded, loaded for a Horde character, still
+  // reading, not installed.
+  const QUEST_MODES = { loaded: "QuestieDB loaded", horde: "Loaded, as Thragor (Horde)", building: "Reading QuestieDB", missing: "QuestieDB not installed" };
+  // Chain links for the Elwynn sample (QuestieDB base rows, tools/qdb.lua): quest -> prerequisite
+  // quests. The addon builds storylines from preQuestSingle/preQuestGroup/nextQuestInChain.
+  const ELWYNN_PREREQS = {
+    6: [18], 7: [783], 11: [76, 239], 15: [7], 18: [783], 21: [15], 54: [21], 35: [40], 37: [35], 39: [71], 45: [37], 46: [39],
+    59: [39], 61: [60], 71: [45], 76: [62], 239: [76], 84: [86], 86: [85], 87: [84], 107: [111], 111: [106], 112: [107],
+    114: [112], 147: [123], 92124: [91741], 91743: [92124], 91745: [91743], 91752: [91745], 91758: [91752], 91772: [91758],
+    91775: [91772], 91777: [91775], 3903: [18], 3904: [18, 3903], 3905: [3904], 99128: [99127], 99129: [99128],
+    99130: [99129], 99131: [99130], 91724: [91723], 5261: [783], 33: [5261],
+  };
+  // Gideon's quest counts per zone from the in-game report (Human Paladin 10): [completed,
+  // counted, eligibility unknown, repeatable]. Zones missing here had no counted quests.
+  const QUEST_COUNTS = {
+    "Alterac Mountains": [0, 17, 0, 0], "Arathi Highlands": [0, 30, 0, 0], "Badlands": [0, 30, 0, 3], "Blasted Lands": [0, 17, 0, 7],
+    "Burning Steppes": [0, 17, 0, 5], "Dun Morogh": [0, 57, 1, 6], "Duskwood": [0, 73, 1, 1], "Eastern Plaguelands": [0, 42, 11, 44],
+    "Elwynn Forest": [42, 68, 2, 4], "Hillsbrad Foothills": [0, 16, 0, 0], "Ironforge": [0, 50, 0, 5], "Loch Modan": [0, 42, 1, 0],
+    "Redridge Mountains": [0, 41, 1, 0], "Searing Gorge": [0, 27, 0, 4], "Stormwind City": [0, 125, 1, 2],
+    "Stranglethorn Vale": [0, 91, 3, 6], "Swamp of Sorrows": [0, 15, 0, 1], "The Hinterlands": [0, 15, 0, 1],
+    "Western Plaguelands": [0, 50, 2, 12], "Westfall": [0, 47, 4, 1], "Wetlands": [0, 70, 2, 0], "Ashenvale": [0, 48, 0, 4],
+    "Azshara": [0, 18, 2, 3], "Darkshore": [0, 74, 0, 2], "Darnassus": [0, 21, 0, 4], "Desolace": [0, 44, 10, 1],
+    "Durotar": [0, 2, 0, 4], "Dustwallow Marsh": [0, 24, 0, 0], "Felwood": [0, 26, 8, 43], "Feralas": [0, 44, 0, 7],
+    "Moonglade": [0, 5, 3, 0], "Silithus": [0, 36, 14, 60], "Stonetalon Mountains": [0, 26, 0, 0], "Tanaris": [0, 44, 29, 12],
+    "Teldrassil": [0, 64, 1, 0], "The Barrens": [0, 20, 0, 8], "Thousand Needles": [0, 36, 0, 2], "Un'Goro Crater": [0, 41, 0, 7],
+    "Winterspring": [0, 33, 2, 14], "Zephras Isle": [0, 85, 0, 1],
+  };
+  // Flight paths an Alliance character can use, per zone: the client's own node list
+  // (C_TaxiMap.GetTaxiNodesForMap, faction 2 plus neutral Ratchet and Marshal's Refuge),
+  // probed 2026-11-08. Eastern Kingdoms also confirmed by Stormwind's flight master.
+  const FLIGHTS = {
+    "Stormwind City": ["Stormwind"], "Ironforge": ["Ironforge"], "Westfall": ["Sentinel Hill"], "Redridge Mountains": ["Lakeshire"],
+    "Duskwood": ["Darkshire"], "Loch Modan": ["Thelsamar"], "Wetlands": ["Menethil Harbor"], "Hillsbrad Foothills": ["Southshore"],
+    "Arathi Highlands": ["Refuge Pointe"], "The Hinterlands": ["Aerie Peak"], "Stranglethorn Vale": ["Booty Bay"],
+    "Blasted Lands": ["Nethergarde Keep"], "Burning Steppes": ["Morgan's Vigil"], "Searing Gorge": ["Thorium Point"],
+    "Eastern Plaguelands": ["Light's Hope Chapel"], "Western Plaguelands": ["Chillwind Camp"], "Teldrassil": ["Rut'theran Village"],
+    "Darkshore": ["Auberdine"], "Ashenvale": ["Astranaar"], "Stonetalon Mountains": ["Stonetalon Peak"],
+    "Desolace": ["Nijel's Point"], "Dustwallow Marsh": ["Theramore"], "Feralas": ["Feathermoon", "Thalanaar"],
+    "Tanaris": ["Gadgetzan"], "Felwood": ["Talonbranch Glade"], "Winterspring": ["Everlook"], "Silithus": ["Cenarion Hold"],
+    "Un'Goro Crater": ["Marshal's Refuge"], "Azshara": ["Talrendis Point"], "The Barrens": ["Ratchet"], "Moonglade": ["Nighthaven"],
+  };
+  const CATS = { explore: { label: "Exploration", icon: "◎", unit: "areas" }, quests: { label: "Quests", icon: "!", unit: "quests" },
+    flights: { label: "Flight paths", icon: "✈", unit: "flight paths" } };
+
   // Veteran activity: pad extra area discoveries so the activity strip has a realistic shape.
   const VETERAN_DAILY = [3, 0, 5, 2, 0, 0, 4, 6, 1, 0, 2, 3, 1, 2];
 
@@ -110,9 +210,9 @@
       const criteria = z.criteria.map(c => ({ ...c, done: doneSet.has(c.name) }));
       const done = criteria.filter(c => c.done).length;
       const total = criteria.length;
-      return { ...z, tracked: true, minLevel: m[0], maxLevel: m[1], faction: m[2], criteria, done, total, pct: done / total,
-        state: done === total ? "complete" : done > 0 ? "progress" : "untouched" };
-    }).concat(UNTRACKED.map(u => ({ ...u, tracked: false, minLevel: null, maxLevel: null, criteria: [], done: 0, total: 0, pct: null, state: "untracked" })));
+      return { ...z, minLevel: m[0], maxLevel: m[1], faction: m[2], criteria, done, total };
+    }).concat(UNTRACKED.map(u => ({ ...u, minLevel: null, maxLevel: null, criteria: [], done: 0, total: 0 })));
+    zones.forEach(applyCategories);
     byName = Object.fromEntries(zones.map(z => [z.name, z]));
     tracked = zones.filter(z => z.tracked);
     totals = {
@@ -121,6 +221,101 @@
       untouched: tracked.filter(z => z.state === "untouched").length,
     };
   }
+  // Zone completion (spec §7.7; in the addon: ns.Progression). Each category that applies to
+  // the zone (at least one counted objective) gets completed / counted / %; the zone's % is the
+  // equal-weight average; a category that doesn't apply is left out, never 0%. Gold (complete)
+  // only when every applying category is at 100% with nothing unchecked.
+  function applyCategories(z) {
+    const cats = [];
+    if (z.total) cats.push({ key: "explore", done: z.done, total: z.total });
+    const qc = QUEST_COUNTS[z.name];
+    z.questsMissing = ui.quests === "missing" || ui.quests === "building";
+    const horde = ui.quests === "horde"; // dev bar: Elwynn as seen by a Horde character
+    if (qc && qc[1] > 0 && !z.questsMissing && !horde) {
+      // Sample: "Gideon today" is real; the veteran's quest progress is invented from exploration.
+      const done = S.questScale === "veteran" ? Math.round(qc[1] * (z.total ? z.done / z.total : 0) * 0.8) : qc[0] * S.questScale;
+      cats.push({ key: "quests", done, total: qc[1], unchecked: qc[2], repeatable: qc[3] });
+    }
+    const fl = FLIGHTS[z.name];
+    if (fl && CHAR.faction === "Alliance" && !horde) {
+      const known = new Set(S.flights || []);
+      cats.push({ key: "flights", done: fl.filter(n => known.has(n)).length, total: fl.length, nodes: fl.map(n => ({ name: n, known: known.has(n) })) });
+    }
+    cats.forEach(c => { Object.assign(c, CATS[c.key]); c.pct = c.done / c.total; });
+    z.cats = cats;
+    z.tracked = cats.length > 0;
+    z.pct = cats.length ? cats.reduce((s, c) => s + c.pct, 0) / cats.length : null;
+    z.unchecked = cats.some(c => c.unchecked);
+    z.left = cats.reduce((s, c) => s + c.total - c.done, 0);
+    z.state = !cats.length ? "untracked" : cats.every(c => c.pct >= 1) && !z.unchecked ? "complete"
+      : cats.some(c => c.done > 0) ? "progress" : "untouched";
+  }
+  const catOf = (z, key) => (z.cats || []).find(c => c.key === key);
+  const catState = (c) => c.pct >= 1 && !c.unchecked ? "complete" : c.done > 0 ? "progress" : "untouched";
+  // One thin bar per category (catalogue cards and rows, Overview).
+  function catbars(z, size = "") {
+    if (!z.cats.length) return `<div class="bar unknown small"></div>`;
+    // One fixed slot per category, so columns line up; a category that doesn't apply leaves its slot empty.
+    return `<div class="catbars ${size}">${Object.keys(CATS).map(k => { const c = catOf(z, k);
+      return c ? `<div class="catbar ${catState(c)}"><span class="cicon">${c.icon}</span>
+      <span class="ctrack"><i style="width:${(c.pct * 100).toFixed(1)}%"></i></span><span class="cn">${c.done}/${c.total}</span></div>` : `<div class="catbar na"></div>`; }).join("")}</div>`;
+  }
+  // A zone's quests the way Quests.ForZone will return them (Systems/Quests.lua plus
+  // ns.Progression): counts, the Ready now list with difficulty, and storylines built from
+  // QuestieDB's chain links. The UI only draws this; nothing here is computed by the page.
+  // Difficulty mimics the client's quest colours (the addon asks the client).
+  const difficulty = (ql, pl) => { const d = ql - pl; return d >= 5 ? "red" : d >= 3 ? "orange" : d >= -2 ? "yellow" : d >= -5 ? "green" : "grey"; };
+  const kindOf = (o) => o.eligibility === "unavailable" ? "unavailable" : o.eligibility === "unknown" ? "unknown"
+    : o.completion === C ? "done" : o.eligibility === "locked" ? "locked" : "ready";
+  function questsFor(z) {
+    if (ui.quests === "building" || ui.quests === "missing") return { status: ui.quests === "building" ? "building" : "unavailable", reason: "QuestieDB not loaded" };
+    const sample = QUEST_SAMPLES[z.name];
+    if (!sample) return { status: "nosample" };
+    const objectives = sample.quests.map(([id, name, questLevel, reqLevel, completion, eligibility, reason, prereqs]) =>
+      ui.quests === "horde" ? { id, name, questLevel, reqLevel, completion: I, eligibility: "unavailable", reason: "race or faction" }
+        : { id, name, questLevel, reqLevel, completion, eligibility, reason, prereqs });
+    objectives.forEach(o => { o.kind = kindOf(o); o.diff = difficulty(o.questLevel, CHAR.level); });
+    const n = (f) => objectives.filter(f).length;
+    const counted = (o) => o.eligibility === "eligible" || o.eligibility === "locked";
+    const completed = n(o => counted(o) && o.completion === C), denominator = n(counted);
+    const unknownReasons = {};
+    objectives.forEach(o => { if (o.eligibility === "unknown") unknownReasons[o.reason] = (unknownReasons[o.reason] || 0) + 1; });
+    const byLevel = (a, b) => (a.questLevel - b.questLevel) || a.name.localeCompare(b.name);
+
+    // Storylines: quests joined by prerequisite / next-quest links; columns by chain depth.
+    const byId = Object.fromEntries(objectives.map(o => [o.id, o]));
+    const pre = {}, parent = {};
+    const root = (x) => { while (parent[x] !== undefined && parent[x] !== x) x = parent[x]; return x; };
+    for (const o of objectives) for (const p of (ELWYNN_PREREQS[o.id] || [])) if (byId[p]) {
+      (pre[o.id] = pre[o.id] || []).push(p);
+      const a = root(p), b = root(o.id); if (a !== b) parent[a] = b;
+    }
+    const memo = {};
+    const depth = (id) => memo[id] !== undefined ? memo[id] : (memo[id] = Math.max(-1, ...(pre[id] || []).map(depth)) + 1);
+    const comps = {};
+    objectives.forEach(o => { const r = root(o.id); (comps[r] = comps[r] || []).push(o); });
+    const stories = [], singles = [];
+    for (const list of Object.values(comps)) {
+      if (list.length < 2) { singles.push(list[0]); continue; }
+      const cols = [];
+      list.forEach(o => { const d = depth(o.id); (cols[d] = cols[d] || []).push(o); });
+      cols.forEach(c => c.sort(byLevel));
+      const cnt = list.filter(counted);
+      const done = cnt.filter(o => o.completion === C).length;
+      stories.push({ id: cols[0][0].id, name: cols[0][0].name, columns: cols, size: list.length, done, total: cnt.length,
+        ready: list.filter(o => o.kind === "ready").length, finished: cnt.length > 0 && done === cnt.length,
+        level: Math.min(...list.filter(o => o.kind !== "done").map(o => o.questLevel), 99) });
+    }
+    const active = stories.filter(s => !s.finished).sort((a, b) => (b.ready > 0) - (a.ready > 0) || a.level - b.level || a.name.localeCompare(b.name));
+    const finished = stories.filter(s => s.finished).sort((a, b) => a.name.localeCompare(b.name));
+    const order = { ready: 0, locked: 1, unknown: 2, unavailable: 3, done: 4 };
+    singles.sort((a, b) => order[a.kind] - order[b.kind] || byLevel(a, b));
+    return { status: "ready", objectives, repeatable: sample.repeatable, unknownReasons,
+      progress: { completed, denominator, remaining: denominator - completed, locked: n(o => o.eligibility === "locked"),
+        unavailable: n(o => o.eligibility === "unavailable"), eligibilityUnknown: n(o => o.eligibility === "unknown"),
+        percent: denominator ? completed / denominator : null },
+      ready: objectives.filter(o => o.kind === "ready").sort(byLevel), stories: active, finished, singles };
+  }
   const fitsLevel = (z) => z.minLevel != null && z.minLevel <= CHAR.level + 3 && z.maxLevel >= CHAR.level;
   const relevant = (z) => z.faction !== (CHAR.faction === "Alliance" ? "Horde" : "Alliance");
 
@@ -128,7 +323,8 @@
   // UI state
   // =====================================================================================
   const ui = { tab: "overview", detail: null, view: "cards", faction: "relevant", status: "all", level: "all", sort: "recommended",
-    search: "", zonesScroll: 0, lastZone: null, selected: null, flyout: null, wide: false, newCrit: null, celebrate: null };
+    search: "", zonesScroll: 0, lastZone: null, selected: null, flyout: null, wide: false, newCrit: null, celebrate: null,
+    quests: "loaded", showUnavailable: false, openStories: new Set(), detailPage: null, look: "Alliance" };
   const OPTIONS = {
     faction: { label: "Show", items: [["relevant", "Relevant to me"], ["all", "All zones"]] },
     level: { label: "Level", items: [["all", "All levels"], ["appropriate", "For my level"]] },
@@ -207,12 +403,13 @@
     let pieces = gideon && z.done > 0 ? (window.AZF_EXPLORED[z.mapID] || []).slice() : [];
     const real = pieces.length > 0;
     // Mockup: zones without real data, or with more discoveries than the snapshot, get approximate pieces.
-    const need = z.state === "complete" ? 99 : z.done - (real ? pieces.length - 1 : 0);
-    for (let i = 0; i < need && z.state !== "complete"; i++) pieces.push({ x: r(i * 3 + 1, 40, 760), y: r(i * 3 + 2, 30, 460), w: 230, h: 200 });
+    const explored = z.total > 0 && z.done === z.total;
+    const need = explored ? 99 : z.done - (real ? pieces.length - 1 : 0);
+    for (let i = 0; i < need && !explored; i++) pieces.push({ x: r(i * 3 + 1, 40, 760), y: r(i * 3 + 2, 30, 460), w: 230, h: 200 });
     const blobs = Array.from({ length: 14 }, (_, i) => `<ellipse cx="${r(i * 5 + 1, 0, 1002)}" cy="${r(i * 5 + 2, 0, 668)}" rx="${r(i * 5 + 3, 60, 170)}" ry="${r(i * 5 + 4, 40, 110)}" fill="${i % 3 ? "#7c9b55" : "#5f7f43"}" opacity=".55"/>`).join("");
     const holes = pieces.map(p => `<rect x="${p.x + 12}" y="${p.y + 12}" width="${p.w - 24}" height="${p.h - 24}" rx="40" fill="#000"/>`).join("");
     const id = "m" + h;
-    const fog = z.state === "complete" ? "" : `<rect width="1002" height="668" fill="#1c140c" opacity=".78" mask="url(#${id})"/>`;
+    const fog = explored ? "" : `<rect width="1002" height="668" fill="#1c140c" opacity=".78" mask="url(#${id})"/>`;
     return `<svg viewBox="0 0 1002 668" preserveAspectRatio="xMidYMid slice">
       <defs><filter id="${id}b"><feGaussianBlur stdDeviation="22"/></filter>
         <mask id="${id}"><rect width="1002" height="668" fill="#fff"/><g filter="url(#${id}b)">${holes}</g></mask></defs>
@@ -248,7 +445,7 @@
 
   function renderOverview() {
     const cur = byName[CHAR.zone];
-    const inProgress = tracked.filter(z => z.state === "progress").sort((a, b) => (a.total - a.done) - (b.total - b.done));
+    const inProgress = tracked.filter(z => z.state === "progress").sort((a, b) => b.pct - a.pct);
     const hero = cur.state !== "complete" ? cur : inProgress[0] || nextForLevel(cur);
     const heroKicker = hero === cur ? (cur.done ? "Continue exploring · current zone" : "Start exploring · current zone")
       : cur.state === "complete" ? `${cur.name} complete · next up` : "Continue exploring";
@@ -260,7 +457,7 @@
     // Suggestions grouped by zone.
     const groups = [];
     if (hero && hero.state !== "complete") groups.push({ z: hero, why: hero === cur ? `Current zone · ${hero.total - hero.done} left` : `${hero.total - hero.done} left` });
-    inProgress.filter(z => z !== hero).slice(0, 1).forEach(z => groups.push({ z, why: `Closest to complete · ${z.total - z.done} left` }));
+    inProgress.filter(z => z !== hero && z.total > z.done).slice(0, 1).forEach(z => groups.push({ z, why: `Closest to complete · ${z.total - z.done} left` }));
     if (next && !groups.some(g => g.z === next)) groups.push({ z: next, why: `Next for your level · ${next.total - next.done} areas` });
 
     // Activity: last 14 days.
@@ -276,12 +473,12 @@
         ${hero ? `<button class="hero focusable ${hero.state === "complete" ? "done" : ""}" data-open="${esc(hero.name)}" data-tip="<b>${esc(hero.name)}</b>Open the zone to see what's left.">
           <div class="art">${art(hero)}</div>
           <div class="body"><div class="kicker">${heroKicker}</div><div class="zname">${esc(hero.name)}</div>
-            ${pips(hero, "lg")}
-            <div class="left">${hero.done ? `<b>${hero.total - hero.done}</b> areas to go` : `${hero.total} areas to discover`}</div>
-            <div class="go"><span class="glyph A">A</span>${hero.done ? "Continue" : "Start"}</div></div>
-          <div class="score"><b>${pctText(hero.pct)}</b><span>${hero.done} of ${hero.total}</span></div></button>` : ""}
-        ${goal ? `<button class="goal focusable" data-open="${esc(goal.name)}" data-tip="<b>Next goal</b>The in-progress zone with the fewest areas left.">
-          <span class="flag">Next goal</span><span>Finish <b>${esc(goal.name)}</b> — ${goal.total - goal.done} to go</span>${pips(goal)}</button>` : ""}
+            ${catbars(hero)}
+            <div class="left">${hero.cats.filter(c => c.done < c.total).map(c => `<b>${c.total - c.done}</b> ${c.unit}`).join(" · ")} to go</div>
+            <div class="go"><span class="glyph A">A</span>${hero.state === "untouched" ? "Start" : "Continue"}</div></div>
+          <div class="score mini">${progressArt(hero, { mini: true })}<b>${pctText(hero.pct)}</b></div></button>` : ""}
+        ${goal ? `<button class="goal focusable" data-open="${esc(goal.name)}" data-tip="<b>Next goal</b>The in-progress zone closest to complete.">
+          <span class="flag">Next goal</span><span>Finish <b>${esc(goal.name)}</b> — ${goal.left} to go</span>${catbars(goal, "sm")}</button>` : ""}
         <h2 class="section" data-group>Suggested next</h2>
         ${groups.length ? groups.map(g => `<div class="zonegroup"><header><b>${esc(g.z.name)}</b><span class="why">${g.why}</span></header>
           <div class="chips">${g.z.criteria.filter(c => !c.done).slice(0, CHIPS).map(c => `<button class="areachip focusable" data-open="${esc(g.z.name)}" data-crit="${c.id}" data-tip="<b>${esc(c.name)}</b>Undiscovered area in ${esc(g.z.name)}.">${esc(c.name)}</button>`).join("")}
@@ -291,7 +488,7 @@
       <div class="col">
         <button class="counter focusable" data-go="zones" data-tip="<b>Areas discovered</b>Every exploration objective across ${tracked.length} tracked zones, from the game's Explore achievements.">
           <h4>Areas discovered <b>${totals.done} <small>/ ${totals.areas} · ${(p * 100).toFixed(1)}%</small></b></h4>${bar(p)}</button>
-        <button class="counter focusable" data-go="zones" data-tip="<b>Zones</b>Complete: every area found. In progress: some found. Untouched: none yet. Capitals and Zephras Isle aren't tracked.">
+        <button class="counter focusable" data-go="zones" data-tip="<b>Zones</b>Complete: exploration, quests and flight paths all done. In progress: some done. Untouched: none yet.">
           <h4>Zones <b>${totals.complete} <small>complete</small></b></h4>
           <div class="stack">${totals.complete ? `<i class="c" style="flex:${totals.complete}"></i>` : ""}${totals.progress ? `<i class="p" style="flex:${totals.progress}"></i>` : ""}${totals.untouched ? `<i class="u" style="flex:${totals.untouched}"></i>` : ""}</div>
           <div class="legend"><span><i class="c"></i>${totals.complete} complete</span><span><i class="p"></i>${totals.progress} in progress</span><span><i class="u"></i>${totals.untouched} untouched</span></div></button>
@@ -334,7 +531,7 @@
         ${Object.entries(cells).map(([zn, [c, r]]) => tile(byName[zn], `grid-column:${c + 1};grid-row:${r + 1}`)).join("")}</div></div>`;
     };
     const tile = (z, style) => !z ? "" : `<button class="tile focusable ${z.state} ${z.name === CHAR.zone ? "here" : ""} ${visible.has(z.name) ? "" : "dim"}" style="${style}" data-open="${esc(z.name)}"
-        data-tip="<b>${esc(z.name)}</b>${z.done} of ${z.total} areas · ${pctText(z.pct)}${z.name === CHAR.zone ? " · You are here" : ""}">${z.state === "progress" ? `<i style="width:${Math.round(z.pct * 100)}%"></i>` : ""}<span>${esc(z.name)}</span></button>`;
+        data-tip="<b>${esc(z.name)}</b>${pctText(z.pct)} · ${z.cats.map(c => `${c.label} ${c.done}/${c.total}`).join(" · ")}${z.name === CHAR.zone ? " · You are here" : ""}">${z.state === "progress" ? `<i style="width:${Math.round(z.pct * 100)}%"></i>` : ""}<span>${esc(z.name)}</span></button>`;
     const placed = new Set(Object.values(ATLAS).flatMap(Object.keys));
     const unplaced = tracked.filter(z => !placed.has(z.name));
     return `<div class="atlasview">${cont("Eastern Kingdoms")}${cont("Kalimdor")}</div>
@@ -359,7 +556,7 @@
     const sorts = {
       recommended: (a, b) => (a.minLevel ?? 999) - (b.minLevel ?? 999) || (a.tracked ? 0 : 1) - (b.tracked ? 0 : 1) || name(a, b),
       alphabetical: name, highest: unknownLast((a, b) => b.pct - a.pct), lowest: unknownLast((a, b) => a.pct - b.pct),
-      closest: unknownLast((a, b) => (a.state === "complete") - (b.state === "complete") || (a.total - a.done) - (b.total - b.done)),
+      closest: unknownLast((a, b) => (a.state === "complete") - (b.state === "complete") || b.pct - a.pct),
     };
     return list.sort(sorts[ui.sort]);
   }
@@ -385,22 +582,22 @@
   }
   function card(z, rec) {
     return `<button class="zcard focusable ${z.state}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
-      <div class="art">${art(z)}${window.AZF_ART && (window.AZF_ART.ids.includes(z.mapID) || window.AZF_ART.fallback) ? "" : `<span class="artlabel">ART PLACEHOLDER</span>`}${z.state === "complete" ? `<span class="badge emblem">✓</span>` : ""}</div>
+      <div class="art">${art(z)}${window.AZF_ART && (window.AZF_ART.ids.includes(z.mapID) || window.AZF_ART.fallback) ? "" : `<span class="artlabel">ART PLACEHOLDER</span>`}${z.state === "complete" ? `<span class="badge claimed">${pennant()}</span>` : ""}</div>
       ${rec ? `<span class="ribbon">Recommended next</span>` : ""}
       <div class="body">
         <div class="top"><span class="name">${esc(z.name)}</span><span class="pct">${z.tracked ? (z.state === "complete" ? "✓ " : "") + pctText(z.pct) : "—"}</span></div>
-        ${z.tracked ? pips(z) : `<div class="bar unknown small"></div>`}
+        ${catbars(z)}
         <div class="meta"><span>Lv ${shortLv(z)}</span>${facBadge(z)}${fitsLevel(z) && z.state !== "complete" ? `<span class="fittag">Your level</span>` : ""}
-          <span class="n">${z.tracked ? `${z.done}/${z.total}` : "not tracked"}</span></div></div></button>`;
+          ${z.tracked ? "" : `<span class="n">not tracked</span>`}</div></div></button>`;
   }
   function row(z, compact) {
     if (compact) return `<button class="zrow focusable ${z.state} ${ui.selected === z.name ? "selected" : ""}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
-      <span class="thumb">${art(z)}</span><span class="areas"><span class="zname">${esc(z.name)}</span>${z.tracked ? pips(z, "sm") : `<span class="note">not tracked</span>`}</span>
+      <span class="thumb">${art(z)}</span><span class="areas"><span class="zname">${esc(z.name)}</span>${z.tracked ? catbars(z, "sm") : `<span class="note">not tracked</span>`}</span>
       <span class="lv">Lv ${shortLv(z)}${levelbar(z)}</span><span class="pctcol">${pctText(z.pct)}</span></button>`;
     return `<button class="zrow focusable ${z.state}" data-open="${esc(z.name)}" data-tip="${zoneTip(z)}">
       <span class="thumb">${art(z)}</span><span class="zname">${esc(z.name)} ${facBadge(z)}</span>
       <span class="lv">Lv ${shortLv(z)}${levelbar(z)}</span>
-      <span class="areas">${z.tracked ? `${pips(z, "sm")}<span class="note">${z.done} / ${z.total} areas</span>` : `<span class="note">Exploration not tracked</span>`}</span>
+      <span class="areas">${z.tracked ? catbars(z, "sm") : `<span class="note">Nothing tracked here</span>`}</span>
       <span class="pctcol">${pctText(z.pct)}</span></button>`;
   }
   const VIEWS = () => ui.wide ? [["list", "☰", "List"], ["atlas", "◈", "Atlas"]] : [["cards", "▦", "Cards"], ["list", "☰", "List"], ["atlas", "◈", "Atlas"]];
@@ -449,35 +646,301 @@
   // =====================================================================================
   function renderDetailInto(container, z, opts) {
     if (!z) { container.innerHTML = `<div class="empty"><b>Select a zone</b></div>`; return; }
-    const remaining = z.criteria.filter(c => !c.done), found = z.criteria.filter(c => c.done);
-    const check = (c) => `<button class="check focusable ${c.done ? "done" : "todo"} ${ui.newCrit === c.id ? "new" : ""}" data-crit="${c.id}"><span class="mark">${c.done ? "✓" : ""}</span><span>${esc(c.name)}</span></button>`;
+    const page = ui.detailPage && (ui.detailPage !== "explore" || z.total) ? ui.detailPage : null;
     const next = z.tracked ? tracked.filter(x => x !== z && relevant(x) && x.state !== "complete" && x.minLevel != null && z.minLevel != null && x.minLevel > z.minLevel)
       .sort((a, b) => a.minLevel - b.minLevel || (b.continent === z.continent) - (a.continent === z.continent) || a.name.localeCompare(b.name))[0] : null;
-    container.innerHTML = `<div class="detail">
-      <div class="detail-hero ${opts.back ? "has-back" : ""}">${art(z)}<div class="shade"></div>
-        ${opts.back ? `<button class="btn dark back focusable" data-back data-tip="Back to all zones (B)">‹ Zones</button>` : ""}
-        <div class="info">
-          <div><h1>${esc(z.name)}</h1><div class="sub"><span>${levels(z)}</span>${facBadge(z)}<span>${esc(z.continent)}</span>
-            ${next ? `<span class="next">· Next: ${esc(next.name)} (${shortLv(next)})</span>` : ""}</div></div>
-          <div class="scorebox">${z.tracked ? `<div class="bigpct">${pctText(z.pct)}<small>${z.done} of ${z.total}</small></div>${pips(z, "lg", true)}` : `<div class="bigpct">—<small>not tracked</small></div>`}</div>
-        </div></div>
-      <div class="detail-body">
-        <div class="scroll" id="${opts.back ? "scroll" : "detailscroll"}">
-          ${z.tracked ? `
-            ${remaining.length ? `<h2 class="section" data-group>To discover <small>${remaining.length}</small></h2>
-            <div class="checklist">${remaining.map(check).join("")}</div>` : `<div class="note">Fully explored: every area the game lists for this zone is discovered. ✦</div>`}
-            <h2 class="section" data-group>Discovered <small>${found.length}</small></h2>
-            ${found.length ? `<div class="checklist">${found.map(check).join("")}</div>` : `<div class="note">Nothing yet — head out and explore.</div>`}`
-          : `<div class="empty"><b>Exploration isn't tracked here</b>The game has no Explore achievement for ${esc(z.name)}, so Azerfolio can't verify progress.</div>`}
-        </div>
+    const backLabel = page ? `‹ ${esc(z.name)}` : "‹ Zones";
+    const backTip = page ? `Back to the ${esc(z.name)} overview (B)` : "Back to all zones (B)";
+    const hero = `<div class="detail-hero ${page ? "slim" : ""}">${art(z)}<div class="shade"></div>
+        ${opts.back || page ? `<button class="btn dark back focusable" data-back data-tip="${backTip}">${backLabel}</button>` : ""}
+        <div class="info"><div><h1>${page ? `${CATS[page].label}<span class="crumb"> · ${esc(z.name)}</span>` : esc(z.name)}</h1>
+          <div class="sub"><span>${levels(z)}</span>${facBadge(z)}<span>${esc(z.continent)}</span>
+          ${next && !page ? `<span class="next">· Next: ${esc(next.name)} (${shortLv(next)})</span>` : ""}</div></div>
+          ${page ? `<div class="pagescore">${catOf(z, page) ? `${catOf(z, page).done} of ${catOf(z, page).total}<b>${pctText(catOf(z, page).pct)}</b>` : ""}</div>` : ""}</div></div>`;
+    const scrollId = opts.back ? "scroll" : "detailscroll";
+    let body;
+    if (!page) body = `<div class="detail-body dash"><div class="scroll" id="${scrollId}">${dashboard(z)}</div></div>`;
+    else if (page === "explore") body = `<div class="detail-body">
+        <div class="scroll" id="${scrollId}">${explorePage(z)}</div>
         <aside class="mapside">
           <div class="zonemap">${zoneMap(z)}</div>
           <div class="mapcap"><span class="legend"><span><i style="background:#c9b27a"></i>Revealed</span><span><i style="background:#3a2e22"></i>Unexplored</span></span>
             <button class="btn focusable" data-map data-tip="<b>World map</b>Open the world map at ${esc(z.name)}.">World map</button></div>
           <div class="focusinfo" id="focusinfo"></div>
-        </aside>
-      </div></div>`;
-    showFocusInfo(z, remaining[0] || found[0]);
+        </aside></div>`;
+    else body = `<div class="detail-body full"><div class="scroll" id="${scrollId}">${page === "quests" ? questSection(z) : flightSection(z)}</div></div>`;
+    container.innerHTML = `<div class="detail ${page ? "paged" : ""}">${hero}${body}</div>`;
+    if (page === "explore") showFocusInfo(z, z.criteria.find(c => !c.done) || z.criteria[0]);
+  }
+  function explorePage(z) {
+    const remaining = z.criteria.filter(c => !c.done), found = z.criteria.filter(c => c.done);
+    const check = (c) => `<button class="check focusable ${c.done ? "done" : "todo"} ${ui.newCrit === c.id ? "new" : ""}" data-crit="${c.id}"><span class="mark">${c.done ? "✓" : ""}</span><span>${esc(c.name)}</span></button>`;
+    return `${remaining.length ? `<h2 class="section" data-group>To discover <small>${remaining.length}</small></h2>
+      <div class="checklist">${remaining.map(check).join("")}</div>` : `<div class="note">Fully explored: every area the game lists for this zone is discovered. ✦</div>`}
+      <h2 class="section" data-group>Discovered <small>${found.length}</small></h2>
+      ${found.length ? `<div class="checklist">${found.map(check).join("")}</div>` : `<div class="note">Nothing yet — head out and explore.</div>`}`;
+  }
+
+  // ---- Zone dashboard: the zone's standard (progress art) and one tile per category ----
+  function dashboard(z) {
+    // Dev bar "Preview claimed": the same zone with every category done (design preview only).
+    if (ui.claimPreview && z.tracked) z = { ...z, pct: 1, state: "complete", unchecked: false,
+      cats: z.cats.map(c => ({ ...c, done: c.total, pct: 1, unchecked: 0, nodes: c.nodes && c.nodes.map(n => ({ ...n, known: true })) })), criteria: z.criteria.map(c => ({ ...c, done: true })), done: z.total };
+    if (!z.tracked) return `<div class="empty"><b>Nothing to track here yet</b>No exploration, quests or flight paths Azerfolio can verify in ${esc(z.name)}.</div>`;
+    const tile = (key, inner, opts = {}) => {
+      const c = catOf(z, key), d = CATS[key];
+      const st = c ? catState(c) : "na";
+      return `<button class="ctile ${st} ${opts.open ? "focusable" : "focusable inert"}" ${opts.open ? `data-page="${key}"` : `data-na="${key}"`}
+        data-tip="<b>${d.label}</b>${esc(opts.tip || "")}">
+        <div class="thead"><span class="cicon">${d.icon}</span><span class="tname">${d.label}</span>
+          ${c ? `<span class="tcount">${c.done} <small>of ${c.total}</small></span><span class="tpct">${pctText(c.pct)}</span>` : ""}</div>
+        ${c ? `<div class="tbar"><i style="width:${(c.pct * 100).toFixed(1)}%"></i></div>` : ""}
+        <div class="tbody">${inner}</div>
+        ${opts.open ? `<span class="topen"><span class="glyph A">A</span>${opts.open}</span>` : ""}</button>`;
+    };
+    const ex = catOf(z, "explore");
+    const exTile = ex ? tile("explore", (() => {
+      const todo = z.criteria.filter(c => !c.done);
+      return `${pips(z)}<div class="tline">${todo.length ? `Next: <b>${esc(todo[0].name)}</b>${todo.length > 1 ? ` and ${todo.length - 1} more` : ""}` : "Every area discovered ✦"}</div>`;
+    })(), { open: "Areas", tip: `${ex.done} of ${ex.total} areas discovered. A shows the list and the map.` })
+      : tile("explore", `<div class="tline dim">The game has no Explore achievement for ${esc(z.name)}.</div>`, { tip: "Not tracked here." });
+    const q = catOf(z, "quests"), r = questsFor(z);
+    const qTile = z.questsMissing ? tile("quests", `<div class="tline dim">${ui.quests === "building" ? "Reading QuestieDB…" : "Needs the QuestieDB addon, which isn't loaded."}</div>`, { tip: "Quests unavailable." })
+      : !q ? tile("quests", `<div class="tline dim">${ui.quests === "horde" ? "None of the quests here are for this character." : `QuestieDB lists no quests for you in ${esc(z.name)}.`}</div>`, { tip: "Left out of the zone's progress." })
+      : tile("quests", r.status === "ready" ? `<div class="tstats"><span><b class="hot">${r.ready.length}</b> ready now</span><span><b>${r.stories.length}</b> storylines going</span><span><b>${r.finished.length}</b> finished</span></div>
+          <div class="tline">Next: <b class="d-${r.ready[0] ? r.ready[0].diff : ""}">${r.ready[0] ? esc(r.ready[0].name) : "—"}</b>${q.unchecked ? ` <span class="dim">· ${q.unchecked} unchecked</span>` : ""}</div>`
+          : `<div class="tline dim">${q.total - q.done} quests to go${q.unchecked ? ` · ${q.unchecked} unchecked` : ""}. (Mockup: the list is sampled only for Elwynn.)</div>`,
+        { open: "Quests", tip: `${q.done} of ${q.total} quests done. A shows Ready now and the storylines.` });
+    const f = catOf(z, "flights");
+    const fTile = f ? tile("flights", `<div class="tline">${f.nodes.map(n => `<span class="fnode ${n.known ? "on" : ""}">${n.known ? "✓" : "✈"} ${esc(n.name)}</span>`).join("")}</div>`,
+        { open: "Flight paths", tip: `${f.done} of ${f.total} flight paths known.` })
+      : tile("flights", `<div class="tline dim">No flight master for you in ${esc(z.name)}.</div>`, { tip: "Left out of the zone's progress." });
+    const done = z.state === "complete";
+    return `<div class="dashgrid">
+      <div class="standard ${z.state}"><div class="sbg">${art(z)}</div>${progressArt(z, { animate: true })}
+        <div class="spct">${done ? "✓" : pctText(z.pct)}</div>
+        <div class="scap">${done ? `${esc(z.name)} claimed for the ${ui.look}` : `${esc(z.name)} · ${z.cats.length} ${z.cats.length === 1 ? "category" : "categories"}`}</div>
+        ${z.unchecked && !done ? `<div class="snote">Some quests can't be checked yet, so this zone can't be claimed in full.</div>` : ""}
+      </div>
+      <div class="tiles">${exTile}${qTile}${fTile}</div></div>`;
+  }
+
+  // ---- The zone's war banner (approved direction 2026-11-08) ----
+  // SVG stand-in for painted art: the banner is hoisted up its pole as the zone fills, one
+  // embroidered badge per category, brass rings on the pole at 25/50/75%, gold when claimed.
+  // opts.animate: rise from the ground on show; opts.mini: no fringe or rings (small sizes).
+  let svgId = 0;
+  const FACTION = {
+    Alliance: { cloth: "#2452b8", mid: "#1a3d8c", dark: "#0f2557", trim: "#e2bb4f", trimDark: "#8a6a1c", emblem: "#f0cf6a", pole: ["#6b4524", "#3d250f"], metal: "#d9b44a" },
+    Horde: { cloth: "#9a2318", mid: "#6e1810", dark: "#3a0a06", trim: "#b59a6a", trimDark: "#4e3b1e", emblem: "#140d0b", pole: ["#5a4128", "#2a1c10"], metal: "#7d7870" },
+  };
+  // The Horde banner is a battle-worn war banner, not regal: torn edges, holes, a crude patch,
+  // rope lashings, a painted sigil; no fringe, tassels or gilding (owner, 2026-11-08).
+  function hordeCloth(X0, X1, y0, H, mx) {
+    return `M${X0} ${y0} H${X1} L${X1 + 3} ${y0 + 34} L${X1 - 3} ${y0 + 62} L${X1 + 2} ${y0 + H - 34} L${X1 - 7} ${y0 + H - 10}
+      L${X1 - 16} ${y0 + H - 2} L${X1 - 25} ${y0 + H - 18} L${X1 - 37} ${y0 + H + 6} L${mx + 9} ${y0 + H - 12} L${mx - 5} ${y0 + H + 3}
+      L${mx - 19} ${y0 + H - 15} L${X0 + 35} ${y0 + H + 1} L${X0 + 22} ${y0 + H - 20} L${X0 + 11} ${y0 + H - 5} L${X0} ${y0 + H - 14} Z`;
+  }
+  function hordeWear(F, X0, X1, y0, H, mx) {
+    const stitch = (x, y) => `<path d="M${x - 2} ${y - 2} l4 4 M${x + 2} ${y - 2} l-4 4" stroke="#d8c8a0" stroke-width=".9"/>`;
+    return `<ellipse cx="${X0 + 40}" cy="${y0 + H - 40}" rx="40" ry="26" fill="#000" opacity=".22"/>
+      <path d="M${X1 - 30} ${y0 + 26} l6 -3 l4 5 l-3 6 l-6 -1 Z" fill="#0b0604" stroke="${F.dark}" stroke-width="1"/>
+      <path d="M${X0 + 16} ${y0 + 96} l5 -2 l3 4 l-4 4 Z" fill="#0b0604" stroke="${F.dark}" stroke-width="1"/>
+      <g transform="rotate(-6 ${X0 + 22} ${y0 + 30})"><rect x="${X0 + 12}" y="${y0 + 20}" width="22" height="18" fill="#5c3a22" stroke="#2a1a0e" stroke-width="1"/>
+        ${stitch(X0 + 14, y0 + 22)}${stitch(X0 + 32, y0 + 22)}${stitch(X0 + 14, y0 + 36)}${stitch(X0 + 32, y0 + 36)}</g>
+      <path d="M${X1 - 12} ${y0 + 90} q-6 8 0 16" stroke="${F.dark}" stroke-width="1.2" fill="none" opacity=".7"/>`;
+  }
+  const RISE = 120; // pole travel in banner units, 0% -> 100%
+  function bannerArt(z, opts = {}) {
+    const F = FACTION[ui.look], id = "wb" + (++svgId), p = z.pct || 0, done = z.state === "complete";
+    const top = 30, y0 = top + (1 - p) * RISE, X0 = 52, X1 = 176, H = 150, mx = (X0 + X1) / 2;
+    const horde = ui.look === "Horde";
+    const cloth = horde ? hordeCloth(X0, X1, y0, H, mx)
+      : `M${X0} ${y0} H${X1} V${y0 + H} L${X1 - 31} ${y0 + H - 24} L${mx} ${y0 + H} L${X0 + 31} ${y0 + H - 24} L${X0} ${y0 + H} Z`;
+    const inner = `M${X0 + 7} ${y0 + 12} H${X1 - 7} V${y0 + H - 10} L${X1 - 31} ${y0 + H - 32} L${mx} ${y0 + H - 9} L${X0 + 31} ${y0 + H - 32} L${X0 + 7} ${y0 + H - 10} Z`;
+    // Fringe: short gold threads along the swallowtail edges.
+    const edge = [[X1, y0 + H, X1 - 31, y0 + H - 24], [X1 - 31, y0 + H - 24, mx, y0 + H], [mx, y0 + H, X0 + 31, y0 + H - 24], [X0 + 31, y0 + H - 24, X0, y0 + H]];
+    const fringe = opts.mini || horde ? "" : edge.map(([ax, ay, bx, by]) => Array.from({ length: 9 }, (_, i) => {
+      const t = (i + .5) / 9, x = ax + (bx - ax) * t, y = ay + (by - ay) * t;
+      return `<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x.toFixed(1)}" y2="${(y + 6).toFixed(1)}"/>`; }).join("")).join("");
+    const tassel = (x, y) => `<g class="tassel"><line x1="${x}" y1="${y}" x2="${x}" y2="${y + 10}" stroke="${F.trim}" stroke-width="1.5"/>
+      <path d="M${x - 3.5} ${y + 10} h7 l2 12 h-11 Z" fill="${F.trim}" stroke="${F.trimDark}" stroke-width=".8"/><circle cx="${x}" cy="${y + 10}" r="2.5" fill="${F.trimDark}"/></g>`;
+    // Faction emblem (stand-in shapes; the painted art would carry the real heraldry).
+    const ey = y0 + 58;
+    const emblem = ui.look === "Alliance"
+      ? `<path d="M${mx - 25} ${ey - 30} h50 v26 c0 20 -13 30 -25 36 c-12 -6 -25 -16 -25 -36 Z" fill="${F.emblem}" stroke="${F.trimDark}" stroke-width="1.5"/>
+         <path d="M${mx - 25} ${ey - 30} h50 v26 c0 20 -13 30 -25 36 c-12 -6 -25 -16 -25 -36 Z" fill="none" stroke="#fff6d0" stroke-width=".8" stroke-dasharray="2 2" transform="translate(0 0)" opacity=".7"/>
+         <path d="M${mx - 13} ${ey - 20} l4 7 l4 -7 l5 7 l5 -7 l4 7 l4 -7 v12 h-26 Z" fill="${F.dark}"/>
+         <path d="M${mx - 14} ${ey - 2} q14 10 28 0 l-4 14 q-10 6 -20 0 Z" fill="${F.mid}"/>`
+      : `<path d="M${mx} ${ey - 34} l9 18 l15 -9 l-7 20 l12 12 l-16 2 l-13 14 l-13 -14 l-16 -2 l12 -12 l-7 -20 l15 9 Z" fill="${F.emblem}" stroke="${F.trim}" stroke-width="1.6"/>
+         <path d="M${mx} ${ey - 18} v34 M${mx - 9} ${ey} h18" stroke="${F.trim}" stroke-width="2.5"/>`;
+    // Category badges: embroidered roundels; gold thread runs round as the category fills.
+    const n = z.cats.length, by = y0 + 112;
+    const badges = z.cats.map((c, i) => {
+      const cx = X0 + ((X1 - X0) / (n + 1)) * (i + 1), st = catState(c), r = 11, len = 2 * Math.PI * r;
+      return `<g class="badge ${st}"><circle cx="${cx}" cy="${by}" r="${r + 2}" fill="${F.dark}" opacity=".6"/>
+        <circle cx="${cx}" cy="${by}" r="${r}" fill="${st === "complete" ? `url(#${id}gold)` : F.dark}" stroke="${F.trimDark}" stroke-width="1"/>
+        ${st !== "complete" && c.pct > 0 ? `<circle cx="${cx}" cy="${by}" r="${r}" fill="none" stroke="${F.trim}" stroke-width="3" stroke-dasharray="${(c.pct * len).toFixed(1)} ${len.toFixed(1)}" transform="rotate(-90 ${cx} ${by})"/>` : ""}
+        <text x="${cx}" y="${by + 4}" text-anchor="middle" font-size="11" fill="${st === "complete" ? F.dark : F.trim}" opacity="${st === "untouched" ? .6 : 1}">${c.icon}</text></g>`;
+    }).join("");
+    // Pole: wood, brass rings at 25/50/75%, lit once the banner has passed them; a finial on top.
+    const rings = opts.mini ? "" : [.25, .5, .75].map(m => {
+      const y = top + (1 - m) * RISE, lit = p >= m;
+      return `<rect x="41" y="${y - 2}" width="12" height="5" rx="1.5" fill="${lit ? F.metal : "#3a2e22"}" stroke="#1a1208" stroke-width=".8"/>
+        ${lit && !opts.mini ? `<circle cx="47" cy="${y}" r="7" fill="${F.metal}" opacity=".35" filter="url(#${id}soft)"/>` : ""}`;
+    }).join("");
+    const finial = ui.look === "Alliance"
+      ? `<path d="M47 4 l7 14 h-14 Z" fill="url(#${id}gold)" stroke="${F.trimDark}" stroke-width=".8"/><circle cx="47" cy="20" r="4" fill="url(#${id}gold)"/>`
+      : `<path d="M47 2 l5 16 h-10 Z M40 16 l-8 -8 l6 12 Z M54 16 l8 -8 l-6 12 Z" fill="${F.metal}" stroke="#1a1208" stroke-width=".8"/><circle cx="47" cy="20" r="4" fill="${F.metal}"/>`;
+    const sparkles = done && !opts.mini ? [[30, 60], [190, 46], [196, 140], [24, 150], [112, 18]].map(([x, y], i) =>
+      `<path class="spark" style="animation-delay:${i * .37}s" d="M${x} ${y - 7} L${x + 2} ${y - 2} L${x + 7} ${y} L${x + 2} ${y + 2} L${x} ${y + 7} L${x - 2} ${y + 2} L${x - 7} ${y} L${x - 2} ${y - 2} Z" fill="#fff3b0"/>`).join("") : "";
+    const drop = opts.animate ? (opts.from != null ? (opts.from - p) * RISE : p * RISE) : 0;
+    return `<svg class="warbanner ${done ? "claimed" : ""} ${opts.mini ? "mini" : ""}" viewBox="0 0 210 ${opts.mini ? 300 : 310}">
+      <defs>
+        <linearGradient id="${id}cloth" x1="0" x2="1"><stop offset="0" stop-color="${F.dark}"/><stop offset=".12" stop-color="${F.cloth}"/>
+          <stop offset=".3" stop-color="${F.mid}"/><stop offset=".48" stop-color="${F.cloth}"/><stop offset=".66" stop-color="${F.mid}"/>
+          <stop offset=".84" stop-color="${F.cloth}"/><stop offset="1" stop-color="${F.dark}"/></linearGradient>
+        <linearGradient id="${id}shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".14"/><stop offset=".5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient>
+        <linearGradient id="${id}gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff3b0"/><stop offset=".5" stop-color="#ffcc33"/><stop offset="1" stop-color="#9c6b10"/></linearGradient>
+        <linearGradient id="${id}pole" x1="0" x2="1"><stop offset="0" stop-color="${F.pole[1]}"/><stop offset=".45" stop-color="${F.pole[0]}"/><stop offset="1" stop-color="${F.pole[1]}"/></linearGradient>
+        <filter id="${id}soft"><feGaussianBlur stdDeviation="3"/></filter><filter id="${id}glow"><feGaussianBlur stdDeviation="9"/></filter>
+      </defs>
+      ${done && !opts.mini ? `<g class="rays">${Array.from({ length: 12 }, (_, i) => `<path d="M114 110 L${114 + 160 * Math.cos(i * Math.PI / 6 - .1)} ${110 + 160 * Math.sin(i * Math.PI / 6 - .1)} L${114 + 160 * Math.cos(i * Math.PI / 6 + .1)} ${110 + 160 * Math.sin(i * Math.PI / 6 + .1)} Z" fill="#ffd35a" opacity=".10"/>`).join("")}</g>` : ""}
+      <ellipse cx="50" cy="${opts.mini ? 294 : 300}" rx="40" ry="7" fill="#000" opacity=".55"/>
+      <rect x="43" y="16" width="8" height="${opts.mini ? 278 : 284}" rx="2" fill="url(#${id}pole)" stroke="#1a1208" stroke-width=".8"/>
+      ${rings}${finial}
+      <g class="hoist" style="--drop:${drop.toFixed(1)}px">
+        <path d="M47 ${y0 - 4} L${X0 + 4} ${y0 - 4}" stroke="${F.trim}" stroke-width="2"/>
+        ${done ? `<path d="${cloth}" fill="${F.trim}" filter="url(#${id}glow)" opacity=".75"/>` : ""}
+        <g class="flutter">
+          <path d="${cloth}" fill="url(#${id}cloth)" stroke="${done ? F.trim : F.dark}" stroke-width="${done ? 2.5 : 1.2}"/>
+          <path d="${cloth}" fill="url(#${id}shade)"/>
+          ${horde ? (opts.mini ? "" : hordeWear(F, X0, X1, y0, H, mx))
+            : `<path d="${inner}" fill="none" stroke="${F.trim}" stroke-width="1.2" stroke-dasharray="3 2.5" opacity=".9"/>`}
+          ${emblem}${badges}
+          <g stroke="${F.trim}" stroke-width="1.1" opacity=".9">${fringe}</g>
+          ${opts.mini || horde ? "" : tassel(X1, y0 + H) + tassel(X0, y0 + H)}
+        </g>
+        ${horde
+          ? `<rect x="${X0 - 6}" y="${y0 - 7}" width="${X1 - X0 + 12}" height="9" rx="2" fill="${F.pole[0]}" stroke="#1a1008" stroke-width="1"/>
+             ${[X0 + 4, mx, X1 - 4].map(x => `<path d="M${x - 4} ${y0 - 8} l8 11 M${x + 4} ${y0 - 8} l-8 11" stroke="#a88f62" stroke-width="1.6"/>`).join("")}`
+          : `<rect x="${X0 - 3}" y="${y0 - 6}" width="${X1 - X0 + 8}" height="8" rx="3" fill="url(#${id}gold)" stroke="${F.trimDark}" stroke-width=".8"/>
+             <circle cx="${X1 + 5}" cy="${y0 - 2}" r="4.5" fill="url(#${id}gold)" stroke="${F.trimDark}" stroke-width=".8"/>`}
+      </g>
+      ${sparkles}
+    </svg>`;
+  }
+  function progressArt(z, opts) { return bannerArt(z, opts); }
+  // Small pennant for claimed zones on catalogue cards and Atlas tiles.
+  function pennant() {
+    const F = FACTION[ui.look];
+    return `<svg class="pennant" viewBox="0 0 24 30"><rect x="3" y="1" width="2.5" height="28" rx="1" fill="${F.pole[0]}"/>
+      <path d="${ui.look === "Horde" ? "M5.5 3 H22 L21 9 L23 15 L19 19 L16 15 L12 20 L9 15 L5.5 18 Z" : "M5.5 3 H22 V18 L17 15 L13.75 19 L10.5 15 L5.5 18 Z"}" fill="${F.cloth}" stroke="${F.trim}" stroke-width="1.2"/>
+      <path d="M10 9.5 l2.4 2.6 l4.6 -5" stroke="${F.trim}" stroke-width="1.8" fill="none"/></svg>`;
+  }
+  // The claim moment: a full-window celebration with the banner rising to the top.
+  function showClaim(z) {
+    const claimed = { ...z, pct: 1, state: "complete", unchecked: false, cats: z.cats.map(c => ({ ...c, done: c.total, pct: 1, unchecked: 0 })) };
+    ui.celebrate = z.name;
+    const el = document.createElement("div");
+    el.className = "celebrate claim"; el.id = "celebrate";
+    el.innerHTML = `<div class="rays"></div><div class="card"><div class="claimart">${bannerArt(claimed, { animate: true, from: z.pct || 0 })}</div>
+      <h1>${esc(z.name)} claimed</h1><p>for the ${ui.look}: ${z.cats.map(c => c.label.toLowerCase()).join(", ").replace(/, ([^,]*)$/, " and $1")} complete.</p>
+      <button class="btn focusable cel-ok">Continue <span class="glyph A">A</span></button></div>`;
+    $("#window").appendChild(el);
+    setFocus($(".cel-ok"));
+  }
+
+  // ---- Zone Detail category sections (Phase 9 step 4, spec §7.3, §7.7) ----
+  const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+  // Reason as shown: "level 12" -> "Level 12"; a prerequisite names the quest when known.
+  function reasonText(q) {
+    if (q.reason === "prerequisite" && q.prereqs && q.prereqs.length)
+      return (q.prereqs.length > 1 ? "Needs one of " : "Needs ") + q.prereqs.join(", ");
+    return cap(q.reason);
+  }
+  const QSTATE = {
+    ready: { mark: "!", label: "Ready now" }, locked: { mark: "🔒", label: "Locked" }, unknown: { mark: "?", label: "Not counted" },
+    done: { mark: "✓", label: "Done" }, unavailable: { mark: "⊘", label: "Not for this character" },
+  };
+  const DIFF = { red: "far above your level", orange: "above your level", yellow: "about your level", green: "easy for you", grey: "far below your level" };
+  function questDetail(q) {
+    const lv = `Level ${q.questLevel}${q.reqLevel && q.reqLevel !== q.questLevel ? ` (from ${q.reqLevel})` : ""}`;
+    const state = q.kind === "ready" ? `Ready now · ${DIFF[q.diff]}` : q.kind === "done" ? "Done" : `${QSTATE[q.kind].label}: ${reasonText(q)}`;
+    return { lv, state };
+  }
+  const qtip = (q) => { const d = questDetail(q); return `<b>${esc(q.name)}</b>${esc(d.lv)} · ${esc(d.state)}`; };
+  // One storyline node: a dot (state) and the name under it.
+  const qnode = (q) => `<button class="qnode focusable k-${q.kind} d-${q.diff}" data-quest="${q.id}" data-tip="${qtip(q)}">
+    <span class="dot">${q.kind === "ready" ? "" : QSTATE[q.kind].mark}</span><span class="nl">${esc(q.name)}</span></button>`;
+  const visible = (q) => ui.showUnavailable || q.kind !== "unavailable";
+  function track(story) {
+    const cols = story.columns.map(c => c.filter(visible)).filter(c => c.length);
+    return `<div class="track">${cols.map(c => `<div class="tcol">${c.map(qnode).join("")}</div>`).join("")}</div>`;
+  }
+  function storyHead(s) {
+    return `<div class="shead"><span class="sname">${esc(s.name)}</span><span class="scount">${s.done} of ${s.total} done${s.ready ? ` · <b>${s.ready} ready</b>` : ""}</span></div>`;
+  }
+  function questSection(z) {
+    const cat = catOf(z, "quests");
+    const head = () => ""; // the page's banner already names the category and its count
+    const r = questsFor(z);
+    if (r.status === "unavailable") return head() + `<div class="qnote">Quests unavailable: needs the QuestieDB addon, which isn't loaded. Exploration and flight paths are unaffected.</div>`;
+    if (r.status === "building") return head() + `<div class="qnote">Reading quests from QuestieDB…</div>`;
+    if (r.status === "nosample") return cat ? head(`<span class="qscore">${cat.done} of ${cat.total} done<b>${pctText(cat.pct)}</b></span>`)
+      + `<div class="qnote">(Mockup: the quest list is sampled only for Elwynn Forest.)</div>` : "";
+    const p = r.progress;
+    if (!r.objectives.length) return head() + `<div class="qnote">QuestieDB lists no quests in ${esc(z.name)}.</div>`;
+    let html = head(p.denominator ? `<span class="qscore">${p.completed} of ${p.denominator} done<b>${pctText(p.percent)}</b></span>` : "");
+    if (!p.denominator) html += `<div class="qnote">None of the ${p.unavailable} quests here are for this character, so quests don't count toward ${esc(z.name)}.</div>`;
+    if (r.ready.length) html += `<h2 class="section" data-group>Ready now <small>${r.ready.length}</small></h2>
+      <div class="readygrid">${r.ready.map(q => `<button class="qchip focusable d-${q.diff}" data-quest="${q.id}" data-tip="${qtip(q)}">
+        <span class="lvl">${q.questLevel}</span><span class="qn">${esc(q.name)}</span></button>`).join("")}</div>`;
+    const singles = r.singles.filter(q => visible(q) && q.kind !== "done");
+    const singlesDone = r.singles.filter(q => q.kind === "done").length;
+    if (r.stories.length || singles.length) {
+      html += `<h2 class="section" data-group>Storylines <small>${r.stories.length} in progress</small></h2>`;
+      html += r.stories.map(s => `<div class="story">${storyHead(s)}${track(s)}</div>`).join("");
+      if (singles.length) html += `<div class="story"><div class="shead"><span class="sname">Single quests</span><span class="scount">${singlesDone} done</span></div>
+        <div class="track singles">${singles.map(qnode).join("")}</div></div>`;
+    }
+    if (r.finished.length) {
+      html += `<h2 class="section" data-group>Finished <small>${r.finished.length} storylines · ${singlesDone} single quests</small></h2>`;
+      html += r.finished.map(s => {
+        const open = ui.openStories.has(s.id);
+        return `<button class="storyfold focusable ${open ? "open" : ""}" data-story="${s.id}" data-tip="<b>${esc(s.name)}</b>${s.size} quests, every one you can do is done. A ${open ? "folds" : "shows"} the storyline.">
+          <span class="mark">✓</span><span class="sname">${esc(s.name)}</span><span class="scount">${s.total} quests</span><span class="arr">${open ? "−" : "+"}</span></button>
+          ${open ? `<div class="story inner">${track(s)}</div>` : ""}`;
+      }).join("");
+    }
+    // Footer: what the numbers leave out, and the can't-do toggle.
+    const why = Object.entries(r.unknownReasons);
+    const left = [];
+    if (r.repeatable) left.push(`${r.repeatable} repeatable`);
+    if (p.eligibilityUnknown) left.push(`${p.eligibilityUnknown} we can't check yet (${why.map(([w, n]) => why.length > 1 ? `${w} ${n}` : w).join(", ")})`);
+    html += `<div class="qfoot"><span class="qnote">From QuestieDB, which may miss quests.${left.length ? " Not counted: " + left.join(", ") + "." : ""}</span>
+      ${p.unavailable ? `<button class="btn dark qtoggle focusable" data-qtoggle data-tip="<b>${ui.showUnavailable ? "Hide" : "Show"} quests you can't do</b>Other faction or class, a finished chain or a choice already made. Never counted.">
+        ${ui.showUnavailable ? "Hide" : "Show"} ${p.unavailable} you can't do</button>` : ""}</div>`;
+    return html;
+  }
+  // Exploration and flight path headers: the same major heading as Quests.
+  function catHead(c, title) {
+    return `<div class="majorhead"><span class="cicon">${c.icon}</span><h2>${title}</h2><span class="qscore">${c.done} of ${c.total}<b>${pctText(c.pct)}</b></span></div>`;
+  }
+  function flightSection(z) {
+    const c = catOf(z, "flights");
+    if (!c) return "";
+    return `<h2 class="section" data-group>Flight masters <small>${c.total}</small></h2><div class="checklist">${c.nodes.map(n => `<button class="check focusable ${n.known ? "done" : "todo"}" data-flight="${esc(n.name)}"
+      data-tip="<b>${esc(n.name)}</b>${n.known ? "Known: you can fly here." : "Not discovered yet: talk to the flight master there."}"><span class="mark">${n.known ? "✓" : "✈"}</span><span>${esc(n.name)}</span></button>`).join("")}</div>
+      <div class="qnote">Sample flight paths (not yet verified on Forever).</div>`;
+  }
+  function showQuestInfo(z, el) {
+    const box = $("#focusinfo"); if (!box) return;
+    const r = questsFor(z);
+    const q = r.objectives && r.objectives.find(o => String(o.id) === el.dataset.quest);
+    if (!q) return;
+    const d = questDetail(q);
+    box.innerHTML = `<h3>${esc(q.name)}</h3><div class="facts">${esc(d.lv)}</div><div class="state k-${q.kind}">${esc(d.state)}</div>`;
   }
   function showFocusInfo(z, c) {
     const box = $("#focusinfo"); if (!box) return;
@@ -492,7 +955,8 @@
     overview: [["A", "A", "Select"], ["LT", "LT/RT", "Section"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
     zones: [["A", "A", "Open"], ["Y", "Y", "View"], ["X", "X", "Search"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
     zonesWide: [["A", "A", "Checklist"], ["Y", "Y", "View"], ["X", "X", "Search"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
-    detail: [["A", "A", "Select"], ["X", "X", "World map"], ["LT", "LT/RT", "Section"], ["B", "B", "Back"]],
+    detail: [["A", "A", "Open"], ["X", "X", "World map"], ["B", "B", "Zones"]],
+    detailPage: [["A", "A", "Select"], ["X", "X", "World map"], ["LT", "LT/RT", "Section"], ["B", "B", "Overview"]],
     flyout: [["DP", "✥", "Choose"], ["A", "A", "Apply"], ["B", "B", "Cancel"]],
   };
   function screen() { return ui.tab === "zones" ? (ui.detail && !ui.wide ? "detail" : ui.wide ? "zonesWide" : "zones") : "overview"; }
@@ -503,7 +967,7 @@
     if (sc === "overview") renderOverview();
     else if (sc === "detail") renderDetailInto(content, byName[ui.detail], { back: true });
     else renderZones();
-    setHints(ui.flyout ? "flyout" : sc);
+    setHints(ui.flyout ? "flyout" : sc === "detail" && ui.detailPage ? "detailPage" : sc);
     hideTooltip();
   }
   function setHints(key) { $("#hints").innerHTML = HINTS[key].map(([cls, g, t]) => `<span><span class="glyph ${cls}">${g}</span>${t}</span>`).join(""); }
@@ -512,8 +976,8 @@
   function keyOf(el) {
     if (!el) return null;
     const d = el.dataset, parts = [];
-    for (const a of ["open", "crit", "tab", "cycle", "status", "view", "go"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
-    for (const a of ["search", "back", "map", "atlas"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
+    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "tab", "cycle", "status", "view", "go"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
+    for (const a of ["search", "back", "map", "atlas", "qtoggle"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
     if (el.id) parts.push("#" + el.id);
     return parts.length ? "." + [...el.classList].filter(c => !["focused", "on", "new", "selected"].includes(c))[0] + parts.join("") : null;
   }
@@ -536,15 +1000,18 @@
   function openZone(name, crit) {
     if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
     ui.tab = "zones"; ui.lastZone = name;
+    ui.detailPage = crit ? "explore" : null; // an area chip opens the Exploration page; a zone opens its overview
     if (ui.wide) { ui.selected = name; ui.detail = null; ui.view = "list"; render(); const sel = $(`.zrow[data-open="${CSS.escape(name)}"]`); if (sel) sel.scrollIntoView({ block: "center" });
-      const t = crit && $(`#detailpane .check[data-crit="${crit}"]`); setFocus(t || $("#detailpane .check") || sel); return; }
+      const t = crit && $(`#detailpane .check[data-crit="${crit}"]`); setFocus(t || $("#detailpane .ctile[data-page]") || sel); return; }
     ui.detail = name; render();
     const target = crit && $(`.check[data-crit="${crit}"]`);
-    setFocus(target || $(".check") || $("[data-back]"));
+    setFocus(target || $(".ctile[data-page]") || $("[data-back]"));
   }
   function back() {
     if (ui.celebrate) return closeCelebrate();
     if (ui.flyout) return closeFlyout();
+    // A category page goes back to the zone's overview, focused on that category's tile.
+    if (ui.tab === "zones" && ui.detailPage && (ui.detail || ui.wide)) { const pg = ui.detailPage; ui.detailPage = null; render(); return setFocus($(`.ctile[data-page="${pg}"]`) || $(".ctile")); }
     if (ui.tab === "zones" && ui.wide && focused && focused.closest("#detailpane")) return setFocus($(`.zrow[data-open="${CSS.escape(ui.selected)}"]`));
     if (ui.tab === "zones" && ui.detail) { ui.detail = null; render(); return restoreCatalog(); }
     closeWindow();
@@ -591,7 +1058,7 @@
     if (d.back !== undefined) return back();
     if (d.open && !(ui.wide && el.classList.contains("zrow"))) return openZone(d.open, d.crit);
     if (d.open && ui.wide) { // wide: A on a row moves into its checklist
-      return setFocus($("#detailpane .check.todo") || $("#detailpane .check") || $("#detailpane [data-map]"));
+      return setFocus($("#detailpane .ctile[data-page]") || $("#detailpane .ctile"));
     }
     if (d.atlas !== undefined) { ui.view = "atlas"; ui.detail = null; ui.lastZone = CHAR.zone; return setTab("zones"); }
     if (d.go) return setTab(d.go);
@@ -600,6 +1067,11 @@
     if (d.cycle) return openFlyout(d.cycle, el);
     if (d.search !== undefined) return $("#searchInput").focus();
     if (d.map !== undefined) return toast(`Would open the world map at ${esc(ui.detail || ui.selected)}`);
+    if (d.qtoggle !== undefined) { ui.showUnavailable = !ui.showUnavailable; return rerenderKeepFocus(); }
+    if (d.page) { ui.detailPage = d.page; render(); return setFocus($("#content .detail .scroll .focusable") || $("#content .detail [data-back]")); }
+    if (d.na) return;
+    if (d.story) { const id = Number(d.story); ui.openStories.has(id) ? ui.openStories.delete(id) : ui.openStories.add(id); return rerenderKeepFocus(); }
+    if (d.quest || d.flight) return; // A on a quest or flight path: nothing yet (details show in the info line)
     if (d.crit) return setFocus($("[data-map]"));
   }
 
@@ -660,12 +1132,15 @@
     showInfo(el); // gamepad focus describes itself in the footer, never in a floating tooltip
     hideTooltip();
     // Focus-driven updates: checklist info, and the wide split's detail pane.
-    if (el.classList.contains("check")) {
+    if (el.dataset.quest || el.dataset.crit || el.dataset.flight) {
       const z = byName[ui.detail || ui.selected];
-      if (z) showFocusInfo(z, z.criteria.find(c => String(c.id) === el.dataset.crit));
+      if (z && el.dataset.quest) showQuestInfo(z, el);
+      else if (z && el.dataset.crit) showFocusInfo(z, z.criteria.find(c => String(c.id) === el.dataset.crit));
+      else if (z) { const box = $("#focusinfo"); const n = catOf(z, "flights").nodes.find(x => x.name === el.dataset.flight);
+        if (box && n) box.innerHTML = `<h3>${esc(n.name)}</h3><div class="state ${n.known ? "done" : "todo"}">${n.known ? "✓ Known flight path" : "✈ Not discovered yet"}</div>`; }
     }
     if (ui.wide && ui.tab === "zones" && el.classList.contains("zrow") && el.dataset.open !== ui.selected) {
-      ui.selected = el.dataset.open;
+      ui.selected = el.dataset.open; ui.detailPage = null;
       $$(".zrow.selected").forEach(r => r.classList.remove("selected"));
       el.classList.add("selected");
       renderDetailInto($("#detailpane"), byName[ui.selected], { back: false });
@@ -751,7 +1226,7 @@
       q: () => !ui.flyout && !ui.celebrate && setTab(ui.tab === "overview" ? "zones" : "overview"),
       e: () => !ui.flyout && !ui.celebrate && setTab(ui.tab === "overview" ? "zones" : "overview"),
       y: () => { if (ui.tab === "zones" && !ui.detail && !ui.flyout) { const v = VIEWS().map(x => x[0]); ui.view = v[(v.indexOf(ui.view) + 1) % v.length]; render(); restoreCatalog(); } },
-      x: () => { if (ui.flyout || ui.celebrate) return; if (ui.tab === "zones" && (ui.detail || (ui.wide && focused && focused.closest("#detailpane")))) activate($("[data-map]")); else if (ui.tab === "zones") { setFocus($("[data-search]")); $("#searchInput").focus(); } },
+      x: () => { if (ui.flyout || ui.celebrate) return; if (ui.tab === "zones" && (ui.detail || (ui.wide && focused && focused.closest("#detailpane")))) toast(`Would open the world map at ${esc(ui.detail || ui.selected)}`); else if (ui.tab === "zones") { setFocus($("[data-search]")); $("#searchInput").focus(); } },
       PageDown: () => jump(1), PageUp: () => jump(-1),
     };
     const fn = map[k];
@@ -786,6 +1261,15 @@
   }
   $("#scenario").addEventListener("change", (e) => { loadScenario(e.target.value); render(); focusFirst(); e.target.blur(); });
   $("#simulate").addEventListener("click", (e) => { simulateDiscovery(); e.target.blur(); });
+  $("#questMode").innerHTML = Object.entries(QUEST_MODES).map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+  $("#questMode").addEventListener("change", (e) => { ui.quests = e.target.value; buildModel(); rerenderKeepFocus(); e.target.blur(); });
+  $("#simulateClaim").addEventListener("click", (e) => {
+    e.target.blur();
+    const z = byName[ui.detail || ui.selected || CHAR.zone];
+    if (z && z.tracked) showClaim(z);
+  });
+  $("#lookSel").addEventListener("change", (e) => { ui.look = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  $("#claimPreview").addEventListener("change", (e) => { ui.claimPreview = e.target.checked; rerenderKeepFocus(); e.target.blur(); });
   $("#wideToggle").addEventListener("change", (e) => {
     ui.wide = e.target.checked; ui.detail = null;
     document.documentElement.style.setProperty("--win-w", winW() + "px");

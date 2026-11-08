@@ -112,3 +112,30 @@ Tip: give your tool **Elwynn Forest (1429)** as a style reference image if it su
 | File | Subject line |
 |---|---|
 | fallback | A generic fantasy landscape: rolling hills, a winding road toward distant mountains, a lone signpost at the center, warm dusk sky. Nothing that identifies a specific place |
+
+## War banner pieces (zone progress, spec §7.1; added 2026-11-08)
+
+The zone's progress is the player's faction war banner hoisted up a pole (design: `mockups/DESIGN.md`). Each faction's set must look like **its own faction**: the Alliance banner is regal and ceremonial; the Horde banner is a battle-worn war standard. The two sets share only the camera and painting style. Pieces are separate images layered in game, so each is painted alone on a flat key colour that the processing script removes (pipeline support for transparency is still to be built; see `style-guide.md` §1).
+
+**Not** the zone style block. Use this one:
+
+```
+Hand-painted stylized fantasy game asset, painterly with soft visible brush texture, bold simplified
+shapes, rich saturated colors, warm golden rim light from the upper left, front-facing flat orthographic
+view, the object centered and fully visible with even margins, isolated on a perfectly flat solid
+pure magenta (#FF00FF) background, no shadow on the background, no text, no letters.
+Subject:
+```
+
+Negative prompt: the zone one, plus `perspective, angled view, cropped edges, background scenery, magenta on the object, official logo, real-world flag`.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| banner-alliance | 2:3 portrait | A regal royal-blue silk war banner hanging straight down from a gilded crossbar with gold end caps; swallowtail bottom with two points; a wide embroidered gold border with fine stitching; a heavy gold fringe along the whole bottom edge; a gold tassel hanging from each point; at the center a proud golden heraldic lion's head on a shield, embroidered in gold thread; soft cloth folds catching light; clean, ceremonial, pristine |
+| banner-horde | 2:3 portrait | A battle-worn crimson war banner of rough heavy cloth hanging from a crude timber crossbar lashed on with rope; torn ragged bottom edge with uneven strips, a few holes and slashes, scorch marks and dark stains; a patch of stitched leather with coarse cross-stitches; at the center a bold jagged black tribal sigil roughly painted by hand with visible brush drips; no fringe, no tassels, no gold; fierce and weathered |
+| pole-alliance | 1:4 tall | A tall straight polished dark-wood flagpole with gold bands and a gleaming gold spearhead finial |
+| pole-horde | 1:4 tall | A tall rough-hewn timber pole bound with leather straps, topped with a dark iron spike flanked by two curved tusks |
+| badge-alliance | 1:1 | A small round embroidered patch: deep blue cloth disc edged with a raised gold-thread ring, empty center |
+| badge-horde | 1:1 | A small round disc of tanned hide with an iron rim held by rivets, empty center |
+
+Tips: generate 3–4 variants of each; pick the pair (cloth plus pole) that reads as one object. Save as `art/source/banner-alliance.png` and so on. Category icons go on the badges in game (client icons), so the badges stay empty.

@@ -146,7 +146,7 @@ local CANDIDATE_EVENTS = {
     "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA", "NEW_WMO_CHUNK",
     "PLAYER_ENTERING_WORLD", "PLAYER_LEVEL_UP", "PLAYER_XP_UPDATE",
     "QUEST_TURNED_IN", "QUEST_REMOVED", "QUEST_ACCEPTED", "QUEST_LOG_UPDATE", "QUEST_DATA_LOAD_RESULT",
-    "AREA_POIS_UPDATED", "ADDON_LOADED",
+    "AREA_POIS_UPDATED", "ADDON_LOADED", "TAXIMAP_OPENED", "TAXIMAP_CLOSED", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
 }
 
 local function dumpEnv()
@@ -804,6 +804,69 @@ local function dumpZoneMeta()
 end
 
 ---------------------------------------------------------------------------
+-- Flight paths (/azfdiag taxi; also recorded automatically at a flight master)
+-- Question: can the client say which flight paths this character knows, per zone, without
+-- the flight map open? Candidates: C_TaxiMap.GetTaxiNodesForMap (fields such as state or
+-- atlas name), C_TaxiMap.GetAllTaxiNodes, and the classic flight-master API (NumTaxiNodes,
+-- TaxiNodeName, TaxiNodeGetType "CURRENT"/"REACHABLE"/"DISTANT"/"NONE"), only while open.
+---------------------------------------------------------------------------
+
+local function taxiMasterNodes()
+    local n = try("NumTaxiNodes", NumTaxiNodes)
+    if type(n) ~= "number" or n <= 0 then return { count = n } end
+    local nodes = {}
+    for i = 1, math.min(n, 200) do
+        nodes[i] = {
+            name = try("TaxiNodeName", TaxiNodeName, i),
+            type = try("TaxiNodeGetType", TaxiNodeGetType, i),
+            pos = packArgs(try("TaxiNodePosition", TaxiNodePosition, i)),
+        }
+    end
+    return { count = n, nodes = nodes }
+end
+
+local function dumpTaxi(reason)
+    local T = C_TaxiMap
+    local r = {
+        t = time(), reason = reason, map = currentMapID(),
+        faction = packArgs(try("UnitFactionGroup", UnitFactionGroup, "player")),
+        has = {
+            GetTaxiNodesForMap = T and type(T.GetTaxiNodesForMap) or "no C_TaxiMap",
+            GetAllTaxiNodes = T and type(T.GetAllTaxiNodes) or "no C_TaxiMap",
+            ShouldMapShowTaxiNodes = T and type(T.ShouldMapShowTaxiNodes) or "no C_TaxiMap",
+            NumTaxiNodes = type(NumTaxiNodes), TaxiNodeGetType = type(TaxiNodeGetType),
+            TaxiNodeName = type(TaxiNodeName), FlightPathState = Enum and Enum.FlightPathState and safePlain(Enum.FlightPathState) or "none",
+        },
+        zones = {}, all = {},
+    }
+    if T and C_Map and C_Map.GetMapInfo then
+        local zoneType = Enum and Enum.UIMapType and Enum.UIMapType.Zone or 3
+        local zones, nodes = 0, 0
+        for id = 1, 3000 do
+            local info = try("GetMapInfo", C_Map.GetMapInfo, id)
+            if info and (info.mapType == zoneType or info.mapType == 2) then
+                local list = try("GetTaxiNodesForMap", T.GetTaxiNodesForMap, id)
+                if type(list) == "table" and #list > 0 then
+                    r.zones[id] = { name = info.name, mapType = info.mapType,
+                        show = try("ShouldMapShowTaxiNodes", T.ShouldMapShowTaxiNodes, id), nodes = safePlain(list) }
+                    zones, nodes = zones + 1, nodes + #list
+                end
+            end
+        end
+        r.zoneCount, r.nodeCount = zones, nodes
+        for _, id in ipairs({ 1414, 1415, 947, currentMapID() or 0 }) do
+            local list = try("GetAllTaxiNodes", T.GetAllTaxiNodes, id)
+            if type(list) == "table" then r.all[id] = { count = #list, nodes = safePlain(list) } end
+        end
+    end
+    r.master = taxiMasterNodes()
+    DB.taxi = DB.taxi or {}
+    DB.taxi[reason == "TAXIMAP_OPENED" and "master" or "probe"] = r
+    msg(string.format("flight paths (%s): %d zones with nodes, %d nodes; flight master list %s. Type /reload to save.",
+        tostring(reason), r.zoneCount or 0, r.nodeCount or 0, tostring(r.master.count)))
+end
+
+---------------------------------------------------------------------------
 -- Image format / native texture test
 ---------------------------------------------------------------------------
 
@@ -1229,6 +1292,10 @@ local function onEvent(_, event, ...)
             exploreState = nil
             rescan() -- establishes the baseline
         end)
+    elseif event == "TAXIMAP_OPENED" or (event == "PLAYER_INTERACTION_MANAGER_FRAME_SHOW" and ... == 5) then
+        -- Forever opens the flight map through the interaction manager (type 5 = taxi node)
+        -- [verified-ingame, sniffer 2026-11-08]; TAXIMAP_OPENED never fired.
+        C_Timer.After(0.5, function() pcall(dumpTaxi, "TAXIMAP_OPENED") end)
     elseif RESCAN_ON[event] then
         scheduleRescan(event)
     end
@@ -1268,6 +1335,7 @@ local HELP = {
     "/azfdiag zone   - snapshot the current zone",
     "/azfdiag zones  - record each zone's level range, faction info and map position (raw)",
     "/azfdiag questdb - QuestieDB probe: API, read cost, corrections, race masks, quest areas",
+    "/azfdiag taxi   - flight paths per zone (also recorded when a flight master's map opens)",
     "/azfdiag sniff  - toggle logging of every event name",
     "/azfdiag art    - show the image-format test frame",
     "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
@@ -1289,6 +1357,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "zone" then dumpZone()
     elseif cmd == "zones" then dumpZoneMeta()
     elseif cmd == "questdb" then probeQuestDB()
+    elseif cmd == "taxi" then dumpTaxi("command")
     elseif cmd == "sniff" then setSniff(not DB.sniffOn)
     elseif cmd == "art" then showArt()
     elseif cmd == "pad" then togglePad()

@@ -1,6 +1,6 @@
 -- Summarizes the AzerfolioDiag SavedVariables dump.
 -- Usage: luajit tools/diag-report.lua [section] [param]
--- Sections: summary (default), env, ach, explore, maps, quests, questdb [areas], zone, zones, events, art, errors,
+-- Sections: summary (default), env, ach, explore, maps, quests, questdb [areas], taxi [nodes], zone, zones, events, art, errors,
 --           criteria <achID>, ns <filter>, log [n], skin [tree [filter]]
 -- Set AZF_DIAG_FILE to read a different dump.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
@@ -112,6 +112,49 @@ function R.quests()
     for _, k in ipairs(keys(q.has)) do p("  %-40s %s", k, tostring(q.has[k])) end
     p("allCompletedCount %s legacyCompletedCount %s logEntries %s", tostring(q.allCompletedCount), tostring(q.legacyCompletedCount), tostring(q.logEntries))
     for _, x in ipairs(q.samples or {}) do p("  quest %s done=%s title=%s", tostring(x.id), tostring(x.done), tostring(x.title)) end
+end
+
+-- taxi: the flight path probe (/azfdiag taxi, and automatically at a flight master).
+-- `taxi nodes` prints every node with all its fields.
+local function fields(t)
+    local o = {}
+    for _, k in ipairs(keys(t)) do
+        local v = t[k]
+        if type(v) == "table" then
+            local inner = {}
+            for _, k2 in ipairs(keys(v)) do inner[#inner + 1] = k2 .. "=" .. tostring(v[k2]) end
+            v = "{" .. table.concat(inner, ",") .. "}"
+        end
+        o[#o + 1] = k .. "=" .. tostring(v)
+    end
+    return table.concat(o, " ")
+end
+function R.taxi()
+    local all = DB.taxi
+    if not all then p("no flight path probe recorded (/azfdiag taxi, or open a flight master's map)") return end
+    for _, which in ipairs({ "probe", "master" }) do
+        local r = all[which]
+        if r then
+            p("%s (%s) at %s, map %s, faction %s", which, tostring(r.reason), os.date("%H:%M:%S", r.t), tostring(r.map), s(r.faction))
+            for _, k in ipairs(keys(r.has)) do p("  has %-24s %s", k, tostring(r.has[k])) end
+            p("  GetTaxiNodesForMap: %s maps with nodes, %s nodes", tostring(r.zoneCount), tostring(r.nodeCount))
+            for _, id in ipairs(keys(r.zones)) do
+                local z = r.zones[id]
+                p("  %d %s (type %s, show %s): %d nodes", id, tostring(z.name), tostring(z.mapType), tostring(z.show), #(z.nodes or {}))
+                if arg2 == "nodes" or id == r.map then
+                    for _, n in ipairs(z.nodes or {}) do p("      %s", fields(n)) end
+                end
+            end
+            for _, id in ipairs(keys(r.all)) do
+                local a = r.all[id]
+                p("  GetAllTaxiNodes(%s): %d", tostring(id), a.count or 0)
+                if arg2 == "nodes" then for _, n in ipairs(a.nodes or {}) do p("      %s", fields(n)) end end
+            end
+            local m = r.master or {}
+            p("  flight master list: %s", tostring(m.count))
+            for i, n in ipairs(m.nodes or {}) do p("    %d %s %s %s", i, tostring(n.type), tostring(n.name), s(n.pos)) end
+        end
+    end
 end
 
 -- questdb: the QuestieDB probe (/azfdiag questdb). `questdb areas` lists every quest area.

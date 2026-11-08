@@ -48,6 +48,8 @@ These are hard rules. When a requirement elsewhere conflicts with one of these, 
 
 - Quest tracking per zone, using QuestieDB as the quest catalogue (see §8.4).
 - Quest stat card, quest section on Zone Detail, quest suggestions.
+- **Zone completion across categories** (§7.7): exploration, quests and flight paths together, not exploration alone (owner, 2026-11-08).
+- **Flight paths** discovered per zone (§8.5), if the client can confirm them.
 
 ### Later (architecture must allow, do not build)
 
@@ -119,7 +121,9 @@ Name, race, class, faction, level, XP progress toward next level (when not max l
 
 A prominent percentage of *supported, eligible* objectives completed. It is labeled as tracked completion, not "completion of WoW", and lists which categories it includes (v1: exploration only).
 
-Calculation:
+From v1.1 the headline is the **equal-weight average of the included categories' percentages** (§7.7), so a large category (quests) doesn't drown a small one (exploration); each category's own percentage follows the calculation below.
+
+Calculation (per category):
 - Numerator: objectives the game confirms complete.
 - Denominator: eligible objectives plus locked-but-achievable ones.
 - Excluded: permanently unavailable objectives, unknown objectives, categories without a complete catalogue.
@@ -196,6 +200,8 @@ Zone relevance (should this zone be listed for my character?) and objective elig
 
 Large zone illustration, name, level range, faction applicability, tracked %, progress bar, back button.
 
+From v1.1 Zone Detail opens on a **zone dashboard**: the zone's completion (§7.7) as the player's faction **war banner**, hoisted up its pole as the zone fills, one badge per category, claimed at the top (owner's choice 2026-11-08; `mockups/DESIGN.md`), and one tile per category; each tile opens that category's full page (checklists, storylines, map). B steps back page by page.
+
 ### 7.2 Exploration section
 
 Total, completed, remaining, %, and a checklist. Each row: location name, completed/incomplete indicator, and extra info or map guidance where available. All completion comes from game data, never from tracking the player's movement.
@@ -203,6 +209,8 @@ Total, completed, remaining, %, and a checklist. Each row: location name, comple
 ### 7.3 Quest section (v1.1)
 
 Total known eligible, completed, remaining, % when valid, checklist (name, level, status, eligibility, prerequisites and chain where known), and a coverage indicator. Repeatable quests never count toward totals. Mutually exclusive quests are handled. If quest data is incomplete, say so.
+
+Layout (design review 2026-11-08): **Ready now** first (quests the character can take now, with the client's quest difficulty colours relative to their level), then **storylines** (chains built from QuestieDB's prerequisite and next-quest links, one track per chain, done / ready / locked nodes; single quests share one row). Finished storylines fold into one row. Quests the character can't do are hidden behind one toggle. The coverage note (catalogue, repeatables and unknowns left out, with counts) is a quiet footer. Chains, groups and difficulty come from the quest system; the UI only draws them.
 
 ### 7.4 Objective states
 
@@ -229,6 +237,17 @@ The UI derives what it shows from these two. Unknown never silently counts as co
 - **Zone Complete:** the above, *and* every category the zone should have has a complete catalogue.
 
 Never show or celebrate Zone Complete when any category has unknown or partial coverage.
+
+### 7.7 Zone completion (v1.1)
+
+Decided 2026-11-08 (owner): a zone's completion is holistic, not exploration alone.
+
+- **Categories:** exploration, quests, flight paths (§8.5); more later (§3 Later). Each has its own completed / counted / % from the progression service.
+- **Applies or not:** a category applies to a zone only when the zone has at least one counted objective in it for this character. A category that doesn't apply (no quests in Deadwind Pass, every Durotar quest Horde-only for an Alliance character, no Explore achievement in a capital) is **left out**, never shown as 0%. Capitals with quests become tracked zones through their quests.
+- **Combined %:** the equal-weight average of the applying categories' percentages, computed by `ns.Progression`. A category with partial coverage still shows its own % and ring; its line says what's unchecked ("2 unchecked"), and "Zone Complete" is withheld.
+- **Zone Complete (gold medallion):** every applying category at 100% with complete coverage (§7.5).
+- **Display:** Zone Detail shows the zone standard (§7.1); catalogue cards and list rows show one thin bar per category instead of the exploration pips (the pips stay inside the exploration section); the Overview uses the same combined % and progress art. Catalogue states (complete, in progress, untouched), filters and sorts use the combined state.
+- **Celebrations:** one per category ("Elwynn Forest Explored", "... Quests Complete", "... Flight Paths") and a larger one for Zone Complete.
 
 ### 7.6 Map actions
 
@@ -262,15 +281,19 @@ The bundled exploration catalogue uses game IDs (not names) as keys, is versione
 - Must handle faction, class, profession, prerequisites, exclusive choices, repeatables, breadcrumbs.
 - A partial catalogue is never presented as exhaustive.
 
-### 8.5 Aggregation output
+### 8.5 Flight paths (v1.1)
+
+Requested by the owner 2026-11-08. One objective per flight path node in a zone that the character's faction can use; complete when the client confirms the character knows it. Flight paths count toward the zone's % like any category (owner, 2026-11-08). **Catalogue:** the client's own node list (`C_TaxiMap.GetTaxiNodesForMap`: every node on the continent, both factions, with `name` "Place, Zone" and `faction`); the node's zone comes from the name's zone suffix and its position, with a small curated override table (e.g. "Stormwind, Elwynn" belongs to Stormwind City); `zzOLD…` leftovers are ignored. **Knowledge:** the flight master's list, below. Probe results (`/azfdiag taxi`, 2026-11-08) [verified-ingame]: `C_TaxiMap.GetTaxiNodesForMap(zone)` returns the whole continent's nodes for any zone (36 Eastern Kingdoms, 38 Kalimdor), each with `nodeID`, `name` ("Sentinel Hill, Westfall"), `faction`, `atlasName` and `isUndiscovered`, which was false for every node, Horde ones included, on a level-10 Alliance character: it does **not** say what the character knows. So knowledge must come from the flight master's list (`TaxiNodeGetType`, only while the flight map is open; Forever opens it through `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` type 5, not `TAXIMAP_OPENED`), remembered per character. With the map open (Stormwind): 18 Alliance and neutral Eastern Kingdoms nodes, `CURRENT` / `REACHABLE` = known (Stormwind, Sentinel Hill), `DISTANT` = not known. Details: `docs/research/client-capabilities.md` § Flight paths. A continent whose flight master list hasn't been seen yet has **unknown** flight paths (category shown as "Visit a flight master to check"), never "not discovered". If the client can't confirm knowledge, the category is unavailable, never guessed.
+
+### 8.6 Aggregation output
 
 For any scope (objective set, zone, category, overall): completed, eligible, locked, unavailable, unknown counts; percentage if valid; coverage (`complete` / `partial` / `unavailable`); categories included.
 
-### 8.6 Events
+### 8.7 Events
 
 Listen for zone changes, exploration changes, quest changes, and login. Invalidate only affected cached results. Provide `/azf refresh` for cases where events are missing.
 
-### 8.7 Persistence (SavedVariables)
+### 8.8 Persistence (SavedVariables)
 
 Window position/size, last tab, Zones display mode, filters and sort, milestone history, recently visited zones, preferences. Versioned schema with migrations. Completion state is read from the game, not stored.
 
@@ -334,6 +357,8 @@ All v1 criteria met 2026-11-08 (evidence: `docs/testing.md` § Phase 8).
 - [ ] Reads quest completion; shows known quests per zone.
 - [ ] Eligibility rules applied; repeatables and unavailable quests excluded from totals.
 - [ ] Incomplete coverage clearly labeled; no unverifiable total presented as complete.
+- [ ] Zone completion combines the applying categories (§7.7); a category that doesn't apply is left out, not 0%.
+- [ ] Flight paths per zone, confirmed by the client, or shown as unavailable with the reason.
 
 ## 13. Definition of v1 success
 

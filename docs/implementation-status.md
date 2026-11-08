@@ -14,9 +14,10 @@ Research and decisions: [research/quest-data.md](research/quest-data.md). Decisi
 3. **Completion and eligibility** — done. `Systems/QuestRules.lua` (pure): race/faction and class masks, level (locked) and max level, exclusive choices, chains, breadcrumbs, parent quests, recursive prerequisites. Profession, reputation and spell requirements and races past 9 are unknown (left out of totals). Completed list from `C_QuestLog.GetAllCompletedQuestIDs`, re-read 1 s after `QUEST_TURNED_IN` and on `/azf refresh`; re-evaluated on level change. `Quests.ForZone` / `Quests.Overall` return quest objectives and `ns.Progression` counts.
    - In game (Gideon, Human Paladin 10): all zones 42/1,651 done; Elwynn 42/68 (61%), checklist checked by hand; Horde zones all unavailable; a turn-in updated the counts after the debounce. 42 of 87 completed quests count in zones, 43 are quest sorts, 2 aren't in QuestieDB. Build 73 ms of work over 38 frames, slowest frame 3.5 ms (one earlier build hit 15.7 ms; details batch now 50 per frame, not yet checked in game). Evaluating every zone at once: 30 ms in one frame (debug report only; step 5 must spread it). Addon memory after a full GC: 6.3 MB.
    - Open: QuestieDB has no list of quests that can't be obtained. Candidate: "Welcome!" (5805, started by the Northshire Gift Voucher item).
-4. **Zone Detail quest section** — next. Mockup first, then Lua.
-5. **Overview** — quest stat card and quest suggestions.
-6. **In-game check** of spec §12 "v1.1 Quests".
+4. **Zone completion and quest section** — in progress (design review 2026-11-08, spec §7.3, §7.7). Mockup first: zone medallion and per-category bars; quest section as Ready now plus storylines. Then Lua.
+5. **Flight paths** (spec §8.5) — probe `/azfdiag taxi` (report `luajit tools/diag-report.lua taxi [nodes]`) waiting for an in-game run.
+6. **Overview** — medallion, quest stat card and quest suggestions.
+7. **In-game check** of spec §12 "v1.1 Quests".
 
 ## Tooling (2026-11-08)
 

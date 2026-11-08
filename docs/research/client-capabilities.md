@@ -98,6 +98,17 @@ Run on Gideon (level 9, Alliance, in Elwynn Forest), 51 zone maps, 0 errors. Rep
 | `C_QuestLog.GetTitleForQuestID(id)` | Returned nil for completed quests (likely not cached). Use the QuestieDB catalogue for names | [verified-ingame] |
 | `C_QuestLine`, `C_QuestHub`, `C_QuestInfoSystem` | Namespaces exist; not yet probed | [verified-ingame] |
 
+## Flight paths (probe `/azfdiag taxi`, 2026-11-08, Gideon in Stormwind)
+
+| API | Status | Evidence |
+|---|---|---|
+| `C_TaxiMap.GetTaxiNodesForMap(mapID)` | Returns the **whole continent's** nodes for any zone or continent (36 Eastern Kingdoms, 38 Kalimdor, both factions plus neutral). Fields: `nodeID`, `name` ("Sentinel Hill, Westfall"), `faction` (0 neutral, 1 Horde, 2 Alliance), `atlasName`, `position`, `isUndiscovered`. `isUndiscovered` was false for every node, Horde ones included: **not** the character's knowledge | [verified-ingame] |
+| `C_TaxiMap.GetAllTaxiNodes(mapID)` | 0 nodes with the flight map closed | [verified-ingame] |
+| Flight map open | Fires `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` with type 5; `TAXIMAP_OPENED` never fired. `TAXIMAP_CLOSED` does fire | [verified-ingame, sniffer] |
+| `NumTaxiNodes`, `TaxiNodeName(i)`, `TaxiNodeGetType(i)`, `TaxiNodePosition(i)` (map open) | 18 nodes: this faction's nodes on this continent only (plus neutral ones). Types: `CURRENT` (Stormwind), `REACHABLE` (Sentinel Hill, which Gideon knows), `DISTANT` (the 16 others, not known). Positions are 0–1 on the continent map | [verified-ingame] |
+
+Consequences: a flight path's "known" state can only be read at a flight master (`CURRENT` or `REACHABLE` = known), one continent per visit, and must be remembered per character in SavedVariables (with the time it was confirmed). Nodes map to zones by continent position against the zone rectangles (`C_Map.GetMapRectOnMap`), the smallest containing rect winning (Stormwind's node sits inside both Elwynn and Stormwind City). Leftover nodes named `zzOLD…` (Riverglades) must be ignored. Until the character visits a flight master on a continent, its flight paths there are unknown, not "not discovered".
+
 ## UI framework
 
 - Available: `CreateScrollBoxListLinearView`, `CreateScrollBoxListGridView`, `CreateDataProvider`, `ScrollUtil`, `Mixin`, `CreateFromMixins`, `UISpecialFrames`, `AddonCompartmentFrame`, `Settings`, `OpenWorldMap`, `ToggleWorldMap`, `WorldMapFrame`, `SetPortraitTexture`. [verified-ingame]

@@ -1,4 +1,4 @@
--- The single aggregation service (spec §5.2, §7.5, §8.5). Pure; no WoW API use.
+-- The single aggregation service (spec §5.2, §7.5, §7.7, §8.6). Pure; no WoW API use.
 -- Every count, percentage and coverage value the UI shows comes from here.
 local _, ns = ...
 
