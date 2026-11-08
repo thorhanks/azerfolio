@@ -96,4 +96,31 @@ return function(t)
         t.ok(g:JumpSection(1, 8)); t.eq(g:CurrentKey(), "r20", "clamped")
         t.eq(g:JumpSection(1, 8), false)
     end)
+
+    t.test("groups: up/down stay in a column, skip rows without it; left/right cross", function()
+        local G = load()
+        local g = G.New()
+        local function it(key, group) return { key = key, group = group } end
+        -- Left column: hero, then a row of three chips, a row of one chip, two more rows.
+        -- Right column: three panels beside the first three rows.
+        g:SetRows({
+            { items = { it("hero", "L"), it("p1", "R") } },
+            { items = { it("c1", "L"), it("c2", "L"), it("c3", "L"), it("p2", "R") } },
+            { items = { it("c4", "L"), it("p3", "R") } },
+            { items = { it("c5", "L") } },
+            { items = { it("c6", "L"), it("c7", "L") } },
+        })
+        t.ok(g:Move("right")); t.eq(g:CurrentKey(), "p1")
+        t.ok(g:Move("down")); t.eq(g:CurrentKey(), "p2", "down the right column, not onto a chip")
+        t.ok(g:Move("down")); t.eq(g:CurrentKey(), "p3")
+        t.eq(g:Move("down"), false, "no more right items")
+        t.ok(g:Move("left")); t.eq(g:CurrentKey(), "c4")
+        t.ok(g:Move("up")); t.eq(g:CurrentKey(), "c1")
+        t.ok(g:Move("right")); t.ok(g:Move("right")); t.eq(g:CurrentKey(), "c3")
+        t.ok(g:Move("down")); t.eq(g:CurrentKey(), "c4", "shorter left row: its last chip")
+        t.ok(g:Move("down")); t.ok(g:Move("down")); t.eq(g:CurrentKey(), "c7", "wanted column kept")
+        t.ok(g:Move("up")); t.ok(g:Move("up")); t.ok(g:Move("up")); t.eq(g:CurrentKey(), "c3")
+        g:FocusKey("p3")
+        t.ok(g:Move("up")); t.eq(g:CurrentKey(), "p2")
+    end)
 end

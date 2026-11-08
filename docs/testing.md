@@ -110,3 +110,28 @@ On Thragor:
 | Date | By | Result |
 |---|---|---|
 | 2026-11-07 | Owner (Gideon, Thragor) + agent | Pass. Owner ran every step with the controller and reported them done. Trace (`AzerfolioDB.trace`, file written 21:33:16): **Gideon** (Alliance, 9): 50 listed, 43 shown with "Relevant to me", hidden = exactly the 7 Horde zones and capitals; Elwynn 10/12 progress, 42 untouched, 7 not tracked; view persisted as `list` after the step-3 reload. **Thragor** (Horde, 1): 38 shown, hidden = the 12 Alliance zones and capitals, contested zones (Ashenvale, Barrens, ...) kept; Durotar 2/11, Elwynn 0/12 (per character). Shots `WoWScrnShot_110726_213025`–`213041`: "Alliance" faction labels on cards, banner 83% readable on the dark band, shots start on the cards. TOC has no `Dependencies`/`RequiredDeps` (files). Found: at 1000 wide the toolbar overflowed (Sort ran into Cards, search hidden behind it); fixed with short labels and tighter padding when narrow (tests; not re-shot) |
+
+## Phase 7 - Overview dashboard (spec §12 "Overview")
+
+Automated: `luajit tests/run.lua` covers the Overview's picks (Continue, next goal, suggestion rules and limits, never unknown or unavailable objectives, stat counts, recent zones, activity, milestone times; `tests/overview_test.lua`) and the page (live catalogue, A on an area opens Zone Detail focused on it and B comes back, LT/RT and column focus, Zones panel filter, visits, redraw on discovery, pooling).
+
+| Spec §12 criterion | How it's checked |
+|---|---|
+| Accurate character info | Window strip (Phase 4, verified in game); shots |
+| Tracked completion with listed categories; unavailable data clearly marked | Shots; `/azf debug overview` trace vs `/azf debug exploration` total |
+| Current-zone progress with link to Zone Detail | Steps 2-3: same % and n of m as the Zones card; A opens the detail, B returns |
+| Suggestions only from eligible, known objectives | Automated; step 4 against the zone's checklist |
+| Milestones recorded only for progress observed after baseline | Phase 5 (verified in game); step 5 shows a new one with today's time |
+| Overview and Zones show identical numbers for the same zone | Step 3; both read the same `ns.Zones` entry (automated) |
+
+**Steps (owner)**, on Gideon:
+1. `/reload`, then `/azf debug` (debug on). Open Azerfolio on the Overview.
+2. The Continue card shows your current zone. Note its % and "n of m".
+3. Press **A** on it: Zone Detail of that zone with the same numbers. Press **B**: back on the Overview.
+4. **D-pad down** to a suggested area, **A**: Zone Detail focused on that area (under "To discover"). **B** back.
+5. Walk into an undiscovered area of the current zone: the card's % and pips update, the area leaves the suggestions, and Activity lists it with today's time.
+6. Ride into another zone, open Azerfolio: the zone you left is under Recent zones.
+7. `/azf debug overview`, then `/azf shots` (wait about 25 seconds), then `/reload`.
+
+| Date | By | Result |
+|---|---|---|

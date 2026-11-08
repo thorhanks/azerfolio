@@ -4,6 +4,8 @@
 --   grid:SetRows({ { items = { a, b }, section = 1 }, { items = { c }, section = 1 }, ... })
 --   grid:Move("down") / grid:JumpSection(1) / grid:Current()
 -- Items are opaque tables; an item's `key` (if any) lets focus survive SetRows.
+-- An item's `group` (if any) makes a column: up/down stay among items of the same group and
+-- skip rows that have none (the Overview's two columns share rows); left/right cross groups.
 local _, ns = ...
 
 local FocusGrid = {}
@@ -60,12 +62,32 @@ function FocusGrid:CurrentKey()
     return item and item.key
 end
 
+-- The columns (indexes) in row `row` whose items are in `group` (nil = items without one).
+local function inGroup(r, group)
+    local out = {}
+    for ci, item in ipairs(r.items) do
+        if item.group == group then out[#out + 1] = ci end
+    end
+    return out
+end
+
+-- The position of (row, col) among the items of its group in that row.
+function FocusGrid:GroupIndex(row, col)
+    local r = self.rows[row]
+    local item = r and r.items[col]
+    if not item then return col end
+    for i, ci in ipairs(inGroup(r, item.group)) do
+        if ci == col then return i end
+    end
+    return col
+end
+
 function FocusGrid:Focus(row, col)
     local r = self.rows[row]
     if not r then return false end
     self.row = row
     self.col = math.max(1, math.min(col or 1, #r.items))
-    self.wantCol = self.col
+    self.wantCol = self:GroupIndex(self.row, self.col)
     return true
 end
 
@@ -92,14 +114,24 @@ function FocusGrid:Move(dir)
         local n = #self.rows[self.row].items
         local col = self.col + step
         if col < 1 or col > n then return false end
-        self.col, self.wantCol = col, col
+        self.col = col
+        self.wantCol = self:GroupIndex(self.row, col)
         return true
     elseif dir == "up" or dir == "down" then
-        local row = self.row + (dir == "up" and -1 or 1)
-        if row < 1 or row > #self.rows then return false end
-        self.row = row
-        self.col = math.min(self.wantCol or self.col, #self.rows[row].items)
-        return true
+        local step = dir == "up" and -1 or 1
+        local cur = self.rows[self.row].items[self.col]
+        local group = cur and cur.group
+        local row = self.row + step
+        while row >= 1 and row <= #self.rows do
+            local cols = inGroup(self.rows[row], group)
+            if #cols > 0 then
+                self.row = row
+                self.col = cols[math.min(self.wantCol or 1, #cols)]
+                return true
+            end
+            row = row + step
+        end
+        return false
     end
     return false
 end

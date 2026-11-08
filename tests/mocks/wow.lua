@@ -126,6 +126,7 @@ function M.install(overrides)
         return f
     end
     _G.time = os.time
+    _G.date = os.date
     _G.GetTime = os.clock
     _G.unpack = _G.unpack or table.unpack
     _G.C_Timer = { After = function(_, fn) timers[#timers + 1] = fn end }

@@ -36,6 +36,7 @@ Theme.color = {
     ctlEdge = hex("5f5141"),
     cardBg = hex("1a120b"),
     cardEdge = hex("5a4128"),
+    well = hex("3d342a"),         -- empty part of bars and the activity strip (style.css .stack .u)
     focus = { 1, 0.902, 0 },      -- GAMEPAD_SMARTNAV_CURSOR_COLOR [verified-ingame]
     black = { 0, 0, 0 },
     ink = hex("2b1a0c"),
@@ -105,6 +106,25 @@ Theme.layout = {
     pip = 10,
     pipGap = 3,
     maxLevel = 60,             -- the level bar's scale
+    -- Overview (mockups/style.css .overview, .hero, .goal, .zonegroup, .counter, .activity)
+    overviewLeft = 0.6,        -- left column's share (grid 1.5fr 1fr)
+    heroHeight = 164,
+    heroArt = 190,
+    heroScore = 120,           -- right part of the Continue card (big percentage)
+    goalHeight = 40,
+    chipHeight = 28,
+    chipPad = 10,
+    chipDot = 8,
+    groupHead = 24,            -- suggestion group's name line
+    counterHeight = 76,        -- Tracked completion panel
+    zonesCounterHeight = 84,
+    statBar = 12,              -- stacked / progress bar height in the panels
+    recentRow = 40,
+    recentThumb = { 56, 28 },
+    sparkHeight = 36,
+    sparkGap = 3,
+    milestoneRow = 26,
+    milestoneIcon = 18,
 }
 
 -- Space the window's outside parts take (tabs right, legend below, portrait ring and glow).

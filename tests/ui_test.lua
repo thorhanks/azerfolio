@@ -42,6 +42,7 @@ local function boot(savedAccount, savedChar)
             return c[1], 43, c[2], c[2] and 1 or 0, 1, "", 0, 0, "", c[3], true
         end,
         UnitName = function() return "Gideon" end,
+        UnitFactionGroup = function() return "Alliance", "Alliance" end,
         UnitLevel = function() return 9 end,
         UnitXP = function() return 273 end,
         UnitXPMax = function() return 6500 end,
@@ -444,10 +445,13 @@ return function(t)
         t.eq(ns.Focus.Current().title, "Westfall")
         press(ns, "PADLSHOULDER")
         t.eq(ns.UI.CurrentTab(), "overview")
-        t.eq(ns.Focus.Current(), nil, "the placeholder Overview has nothing to focus")
-        t.eq(ns.Focus.pointer:IsShown(), false)
+        t.eq(ns.Focus.Current().key, "hero", "the Overview starts on the Continue card")
+        press(ns, "PADDRIGHT")
+        t.eq(ns.Focus.Current().key, "completion")
         press(ns, "PADRSHOULDER")
         t.eq(ns.Focus.Current().title, "Westfall", "back where it was")
+        press(ns, "PADLSHOULDER")
+        t.eq(ns.Focus.Current().key, "completion", "and the Overview's focus too")
     end)
 
     t.test("no chevron when the controller isn't driving the window", function()
@@ -852,7 +856,7 @@ return function(t)
         local pictures = 0
         for _, s in ipairs(ns.UI.ShotSteps()) do if not s.skip then pictures = pictures + 1 end end
         t.eq(_G.screenshotsTaken, pictures)
-        t.eq(_G.screenshotsTaken, 11)
+        t.eq(_G.screenshotsTaken, 12)
         t.eq(ns.db.zones.displayMode, "cards", "view restored")
         t.eq(ns.UI.GetFrame().pages.zones.popup:IsShown(), false, "popup closed")
         local labels = {}
@@ -1139,5 +1143,166 @@ return function(t)
         wow.runTimers()
         t.ok(_G.screenshotsTaken <= 1, "stopped early")
         t.eq(ns.UI.shotsRunning, false)
+    end)
+
+    ---------------------------------------------------------------------------------------------
+    -- Overview
+    ---------------------------------------------------------------------------------------------
+
+    local function overview(ns) return ns.UI.GetFrame().pages.overview end
+    local function keys(row)
+        local out = {}
+        for _, it in ipairs(row.items) do out[#out + 1] = tostring(it.key) end
+        return table.concat(out, ",")
+    end
+
+    t.test("overview: Continue card, suggestions and stats from the live catalogue", function()
+        padUI = true
+        local ns = boot()
+        slash("")
+        t.eq(ns.UI.CurrentTab(), "overview")
+        local p = overview(ns).parts
+        t.eq(p.hero.name:GetText(), "Elwynn Forest")
+        t.eq(p.hero.kicker:GetText(), "CONTINUE EXPLORING · CURRENT ZONE")
+        t.eq(p.hero.pct:GetText(), "40%", "the same number the Zones card shows")
+        t.eq(p.hero.count:GetText(), "2 of 5")
+        t.ok(p.hero.left:GetText():find("3|r areas to go"), p.hero.left:GetText())
+        t.eq(p.goal:IsShown(), false, "no other zone in progress: no next goal")
+        local groups = overview(ns).pools.groups
+        t.eq(groups[1].name:GetText(), "Elwynn Forest"); t.eq(groups[1].why:GetText(), "Current zone · 3 left")
+        t.eq(groups[2], nil, "Durotar is Horde territory; Westfall and Teldrassil have no data")
+        t.eq(overview(ns).pools.chips[1].text:GetText(), "Fargodeep Mine")
+        -- Most of the 43 catalogue zones have no achievement data in the mock: no percentage.
+        t.eq(p.completion.pct:GetText(), "-")
+        t.ok(p.completion.line:GetText():find("Waiting for the game's data %(40 of 43 zones unreadable%)"),
+            p.completion.line:GetText())
+        t.ok(p.zones.count:GetText():find("1|r of 4 complete"), "Durotar left out: " .. p.zones.count:GetText())
+        t.ok(p.zones.legend:GetText():find("1 in progress") and p.zones.legend:GetText():find("0 untouched")
+            and p.zones.legend:GetText():find("2 no data"), p.zones.legend:GetText())
+        t.eq(p.recentEmpty:IsShown(), true, "only the current zone visited so far")
+        t.eq(p.activity.empty:IsShown(), true)
+        local rows = overview(ns):GetFocusRows()
+        t.eq(#rows, 2)
+        t.eq(keys(rows[1]), "hero,completion")
+        t.eq(keys(rows[2]), "chip:1148,chip:1149,chip:1150,zones")
+        t.eq(overview(ns).hasSections, true)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("overview: A on an area opens Zone Detail on it; B comes back to the same chip", function()
+        padUI = true
+        local ns = boot()
+        slash("")
+        press(ns, "PADDDOWN"); press(ns, "PADDRIGHT")
+        t.eq(ns.Focus.Current().title, "Crystal Lake")
+        press(ns, "PAD1")
+        t.eq(ns.UI.CurrentTab(), "zones")
+        local z = ns.UI.GetFrame().pages.zones
+        t.eq(z.mode, "detail"); t.eq(z.zone.mapID, 1429)
+        t.eq(ns.Focus.Current().key, "c1149", "focused on the area")
+        press(ns, "PAD2")
+        t.eq(ns.UI.CurrentTab(), "overview", "B returns to the Overview")
+        t.eq(ns.Focus.Current().key, "chip:1149")
+        t.eq(ns.UI.IsShown(), true)
+        -- Opened from the catalogue, B stays on Zones.
+        press(ns, "PADRSHOULDER")
+        t.eq(z.mode, "list")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("overview: RT/LT jump between sections; right moves to the stat panels", function()
+        padUI = true
+        local ns = boot()
+        slash("")
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().key, "chip:1148", "RT: the first suggestion group")
+        press(ns, "PADLTRIGGER")
+        t.eq(ns.Focus.Current().key, "hero", "LT: back to Continue")
+        press(ns, "PADDRIGHT")
+        t.eq(ns.Focus.Current().key, "completion")
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().key, "zones", "down stays in the right column")
+        press(ns, "PADDLEFT")
+        t.eq(ns.Focus.Current().key, "chip:1150", "left: the nearest chip")
+        press(ns, "PADDUP")
+        t.eq(ns.Focus.Current().key, "hero", "up stays in the left column")
+    end)
+
+    t.test("overview: the Zones panel opens the catalogue filtered to complete zones", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, zones = { faction = "all" } })
+        slash("")
+        ns.Focus.FocusKey("zones")
+        t.eq(ns.Focus.Current().actionLabel, "Show complete")
+        press(ns, "PAD1")
+        t.eq(ns.UI.CurrentTab(), "zones")
+        t.eq(ns.db.zones.completion, "complete")
+        t.eq(shown(ns), "Dun Morogh")
+        t.eq(ns.Focus.Current().title, "Dun Morogh")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("overview: zones you enter are remembered per character and listed, newest first", function()
+        padUI = true
+        local ns = boot()
+        slash("")
+        t.same(ns.charDB.recentZones, { 1429 }, "the zone you log in to")
+        here = 1426
+        wow.fire("ZONE_CHANGED_NEW_AREA")
+        here = 2521 -- Zephras Isle isn't tracked: not recorded
+        wow.fire("ZONE_CHANGED_NEW_AREA")
+        here = 1411
+        wow.fire("ZONE_CHANGED_NEW_AREA")
+        wow.runTimers()
+        here = 1429
+        t.same(ns.charDB.recentZones, { 1429, 1426, 1411 })
+        local rows = overview(ns).pools.recent
+        t.eq(rows[1].name:GetText(), "Dun Morogh"); t.eq(rows[2].name:GetText(), "Elwynn Forest")
+        t.eq(rows[1].pct:GetText(), "100%")
+        t.eq(overview(ns).parts.hero.name:GetText(), "Durotar", "now the current zone")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("overview: a discovery redraws the card and lists the milestone with its time", function()
+        padUI = true
+        local ns = boot()
+        slash("")
+        CRITERIA[776][3][2] = true -- Fargodeep Mine discovered
+        wow.fire("CRITERIA_UPDATE")
+        wow.runTimers()
+        CRITERIA[776][3][2] = false
+        local o = overview(ns)
+        t.eq(o.parts.hero.pct:GetText(), "60%")
+        t.eq(o.pools.chips[1].text:GetText(), "Crystal Lake", "the discovered area is no longer suggested")
+        local m = o.pools.milestones[1]
+        t.ok(m and m.text:GetText():find("Fargodeep Mine"), m and m.text:GetText())
+        t.ok(m.time:GetText():find("^Today, %d%d:%d%d$"), m.time:GetText())
+        t.ok(o.parts.activity.today:GetText():find("1|r today"), o.parts.activity.today:GetText())
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("overview: redraws while hidden wait for the next show; frames are reused", function()
+        local ns = boot()
+        slash("")
+        local o = overview(ns)
+        ns.UI.SelectTab("zones")
+        ns.Events.Send("AZF_MILESTONE", {})
+        t.eq(o.dirty, true)
+        local before = wow.frameCount()
+        ns.UI.SelectTab("overview")
+        t.eq(o.dirty, false)
+        for _ = 1, 3 do o:Redraw() end
+        t.eq(wow.frameCount(), before, "no new frames on redraw")
+    end)
+
+    t.test("/azf debug overview reports the picks in chat and in the trace", function()
+        local ns = boot({ schemaVersion = 4, debug = true })
+        slash("debug overview")
+        local text = table.concat(wow.chat, "\n")
+        t.ok(text:find("continue: Elwynn Forest %(current%)"), text)
+        t.ok(text:find("suggestions: Elwynn Forest %(current, 3 left%)\n"), text)
+        t.ok(text:find("zones 1 of 4 complete %(1 in progress, 0 untouched, 2 unknown%)"), text)
+        local e = ns.db.trace[#ns.db.trace]
+        t.eq(e.kind, "overview"); t.eq(e.hero, 1429)
     end)
 end

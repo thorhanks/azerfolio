@@ -416,6 +416,7 @@ local function build(parent)
 
     -- A on a zone: open its detail (narrow) or move into its areas (wide).
     function page:Open(zone)
+        self.returnTo = nil
         show(zone, true)
         local first = self.detailRows[1] and self.detailRows[1].items[1]
         if self.wide and not first then -- nothing to move into; the detail already shows why
@@ -430,6 +431,7 @@ local function build(parent)
     -- A click on a zone: in the split view it selects the zone and keeps focus in the list.
     function page:Click(zone)
         if not self.wide then return self:Open(zone) end
+        self.returnTo = nil
         self.mode = "list"
         show(zone)
         self.pendingFocusKey = zone.mapID
@@ -498,7 +500,41 @@ local function build(parent)
         self.mode = "list"
         self.pendingFocusKey = self.zone and self.zone.mapID
         refresh()
+        -- Opened from another tab (the Overview): B goes back there.
+        local back = self.returnTo
+        self.returnTo = nil
+        if back then ns.UI.SelectTab(back) end
         return true
+    end
+
+    -- Opens a zone's detail from another tab, focused on one of its areas if given. B returns
+    -- to `returnTo`. The caller selects the Zones tab first.
+    function page:ShowZone(zone, criteriaID, returnTo)
+        if self.popup:IsShown() then self.popup:Close() end
+        self:Open(zone)
+        if self.mode ~= "detail" then return end
+        if criteriaID ~= nil then
+            self.pendingFocusKey = "c" .. tostring(criteriaID)
+            refresh()
+        end
+        self.returnTo = returnTo
+    end
+
+    -- Shows the catalogue with one status filter (the Overview's Zones card).
+    function page:ShowStatus(value)
+        if self.popup:IsShown() then self.popup:Close() end
+        self.returnTo = nil
+        self.mode = "list"
+        ns.db.zones.completion = value
+        self.building = true
+        cat:Refresh()
+        self.building = false
+        if self.wide then
+            local zone = cat.firstZone
+            if zone then show(zone) else self.zone, self.detailRows = nil, nil end
+        end
+        self.pendingFocusKey = cat.firstZone and cat.firstZone.mapID
+        refresh()
     end
 
     -- Opens the world map on the shown zone. The map needs the controller, so Azerfolio hides
@@ -609,6 +645,9 @@ local function build(parent)
             refresh()
         end
     end)
+
+    -- Leaving the tab another way (LB/RB) forgets where B would have returned to.
+    page:SetScript("OnHide", function(self) self.returnTo = nil end)
 
     page:Layout() -- first layout: page.wide is nil, so this arranges and draws
     -- Open on the first zone, not the toolbar.
