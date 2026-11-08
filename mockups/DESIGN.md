@@ -53,7 +53,7 @@ The owner chose the **full native Forever look**: Azerfolio looks like the clien
 **Overview: fits one screen** (no scrolling at 1160×740), two columns.
 - Left: **Continue card** (art, pips, "n to go", big percentage on the right, A prompt), **Next goal** (the in-progress zone with the fewest left, excluding the Continue zone, with pips inline after the text), **Suggested next** (up to 3 zone groups, up to 6 area chips each, "+n more").
 - Right: **Areas discovered** (count, %, bar), **Zones** (stacked bar plus legend), **Atlas thumbnail** (one focus stop; A opens the Atlas view), **Activity** (14-day strip and the 3 latest milestones).
-- Lua (Phase 7, pending the owner's OK): the first panel is titled **Tracked completion** and names its category ("Includes Exploration: n of m areas discovered"), per spec §5.2. Until the Atlas view exists, **Recent zones** (the 3 latest visited zones other than the current one: thumbnail, name, pips, %) takes the Atlas thumbnail's place. B in a Zone Detail opened from the Overview returns to the Overview.
+- Lua (Phase 7, approved by the owner 2026-11-07): the first panel is titled **Tracked completion** and names its category ("Includes Exploration: n of m areas discovered"), per spec §5.2. Until the Atlas view exists, **Recent zones** (the 3 latest visited zones other than the current one: thumbnail, name, pips, %) takes the Atlas thumbnail's place. B in a Zone Detail opened from the Overview returns to the Overview.
 
 **Zones: three views, cycled with Y:** Cards, List, Atlas.
 - Toolbar on one row: status segments (All / In progress / Untouched / Complete), Show / Level / Sort buttons that open a gamepad popup, zone count, search, and an icon-only view toggle.
