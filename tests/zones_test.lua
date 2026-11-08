@@ -247,12 +247,14 @@ return function(t)
             t.ok(F(ns.ZoneData, mapID), "map " .. mapID .. " has a valid territory")
             counts[f] = counts[f] + 1
         end
-        t.eq(n, 46, "40 classic zones and 6 capitals")
-        t.eq(counts.Alliance, 12); t.eq(counts.Horde, 7); t.eq(counts.Contested, 27)
+        t.eq(n, 50, "40 classic zones, 6 capitals and the 4 Forever zones: every listed zone")
+        t.eq(counts.Alliance, 12); t.eq(counts.Horde, 7); t.eq(counts.Contested, 31)
         for _, id in ipairs({ 1440, 1425, 1445, 1435 }) do
             t.eq(ns.ZoneData.faction[id], "Contested", "judgement call kept contested: " .. id)
         end
-        for _, id in ipairs({ 2521, 2548, 2652, 2482 }) do t.eq(ns.ZoneData.faction[id], nil) end
+        for _, id in ipairs({ 2521, 2548, 2652, 2482 }) do
+            t.eq(ns.ZoneData.faction[id], "Contested", "Forever zone from the owner: " .. id)
+        end
     end)
 
     t.test("query: filter, sort and group together; counts come with it", function()

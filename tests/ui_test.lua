@@ -189,7 +189,7 @@ return function(t)
         local c = cat.byMap[1429]
         t.eq(c.pct:GetText(), "40%"); t.eq(c.n:GetText(), "2/5"); t.eq(c.lv:GetText(), "Lv 1-10")
         t.eq(c.fac:GetText(), "Alliance"); t.eq(cat.byMap[1411].fac:GetText(), "Horde")
-        t.eq(cat.byMap[2521].fac:GetText(), "", "Zephras Isle: no territory known")
+        t.eq(cat.byMap[2521].fac:GetText(), "", "Zephras Isle: contested isn't shown on cards")
         t.eq(c.fit:IsShown(), true, "level 9 fits 1-10")
         t.eq(cat.byMap[1426].emblem:IsShown(), true, "complete: emblem")
         t.eq(cat.byMap[1436].pct:GetText(), "?", "Westfall: no data is not 0%")
@@ -294,7 +294,7 @@ return function(t)
         t.eq(cat.options.faction:IsShown(), true, "faction data from the guide: Show is offered")
         ns.db.zones.faction = "relevant"; cat:Refresh()
         t.eq(shown(ns), "Dun Morogh,Elwynn Forest,Teldrassil,Zephras Isle,Westfall",
-            "Durotar (Horde territory) hidden for an Alliance character; Zephras Isle (unknown) kept")
+            "Durotar (Horde territory) hidden for an Alliance character; Zephras Isle (both) kept")
         t.ok(cat.options.faction.text:GetText():find("Relevant to me"))
     end)
 

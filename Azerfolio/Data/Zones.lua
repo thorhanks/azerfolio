@@ -72,7 +72,7 @@ ns.ZoneData = {
     -- (Alliance), Swamp of Sorrows (Horde). Westfall: Affiliation "Independent", but the
     -- infobox notes "Alliance" in game, so Alliance. Thousand Needles: no field; the page's
     -- prose says contested. Forever-only zones (Zephras Isle, Riverglades, Shen'dralas,
-    -- Mount Hyjal): no source, no entry.
+    -- Mount Hyjal): from the owner, all for both factions (Contested).
     faction = {
         -- Eastern Kingdoms
         [1416] = "Contested", -- Alterac Mountains (Affiliation: Crushridge, Syndicate, ...)
@@ -122,5 +122,10 @@ ns.ZoneData = {
         [1457] = "Alliance",  -- Darnassus (PvP status: Alliance territory)
         [1454] = "Horde",     -- Orgrimmar (PvP status: Horde territory)
         [1456] = "Horde",     -- Thunder Bluff (PvP status: Horde territory)
+        -- Forever-only zones (owner, 2026-11-07)
+        [2521] = "Contested", -- Zephras Isle: for both factions (Skyborn start)
+        [2548] = "Contested", -- Riverglades
+        [2652] = "Contested", -- Shen'dralas
+        [2482] = "Contested", -- Mount Hyjal
     },
 }
