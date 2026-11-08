@@ -4,7 +4,7 @@ local _, ns = ...
 local Config = {}
 ns.Config = Config
 
-Config.ACCOUNT_SCHEMA = 2
+Config.ACCOUNT_SCHEMA = 3
 Config.CHAR_SCHEMA = 1
 
 -- Account-wide settings (AzerfolioDB).
@@ -22,7 +22,9 @@ Config.ACCOUNT_DEFAULTS = {
         level = "all",
         sort = "recommended",
     },
-    launcher = { minimapAngle = 200, minimapHidden = false },
+    -- 140 = top-left of the minimap; other addons' buttons sat at about 206 and 228 on the
+    -- owner's client (WoWScrnShot_110726_181323).
+    launcher = { minimapAngle = 140, minimapHidden = false },
     notifications = { enabled = true },
 }
 

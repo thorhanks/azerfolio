@@ -47,7 +47,8 @@ for _, name in ipairs({ "SetFrameStrata", "SetBackdrop", "SetBackdropColor",
     "ClearAllPoints" }) do
     frameMethods[name] = function() end
 end
-for _, name in ipairs({ "SetScrollChild", "EnableMouseWheel", "SetTexCoord" }) do
+function frameMethods:GetEffectiveScale() return 1 end
+for _, name in ipairs({ "SetScrollChild", "EnableMouseWheel", "SetTexCoord", "RegisterForClicks" }) do
     frameMethods[name] = function() end
 end
 function frameMethods:SetVerticalScroll(v) self.vscroll = v end

@@ -12,6 +12,8 @@ local HELP = {
     "/azf debug zone - show the current map and zone",
     "/azf shot - take a test screenshot (development)",
     "/azf shots - screenshot every tab and state (development)",
+    "/azf minimap - show or hide the minimap button",
+    "Key binding: Key Bindings > AddOns > Azerfolio",
 }
 
 local function toggleWindow()
@@ -110,6 +112,9 @@ function Commands.Handle(input)
         shot()
     elseif cmd == "shots" then
         ns.UI.RunShots()
+    elseif cmd == "minimap" then
+        local shown = ns.Launcher.ToggleMinimapButton()
+        ns.Print(shown and "Minimap button shown." or "Minimap button hidden. Type /azf minimap to bring it back.")
     else
         ns.Print("Unknown command. Type /azf help.")
     end

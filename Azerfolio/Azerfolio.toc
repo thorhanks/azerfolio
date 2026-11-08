@@ -6,6 +6,9 @@
 ## SavedVariables: AzerfolioDB
 ## SavedVariablesPerCharacter: AzerfolioCharDB
 ## IconTexture: Interface\Icons\INV_Misc_Book_11
+## AddonCompartmentFunc: Azerfolio_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: Azerfolio_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: Azerfolio_OnAddonCompartmentLeave
 
 Core\Init.lua
 Data\Art.lua
@@ -25,4 +28,5 @@ UI\Focus.lua
 UI\Pages\Overview.lua
 UI\Pages\Zones.lua
 UI\Shots.lua
+UI\Launcher.lua
 Core\Lifecycle.lua

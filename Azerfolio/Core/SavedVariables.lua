@@ -79,6 +79,12 @@ SV.ACCOUNT_MIGRATIONS = {
             w.width, w.height = 1160, 740
         end
     end,
+    -- 3: the minimap button's default moved from 200 (on top of another addon's button) to 140.
+    -- An angle still at the old default was never dragged, so it moves too.
+    [3] = function(db)
+        local l = db.launcher
+        if type(l) == "table" and l.minimapAngle == 200 then l.minimapAngle = 140 end
+    end,
 }
 SV.CHAR_MIGRATIONS = {}
 

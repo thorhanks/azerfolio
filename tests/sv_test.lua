@@ -32,7 +32,7 @@ return function(t)
 
     t.test("valid saved values survive", function()
         local _, SV = load()
-        local saved = { schemaVersion = 2, lastTab = "zones", zones = { displayMode = "list", sort = "closest" },
+        local saved = { schemaVersion = 3, lastTab = "zones", zones = { displayMode = "list", sort = "closest" },
             window = { width = 1000, height = 700, x = 12, y = -40, point = "TOPLEFT", relativePoint = "TOPLEFT" } }
         local account, _, fixes = SV.Load(saved, nil)
         t.eq(account.lastTab, "zones")
@@ -45,7 +45,7 @@ return function(t)
 
     t.test("wrong types and invalid enums reset to defaults", function()
         local _, SV = load()
-        local saved = { schemaVersion = 2, debug = "yes", lastTab = "legacy", zones = "broken",
+        local saved = { schemaVersion = 3, debug = "yes", lastTab = "legacy", zones = "broken",
             window = { width = "wide", point = "MIDDLE" } }
         local account, _, fixes = SV.Load(saved, nil)
         t.eq(account.debug, false)
@@ -61,7 +61,7 @@ return function(t)
     t.test("out-of-range numbers are clamped, NaN reset", function()
         local _, SV = load()
         local nan = 0 / 0
-        local account, _, fixes = SV.Load({ schemaVersion = 2, window = { width = 99999, height = 10, x = nan } }, nil)
+        local account, _, fixes = SV.Load({ schemaVersion = 3, window = { width = 99999, height = 10, x = nan } }, nil)
         t.eq(account.window.width, 1800)
         t.eq(account.window.height, 640)
         t.eq(account.window.x, 0)
@@ -91,7 +91,7 @@ return function(t)
     t.test("data from a newer schema is discarded", function()
         local _, SV = load()
         local account, _, fixes = SV.Load({ schemaVersion = 99, lastTab = "zones" }, nil)
-        t.eq(account.schemaVersion, 2)
+        t.eq(account.schemaVersion, 3)
         t.eq(account.lastTab, "overview")
         t.ok(has(fixes, "newer than supported"))
     end)
@@ -100,7 +100,7 @@ return function(t)
         local _, SV = load()
         local account, _, fixes = SV.Load({ schemaVersion = 1,
             window = { width = 960, height = 640, x = 30, y = -20 } }, nil)
-        t.eq(account.schemaVersion, 2)
+        t.eq(account.schemaVersion, 3)
         t.eq(account.window.width, 1160)
         t.eq(account.window.height, 740)
         t.eq(account.window.x, 30, "position kept")
@@ -112,6 +112,14 @@ return function(t)
         local account = SV.Load({ schemaVersion = 1, window = { width = 1300, height = 800 } }, nil)
         t.eq(account.window.width, 1300)
         t.eq(account.window.height, 800)
+    end)
+
+    t.test("schema 3 moves an untouched minimap angle off the crowded default", function()
+        local _, SV = load()
+        local account = SV.Load({ schemaVersion = 2, launcher = { minimapAngle = 200 } }, nil)
+        t.eq(account.launcher.minimapAngle, 140)
+        local kept = SV.Load({ schemaVersion = 2, launcher = { minimapAngle = 75 } }, nil)
+        t.eq(kept.launcher.minimapAngle, 75, "a dragged angle is kept")
     end)
 
     t.test("migrations run in order up to the current schema", function()

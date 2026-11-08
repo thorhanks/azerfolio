@@ -260,6 +260,71 @@ return function(t)
         t.eq(wow.frameCount(), before)
     end)
 
+    t.test("minimap angle math", function()
+        local ns = boot()
+        local L = ns.Launcher
+        local x, y = L.PositionForAngle(0, 80); t.eq(math.floor(x + 0.5), 80); t.eq(math.floor(y + 0.5), 0)
+        x, y = L.PositionForAngle(90, 80); t.eq(math.floor(x + 0.5), 0); t.eq(math.floor(y + 0.5), 80)
+        t.eq(L.AngleTo(10, 0, 0, 0), 0)
+        t.eq(L.AngleTo(0, 10, 0, 0), 90)
+        t.eq(L.AngleTo(-10, 0, 0, 0), 180)
+        t.eq(L.AngleTo(0, -10, 0, 0), 270, "never negative")
+    end)
+
+    local function withMinimap(ns)
+        local mm = _G.CreateFrame("Frame", "Minimap", _G.UIParent)
+        mm:SetSize(140, 140)
+        function mm:GetCenter() return 1000, 600 end
+        ns.Launcher.Refresh()
+        return mm
+    end
+
+    t.test("minimap button: placed at the saved angle, dragged, hidden and shown", function()
+        local ns = boot()
+        withMinimap(ns)
+        local b = ns.Launcher.button
+        t.ok(b and b:IsShown(), "button shown")
+        t.eq(ns.db.launcher.minimapAngle, 140, "default angle")
+        _G.GetCursorPosition = function() return 1000, 700 end -- straight above the centre
+        b.scripts.OnDragStart(b)
+        b.scripts.OnUpdate(b)
+        b.scripts.OnDragStop(b)
+        t.eq(ns.db.launcher.minimapAngle, 90)
+        t.eq(b.scripts.OnUpdate, nil, "stops following the cursor")
+        b.scripts.OnClick(b)
+        t.eq(ns.UI.IsShown(), true, "click opens the window")
+        slash("minimap")
+        t.eq(b:IsShown(), false); t.eq(ns.db.launcher.minimapHidden, true)
+        slash("minimap")
+        t.eq(b:IsShown(), true)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("the addon compartment and the key binding toggle the window", function()
+        local ns = boot()
+        t.eq(_G.BINDING_NAME_AZERFOLIO_TOGGLE, "Open or close Azerfolio")
+        _G.Azerfolio_OnAddonCompartmentClick("Azerfolio", "LeftButton")
+        t.eq(ns.UI.IsShown(), true)
+        _G.Azerfolio_Toggle()
+        t.eq(ns.UI.IsShown(), false)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("TOC compartment fields and Bindings.xml name functions that exist", function()
+        boot()
+        local meta = wow.tocMetadata("Azerfolio", "Azerfolio")
+        for _, k in ipairs({ "AddonCompartmentFunc", "AddonCompartmentFuncOnEnter", "AddonCompartmentFuncOnLeave" }) do
+            t.eq(type(_G[meta[k]]), "function", k .. " -> " .. tostring(meta[k]))
+        end
+        local f = assert(io.open("Azerfolio/Bindings.xml", "r"))
+        local xml = f:read("*a"); f:close()
+        local name = xml:match('<Binding name="([%w_]+)"')
+        t.eq(name, "AZERFOLIO_TOGGLE")
+        t.ok(_G["BINDING_NAME_" .. name], "binding label defined")
+        local call = xml:match("([%w_]+)%(%)")
+        t.eq(type(_G[call]), "function", "binding calls " .. tostring(call))
+    end)
+
     t.test("tabs are registered in order and wrap around", function()
         local ns = boot()
         t.eq(#ns.UI.tabs, 2)
