@@ -202,12 +202,13 @@ function W.CatBars(parent)
             end
             s:SetWidth(slotW)
             -- Side by side (list rows) the count gets just its text's room, so the bar keeps some.
-            local countW = horizontal and 40 or L.catCount
+            local countW = horizontal and 50 or L.catCount -- 40 cut "42/68" short in the split view
             s.count:SetWidth(countW)
             local c = by[s.key]
             s:SetShown(c ~= nil)
             if c then
                 local wellW = math.max(1, slotW - L.catIcon - 12 - countW)
+                s.well:SetShown(wellW >= 16) -- too narrow for a readable bar: the count says it
                 if c.pending then
                     s.fill:Hide()
                     s.count:SetText("?")
@@ -216,7 +217,7 @@ function W.CatBars(parent)
                 else
                     local frac = c.denominator > 0 and c.completed / c.denominator or 0
                     s.fill:SetWidth(math.max(0.001, wellW * frac))
-                    s.fill:SetShown(frac > 0)
+                    s.fill:SetShown(frac > 0 and wellW >= 16)
                     local r, g, b = T.RGB(c.state == "complete" and "complete" or "todo")
                     s.fill:SetColorTexture(r, g, b, 1)
                     s.count:SetText(c.completed .. "/" .. c.denominator)

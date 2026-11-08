@@ -55,4 +55,12 @@ ns.Art = {
         [2548] = true,
         [2652] = true,
     },
+    banner = {
+        ["badge-alliance"] = true,
+        ["badge-horde"] = true,
+        ["banner-alliance"] = true,
+        ["banner-horde"] = true,
+        ["pole-alliance"] = true,
+        ["pole-horde"] = true,
+    },
 }

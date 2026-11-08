@@ -412,6 +412,11 @@ local function fillDashboard(d, zone, entry, page)
     std.art:SetVertexColor(0.38, 0.36, 0.34)
     local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"
     std.banner:Set(entry, faction, page.animateBanner)
+    -- Fill the panel's height: room left after the texts below (about 150), within 0.75-1.4.
+    local panelH, bannerH = std:GetHeight() or 0, std.banner:GetHeight() or 0
+    if panelH > 0 and bannerH > 0 then
+        std.banner:SetScale(math.max(0.75, math.min(1.4, (panelH - 150) / bannerH)))
+    end
     page.animateBanner = false
     local claimed = entry.state == "complete"
     std.pct:SetText(claimed and "Claimed" or (entry.combined and ns.Progression.PercentText(entry.combined) or "-"))
