@@ -3,9 +3,9 @@
 -- sorts and section groups (spec §6.2-6.4). The UI shows what this returns and never counts.
 -- Everything except Zones.All() is pure, so tests can load it without the client.
 --
--- The client gives no level ranges or faction territory (probe /azfdiag zones). Level ranges
--- come from the hand-curated, unofficial guide in Data/Zones.lua (owner-approved); zones it
--- doesn't list stay unknown (nil). Faction is unknown (nil) for every zone.
+-- The client gives no level ranges or faction territory (probe /azfdiag zones). Both come
+-- from the hand-curated, unofficial guide in Data/Zones.lua (owner-approved); zones it
+-- doesn't list stay unknown (nil).
 local _, ns = ...
 
 local Zones = {}
@@ -63,6 +63,15 @@ function Zones.LevelsFor(data, mapID)
     return lo, hi
 end
 
+local FACTIONS = { Alliance = true, Horde = true, Contested = true }
+
+-- Pure: a zone's faction territory from the curated data ("Alliance", "Horde", "Contested"),
+-- or nil when it has none or the entry is anything else.
+function Zones.FactionFor(data, mapID)
+    local f = type(data) == "table" and type(data.faction) == "table" and data.faction[mapID]
+    return FACTIONS[f] and f or nil
+end
+
 -- Every zone, in the client's continent order (live: reads the map tree and the tracker).
 function Zones.All()
     local out = {}
@@ -70,7 +79,7 @@ function Zones.All()
         for _, z in ipairs(s.zones) do
             local lo, hi = Zones.LevelsFor(ns.ZoneData, z.mapID)
             local zone = { mapID = z.mapID, name = z.name, continent = s.title, rank = rank,
-                minLevel = lo, maxLevel = hi }
+                minLevel = lo, maxLevel = hi, faction = Zones.FactionFor(ns.ZoneData, z.mapID) }
             out[#out + 1] = Zones.Entry(zone, ns.Exploration.ForZone(z.mapID))
         end
     end

@@ -9,6 +9,7 @@ local _, ns = ...
 
 ns.ZoneData = {
     source = "Warcraft Wiki, Zones by level (Classic); Forever-only zones from the owner",
+    factionSource = "Warcraft Wiki, each zone's (Classic) page",
     levels = {
         -- Eastern Kingdoms
         [1416] = { 30, 40 }, -- Alterac Mountains
@@ -57,5 +58,69 @@ ns.ZoneData = {
         [2548] = { 35, 45 }, -- Riverglades
         [2652] = { 35, 45 }, -- Shen'dralas
         [2482] = { 60, 60 }, -- Mount Hyjal: a level 60 zone
+    },
+
+    -- Faction territory, curated by hand (unofficial; owner-approved 2026-11-07). The client
+    -- has none (no GetZonePVPInfo) [verified-ingame]. Source: each zone's warcraft.wiki.gg
+    -- "<Zone> (Classic)" page (capitals: the plain page), infobox "PvP status", else
+    -- "Affiliation" when it names a faction (Forsaken counted as Horde); fetched 2026-11-07.
+    -- Only Alliance or Horde territory is ever hidden from the other faction ("Relevant to
+    -- me"); Contested and zones without an entry are shown to both.
+    -- Judgement calls, marked "Contested" instead of the wiki's Affiliation (which names who
+    -- holds the zone, not PvP territory) because both factions quest there in Classic:
+    -- Ashenvale (Affiliation: Alliance), The Hinterlands (Alliance), Dustwallow Marsh
+    -- (Alliance), Swamp of Sorrows (Horde). Westfall: Affiliation "Independent", but the
+    -- infobox notes "Alliance" in game, so Alliance. Thousand Needles: no field; the page's
+    -- prose says contested. Forever-only zones (Zephras Isle, Riverglades, Shen'dralas,
+    -- Mount Hyjal): no source, no entry.
+    faction = {
+        -- Eastern Kingdoms
+        [1416] = "Contested", -- Alterac Mountains (Affiliation: Crushridge, Syndicate, ...)
+        [1417] = "Contested", -- Arathi Highlands (Affiliation: Syndicate)
+        [1418] = "Contested", -- Badlands (Affiliation: Dark Iron dwarf)
+        [1419] = "Contested", -- Blasted Lands (Affiliation: The Burning Legion)
+        [1428] = "Contested", -- Burning Steppes (Affiliation: Black dragonflight ...)
+        [1430] = "Contested", -- Deadwind Pass (PvP status: Contested territory)
+        [1426] = "Alliance",  -- Dun Morogh (Affiliation: Alliance)
+        [1431] = "Alliance",  -- Duskwood (Affiliation: Alliance)
+        [1423] = "Contested", -- Eastern Plaguelands (Affiliation: Argent Crusade, Scourge)
+        [1429] = "Alliance",  -- Elwynn Forest (PvP status: Alliance territory)
+        [1424] = "Contested", -- Hillsbrad Foothills (Affiliation: Contested)
+        [1432] = "Alliance",  -- Loch Modan (Affiliation: Alliance)
+        [1433] = "Alliance",  -- Redridge Mountains (Affiliation: Alliance)
+        [1427] = "Contested", -- Searing Gorge (PvP status: Contested territory)
+        [1421] = "Horde",     -- Silverpine Forest (Affiliation: Forsaken)
+        [1434] = "Contested", -- Stranglethorn Vale (Affiliation: Independent)
+        [1435] = "Contested", -- Swamp of Sorrows (Affiliation: Horde; judgement call, see above)
+        [1425] = "Contested", -- The Hinterlands (Affiliation: Alliance; judgement call)
+        [1420] = "Horde",     -- Tirisfal Glades (PvP status: Horde territory)
+        [1436] = "Alliance",  -- Westfall (Affiliation: Independent, "Alliance" in game)
+        [1422] = "Contested", -- Western Plaguelands (Affiliation: Scourge)
+        [1437] = "Alliance",  -- Wetlands (Affiliation: Alliance)
+        [1453] = "Alliance",  -- Stormwind City (PvP status: Alliance territory)
+        [1455] = "Alliance",  -- Ironforge (PvP status: Alliance territory)
+        [1458] = "Horde",     -- Undercity (PvP status: Horde territory)
+        -- Kalimdor
+        [1440] = "Contested", -- Ashenvale (Affiliation: Alliance; judgement call)
+        [1447] = "Contested", -- Azshara (Affiliation: Contested)
+        [1439] = "Alliance",  -- Darkshore (Affiliation: Alliance)
+        [1443] = "Contested", -- Desolace (PvP status: Contested territory)
+        [1411] = "Horde",     -- Durotar (Affiliation: Horde)
+        [1445] = "Contested", -- Dustwallow Marsh (Affiliation: Alliance; judgement call)
+        [1448] = "Contested", -- Felwood (Affiliation: Burning Legion)
+        [1444] = "Contested", -- Feralas (Affiliation: Contested)
+        [1450] = "Contested", -- Moonglade (PvP status: Contested territory)
+        [1412] = "Horde",     -- Mulgore (Affiliation: Horde)
+        [1451] = "Contested", -- Silithus (Affiliation: None)
+        [1442] = "Contested", -- Stonetalon Mountains (Affiliation: Contested)
+        [1446] = "Contested", -- Tanaris (PvP status: Contested territory)
+        [1438] = "Alliance",  -- Teldrassil (Affiliation: Alliance)
+        [1413] = "Contested", -- The Barrens (PvP status: Contested territory)
+        [1441] = "Contested", -- Thousand Needles (no field; prose: contested)
+        [1449] = "Contested", -- Un'Goro Crater (Affiliation: None)
+        [1452] = "Contested", -- Winterspring (Affiliation: None)
+        [1457] = "Alliance",  -- Darnassus (PvP status: Alliance territory)
+        [1454] = "Horde",     -- Orgrimmar (PvP status: Horde territory)
+        [1456] = "Horde",     -- Thunder Bluff (PvP status: Horde territory)
     },
 }

@@ -105,6 +105,8 @@ local function bannerSub(zone)
     if lo then
         parts[#parts + 1] = lo == hi and ("Level " .. lo) or string.format("Levels %d-%d", lo, hi)
     end
+    local faction = ns.Zones.FactionFor(ns.ZoneData, zone.mapID)
+    if faction then parts[#parts + 1] = faction == "Contested" and "Contested" or (faction .. " territory") end
     return table.concat(parts, "  ·  ")
 end
 

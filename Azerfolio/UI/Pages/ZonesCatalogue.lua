@@ -64,6 +64,11 @@ function Catalogue.ZoneDetail(z)
         parts[#parts + 1] = (z.minLevel == z.maxLevel and ("Level " .. z.minLevel)
             or string.format("Levels %d-%d", z.minLevel, z.maxLevel)) .. " (guide)"
     end
+    if z.faction == "Alliance" or z.faction == "Horde" then
+        parts[#parts + 1] = z.faction .. " territory"
+    elseif z.faction == "Contested" then
+        parts[#parts + 1] = "Contested"
+    end
     if z.state == "untracked" then
         parts[#parts + 1] = "Exploration not tracked (no Explore achievement)"
     elseif not z.progress then
@@ -106,8 +111,10 @@ local function newCard(parent)
     c.pips:SetPoint("TOPLEFT", c.name, "BOTTOMLEFT", 0, -S.s2)
     c.lv = T.Text(c, "xs", "dim")
     c.lv:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT", S.s3, S.s3)
+    c.fac = T.Text(c, "xs", "dim")
+    c.fac:SetPoint("LEFT", c.lv, "RIGHT", S.s2, 0)
     c.fit = T.Text(c, "xs", "fit")
-    c.fit:SetPoint("LEFT", c.lv, "RIGHT", S.s2, 0)
+    c.fit:SetPoint("LEFT", c.fac, "RIGHT", S.s2, 0)
     c.fit:SetText("Your level")
     c.n = T.Text(c, "xs", "dim")
     c.n:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -S.s3, S.s3)
@@ -149,6 +156,10 @@ local function fillCard(c, z, width)
     c.pips:SetShown(p ~= nil)
     if p then c.pips:Set(p.complete, p.incomplete, p.completionUnknown, width - 2 * S.s3) end
     c.lv:SetText(levelText(z) or "Lv ?")
+    -- Only faction territory is worth the room; contested is the norm.
+    local own = z.faction == "Alliance" or z.faction == "Horde"
+    c.fac:SetText(own and z.faction or "")
+    if own then c.fac:SetTextColor(T.RGB(z.faction)) end
     c.fit:SetShown(z.state ~= "complete" and ns.Zones.FitsLevel(z, char().level))
     c.n:SetText(countText(z))
     c.zone = z

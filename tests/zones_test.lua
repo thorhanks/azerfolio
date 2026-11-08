@@ -234,6 +234,27 @@ return function(t)
         t.ok(ns.ZoneData.source:find("Warcraft Wiki"), "provenance recorded")
     end)
 
+    t.test("faction: only Alliance, Horde or Contested; the curated data is sane", function()
+        local ns = load()
+        local F = ns.Zones.FactionFor
+        local d = { faction = { [1] = "Alliance", [2] = "Horde", [3] = "Contested", [4] = "alliance", [5] = true } }
+        t.eq(F(d, 1), "Alliance"); t.eq(F(d, 2), "Horde"); t.eq(F(d, 3), "Contested")
+        t.eq(F(d, 4), nil, "case matters"); t.eq(F(d, 5), nil); t.eq(F(d, 6), nil); t.eq(F(nil, 1), nil)
+        wow.loadAddonFile("Azerfolio/Data/Zones.lua", "Azerfolio", ns)
+        local n, counts = 0, { Alliance = 0, Horde = 0, Contested = 0 }
+        for mapID, f in pairs(ns.ZoneData.faction) do
+            n = n + 1
+            t.ok(F(ns.ZoneData, mapID), "map " .. mapID .. " has a valid territory")
+            counts[f] = counts[f] + 1
+        end
+        t.eq(n, 46, "40 classic zones and 6 capitals")
+        t.eq(counts.Alliance, 12); t.eq(counts.Horde, 7); t.eq(counts.Contested, 27)
+        for _, id in ipairs({ 1440, 1425, 1445, 1435 }) do
+            t.eq(ns.ZoneData.faction[id], "Contested", "judgement call kept contested: " .. id)
+        end
+        for _, id in ipairs({ 2521, 2548, 2652, 2482 }) do t.eq(ns.ZoneData.faction[id], nil) end
+    end)
+
     t.test("query: filter, sort and group together; counts come with it", function()
         local ns = load()
         local q = ns.Zones.Query(catalogue(ns), { completion = "untouched", sort = "recommended" })

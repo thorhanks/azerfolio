@@ -174,13 +174,13 @@ return function(t)
 
     t.test("catalogue: cards by default, four to a row at the default size, grouped by level", function()
         padUI = true
-        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { faction = "all" } })
         slash("")
         local cat = page(ns).catalogue
         t.eq(cat:View(), "cards")
         t.eq(cat.columns, 4)
         local rows = page(ns):GetFocusRows()
-        t.eq(#rows[1].items, 9, "toolbar: 4 segments, Level, Sort, search, Cards, List (no Show: no faction data)")
+        t.eq(#rows[1].items, 10, "toolbar: 4 segments, Show, Level, Sort, search, Cards, List")
         t.eq(#rows[2].items, 4, "first card row")
         t.eq(rows[2].items[1].title, "Dun Morogh"); t.eq(rows[2].items[4].title, "Teldrassil")
         t.eq(rows[3].items[1].title, "Zephras Isle", "the bracket's fifth zone wraps")
@@ -188,6 +188,8 @@ return function(t)
         t.eq(cat.headers[1].count:GetText(), "1 of 4 complete", "Dun Morogh; Zephras Isle isn't tracked")
         local c = cat.byMap[1429]
         t.eq(c.pct:GetText(), "40%"); t.eq(c.n:GetText(), "2/5"); t.eq(c.lv:GetText(), "Lv 1-10")
+        t.eq(c.fac:GetText(), "Alliance"); t.eq(cat.byMap[1411].fac:GetText(), "Horde")
+        t.eq(cat.byMap[2521].fac:GetText(), "", "Zephras Isle: no territory known")
         t.eq(c.fit:IsShown(), true, "level 9 fits 1-10")
         t.eq(cat.byMap[1426].emblem:IsShown(), true, "complete: emblem")
         t.eq(cat.byMap[1436].pct:GetText(), "?", "Westfall: no data is not 0%")
@@ -213,7 +215,7 @@ return function(t)
 
     t.test("catalogue: status segments filter and are saved; unknown zones only under All", function()
         padUI = true
-        local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { displayMode = "list" } })
+        local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { displayMode = "list", faction = "all" } })
         slash("")
         local cat = page(ns).catalogue
         cat.status[2].item.onActivate(cat.status[2].item) -- In progress
@@ -231,7 +233,7 @@ return function(t)
 
     t.test("catalogue: Sort popup with the controller; B closes it, A picks", function()
         padUI = true
-        local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { displayMode = "list" } })
+        local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { displayMode = "list", faction = "all" } })
         slash("")
         local p, cat = page(ns), page(ns).catalogue
         ns.Focus.FocusKey("tb:sort")
@@ -279,16 +281,21 @@ return function(t)
         local ns = boot({ schemaVersion = 4, lastTab = "zones" })
         slash("")
         page(ns):Open({ mapID = 1436, name = "Westfall", continent = "Eastern Kingdoms" })
-        t.eq(page(ns).detail.banner.sub:GetText(), "Eastern Kingdoms  ·  Levels 10-20")
+        t.eq(page(ns).detail.banner.sub:GetText(), "Eastern Kingdoms  ·  Levels 10-20  ·  Alliance territory")
     end)
 
-    t.test("catalogue: For my level uses the zone guide; the Show filter isn't offered", function()
-        local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { level = "appropriate" } })
+    t.test("catalogue: For my level uses the zone guide; Show hides the other faction's territory", function()
+        _G.UnitFactionGroup = function() return "Alliance", "Alliance" end
+        local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { level = "appropriate", faction = "all" } })
         slash("")
         local cat = page(ns).catalogue
         t.eq(shown(ns), "Dun Morogh,Elwynn Forest,Durotar,Teldrassil,Zephras Isle,Westfall")
         t.eq(cat.options.level:IsShown(), true)
-        t.eq(cat.options.faction:IsShown(), false, "no faction data: nothing to filter")
+        t.eq(cat.options.faction:IsShown(), true, "faction data from the guide: Show is offered")
+        ns.db.zones.faction = "relevant"; cat:Refresh()
+        t.eq(shown(ns), "Dun Morogh,Elwynn Forest,Teldrassil,Zephras Isle,Westfall",
+            "Durotar (Horde territory) hidden for an Alliance character; Zephras Isle (unknown) kept")
+        t.ok(cat.options.faction.text:GetText():find("Relevant to me"))
     end)
 
     t.test("catalogue: search filters as you type; B leaves the box; empty state", function()
