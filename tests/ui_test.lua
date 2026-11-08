@@ -968,6 +968,122 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
+    t.test("tracker: the full re-read skips fully explored zones and traces its cost", function()
+        here = 2521
+        local tick = 0
+        _G.debugprofilestop = function() tick = tick + 1.5; return tick end
+        local ns = boot({ schemaVersion = 4, debug = true })
+        ns.Exploration.Overall() -- caches Elwynn (2/5), Dun Morogh (1/1, fully explored), Durotar (0/1)
+        t.ok(ns.Exploration.IsFullyExplored(ns.Exploration.ForZone(1426)), "Dun Morogh is fully explored")
+        t.eq(ns.Exploration.IsFullyExplored(ns.Exploration.ForZone(1429)), false)
+        t.eq(ns.Exploration.CacheSize(), 3)
+        CRITERIA[728][1][2] = true
+        wow.fire("MAP_EXPLORATION_UPDATED")
+        wow.runTimers()
+        CRITERIA[728][1][2] = false
+        here = 1429
+        local scan
+        for _, e in ipairs(ns.db.trace) do if e.scan then scan = e end end
+        _G.debugprofilestop = nil
+        t.ok(scan, "scan traced")
+        t.eq(scan.read, 2); t.eq(scan.skipped, 1); t.eq(scan.changedZones, 1)
+        t.ok(type(scan.ms) == "number", "cost in ms")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("perf: debug mode counts events, messages and debounced calls; /azf debug perf reports", function()
+        local tick = 0
+        _G.debugprofilestop = function() tick = tick + 0.25; return tick end
+        local ns = boot()
+        wow.fire("CRITERIA_UPDATE")
+        t.eq(ns.Events.stats.CRITERIA_UPDATE, nil, "nothing counted while debug is off")
+        slash("debug") -- on: counters start
+        wow.fire("CRITERIA_UPDATE"); wow.fire("CRITERIA_UPDATE"); wow.fire("CRITERIA_UPDATE")
+        wow.runTimers()
+        local s = ns.Events.stats
+        t.eq(s.CRITERIA_UPDATE.count, 3)
+        t.eq(s["debounce:exploration"].count, 1, "one re-read per burst")
+        t.ok(s.CRITERIA_UPDATE.ms > 0 and s.CRITERIA_UPDATE.max > 0, "timed")
+        local list = ns.Events.StatsList()
+        t.ok(#list >= 2 and list[1].ms >= list[#list].ms, "busiest first")
+        slash("debug perf")
+        local all = table.concat(wow.chat, "\n")
+        t.ok(all:find("Performance over"), all)
+        t.ok(all:find("CRITERIA_UPDATE: 3 calls"), all)
+        t.ok(all:find("memory unknown KB"), "no memory API in the mock: " .. all)
+        local e = ns.db.trace[#ns.db.trace]
+        t.eq(e.kind, "perf"); t.eq(type(e.sizes), "table"); t.eq(e.sizes.recentZones, 1)
+        slash("debug perf reset")
+        t.eq(next(ns.Events.stats), nil, "reset")
+        slash("debug") -- off
+        slash("debug perf")
+        t.ok(wow.chat[#wow.chat]:find("only in debug mode"))
+        _G.debugprofilestop = nil
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("perf: client memory and profiler metrics are read when the client has them", function()
+        local ns = boot({ schemaVersion = 4, debug = true })
+        _G.UpdateAddOnMemoryUsage = function() end
+        _G.GetAddOnMemoryUsage = function(name) return name == "Azerfolio" and 2048.4 or 0 end
+        _G.Enum = { AddOnProfilerMetric = { RecentAverageTime = 1, PeakTime = 2, Broken = 3 } }
+        _G.C_AddOnProfiler = { IsEnabled = function() return true end,
+            GetAddOnMetric = function(_, m) if m == 3 then error("bad metric") end; return m * 0.1 end }
+        slash("debug perf")
+        local e = ns.db.trace[#ns.db.trace]
+        _G.UpdateAddOnMemoryUsage, _G.GetAddOnMemoryUsage, _G.Enum, _G.C_AddOnProfiler = nil, nil, nil, nil
+        t.ok(table.concat(wow.chat, "\n"):find("memory 2048 KB"))
+        t.eq(e.memoryKB, 2048.4); t.eq(e.profilerEnabled, true)
+        t.eq(e.profiler.RecentAverageTime, 0.1); t.eq(e.profiler.PeakTime, 0.2); t.eq(e.profiler.Broken, nil)
+        t.eq(#ns.Debug.errors, 1, "the failing metric is recorded, not fatal")
+    end)
+
+    t.test("perf: XP gains don't rebuild the Overview; a level-up does", function()
+        local level = 9
+        local ns = boot()
+        _G.UnitLevel = function() return level end
+        slash("")
+        local page = ns.UI.GetFrame().pages.overview
+        local redraws = 0
+        local orig = page.Redraw
+        page.Redraw = function(self) redraws = redraws + 1; return orig(self) end
+        local levels = 0
+        ns.Events.On("AZF_LEVEL_CHANGED", function() levels = levels + 1 end)
+        wow.fire("PLAYER_XP_UPDATE", "player"); wow.runTimers()
+        t.eq(levels, 0); t.eq(redraws, 0, "XP only: header, no Overview rebuild")
+        level = 10
+        wow.fire("PLAYER_LEVEL_UP", 10); wow.runTimers()
+        t.eq(levels, 1); t.eq(redraws, 1)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("quality: a fully corrupted SavedVariables boots, opens every tab and runs every command", function()
+        local ns = boot({ schemaVersion = 4, debug = "x", window = { width = -5, height = 1e9, x = 0 / 0,
+                point = "NOWHERE" }, lastTab = {}, zones = { displayMode = "atlas", faction = 3,
+                completion = "done", level = false, sort = "random" }, launcher = { minimapAngle = 9999,
+                minimapHidden = "no" }, notifications = 1, trace = "x" },
+            { schemaVersion = 1, baseline = { taken = "yes", exploration = { [1429] = { states = "x" },
+                [1411] = 5, junk = { states = {} } } }, milestones = { 1, "a", { kind = "area" } },
+                recentZones = { "x", 1429, {} } })
+        t.eq(ns.db.window.width, 1000); t.eq(ns.db.window.height, 1100); t.eq(ns.db.window.x, 0)
+        t.eq(ns.db.zones.displayMode, "cards"); t.eq(ns.db.zones.sort, "recommended")
+        t.eq(ns.db.launcher.minimapAngle, 360)
+        t.same(ns.charDB.milestones, {}); t.same(ns.charDB.recentZones, { 1429 })
+        wow.runTimers()
+        slash("")
+        t.ok(ns.UI.IsShown())
+        ns.UI.SelectTab("zones"); ns.UI.SelectTab("overview")
+        for _, c in ipairs({ "status", "debug zone", "debug exploration", "debug zones", "debug overview",
+            "debug", "debug perf", "refresh" }) do slash(c) end
+        wow.runTimers()
+        CRITERIA[776][4][2] = true
+        wow.fire("CRITERIA_UPDATE"); wow.fire("MAP_EXPLORATION_UPDATED")
+        wow.runTimers()
+        CRITERIA[776][4][2] = false
+        t.eq(#ns.charDB.milestones, 1, "a discovery after the rebuilt baseline is a milestone")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
     t.test("tracker: an unrelated CRITERIA_UPDATE announces nothing", function()
         local ns = boot()
         ns.Exploration.ForZone(1429)
@@ -1111,14 +1227,14 @@ return function(t)
         t.eq(type(ns.charDB.baseline.exploration[1429]), "table")
         discover(776, 5)
         CRITERIA[776][5][2] = false
-        t.eq(#ns.charDB.milestones, 2, "the junk entry plus one real milestone")
-        t.eq(ns.charDB.milestones[2].id, 1150)
+        t.eq(#ns.charDB.milestones, 1, "the junk entry is dropped on load; one real milestone")
+        t.eq(ns.charDB.milestones[1].id, 1150)
         t.eq(#ns.Debug.errors, 0)
     end)
 
     t.test("milestones: the list is capped at the newest 100", function()
         local old = {}
-        for i = 1, 100 do old[i] = { kind = "area", category = "exploration", id = 90000 + i } end
+        for i = 1, 100 do old[i] = { kind = "area", category = "exploration", mapID = 1429, id = 90000 + i } end
         local ns = boot(nil, { schemaVersion = 1, milestones = old })
         wow.runTimers()
         discover(776, 3)

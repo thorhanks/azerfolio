@@ -65,6 +65,20 @@ Built in steps the owner approves one at a time:
 - **Lua restyle (in-game check passed 2026-11-07, shots `WoWScrnShot_110726_171831`–`171835`):** frame, portrait ring, title, glow, strip, XP bar, side tabs, LB/RB glyphs and the diamond-metal legend all render natively. The first face-glyph name guesses failed (drawn square fallback); now using the source's `gamepad-xbox1-button*-normal` names and a round fallback — needs one more look.
 - Restyle details: the window is `PortraitFrameTemplate` (title, portrait ring, close, `FrameGlow` shown while the controller drives it); character strip with the native stat-bar XP; content on `UI-Character-Info-General-BG`; side tabs (`common-sidetab` + masked icon, `-selected`, `-hover`) with LB/RB glyph atlases; legend box below the frame (diamond-metal nine-slice over file 131071) with the info line and hints. Off-screen recovery now keeps the tabs and legend on screen. Face-button glyph atlas names are guesses with a drawn fallback; `/azf status` prints which were found. Tests: 62 passed.
 
+## Phase 8 — Polish and v1 validation: in progress (2026-11-07)
+
+Planned steps (owner approves each):
+1. **Performance, robustness and README** (built 2026-11-07; not yet run in game):
+   - Performance counters, debug mode only (`Events.stats`): every game event, `AZF_*` message and debounced call is counted and timed with `debugprofilestop()` when the client has it (inclusive time; counters reset when debug is turned on). `/azf debug perf [reset]` prints the busiest 12, memory (`GetAddOnMemoryUsage`, [unverified] on Forever), every `C_AddOnProfiler` metric the client's `Enum.AddOnProfilerMetric` lists (namespace present in the Phase 0 dump; metric names not guessed), and stored sizes (trace, milestones, recent zones, baseline zones/areas, tracker cache); trace `perf`.
+   - Re-read after `MAP_EXPLORATION_UPDATED` (the Phase 7 known cost): fully explored zones are skipped (a discovery can't be undone); the trace's `scan` entry records `read`, `skipped` and `ms`. The one-time map scan traces its cost too (`maps`).
+   - `PLAYER_XP_UPDATE` (every kill) no longer rebuilds the Overview or marks Zones dirty: `Character.Refresh` sends `AZF_LEVEL_CHANGED` only when the level changes, and the pages listen to that; the header still follows XP.
+   - Damaged per-character lists: `SavedVariables.CleanMilestones` / `CleanRecentZones` drop malformed entries on load (a milestone needs kind area/zone, a category, a numeric mapID and an id; a non-text name or an implausible time is removed, so it reads "time not seen"); recent zones keep only map IDs.
+   - `README.md`: install, features, data sources and coverage, known limitations, commands, development, changelog.
+   - `docs/testing.md` § Phase 8: every spec §12 v1 criterion with its evidence so far, what's open, the code performance review and the owner steps.
+   - Tests: 204 passed (rescan skip and cost, counters and report, client metrics, XP vs level redraw, damaged lists, a fully corrupted SavedVariables boot).
+2. **In-game validation** (`docs/testing.md` § Phase 8 steps): visual review shots, a play session with `/azf debug perf`, controller-only pass, Escape and the controller key binding, another UI scale, a full restart, Azerfolio alone, Thragor and contested zones. Fixes from what it finds.
+3. **Close v1:** every §12 criterion checked off with evidence.
+
 ## Phase 7 — Overview dashboard: done (2026-11-07)
 
 **Phase 7 result:** the Overview dashboard (Continue card, next goal, suggestions, tracked completion, Zones stat, recent zones, activity and milestones), opening Zone Detail with B back to the Overview, and live discovery anywhere on the map. Spec §12 "Overview" passes in game on Gideon (`docs/testing.md` § Phase 7). Known: on `MAP_EXPLORATION_UPDATED` outside a discovery (it also fired on entering Westfall) the fallback re-reads all 42 other zones once (no changes found); look at its cost in Phase 8. **Next: Phase 8** (polish and v1 validation).

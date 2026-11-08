@@ -137,3 +137,46 @@ Automated: `luajit tests/run.lua` covers the Overview's picks (Continue, next go
 |---|---|---|
 | 2026-11-07 | Owner (Gideon) + agent | Partial. `/azf shots` and `/azf debug overview` run in Stormwind City (shots `WoWScrnShot_110726_221635`-`221652`, trace written 22:17:22): Overview renders at default and minimum size, numbers match the trace (11/549, Elwynn 11/12, 0 of 39 zones), chips focusable. Found: Elwynn's "Stormwind City" area discovered on the Stormwind map got no time (not seen live); fixed (tests). Steps 3-6 not reported yet |
 | 2026-11-07 | Owner (Gideon) + agent | Pass. Files written 22:36:06: Ridgepoint Tower discovered live (timed area milestone + timed "Elwynn Forest fully explored" zone milestone, Elwynn 12/12); Jansen Stead in Westfall (timed); `recentZones` = 1429, 1436; `/azf debug overview` trace: Continue = Westfall (current, 13 left), suggestions Westfall / Loch Modan / Darkshore, zones 1 of 39 complete, 13/549, today 3, Recent zones = Elwynn. Owner ran the A/B steps. The full re-read after `MAP_EXPLORATION_UPDATED` also ran once on entering Westfall (no changes) |
+
+## Phase 8 - v1 validation (spec §12, all v1 criteria)
+
+Automated: `luajit tests/run.lua` (204 tests). Phase 8 adds: performance counters and `/azf debug perf`, the re-read after a discovery outside the current zone skipping fully explored zones (with its cost traced), no Overview rebuild on XP gains, damaged milestone and recent-zone entries cleaned on load, and a boot from a fully corrupted SavedVariables that opens both tabs and runs every command without errors.
+
+Evidence so far, and what's still open (filled in as the steps below run):
+
+| Spec §12 criterion | Evidence | Open |
+|---|---|---|
+| **Window:** `/azerfolio` and `/azf` toggle; launcher; key binding works from a controller | Phase 2/4: slash commands, minimap button, compartment and key binding (owner) | Key binding pressed on the controller (step 5) |
+| Every screen usable with the gamepad alone, focus highlight and hint bar | Phase 4-7 shots; owner ran Phases 6-7 with the controller. Typing a search needs the keyboard (no on-screen keyboard in this client; owner accepted) | Full pass in one session (step 4) |
+| Draggable, resizable; position and size persist | Phase 4: across `/reload` (SavedVariables) | Across a full restart (step 7) |
+| Overview and Zones tabs work; Escape closes | Tabs: Phases 4-7. Escape: tests (`UISpecialFrames`) | Escape in game (step 5) |
+| Cohesive native Warcraft style | Native-look shots, Phase 4 | Visual review of every screen (step 2) |
+| **Overview:** all five criteria | Phase 7 (pass, Gideon) | - |
+| **Zones:** all three criteria | Phase 6 (pass, Gideon and Thragor) | - |
+| **Exploration:** all four criteria | Phases 5-6 (pass) | - |
+| **Quality:** no Lua errors in normal use | `/azf status` errors 0 in Phase 2-7 checks | A play session with script errors shown (steps 1-3) |
+| No noticeable performance impact | Code review (below) | `/azf debug perf` after a play session (step 3) |
+| SavedVariables survive reloads and restarts; invalid settings recover | Reloads: Phases 2-7. Invalid settings: tests | Full restart (step 7) |
+| Usable across window sizes and UI scales | 1000×640, 1160×740 and the wide split at UI scale 0.65 (Phases 4-6) | Another UI scale (step 6) |
+| Automated tests pass | 204 passed | - |
+
+**Performance review (code, 2026-11-07):**
+- Per-frame work: none while idle. The only `OnUpdate` is the minimap button while it's dragged; the focus chevron is an animation.
+- Events: `CRITERIA_UPDATE` and `MAP_EXPLORATION_UPDATED` are debounced (0.5 s) into one read of the current zone (about 12 criteria). `MAP_EXPLORATION_UPDATED` with no change there re-reads the zones read before, now **skipping fully explored ones**; the trace records `read`, `skipped` and `ms`. `PLAYER_XP_UPDATE` (every kill) is debounced 0.5 s and now only refreshes the header; the Overview rebuilds on a level change (`AZF_LEVEL_CHANGED`), not on XP. `ZONE_CHANGED*` refresh the header only while the window is shown. Pages that are hidden only mark themselves dirty.
+- One-time work: the map scan (3000 `C_Map.GetMapInfo` calls) runs once per session on first open (trace `maps` with `ms`); the baseline read of all 43 zones runs once 3 s after login.
+- Bounded storage: trace 100, milestones 100, recent zones 10, errors 50 (memory), baseline at most the catalogue's 549 areas, tracker cache at most 43 zones, counters one entry per event name. Frames are pooled.
+
+**Steps (owner)**, on Gideon, out of combat:
+1. Type `/console scriptErrors 1` (shows Lua errors on screen), then `/reload`, then `/azf debug` (debug on; counters start now).
+2. Visual review: `/azf shots` (wait about 25 seconds). Then resize the window to at least 1440 wide and `/azf shots` again.
+3. Play for 10-15 minutes with the window closed: kill some mobs, ride into another zone, and discover an area if one is close. Then type `/azf debug perf`. Tell me if any Lua error appeared.
+4. With the controller only: open Azerfolio, visit Overview, then Zones (cards, Y list, a filter popup, a zone's detail and back with B, X world map and back), then close with B.
+5. Open it again with your key binding pressed on the controller (if you have one bound there), then close it with **Escape**.
+6. Change the UI scale (System > Graphics or Interface, e.g. to 0.8), open Azerfolio, `/azf shots`. Set it back to 0.65.
+7. Note the window's position, size, tab and Zones view. Exit the game completely (not just logout), start it again, log in on Gideon, open Azerfolio: same position, size, tab and view?
+8. At character select, untick every addon except Azerfolio, log in, `/azf status` and `/azf shots`, then tick the others again.
+9. On Thragor: open Azerfolio once, `/azf debug zones`, then open a contested zone (The Barrens) and a Horde zone (Durotar) in Zone Detail.
+10. `/azf debug` (off), `/reload`.
+
+| Date | By | Result |
+|---|---|---|

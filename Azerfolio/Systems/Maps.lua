@@ -51,6 +51,7 @@ end
 -- Scans the client once (lazily) and returns the grouped sections.
 function Maps.Sections()
     if cache then return cache end
+    local started = type(debugprofilestop) == "function" and debugprofilestop() or nil
     local zones = {}
     if C_Map and type(C_Map.GetMapInfo) == "function" then
         local infos = {}
@@ -75,5 +76,10 @@ function Maps.Sections()
         end
     end
     cache = Maps.Group(zones)
+    -- Once per session (first open): its cost goes to the debug trace (Phase 8 performance review).
+    if ns.Debug then
+        local ms = started and type(debugprofilestop) == "function" and (debugprofilestop() - started) or nil
+        ns.Debug.Trace("maps", { zones = #zones, scanned = SCAN_MAX, ms = ms and math.floor(ms * 100 + 0.5) / 100 })
+    end
     return cache
 end

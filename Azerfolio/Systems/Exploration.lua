@@ -175,15 +175,38 @@ local function refreshAfterDiscovery()
     local changed = false
     if mapID then _, changed = Exploration.RefreshZone(mapID, true) end
     if changed or not explored then return end
-    local found = 0
+    local started = type(debugprofilestop) == "function" and debugprofilestop() or nil
+    local found, read, skipped = 0, 0, 0
     -- Only zones read before: an unreadable zone has nothing to compare (it would look changed).
+    -- A fully explored zone can't gain a discovery (discoveries aren't undone), so it's skipped.
     for id in pairs(catalogue().zones) do
-        if id ~= mapID and cache[id] then
-            local _, diff = Exploration.RefreshZone(id, true)
-            if diff then found = found + 1 end
+        local c = cache[id]
+        if id ~= mapID and c then
+            if Exploration.IsFullyExplored(c) then
+                skipped = skipped + 1
+            else
+                read = read + 1
+                local _, diff = Exploration.RefreshZone(id, true)
+                if diff then found = found + 1 end
+            end
         end
     end
-    ns.Debug.Trace("exploration", { scan = true, current = mapID, changedZones = found })
+    local ms = started and type(debugprofilestop) == "function" and (debugprofilestop() - started) or nil
+    ns.Debug.Trace("exploration", { scan = true, current = mapID, changedZones = found, read = read,
+        skipped = skipped, ms = ms and math.floor(ms * 100 + 0.5) / 100 })
+end
+
+-- Pure: is a ForZone result tracked with every area confirmed discovered?
+function Exploration.IsFullyExplored(r)
+    return type(r) == "table" and r.status == "tracked" and type(r.progress) == "table"
+        and r.progress.trackedComplete == true
+end
+
+-- For /azf debug perf: how many zones are cached.
+function Exploration.CacheSize()
+    local n = 0
+    for _ in pairs(cache) do n = n + 1 end
+    return n
 end
 
 -- Reads every zone once, so each one has a baseline before the player discovers anything in

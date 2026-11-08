@@ -14,6 +14,10 @@ local function has(fixes, pattern)
     return false
 end
 
+local function milestone(id, time)
+    return { kind = "area", category = "exploration", mapID = 1429, id = id, name = "Area " .. id, time = time }
+end
+
 return function(t)
     t.test("first load produces full defaults", function()
         local _, SV, Config = load()
@@ -70,7 +74,7 @@ return function(t)
 
     t.test("free-form containers keep their contents", function()
         local _, SV = load()
-        local char = { schemaVersion = 1, milestones = { { id = "a" }, { id = "b" } },
+        local char = { schemaVersion = 1, milestones = { milestone(1), milestone(2) },
             baseline = { taken = true, exploration = { [1150] = true } } }
         local _, out = SV.Load(nil, char)
         t.eq(#out.milestones, 2)
@@ -81,11 +85,32 @@ return function(t)
     t.test("milestone history is trimmed to the newest entries", function()
         local _, SV, Config = load()
         local list = {}
-        for i = 1, Config.LIMITS.milestones + 5 do list[i] = i end
+        for i = 1, Config.LIMITS.milestones + 5 do list[i] = milestone(i) end
         local _, out = SV.Load(nil, { schemaVersion = 1, milestones = list })
         t.eq(#out.milestones, Config.LIMITS.milestones)
-        t.eq(out.milestones[1], 6, "oldest dropped")
-        t.eq(out.milestones[#out.milestones], Config.LIMITS.milestones + 5, "newest kept")
+        t.eq(out.milestones[1].id, 6, "oldest dropped")
+        t.eq(out.milestones[#out.milestones].id, Config.LIMITS.milestones + 5, "newest kept")
+    end)
+
+    t.test("damaged milestones and recent zones are cleaned entry by entry", function()
+        local _, SV = load()
+        local good = milestone(7, 1700000000)
+        local _, out, fixes = SV.Load(nil, { schemaVersion = 1,
+            milestones = { "junk", { kind = "area" }, { kind = "boss", category = "x", mapID = 1, id = 1 },
+                good, { kind = "zone", category = "exploration", mapID = 1429, id = 1429, name = { "x" }, time = -5 },
+                milestone(8, 0 / 0), milestone(9, 1e300) },
+            recentZones = { 1429, "Elwynn", -3, 0 / 0, 1436, {} } })
+        t.eq(#out.milestones, 4, "the four well-formed entries kept")
+        t.ok(out.milestones[1] == good and good.time == 1700000000, "a valid time is kept")
+        t.eq(out.milestones[2].name, nil, "a name that isn't text is dropped")
+        t.eq(out.milestones[2].time, nil, "a negative time becomes 'not seen'")
+        t.eq(out.milestones[3].time, nil, "NaN time dropped")
+        t.eq(out.milestones[4].time, nil, "far-future time dropped")
+        t.same(out.recentZones, { 1429, 1436 })
+        t.ok(has(fixes, "milestones: 3 invalid entries dropped"))
+        t.ok(has(fixes, "recentZones: 4 invalid entries dropped"))
+        local _, out2 = SV.Load(nil, { schemaVersion = 1, milestones = "x", recentZones = 5 })
+        t.same(out2.milestones, {}); t.same(out2.recentZones, {})
     end)
 
     t.test("data from a newer schema is discarded", function()

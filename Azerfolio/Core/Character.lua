@@ -22,7 +22,14 @@ function Character.Read()
     return c
 end
 
+-- AZF_CHARACTER_UPDATED on every refresh (XP gains: the header's XP bar); AZF_LEVEL_CHANGED
+-- only when the level changed, so pages that depend on the level alone (Overview picks, "Your
+-- level") don't rebuild on every kill. (Phase 8 performance review.)
 function Character.Refresh()
+    local old = ns.character
     ns.character = Character.Read()
     ns.Events.Send("AZF_CHARACTER_UPDATED", ns.character)
+    if old and old.level ~= ns.character.level then
+        ns.Events.Send("AZF_LEVEL_CHANGED", ns.character.level)
+    end
 end

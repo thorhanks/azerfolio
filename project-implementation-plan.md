@@ -409,6 +409,10 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Phase 7 accepted: spec §12 "Overview" verified in game on Gideon | Discoveries, zone completion, visits and the Overview's numbers checked from SavedVariables and shots |
 | 2026-11-07 | Zone Detail opened from the Overview returns to the Overview on B | Focus is restored when returning to a screen (DESIGN.md); the owner came from the Overview |
 | 2026-11-07 | Completion filter = the design's status segments (All / In progress / Untouched / Complete), account schema 4; unknown and untracked zones show only under All; a filter whose data is unknown everywhere isn't offered | Approved design; spec §6.2 (unknown is never "incomplete"); a filter that can't filter is noise |
+| 2026-11-07 | Performance counters only in debug mode, via the event dispatcher (`/azf debug perf`); client memory and profiler metrics read only where the client has them | Plan Phase 8 task 3 asks for callback counts in debug mode; no cost when debug is off; the profiler's metric names aren't verified, so every enum value is read |
+| 2026-11-07 | The re-read after `MAP_EXPLORATION_UPDATED` skips fully explored zones | A discovery can't be undone, so they can't change; cuts the Phase 7 known cost as zones complete |
+| 2026-11-07 | Level-dependent pages listen to `AZF_LEVEL_CHANGED`, not `AZF_CHARACTER_UPDATED` | XP updates fire on every kill; only the header shows XP |
+| 2026-11-07 | Malformed milestone and recent-zone entries are dropped on load | A damaged file must not break the Overview; a bad time is removed, never replaced (honest data) |
 
 ## 10. Definition of done (v1)
 

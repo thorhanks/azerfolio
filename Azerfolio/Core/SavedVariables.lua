@@ -129,6 +129,41 @@ function SV.TrimList(list, limit)
     for i = #list, #list - extra + 1, -1 do list[i] = nil end
 end
 
+-- Free-form per-character lists are checked entry by entry (a hand-edited or damaged file must
+-- not break the Overview): a milestone needs a known kind, a category and a numeric mapID; a
+-- name that isn't text and a time that isn't a plausible positive number are dropped (the time
+-- then reads "time not seen", never a made-up one). Recent zones keep only map IDs.
+local function validTime(t) return type(t) == "number" and t == t and t > 0 and t < 4102444800 end -- before 2100
+
+function SV.CleanMilestones(list, fixes)
+    if type(list) ~= "table" then return {} end
+    local out, dropped = {}, 0
+    for i = 1, #list do
+        local m = list[i]
+        if type(m) == "table" and (m.kind == "area" or m.kind == "zone") and type(m.category) == "string"
+            and type(m.mapID) == "number" and m.id ~= nil then
+            if m.name ~= nil and type(m.name) ~= "string" then m.name = nil end
+            if m.time ~= nil and not validTime(m.time) then m.time = nil end
+            out[#out + 1] = m
+        else
+            dropped = dropped + 1
+        end
+    end
+    if dropped > 0 and fixes then fixes[#fixes + 1] = string.format("character milestones: %d invalid entries dropped", dropped) end
+    return out
+end
+
+function SV.CleanRecentZones(list, fixes)
+    if type(list) ~= "table" then return {} end
+    local out, dropped = {}, 0
+    for i = 1, #list do
+        local id = list[i]
+        if type(id) == "number" and id == id and id > 0 then out[#out + 1] = id else dropped = dropped + 1 end
+    end
+    if dropped > 0 and fixes then fixes[#fixes + 1] = string.format("character recentZones: %d invalid entries dropped", dropped) end
+    return out
+end
+
 -- Loads both SavedVariables tables. Returns account, char, fixes.
 function SV.Load(account, char)
     local Config = ns.Config
@@ -144,6 +179,8 @@ function SV.Load(account, char)
     char, charFixes = SV.Normalize(char, Config.CHAR_DEFAULTS)
     for _, f in ipairs(charFixes) do fixes[#fixes + 1] = "character " .. f end
 
+    char.milestones = SV.CleanMilestones(char.milestones, fixes)
+    char.recentZones = SV.CleanRecentZones(char.recentZones, fixes)
     SV.TrimList(account.trace, Config.LIMITS.trace)
     SV.TrimList(char.milestones, Config.LIMITS.milestones)
     SV.TrimList(char.recentZones, Config.LIMITS.recentZones)

@@ -635,7 +635,7 @@ local function build(parent)
     end)
 
     -- Level-ups change "Your level"; redraw next time the page shows.
-    ns.Events.On("AZF_CHARACTER_UPDATED", function() page.dirty = true end)
+    ns.Events.On("AZF_LEVEL_CHANGED", function() page.dirty = true end)
     page:SetScript("OnShow", function(self)
         if self.dirty then
             self.dirty = false
