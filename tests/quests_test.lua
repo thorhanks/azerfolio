@@ -14,12 +14,16 @@ local function load()
         Debug = { Trace = function(kind, f) traces[#traces + 1] = { kind = kind, f = f } end,
             Error = function() end, Try = function(_, fn, ...) return fn(...) end },
     }
-    wow.loadAddonFile("Azerfolio/Data/QuestAreas.lua", "Azerfolio", ns)
-    wow.loadAddonFile("Azerfolio/Systems/Quests.lua", "Azerfolio", ns)
+    ns.Events.Register = function(event, fn) events[event] = fn; return true end
+    for _, f in ipairs({ "Data/QuestAreas.lua", "Systems/Objectives.lua", "Systems/Progression.lua",
+        "Systems/QuestRules.lua", "Systems/Quests.lua" }) do
+        wow.loadAddonFile("Azerfolio/" .. f, "Azerfolio", ns)
+    end
     return ns, events, sent, traces
 end
 
--- A fake QuestieDB: quests = { [id] = { zoneOrSort, specialFlags } }.
+-- A fake QuestieDB: quests = { [id] = { zoneOrSort, specialFlags, detail fields... } }.
+-- Detail fields use QuestieDB's reader names (name, requiredRaces, preQuestSingle, ...).
 local function fakeLib(quests, opts)
     opts = opts or {}
     local ids = {}
@@ -27,12 +31,20 @@ local function fakeLib(quests, opts)
     table.sort(ids)
     local Q = {
         GetAllIds = function() return ids end,
+        Exists = function(id) return quests[id] ~= nil end,
         zoneOrSort = function(id)
             if opts.failOn == id then error("bad row") end
             return quests[id][1]
         end,
         specialFlags = function(id) return quests[id][2] end,
     }
+    local fields = { "name", "questLevel", "requiredLevel", "requiredMaxLevel", "requiredRaces",
+        "requiredClasses", "preQuestGroup", "preQuestSingle", "exclusiveTo", "nextQuestInChain",
+        "parentQuest", "breadcrumbForQuestId", "availableUntilCompleted", "availableStartingWith",
+        "requiredSkill", "requiredMinRep", "requiredMaxRep", "requiredSpell", "questFlags" }
+    for _, f in ipairs(fields) do
+        Q[f] = function(id) return quests[id] and quests[id][f] end
+    end
     return {
         contractVersion = opts.contract or 4,
         RequireContract = function(n) return n <= (opts.contract or 4), "too old" end,
@@ -122,8 +134,14 @@ return function(t)
         t.eq(b.Step(10), false)
         t.eq(select(1, b.Progress()), 10)
         t.eq(b.Step(10), false)
-        t.eq(b.Step(10), true)
-        t.eq(b.steps, 3)
+        t.eq(b.Step(10), false, "index done; details next")
+        t.eq(select(3, b.Progress()), "details")
+        local guard = 0
+        while not b.Step(10) and guard < 50 do guard = guard + 1 end
+        t.eq(b.steps, 3 + 11, "21 zone quests, 2 per details step")
+        local n = 0
+        for _ in pairs(b.details) do n = n + 1 end
+        t.eq(n, 21)
         t.eq(b.index.total, 23)
         t.eq(b.index.counted, 21)
         t.eq(b.index.left.dungeon, 1)
@@ -150,6 +168,9 @@ return function(t)
         quests[5] = { 12, 1 }
         quests[6] = { 1519, 0 }
         _G.LibQuestieDB = fakeLib(quests)
+        local done = { 1, 2 }
+        _G.C_QuestLog = { GetAllCompletedQuestIDs = function() return done end }
+        ns.character = { raceID = 1, classID = 2, level = 10 }
         events.AZF_READY()
         t.eq(ns.Quests.State().status, "building")
         t.eq(ns.Quests.ForZone(1429).status, "building")
@@ -157,10 +178,24 @@ return function(t)
         _G.LibQuestieDB = nil
         local s = ns.Quests.State()
         t.eq(s.status, "ready")
-        t.eq(s.steps, 3, "1,200 quests in batches of 500")
+        t.eq(s.steps, 3 + 12, "1,200 quests in index batches of 500, 1,199 details in batches of 100")
         local z = ns.Quests.ForZone({ mapID = 1429 })
         t.eq(z.count, 1198)
         t.eq(z.repeatable, 1)
+        t.eq(z.progress.completed, 2)
+        t.eq(z.progress.denominator, 1198)
+        t.eq(z.progress.coverage, "complete")
+        -- A turn-in re-reads the completed list after the debounce and announces it.
+        done = { 1, 2, 3 }
+        local before = #sent
+        events.QUEST_TURNED_IN()
+        t.eq(#sent, before + 1)
+        t.eq(ns.Quests.ForZone(1429).progress.completed, 3)
+        local all = ns.Quests.Overall()
+        t.eq(all.progress.completed, 3)
+        t.eq(all.progress.denominator, 1199)
+        t.eq(all.zones, 2)
+        _G.C_QuestLog = nil
         t.eq(ns.Quests.ForZone(1453).count, 1)
         t.eq(ns.Quests.ForZone(1426).count, 0, "a listed zone QuestieDB has nothing for")
         t.eq(sent[#sent], "AZF_QUESTS_UPDATED")

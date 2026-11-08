@@ -90,4 +90,13 @@ Guards: everything behind `pcall`; a missing addon or a contract mismatch makes 
 
 Every left-out quest is counted by reason, so the coverage note never hides anything.
 
+## Eligibility fields (QuestieDB `Types/Meta.t.lua`, `Types/Quest.t.lua`) [verified-files]
+
+- `preQuestGroup`: all must be done; `preQuestSingle`: one of them; `availableStartingWith`: that quest active or completed.
+- `exclusiveTo`: mutually exclusive quests. `nextQuestInChain`: "makes this quest unavailable once active or completed". `availableUntilCompleted`: availability ends when that quest is completed. `breadcrumbForQuestId`: the quest this optional breadcrumb leads to. `parentQuest`: must be active. `disabledByQuest`: only *temporarily* disables (ignored: still achievable).
+- `requiredSkill`, `requiredRanks`, `requiredSpecialization` (professions), `requiredMinRep` / `requiredMaxRep`, `requiredSpell`: not checked yet, so eligibility is unknown.
+- `questFlags` DAILY 4096, WEEKLY 32768, MONTHLY 65536 also mark repeatable quests.
+- QuestieDB has **no list of quests that can't be obtained** (no hidden/blacklist field, and the Forever corrections don't mark any). Questie keeps its own hidden list, but that's Questie, not QuestieDB. Such quests would show as remaining.
+- `QUEST_TURNED_IN` fires on Forever [verified-ingame, AzerfolioDiag sniffer: 9 events].
+
 Owner's note (2026-11-08): a Dungeons tracking tab comes later, and dungeon quests will be tracked there. The quest index therefore keeps dungeon and raid quests per instance area instead of dropping them. The area table is our own (`Azerfolio/Data/QuestAreas.lua`), built from the probe above, so Azerfolio doesn't read QuestieDB's private zone tables.

@@ -18,6 +18,7 @@ local FILES = {
     "tests/zones_test.lua",
     "tests/overview_test.lua",
     "tests/quests_test.lua",
+    "tests/questrules_test.lua",
 }
 
 local t = {}

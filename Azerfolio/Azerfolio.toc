@@ -27,6 +27,7 @@ Systems\Objectives.lua
 Systems\Progression.lua
 Systems\Milestones.lua
 Systems\Exploration.lua
+Systems\QuestRules.lua
 Systems\Quests.lua
 Systems\Zones.lua
 Systems\Overview.lua
