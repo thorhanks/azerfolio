@@ -161,6 +161,77 @@ function W.Pips(parent)
     return f
 end
 
+-- One thin bar per zone category (spec §7.7) in fixed slots (Theme.categoryOrder), so columns
+-- line up; a category that doesn't apply leaves its slot empty, a pending one shows "?".
+-- :Set(cats, width, horizontal) with cats = a Zones entry's `cats` (from Progression.Combine).
+function W.CatBars(parent)
+    local T, L = ns.Theme, ns.Theme.layout
+    local f = CreateFrame("Frame", nil, parent)
+    f.slots = {}
+    for i, key in ipairs(T.categoryOrder) do
+        local s = CreateFrame("Frame", nil, f)
+        s:SetHeight(L.catSlot)
+        s.icon = s:CreateTexture(nil, "ARTWORK")
+        s.icon:SetSize(L.catIcon, L.catIcon)
+        s.icon:SetPoint("LEFT", 0, 0)
+        s.icon:SetTexture(T.category[key].icon)
+        s.count = T.Text(s, "xs", "dim")
+        s.count:SetPoint("RIGHT", 0, 0)
+        s.count:SetWidth(L.catCount); s.count:SetJustifyH("RIGHT"); s.count:SetWordWrap(false)
+        s.well = T.Solid(s, "well", "BORDER")
+        s.well:SetPoint("LEFT", s.icon, "RIGHT", 6, 0)
+        s.well:SetPoint("RIGHT", s.count, "LEFT", -6, 0)
+        s.well:SetHeight(L.catBar)
+        s.fill = T.Solid(s, "todo", "ARTWORK")
+        s.fill:SetPoint("TOPLEFT", s.well, "TOPLEFT")
+        s.fill:SetHeight(L.catBar)
+        s.key = key
+        f.slots[i] = s
+    end
+    function f:Set(cats, width, horizontal)
+        local by = {}
+        for _, c in ipairs(cats or {}) do by[c.key] = c end
+        local n = #self.slots
+        local slotW = horizontal and math.floor((width - (n - 1) * 12) / n) or width
+        for i, s in ipairs(self.slots) do
+            s:ClearAllPoints()
+            if horizontal then
+                s:SetPoint("LEFT", self, "LEFT", (i - 1) * (slotW + 12), 0)
+            else
+                s:SetPoint("TOPLEFT", self, "TOPLEFT", 0, -(i - 1) * (L.catSlot + L.catGap))
+            end
+            s:SetWidth(slotW)
+            -- Side by side (list rows) the count gets just its text's room, so the bar keeps some.
+            local countW = horizontal and 40 or L.catCount
+            s.count:SetWidth(countW)
+            local c = by[s.key]
+            s:SetShown(c ~= nil)
+            if c then
+                local wellW = math.max(1, slotW - L.catIcon - 12 - countW)
+                if c.pending then
+                    s.fill:Hide()
+                    s.count:SetText("?")
+                    if s.icon.SetDesaturated then s.icon:SetDesaturated(true) end
+                    s.icon:SetAlpha(0.5)
+                else
+                    local frac = c.denominator > 0 and c.completed / c.denominator or 0
+                    s.fill:SetWidth(math.max(0.001, wellW * frac))
+                    s.fill:SetShown(frac > 0)
+                    local r, g, b = T.RGB(c.state == "complete" and "complete" or "todo")
+                    s.fill:SetColorTexture(r, g, b, 1)
+                    s.count:SetText(c.completed .. "/" .. c.denominator)
+                    s.count:SetTextColor(T.RGB(c.state == "complete" and "complete" or "dim"))
+                    if s.icon.SetDesaturated then s.icon:SetDesaturated(c.state == "untouched") end
+                    s.icon:SetAlpha(c.state == "untouched" and 0.6 or 1)
+                end
+            end
+        end
+        local h = horizontal and L.catSlot or (n * L.catSlot + (n - 1) * L.catGap)
+        self:SetSize(width, h)
+    end
+    return f
+end
+
 -- A zone's level range on the 1..maxLevel scale, with the player's level marked; green when
 -- it fits. :Set(minLevel, maxLevel, playerLevel, fits) (nil range = empty well).
 function W.LevelBar(parent)

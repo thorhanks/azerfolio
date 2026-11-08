@@ -57,6 +57,9 @@ local function boot(savedAccount, savedChar)
     local ns = wow.loadToc("Azerfolio", "Azerfolio")
     wow.fire("ADDON_LOADED", "Azerfolio")
     wow.fire("PLAYER_LOGIN")
+    -- Quest detection normally runs 5 s after AZF_READY; here, at once (no QuestieDB in these
+    -- tests: quests are "unavailable" and left out of zone progress).
+    if ns.Quests then ns.Quests.Start() end
     return ns
 end
 
@@ -154,7 +157,7 @@ return function(t)
         press(ns, "PADDDOWN")
         t.eq(ns.Focus.Current().title, "Elwynn Forest")
         t.ok(info():find("Eastern Kingdoms") and info():find("Levels 1%-10 %(guide%)")
-            and info():find("2 of 5 discovered"), info())
+            and info():find("Exploration 2 of 5"), info())
         press(ns, "PADRTRIGGER")
         t.eq(ns.Focus.Current().title, "Westfall", "RT: next section (Levels 10-20)")
         press(ns, "PADLTRIGGER")
@@ -188,7 +191,9 @@ return function(t)
         t.eq(cat.headers[1].text:GetText(), "Levels 1-10")
         t.eq(cat.headers[1].count:GetText(), "1 of 4 complete", "Dun Morogh; Zephras Isle isn't tracked")
         local c = cat.byMap[1429]
-        t.eq(c.pct:GetText(), "40%"); t.eq(c.n:GetText(), "2/5"); t.eq(c.lv:GetText(), "Lv 1-10")
+        t.eq(c.pct:GetText(), "40%"); t.eq(c.bars.slots[1].count:GetText(), "2/5", "exploration bar")
+        t.eq(c.bars.slots[2]:IsShown(), false, "no quests (no QuestieDB): slot left empty, not 0")
+        t.eq(c.lv:GetText(), "Lv 1-10")
         t.eq(c.fac:GetText(), "Alliance"); t.eq(cat.byMap[1411].fac:GetText(), "Horde")
         t.eq(cat.byMap[2521].fac:GetText(), "", "Zephras Isle: contested isn't shown on cards")
         t.eq(c.fit:IsShown(), true, "level 9 fits 1-10")
@@ -297,15 +302,115 @@ return function(t)
         t.eq(page(ns).detail.banner.sub:GetText(), "Eastern Kingdoms  ·  Levels 10-20  ·  Alliance territory")
     end)
 
-    t.test("zone detail: banner progress, and a note when the game's list differs", function()
+    -- Opens a zone's dashboard, then one category's page.
+    local function openPage(ns, zone, key)
+        page(ns):Open(zone)
+        page(ns):OpenPage(key)
+        return page(ns).detail
+    end
+    local ELWYNN = { mapID = 1429, name = "Elwynn Forest", continent = "Eastern Kingdoms" }
+
+    t.test("zone detail: opens on the dashboard: the banner, the % and one tile per category", function()
+        padUI = true
         local ns = boot({ schemaVersion = 4, lastTab = "zones" })
         slash("")
-        page(ns):Open({ mapID = 1429, name = "Elwynn Forest", continent = "Eastern Kingdoms" })
+        page(ns):Open(ELWYNN)
         local d = page(ns).detail
-        t.eq(d.banner.pct:GetText(), "40%"); t.eq(d.banner.count:GetText(), "2 of 5 discovered")
-        t.eq(d.banner.pips:IsShown(), true)
-        t.ok(d.note:IsShown() and d.note:GetText():find("differs from Azerfolio's catalogue"), "fixture IDs differ")
-        t.eq(d.headers[3]:IsShown(), false, "no unknown areas: no third section")
+        t.eq(d.dash:IsShown(), true); t.eq(d.scroll:IsShown(), false)
+        t.eq(d.banner.name:GetText(), "Elwynn Forest")
+        t.eq(d.standard.pct:GetText(), "40%", "only exploration applies here (no QuestieDB, no flight paths)")
+        t.ok(d.standard.cap:GetText():find("1 category"), d.standard.cap:GetText())
+        t.eq(d.tiles[1].count:GetText(), "2 of 5"); t.eq(d.tiles[1].pct:GetText(), "40%")
+        t.ok(d.tiles[1].line1:GetText():find("Fargodeep Mine"), "next area to discover")
+        t.ok(d.tiles[2].line1:GetText():find("QuestieDB"), d.tiles[2].line1:GetText())
+        t.eq(d.tiles[2].glyph:IsShown(), false, "nothing to open without QuestieDB")
+        t.eq(ns.Focus.Current().key, "tile:explore")
+        local rows = page(ns):GetFocusRows()
+        t.eq(#rows, 3); t.eq(rows[2].items[1].onActivate, nil)
+        press(ns, "PAD1")
+        t.eq(page(ns).detailPage, "explore"); t.eq(ns.Focus.Current().title, "Fargodeep Mine")
+        t.eq(d.banner.name:GetText(), "Exploration")
+        press(ns, "PAD2")
+        t.eq(page(ns).detailPage, nil, "B: back to the dashboard"); t.eq(ns.Focus.Current().key, "tile:explore")
+        press(ns, "PAD2")
+        t.eq(page(ns).mode, "list", "B again: the catalogue")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("zone detail: quests page (Ready now, storylines, finished, toggle) and flight paths", function()
+        padUI = true
+        -- Flight paths: the client's node list, and Stormwind's flight master seen before.
+        _G.C_TaxiMap = { GetTaxiNodesForMap = function(id)
+            if id ~= 1415 then return {} end
+            return { { nodeID = 2, name = "Stormwind, Elwynn", faction = 2 }, { nodeID = 4, name = "Sentinel Hill, Westfall", faction = 2 },
+                { nodeID = 84, name = "Plaguewood Tower, Eastern Plaguelands", faction = 0 } }
+        end }
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" }, { schemaVersion = 1,
+            flights = { [1415] = { time = 1794100000, nodes = { ["Stormwind, Elwynn"] = "known", ["Sentinel Hill, Westfall"] = "distant" } } } })
+        -- Quests: the real evaluation of a small Elwynn set (QuestieDB stand-in).
+        local info = {
+            [40] = { name = "A Fishy Peril", level = 10, reqLevel = 7, next = 35 },
+            [35] = { name = "Further Concerns", level = 10, reqLevel = 7, preSingle = { 40 } },
+            [37] = { name = "Find the Lost Guards", level = 10, reqLevel = 7, preSingle = { 35 } },
+            [7] = { name = "Kobold Camp Cleanup", level = 2, next = 15 },
+            [15] = { name = "Investigate Echo Ridge", level = 3, preSingle = { 7 } },
+            [176] = { name = "WANTED: \"Hogger\"", level = 11, reqLevel = 5 },
+            [5261] = { name = "Eagan Peltskinner", level = 2, preSingle = { 7 }, breadcrumbFor = 15 },
+        }
+        local ctx = ns.QuestRules.Context(function(id) return info[id] end, { [40] = true, [7] = true, [15] = true },
+            { raceID = 1, classID = 2, level = 9 })
+        local q = ns.Quests.Evaluate(ctx, 1429, { 40, 35, 37, 7, 15, 176, 5261 }, 4)
+        local realForZone = ns.Quests.ForZone
+        ns.Quests.ForZone = function(z) local id = type(z) == "table" and z.mapID or z; if id == 1429 then return q end
+            return { status = "ready", count = 0, objectives = {}, progress = ns.Progression.Aggregate({}) } end
+        slash("")
+        page(ns):Open(ELWYNN)
+        local d = page(ns).detail
+        t.eq(d.tiles[2].count:GetText(), "3 of 6")
+        t.ok(d.tiles[2].line1:GetText():find("2|r ready now"), d.tiles[2].line1:GetText())
+        t.ok(d.tiles[3].line1:GetText():find("No flight master"), "Stormwind's node belongs to Stormwind City")
+        page(ns):OpenPage("quests")
+        t.eq(d.banner.name:GetText(), "Quests"); t.eq(d.banner.count:GetText(), "3 of 6")
+        t.eq(d.headers[1].text:GetText(), "Ready now")
+        t.eq(ns.Focus.Current().title, "Further Concerns", "focus on the first ready quest")
+        t.ok(ns.Focus.Current().detail:find("Ready now"), ns.Focus.Current().detail)
+        t.eq(d.headers[2].text:GetText(), "Storylines"); t.eq(d.headers[3].text:GetText(), "Finished")
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().title, "A Fishy Peril", "RT: the storyline track, first node")
+        press(ns, "PADDRIGHT"); press(ns, "PADDRIGHT")
+        t.eq(ns.Focus.Current().title, "Find the Lost Guards")
+        t.ok(ns.Focus.Current().detail:find("Needs Further Concerns"), ns.Focus.Current().detail)
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().key, "fold:7", "the finished storyline, folded")
+        press(ns, "PAD1")
+        t.eq(ns.Focus.Current().key, "fold:7", "unfolded, focus kept")
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().title, "Kobold Camp Cleanup", "its track shows")
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().key, "toggle")
+        press(ns, "PAD1")
+        t.eq(ns.db.zones.showUnavailable, true)
+        t.ok(d.toggle.text:GetText():find("Hide 1 quest"), d.toggle.text:GetText())
+        press(ns, "PAD2")
+        t.eq(ns.Focus.Current().key, "tile:quests", "B: the dashboard, on the Quests tile")
+        -- Westfall: Sentinel Hill not known yet (the flight master's list said DISTANT).
+        page(ns):Back()
+        page(ns):Open({ mapID = 1436, name = "Westfall", continent = "Eastern Kingdoms" })
+        t.eq(d.tiles[3].count:GetText(), "0 of 1")
+        page(ns):OpenPage("flights")
+        t.eq(ns.Focus.Current().title, "Sentinel Hill")
+        t.ok(ns.Focus.Current().detail:find("Not discovered yet"))
+        ns.Quests.ForZone, _G.C_TaxiMap = realForZone, nil
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("zone detail: exploration page progress, and a note when the game's list differs", function()
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        slash("")
+        local d = openPage(ns, ELWYNN, "explore")
+        t.eq(d.banner.pct:GetText(), "40%"); t.eq(d.banner.count:GetText(), "2 of 5")
+        t.ok(d.texts[1]:IsShown() and d.texts[1].fs:GetText():find("differs from Azerfolio's catalogue"), "fixture IDs differ")
+        t.eq(d.headers[3] == nil or not d.headers[3]:IsShown(), true, "no unknown areas: no third section")
     end)
 
     t.test("zone detail: areas with unknown state are listed, not counted, and explained", function()
@@ -319,13 +424,12 @@ return function(t)
             return unpack(r, 1, 11)
         end
         ns.Exploration.InvalidateAll()
-        page(ns):Open({ mapID = 1429, name = "Elwynn Forest", continent = "Eastern Kingdoms" })
+        local d = openPage(ns, ELWYNN, "explore")
         _G.GetAchievementCriteriaInfo = real
-        local d = page(ns).detail
         t.eq(d.headers[3].text:GetText(), "State unknown"); t.eq(d.headers[3].count:GetText(), "1 area")
         t.eq(d.headers[1].count:GetText(), "2 areas", "To discover lists the other two")
-        t.ok(d.note:GetText():find("didn't say whether 1 area is discovered"), d.note:GetText())
-        t.eq(d.banner.count:GetText(), "2 of 4 discovered", "the unknown one isn't counted")
+        t.ok(d.texts[1].fs:GetText():find("didn't say whether 1 area is discovered"), d.texts[1].fs:GetText())
+        t.eq(d.banner.count:GetText(), "2 of 4", "the unknown one isn't counted")
         press(ns, "PADRTRIGGER"); press(ns, "PADRTRIGGER")
         t.eq(ns.Focus.Current().title, "Fargodeep Mine", "RT reaches the third section")
         t.ok(ns.Focus.Current().detail:find("didn't say"))
@@ -337,15 +441,18 @@ return function(t)
         slash("")
         page(ns):Open({ mapID = 1426, name = "Dun Morogh", continent = "Eastern Kingdoms" })
         local d = page(ns).detail
+        t.eq(d.standard.pct:GetText(), "Claimed", "the dashboard: every category done")
+        t.ok(d.standard.banner.claimText:GetText():find("Claimed for the Alliance"))
+        page(ns):OpenPage("explore")
         t.eq(d.banner.pct:GetText(), "100%")
-        t.ok(d.note:GetText():find("Fully explored"), d.note:GetText())
+        t.ok(d.texts[1].fs:GetText():find("Fully explored"), d.texts[1].fs:GetText())
         t.eq(d.headers[1].text:GetText(), "Discovered", "no empty To discover section")
         t.eq(d.headers[1].count:GetText(), "1 area")
-        t.eq(d.headers[2]:IsShown(), false)
+        t.eq(d.headers[2] == nil or not d.headers[2]:IsShown(), true)
         local rows = page(ns).detailRows
         t.eq(#rows, 1); t.eq(rows[1].section, 1)
         t.eq(ns.Focus.Current().title, "Coldridge Valley", "focus starts on the first discovered area")
-        page(ns):Open({ mapID = 1411, name = "Durotar", continent = "Kalimdor" })
+        openPage(ns, { mapID = 1411, name = "Durotar", continent = "Kalimdor" }, "explore")
         t.eq(d.headers[1].text:GetText(), "To discover", "an untouched zone keeps both sections")
         t.eq(d.headers[2].text:GetText(), "Discovered"); t.eq(d.headers[2].count:GetText(), "0 areas")
         t.eq(#ns.Debug.errors, 0)
@@ -360,6 +467,7 @@ return function(t)
         slash("")
         press(ns, "PADDDOWN"); press(ns, "PAD1") -- Elwynn Forest
         t.eq(page(ns).mode, "detail")
+        press(ns, "PAD1") -- its Exploration page
         local hints = ns.UI.GetFrame().legend.hints
         t.ok(hints:GetWidth() > 1)
         press(ns, "PAD3")
@@ -439,11 +547,11 @@ return function(t)
         local ns = boot({ schemaVersion = 4, lastTab = "zones" })
         slash("")
         local cat = page(ns).catalogue
-        t.eq(cat.byMap[1429].n:GetText(), "2/5")
+        t.eq(cat.byMap[1429].bars.slots[1].count:GetText(), "2/5")
         CRITERIA[776][3][2] = true
         wow.fire("CRITERIA_UPDATE"); wow.runTimers()
         CRITERIA[776][3][2] = false
-        t.eq(cat.byMap[1429].n:GetText(), "3/5")
+        t.eq(cat.byMap[1429].bars.slots[1].count:GetText(), "3/5")
         t.eq(cat.byMap[1429].pct:GetText(), "60%")
     end)
 
@@ -545,6 +653,8 @@ return function(t)
         local page = ns.UI.GetFrame().pages.zones
         t.eq(page.mode, "detail")
         t.eq(page.detail.banner.name:GetText(), "Elwynn Forest")
+        t.eq(ns.Focus.Current().key, "tile:explore", "the dashboard, on the Exploration tile")
+        press(ns, "PAD1")
         t.eq(ns.Focus.Current().title, "Fargodeep Mine", "first area to discover")
         t.eq(ns.Focus.Current().detail, "Not discovered yet")
         press(ns, "PADDRIGHT")
@@ -552,6 +662,8 @@ return function(t)
         press(ns, "PADRTRIGGER")
         t.eq(ns.Focus.Current().title, "Northshire Valley", "RT: Discovered section")
         t.eq(ns.Focus.Current().detail, "Discovered")
+        press(ns, "PAD2")
+        t.eq(page.detailPage, nil, "B: the dashboard first")
         press(ns, "PAD2")
         t.eq(page.mode, "list", "B goes back")
         t.eq(ns.UI.IsShown(), true, "the window stays open")
@@ -566,9 +678,8 @@ return function(t)
         slash("")
         local page = ns.UI.GetFrame().pages.zones
         page:Open({ mapID = 2521, name = "Zephras Isle", continent = "Other places" })
-        t.ok(page.detail.message:IsShown())
-        t.ok(page.detail.message:GetText():find("no Explore achievement for Zephras Isle"))
-        t.eq(#page:GetFocusRows(), 0)
+        t.ok(page.detail.tiles[1].line1:GetText():find("no Explore achievement for Zephras Isle"))
+        t.eq(#page:GetFocusRows(), 0, "nothing to open")
     end)
 
     t.test("opening zones repeatedly reuses the area rows", function()
@@ -624,9 +735,13 @@ return function(t)
         press(ns, "PAD1")
         t.eq(page.mode, "detail")
         t.eq(page.list:IsShown(), true, "the list stays visible")
-        t.eq(ns.Focus.Current().title, "Fargodeep Mine", "A moves into the areas")
+        t.eq(ns.Focus.Current().key, "tile:explore", "A moves into the zone's dashboard")
+        press(ns, "PAD1")
+        t.eq(ns.Focus.Current().title, "Fargodeep Mine", "A again: the areas")
         press(ns, "PADDDOWN")
-        t.eq(page.detail.banner.name:GetText(), "Elwynn Forest", "moving in the areas keeps the zone")
+        t.eq(page.detail.banner.crumb:GetText(), "·  Elwynn Forest", "moving in the areas keeps the zone")
+        press(ns, "PAD2")
+        t.eq(page.detailPage, nil, "B: the dashboard")
         press(ns, "PAD2")
         t.eq(page.mode, "list")
         t.eq(ns.Focus.Current().title, "Elwynn Forest", "B returns to the zone")
@@ -654,8 +769,8 @@ return function(t)
         t.eq(row.item.canActivate(), false, "no A hint: nothing to move into")
         t.eq(page.catalogue.byMap[1429].item.canActivate(), true, "another zone still can")
         page:Open(row.item.zone)
-        t.eq(page.mode, "list", "no areas to move into")
-        t.ok(page.detail.message:GetText():find("no Explore achievement"), "the reason shows")
+        t.eq(page.mode, "list", "nothing to move into")
+        t.ok(page.detail.tiles[1].line1:GetText():find("no Explore achievement"), "the reason shows")
         t.eq(#ns.Debug.errors, 0)
     end)
 
@@ -860,7 +975,7 @@ return function(t)
         local pictures = 0
         for _, s in ipairs(ns.UI.ShotSteps()) do if not s.skip then pictures = pictures + 1 end end
         t.eq(_G.screenshotsTaken, pictures)
-        t.eq(_G.screenshotsTaken, 12)
+        t.eq(_G.screenshotsTaken, 15, "12 before, plus the zone's three category pages")
         t.eq(ns.db.zones.displayMode, "cards", "view restored")
         t.eq(ns.UI.GetFrame().pages.zones.popup:IsShown(), false, "popup closed")
         local labels = {}
@@ -937,6 +1052,7 @@ return function(t)
         local got = listen(ns)
         local page = ns.UI.GetFrame().pages.zones
         page:Open({ mapID = 1429, name = "Elwynn Forest" })
+        page:OpenPage("explore")
         t.eq(ns.Focus.Current().title, "Fargodeep Mine")
         t.eq(page.detail.headers[1].count:GetText(), "3 areas")
         t.eq(page.detail.headers[2].count:GetText(), "2 areas")

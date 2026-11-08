@@ -8,3 +8,4 @@ art/review/
 # Never commit SavedVariables dumps (they can contain chat and friend-list data).
 *.lua.bak
 WTF/
+mockups/banner-art/*.png

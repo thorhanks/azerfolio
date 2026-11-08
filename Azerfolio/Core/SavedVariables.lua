@@ -164,6 +164,26 @@ function SV.CleanRecentZones(list, fixes)
     return out
 end
 
+-- Flight masters' lists: keys are continent map IDs; each record needs a nodes table of
+-- name -> "known"|"distant". Anything else is dropped (the continent is then unknown again).
+function SV.CleanFlights(t, fixes)
+    if type(t) ~= "table" then return {} end
+    local out, dropped = {}, 0
+    for continent, rec in pairs(t) do
+        if type(continent) == "number" and type(rec) == "table" and type(rec.nodes) == "table" then
+            local nodes = {}
+            for name, s in pairs(rec.nodes) do
+                if type(name) == "string" and (s == "known" or s == "distant") then nodes[name] = s else dropped = dropped + 1 end
+            end
+            out[continent] = { time = validTime(rec.time) and rec.time or nil, nodes = nodes }
+        else
+            dropped = dropped + 1
+        end
+    end
+    if dropped > 0 and fixes then fixes[#fixes + 1] = string.format("character flights: %d invalid entries dropped", dropped) end
+    return out
+end
+
 -- Loads both SavedVariables tables. Returns account, char, fixes.
 function SV.Load(account, char)
     local Config = ns.Config
@@ -181,6 +201,7 @@ function SV.Load(account, char)
 
     char.milestones = SV.CleanMilestones(char.milestones, fixes)
     char.recentZones = SV.CleanRecentZones(char.recentZones, fixes)
+    char.flights = SV.CleanFlights(char.flights, fixes)
     SV.TrimList(account.trace, Config.LIMITS.trace)
     SV.TrimList(char.milestones, Config.LIMITS.milestones)
     SV.TrimList(char.recentZones, Config.LIMITS.recentZones)

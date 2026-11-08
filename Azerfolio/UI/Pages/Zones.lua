@@ -1,268 +1,23 @@
 -- Zones tab, two views:
 --   * catalogue (UI/Pages/ZonesCatalogue.lua): toolbar plus illustrated cards or a compact
 --     list of every zone, filtered, sorted and grouped by ns.Zones;
---   * detail: one zone's banner and its Explore areas, To discover / Discovered, read live from
---     the game (Systems/Exploration.lua).
--- A (or a click) opens a zone; B (or the Back button) returns to the catalogue with the same
--- zone focused. Y cycles Cards / List, X searches. Level and Sort open a small popup. In a wide
--- window the list and the detail show side by side (see build). Uses the one-line strip.
+--   * detail (UI/Pages/ZoneDetail.lua): the zone's dashboard (war banner, one tile per
+--     category) or one category's page (Exploration, Quests, Flight paths).
+-- A (or a click) opens a zone's dashboard; A on a tile opens its page; B steps back: page ->
+-- dashboard -> catalogue (same zone focused). Y cycles Cards / List, X searches (catalogue) or
+-- opens the world map (detail). In a wide window the list and the detail show side by side
+-- (see build). Uses the one-line strip.
 local _, ns = ...
 
 ---------------------------------------------------------------------------------------------
--- Detail view
+-- Detail view: UI/Pages/ZoneDetail.lua (dashboard and category pages).
 ---------------------------------------------------------------------------------------------
 
--- Crops the 2:1 zone art to the banner, centred on the zone's landmark (Theme.bannerFocus).
-local function cropBanner(banner)
-    local w, h = banner:GetWidth(), banner:GetHeight()
-    if not (w and h and w > 0) then return end
-    local top, bottom = ns.Theme.BannerCrop(banner.mapID, w, h)
-    banner.art:SetTexCoord(0, 1, top, bottom)
-end
-
-local function checkRow(parent)
-    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
-    local row = ns.Widgets.FocusRow(parent, L.checkRow)
-    row.done = row:CreateTexture(nil, "ARTWORK")
-    row.done:SetSize(L.checkIcon, L.checkIcon)
-    row.done:SetPoint("LEFT", S.s2, 0)
-    row.done:SetTexture(T.files.checkDone)
-    -- The client's check is green; the state language says discovered = gold.
-    if row.done.SetDesaturated then row.done:SetDesaturated(true) end
-    row.done:SetVertexColor(T.RGB("complete"))
-    row.todo = row:CreateTexture(nil, "ARTWORK")
-    row.todo:SetSize(L.checkIcon - 8, L.checkIcon - 8)
-    row.todo:SetPoint("CENTER", row.done, "CENTER")
-    row.todo:SetColorTexture(T.RGB("todo"))
-    local mask = row:CreateMaskTexture()
-    if mask then
-        mask:SetAllPoints(row.todo)
-        mask:SetTexture(T.circleMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-        pcall(row.todo.AddMaskTexture, row.todo, mask)
-    end
-    row.name = T.Text(row, "sm", "white")
-    row.name:SetPoint("LEFT", row.done, "RIGHT", S.s2, 0)
-    row.name:SetPoint("RIGHT", row, "RIGHT", -S.s2, 0)
-    row.name:SetJustifyH("LEFT")
-    row.name:SetWordWrap(false)
-    return row
-end
-
-local function buildDetail(page)
-    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
-    local d = CreateFrame("Frame", nil, page)
-    d:SetAllPoints()
-    d:Hide()
-
-    local banner = CreateFrame("Frame", nil, d)
-    banner:SetPoint("TOPLEFT"); banner:SetPoint("TOPRIGHT")
-    banner:SetHeight(L.bannerHeight)
-    banner.art = banner:CreateTexture(nil, "BACKGROUND")
-    banner.art:SetAllPoints()
-    banner:SetScript("OnSizeChanged", cropBanner)
-    local shade = banner:CreateTexture(nil, "BORDER")
-    shade:SetAllPoints()
-    shade:SetColorTexture(1, 1, 1, 1)
-    local ok = type(CreateColor) == "function" and pcall(shade.SetGradient, shade, "HORIZONTAL",
-        CreateColor(0, 0, 0, 0.85), CreateColor(0, 0, 0, 0.15))
-    if not ok then shade:SetColorTexture(0, 0, 0, 0.5) end
-    local rule = T.Solid(banner, "divider", "ARTWORK")
-    rule:SetPoint("BOTTOMLEFT"); rule:SetPoint("BOTTOMRIGHT"); rule:SetHeight(2)
-    banner.name = T.Text(banner, "xxl", "gold")
-    banner.name:SetPoint("BOTTOMLEFT", banner, "BOTTOMLEFT", S.s6, S.s6 + S.s2)
-    banner.sub = T.Text(banner, "sm", "text")
-    banner.sub:SetPoint("TOPLEFT", banner.name, "BOTTOMLEFT", 0, -S.s1)
-    local back = CreateFrame("Button", nil, banner, "UIPanelButtonTemplate")
-    back:SetSize(96, 24)
-    back:SetPoint("TOPRIGHT", -S.s4, -S.s3)
-    back:SetText("Zones")
-    back:SetScript("OnClick", function() page:Back() end)
-    d.back = back
-    local map = CreateFrame("Button", nil, banner, "UIPanelButtonTemplate")
-    map:SetSize(110, 24)
-    map:SetText("World map")
-    map:SetScript("OnClick", function() page:OpenMap() end)
-    d.mapButton = map
-    -- A dark band on the right so the progress reads over bright art (the left shade fades out
-    -- there; WoWScrnShot_110726_211556 had "83%" on a sunlit sky).
-    local rshade = banner:CreateTexture(nil, "BORDER", nil, 1)
-    rshade:SetPoint("TOPRIGHT"); rshade:SetPoint("BOTTOMRIGHT")
-    rshade:SetWidth(L.bannerRightShade)
-    rshade:SetColorTexture(1, 1, 1, 1)
-    local rok = type(CreateColor) == "function" and pcall(rshade.SetGradient, rshade, "HORIZONTAL",
-        CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, 0.8))
-    if not rok then rshade:SetColorTexture(0, 0, 0, 0.45) end
-    -- Progress, right side: big percentage over the pips, "n of m discovered" to the left.
-    banner.pct = T.Text(banner, "xxl", "white")
-    banner.pct:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", -S.s6, S.s6 + S.s2)
-    banner.pips = ns.Widgets.Pips(banner)
-    banner.pips:SetPoint("TOPRIGHT", banner.pct, "BOTTOMRIGHT", 0, -S.s1)
-    banner.count = T.Text(banner, "sm", "text")
-    banner.count:SetPoint("RIGHT", banner.pct, "LEFT", -S.s3, 0)
-    d.banner = banner
-
-    local scroll = ns.Widgets.Scroll(d)
-    scroll:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, -S.s3)
-    scroll:SetPoint("BOTTOMRIGHT", 0, S.s2)
-    d.scroll = scroll
-    d.headers = { ns.Widgets.Header(scroll.child), ns.Widgets.Header(scroll.child),
-        ns.Widgets.Header(scroll.child) }
-    -- Notes above the checklist: fully explored, unknown areas, catalogue differences.
-    d.note = T.Text(scroll.child, "sm", "text")
-    d.note:SetPoint("TOPLEFT", L.listInset, -S.s1)
-    d.note:SetPoint("RIGHT", scroll.child, "RIGHT", -S.s6, 0)
-    d.note:SetJustifyH("LEFT")
-    d.message = T.Text(scroll.child, "md", "dim")
-    d.message:SetPoint("TOPLEFT", L.listInset, -S.s4)
-    d.message:SetPoint("RIGHT", scroll.child, "RIGHT", -S.s6, 0)
-    d.message:SetJustifyH("LEFT")
-    d.pool = {}
-    return d
-end
-
-local MESSAGES = {
-    untracked = "The game has no Explore achievement for %s, so Azerfolio can't track its exploration.",
-    unavailable = "The game isn't returning achievement data right now. Try again in a moment.",
-}
-
--- The banner's second line: continent and level range (from the zone guide).
-local function bannerSub(zone)
-    local parts = { zone.continent }
-    local lo, hi = ns.Zones.LevelsFor(ns.ZoneData, zone.mapID)
-    if lo then
-        parts[#parts + 1] = lo == hi and ("Level " .. lo) or string.format("Levels %d-%d", lo, hi)
-    end
-    local faction = ns.Zones.FactionFor(ns.ZoneData, zone.mapID)
-    if faction then parts[#parts + 1] = faction == "Contested" and "Contested" or (faction .. " territory") end
-    return table.concat(parts, "  ·  ")
-end
-
--- Fills the detail view for a zone. Returns the focus rows.
-local function fillDetail(d, zone)
-    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
-    local art = T.ZoneArt(zone.mapID)
-    if art then d.banner.art:SetTexture(art) else d.banner.art:SetColorTexture(0, 0, 0, 1) end
-    d.banner.mapID = zone.mapID
-    cropBanner(d.banner)
-    d.banner.name:SetText(zone.name)
-    d.banner.sub:SetText(bannerSub(zone))
-    d.scroll:SetVerticalScroll(0)
-
-    for _, r in ipairs(d.pool) do r:Hide() end
-    for _, h in ipairs(d.headers) do h:Hide() end
-    d.message:Hide()
-    d.note:Hide()
-
-    local ex = ns.Exploration.ForZone(zone)
-    local rows, child = {}, d.scroll.child
-    local b = d.banner
-    if ex.status ~= "tracked" then
-        b.pct:SetText(""); b.count:SetText(""); b.pips:Hide()
-        d.message:SetText(string.format(MESSAGES[ex.status] or MESSAGES.unavailable, zone.name))
-        d.message:Show()
-        child:SetHeight(100)
-        return rows, ex
-    end
-
-    -- Banner progress: the percentage only when Progression gives one ("-" otherwise).
-    local p = ex.progress
-    local complete = p.trackedComplete
-    b.pct:SetText(ns.Progression.PercentText(p) or "-")
-    b.pct:SetTextColor(T.RGB(complete and "complete" or (p.completed > 0 and "todo" or "white")))
-    b.count:SetText(p.denominator > 0 and string.format("%d of %d discovered", p.completed, p.denominator) or "")
-    b.pips:Set(p.complete, p.incomplete, p.completionUnknown, 300)
-    b.pips:Show()
-
-    -- Notes: what the numbers alone don't say.
-    local notes = {}
-    if complete then
-        notes[#notes + 1] = "|cffffcc33Fully explored:|r every area the game lists for this zone is discovered."
-    end
-    if p.completionUnknown > 0 then
-        notes[#notes + 1] = string.format("The game didn't say whether %d %s discovered; %s under State unknown and not counted.",
-            p.completionUnknown, p.completionUnknown == 1 and "area is" or "areas are",
-            p.completionUnknown == 1 and "it's listed" or "they're listed")
-    end
-    if p.coverage ~= "complete" and p.completionUnknown == 0 and not complete then
-        notes[#notes + 1] = "Some areas couldn't be identified, so this zone has no percentage."
-    end
-    if ex.uncertain then
-        notes[#notes + 1] = "The game's list of areas differs from Azerfolio's catalogue (a game update?). Showing the game's list."
-    end
-    local y, used = 0, 0
-    if #notes > 0 then
-        d.note:SetText(table.concat(notes, "\n"))
-        d.note:Show()
-        local h = d.note.GetStringHeight and d.note:GetStringHeight() or 0
-        y = math.max(h, #notes * (T.size.sm + 4)) + S.s3
-    end
-
-    -- Listed counts (every area shown), not the percentage's denominator.
-    local todo = { title = "To discover", list = {}, count = p.incomplete }
-    local found = { title = "Discovered", list = {}, count = p.complete }
-    local unsure = { title = "State unknown", list = {}, count = p.completionUnknown }
-    for _, c in ipairs(ex.objectives) do
-        if c.completion == "complete" then table.insert(found.list, c)
-        elseif c.completion == "incomplete" then table.insert(todo.list, c)
-        else table.insert(unsure.list, c) end
-    end
-    -- A fully explored zone has no "To discover" section; the note above says so (DESIGN.md).
-    local groups = {}
-    if not (complete and #todo.list == 0) then groups[#groups + 1] = todo end
-    groups[#groups + 1] = found
-    if #unsure.list > 0 then groups[#groups + 1] = unsure end
-    local counts = {}
-    for gi, g in ipairs(groups) do counts[gi] = g.count end
-
-    for gi, g in ipairs(groups) do
-        if gi > 1 then y = y + S.s3 end
-        local h = d.headers[gi]
-        h:ClearAllPoints()
-        h:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
-        h:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
-        h.text:SetText(g.title)
-        h.count:SetText(counts[gi] == 1 and "1 area" or (counts[gi] .. " areas"))
-        h:Show()
-        y = y + L.listHeader + S.s1
-        if #g.list == 0 then y = y + S.s2 end
-        for i = 1, #g.list, 2 do
-            local items = {}
-            for col = 0, 1 do
-                local c = g.list[i + col]
-                if c then
-                    used = used + 1
-                    local row = d.pool[used]
-                    if not row then row = checkRow(child); d.pool[used] = row end
-                    row:ClearAllPoints()
-                    if col == 0 then
-                        row:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
-                        row:SetPoint("TOPRIGHT", child, "TOP", -S.s2, -y)
-                    else
-                        row:SetPoint("TOPLEFT", child, "TOP", S.s2 + L.listInset / 2, -y)
-                        row:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
-                    end
-                    local done = c.completion == "complete"
-                    local unknown = c.completion ~= "complete" and c.completion ~= "incomplete"
-                    row.done:SetShown(done)
-                    row.todo:SetShown(not done)
-                    local tr, tg, tb = T.RGB(unknown and "untouched" or "todo")
-                    row.todo:SetColorTexture(tr, tg, tb, 1)
-                    row.name:SetText(c.name or "?")
-                    row.name:SetTextColor(T.RGB((done or unknown) and "dim" or "white"))
-                    row.item = { key = "c" .. tostring(c.id), frame = row, title = c.name,
-                        detail = done and "Discovered" or (unknown and "The game didn't say whether this is discovered")
-                            or "Not discovered yet", scroll = d.scroll,
-                        topGap = L.listHeader + S.s1 + S.s2 }
-                    row:Show()
-                    items[#items + 1] = row.item
-                end
-            end
-            rows[#rows + 1] = { items = items, section = gi }
-            y = y + L.checkRow + 2
-        end
-    end
-    child:SetHeight(math.max(1, y))
-    return rows, ex
+-- The zone's entry, built now from the providers' (cached) results, so the detail is never
+-- behind the catalogue, even for a zone filtered out of it (opened from the Overview).
+local function entryFor(_, zone)
+    return ns.Zones.Entry(zone, ns.Exploration.ForZone(zone.mapID), ns.Quests.ForZone(zone.mapID),
+        ns.FlightPaths.ForZone(zone.mapID))
 end
 
 ---------------------------------------------------------------------------------------------
@@ -343,8 +98,10 @@ local function build(parent)
     local cat = ns.ZonesCatalogue.New(page)
     page.catalogue = cat
     page.toolbar, page.list = cat.toolbar, cat.list
-    page.detail = buildDetail(page)
+    page.detail = ns.ZoneDetail.New(page)
     page.popup = buildPopup(page)
+    page.detailPage = nil      -- nil = the dashboard, else "explore" | "quests" | "flights"
+    page.openStories = {}      -- finished storylines unfolded on the Quests page (this session)
 
     local function arrange()
         local L = ns.Theme.layout
@@ -382,11 +139,13 @@ local function build(parent)
         end
     end
 
-    -- Fills the detail view for `zone` (re-read from the game when `force`).
+    -- Fills the detail view for `zone` on page.detailPage (re-read when `force`). A different
+    -- zone always starts on its dashboard, with the banner rising.
     local function show(zone, force)
         if not force and page.zone and page.zone.mapID == zone.mapID and page.detailRows then return end
+        if not (page.zone and page.zone.mapID == zone.mapID) then page.detailPage = nil; page.animateBanner = true end
         page.zone = zone
-        page.detailRows = fillDetail(page.detail, zone)
+        page.detailRows = ns.ZoneDetail.Fill(page.detail, zone, entryFor(cat, zone), page.detailPage, page)
     end
 
     local function refresh()
@@ -397,10 +156,10 @@ local function build(parent)
         if page.popup:IsShown() then
             page.hasSections, page.backLabel = false, "Close"
         else
-            page.hasSections = inDetail and page.detailRows and #page.detailRows > 0
+            page.hasSections = inDetail and page.detailPage ~= nil and page.detailRows and #page.detailRows > 0
                 or (not inDetail and cat.sectionCount > 1)
             page.sectionLabel = "Section"
-            page.backLabel = inDetail and "Back" or nil
+            page.backLabel = inDetail and (page.detailPage and "Overview" or "Zones") or nil
         end
         markSelected()
         ns.Focus.Rebuild()
@@ -420,9 +179,36 @@ local function build(parent)
         if ns.UI.CurrentTab() == "zones" then refresh() end
     end
 
-    -- A on a zone: open its detail (narrow) or move into its areas (wide).
+    -- A on a dashboard tile: that category's page, focused on its first item.
+    function page:OpenPage(key)
+        if not self.zone then return end
+        self.detailPage = key
+        show(self.zone, true)
+        self.mode = "detail"
+        local first = self.detailRows[1] and self.detailRows[1].items[1]
+        self.pendingFocusKey = first and first.key
+        refresh()
+    end
+
+    -- Quests page: unfold or fold a finished storyline; show or hide quests you can't do.
+    function page:ToggleStory(id)
+        self.openStories[id] = not self.openStories[id] or nil
+        self.pendingFocusKey = "fold:" .. tostring(id)
+        show(self.zone, true)
+        refresh()
+    end
+    function page:ToggleUnavailable()
+        ns.db.zones.showUnavailable = not ns.db.zones.showUnavailable
+        self.pendingFocusKey = "toggle"
+        show(self.zone, true)
+        refresh()
+    end
+
+    -- A on a zone: open its dashboard (narrow) or move into it (wide).
     function page:Open(zone)
         self.returnTo = nil
+        if not (self.zone and self.zone.mapID == zone.mapID) then self.animateBanner = true end
+        self.detailPage = nil
         show(zone, true)
         local first = self.detailRows[1] and self.detailRows[1].items[1]
         if self.wide and not first then -- nothing to move into; the detail already shows why
@@ -503,6 +289,16 @@ local function build(parent)
         if self.popup:IsShown() then self:ClosePopup(); return true end
         if cat:SearchHasFocus() then cat.searchBox:ClearFocus(); return true end
         if self.mode ~= "detail" then return false end
+        -- A category page goes back to the zone's dashboard, on that category's tile; one
+        -- opened straight from another tab (an Overview area) goes back there.
+        if self.detailPage and not self.returnTo then
+            local key = self.detailPage
+            self.detailPage = nil
+            show(self.zone, true)
+            self.pendingFocusKey = "tile:" .. key
+            refresh()
+            return true
+        end
         self.mode = "list"
         self.pendingFocusKey = self.zone and self.zone.mapID
         refresh()
@@ -519,7 +315,9 @@ local function build(parent)
         if self.popup:IsShown() then self.popup:Close() end
         self:Open(zone)
         if self.mode ~= "detail" then return end
+        -- An area (Overview suggestion) opens the Exploration page on it.
         if criteriaID ~= nil then
+            self:OpenPage("explore")
             self.pendingFocusKey = "c" .. tostring(criteriaID)
             refresh()
         end
@@ -599,6 +397,7 @@ local function build(parent)
 
     function page:GetHints()
         if self.popup:IsShown() then return {} end
+        -- The window adds A from the focused item's actionLabel (a tile's "Open").
         if self.mode == "detail" then return { { "X", "World map" } } end
         local hints = {}
         if not self.wide then hints[#hints + 1] = { "Y", "View" } end
@@ -640,6 +439,21 @@ local function build(parent)
         if ns.UI.CurrentTab() == "zones" then refresh() end
     end)
 
+    -- Quests (built, a turn-in, a level-up) or flight paths (a flight master's list) changed:
+    -- every zone's numbers may have moved. Redraw like an exploration update of all zones.
+    for _, msg in ipairs({ "AZF_QUESTS_UPDATED", "AZF_FLIGHTS_UPDATED" }) do
+        ns.Events.On(msg, function()
+            if not page:IsShown() then page.dirty = true; page.detailRows = nil; return end
+            local current = ns.UI.CurrentTab() == "zones" and ns.Focus.Current()
+            page.building = true
+            cat:Refresh()
+            page.building = false
+            if page.zone and page.detail:IsShown() then show(page.zone, true) end
+            if current and page.pendingFocusKey == nil then page.pendingFocusKey = current.key end
+            if ns.UI.CurrentTab() == "zones" then refresh() end
+        end)
+    end
+
     -- Level-ups change "Your level"; redraw next time the page shows.
     ns.Events.On("AZF_LEVEL_CHANGED", function() page.dirty = true end)
     page:SetScript("OnShow", function(self)
@@ -648,6 +462,7 @@ local function build(parent)
             self.building = true
             cat:Refresh()
             self.building = false
+            if self.zone and (self.mode == "detail" or self.wide) and not self.detailRows then show(self.zone, true) end
             refresh()
         end
     end)
@@ -667,6 +482,6 @@ ns.UI.RegisterTab({
     icon = "Interface\\Icons\\INV_Misc_Map_01",
     order = 2,
     compactHeader = true,
-    info = "Every zone, its art and its exploration.",
+    info = "Every zone: exploration, quests and flight paths.",
     build = build,
 })

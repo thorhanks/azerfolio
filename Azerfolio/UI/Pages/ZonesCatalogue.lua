@@ -45,16 +45,27 @@ local function levelText(z)
     return string.format("Lv %d-%d", z.minLevel, z.maxLevel)
 end
 
-local function countText(z)
-    if z.state == "untracked" then return "not tracked" end
-    local p = z.progress
-    if not p or p.denominator == 0 then return "no data" end
-    return string.format("%d/%d", p.completed, p.denominator)
-end
-
+-- The zone's combined percentage (spec §7.7), from Progression.
 local function percentText(z)
     if z.state == "untracked" then return "-" end
-    return (z.progress and ns.Progression.PercentText(z.progress)) or "?"
+    return (z.combined and ns.Progression.PercentText(z.combined)) or "?"
+end
+
+-- One phrase per category for the info line: "Exploration 7 of 12", "Quests 42 of 68 (2 unchecked)".
+function Catalogue.CategoryText(z)
+    local out = {}
+    for _, c in ipairs(z.cats or {}) do
+        local meta = ns.Theme.category[c.key]
+        if c.pending then
+            out[#out + 1] = meta.label .. (c.pending == "flightmaster" and ": visit a flight master to check"
+                or c.pending == "building" and ": reading QuestieDB" or ": not readable right now")
+        else
+            local s = string.format("%s %d of %d", meta.label, c.completed, c.denominator)
+            if c.unchecked and c.unchecked > 0 then s = s .. string.format(" (%d unchecked)", c.unchecked) end
+            out[#out + 1] = s
+        end
+    end
+    return out
 end
 
 -- The info line: what the card doesn't already say.
@@ -70,15 +81,10 @@ function Catalogue.ZoneDetail(z)
         parts[#parts + 1] = "Contested"
     end
     if z.state == "untracked" then
-        parts[#parts + 1] = "Exploration not tracked (no Explore achievement)"
-    elseif not z.progress then
-        parts[#parts + 1] = "No exploration data right now"
+        parts[#parts + 1] = "Nothing tracked here (no Explore achievement, quests or flight paths)"
     else
-        local p = z.progress
-        local s = string.format("%d of %d discovered", p.completed, p.denominator)
-        if p.completionUnknown > 0 then s = s .. string.format(", %d unknown", p.completionUnknown) end
-        parts[#parts + 1] = s
-        if z.uncertain then parts[#parts + 1] = "the game's list differs from the catalogue" end
+        for _, s in ipairs(Catalogue.CategoryText(z)) do parts[#parts + 1] = s end
+        if z.uncertain then parts[#parts + 1] = "the game's area list differs from the catalogue" end
     end
     return table.concat(parts, "  ·  ")
 end
@@ -107,8 +113,8 @@ local function newCard(parent)
     c.pct = T.Text(c, "md", "text")
     c.pct:SetPoint("TOPRIGHT", c.art, "BOTTOMRIGHT", -S.s3, -S.s2)
     c.name:SetPoint("RIGHT", c.pct, "LEFT", -S.s2, 0)
-    c.pips = W.Pips(c)
-    c.pips:SetPoint("TOPLEFT", c.name, "BOTTOMLEFT", 0, -S.s2)
+    c.bars = W.CatBars(c)
+    c.bars:SetPoint("TOPLEFT", c.name, "BOTTOMLEFT", 0, -S.s2)
     c.lv = T.Text(c, "xs", "dim")
     c.lv:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT", S.s3, S.s3)
     c.fac = T.Text(c, "xs", "dim")
@@ -152,16 +158,14 @@ local function fillCard(c, z, width)
     c.name:SetTextColor(T.RGB(grey and "dim" or "white"))
     c.pct:SetText(percentText(z))
     c.pct:SetTextColor(T.RGB(STATE_PCT[z.state] or "dim"))
-    local p = z.progress
-    c.pips:SetShown(p ~= nil)
-    if p then c.pips:Set(p.complete, p.incomplete, p.completionUnknown, width - 2 * S.s3) end
+    c.bars:Set(z.cats, width - 2 * S.s3, false)
     c.lv:SetText(levelText(z) or "Lv ?")
     -- Only faction territory is worth the room; contested is the norm.
     local own = z.faction == "Alliance" or z.faction == "Horde"
     c.fac:SetText(own and z.faction or "")
     if own then c.fac:SetTextColor(T.RGB(z.faction)) end
     c.fit:SetShown(z.state ~= "complete" and ns.Zones.FitsLevel(z, char().level))
-    c.n:SetText(countText(z))
+    c.n:SetText(z.state == "untracked" and "not tracked" or "")
     c.zone = z
     c:Paint()
 end
@@ -187,8 +191,8 @@ local function newRow(parent)
     r.name:SetPoint("TOPLEFT", r.thumb, "TOPRIGHT", S.s3, 2)
     r.name:SetPoint("RIGHT", r.lv, "LEFT", -S.s3, 0)
     r.name:SetJustifyH("LEFT"); r.name:SetWordWrap(false)
-    r.pips = W.Pips(r)
-    r.pips:SetPoint("BOTTOMLEFT", r.thumb, "BOTTOMRIGHT", S.s3, 2)
+    r.bars = W.CatBars(r)
+    r.bars:SetPoint("BOTTOMLEFT", r.thumb, "BOTTOMRIGHT", S.s3, 0)
     r.note = T.Text(r, "xs", "dim")
     return r
 end
@@ -220,20 +224,15 @@ local function fillRow(r, z, width)
     else
         r.lv:SetPoint("RIGHT", r.lvbar, "LEFT", -S.s2, 0)
     end
-    local p = z.progress
-    r.pips:SetShown(p ~= nil)
-    r.note:ClearAllPoints()
-    -- Room for pips: the name column minus the "n/m" note.
+    -- Category bars side by side under the name, in the name column.
     local bar = compact and 0 or (S.s2 + L.levelBarWidth)
     local room = width - (S.s2 + L.zoneThumb[1] + S.s3)
-        - (L.levelTextWidth + bar + S.s3 + L.pctWidth + S.s2 + S.s3) - 60
-    if p then
-        local used = r.pips:Set(p.complete, p.incomplete, p.completionUnknown, math.max(40, room))
-        r.note:SetPoint("LEFT", r.pips, "LEFT", used + S.s2, 0)
-    else
-        r.note:SetPoint("BOTTOMLEFT", r.thumb, "BOTTOMRIGHT", S.s3, 0)
-    end
-    r.note:SetText(z.state == "untracked" and "Exploration not tracked" or countText(z))
+        - (L.levelTextWidth + bar + S.s3 + L.pctWidth + S.s2 + S.s3)
+    r.bars:SetShown(z.state ~= "untracked")
+    r.bars:Set(z.cats, math.max(120, room), true)
+    r.note:ClearAllPoints()
+    r.note:SetPoint("BOTTOMLEFT", r.thumb, "BOTTOMRIGHT", S.s3, 0)
+    r.note:SetText(z.state == "untracked" and "Nothing tracked here" or "")
     r.zone = z
 end
 

@@ -1,10 +1,11 @@
-// Minimal BLP2 writer/reader for Azerfolio art: DXT1 (no alpha) with a full mipmap chain.
-// Compiled at runtime by tools/convert-blp.ps1 (Add-Type, C# 5). No external dependencies.
+// Minimal BLP2 writer/reader for Azerfolio art with a full mipmap chain: DXT1 (no alpha) for
+// zone art, DXT5 (8-bit alpha) for the war banner pieces, which are painted on flat magenta
+// and keyed out here (KeyMagenta). Compiled at runtime (Add-Type, C# 5). No external dependencies.
 //
 // BLP2 layout (little endian):
-//   char[4] "BLP2" | uint32 type=1 | uint8 compression=2 (DXT) | uint8 alphaDepth=0 | uint8 alphaType=0 (DXT1)
-//   uint8 hasMips=1 | uint32 width | uint32 height | uint32 mipOffsets[16] | uint32 mipSizes[16] | uint32 palette[256]
-//   then the DXT1 data for each mip level.
+//   char[4] "BLP2" | uint32 type=1 | uint8 compression=2 (DXT) | uint8 alphaDepth (0 or 8) |
+//   uint8 alphaType (0 = DXT1, 7 = DXT5) | uint8 hasMips=1 | uint32 width | uint32 height |
+//   uint32 mipOffsets[16] | uint32 mipSizes[16] | uint32 palette[256], then each mip level's blocks.
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -169,9 +170,111 @@ public static class AzfBlp
         return o;
     }
 
+    // ---------- Alpha: magenta key and DXT5 ----------
+
+    // Keys out a flat magenta background (#FF00FF): alpha falls off with "magenta-ness"
+    // (min(R,B) - G), and the magenta spill left on soft edges is removed. Fully transparent
+    // pixels get black colour (the encoder replaces it with the block's own colour).
+    public static string KeyMagenta(string inPath, string outPath)
+    {
+        int w, h;
+        var px = ReadRgba(inPath, out w, out h);
+        const float lo = 60f, hi = 170f;
+        int clear = 0, soft = 0;
+        for (int i = 0; i < px.Length; i += 4)
+        {
+            float r = px[i], g = px[i + 1], b = px[i + 2];
+            float m = Math.Min(r, b) - g;
+            float a = 1f - Math.Max(0f, Math.Min(1f, (m - lo) / (hi - lo)));
+            if (a < 1f && a > 0.004f)
+            {
+                // Un-mix: observed = a * paint + (1 - a) * magenta, so paint = (observed - (1 - a) * magenta) / a.
+                r = (r - (1f - a) * 255f) / a; g = g / a; b = (b - (1f - a) * 255f) / a;
+                px[i + 1] = (byte)Clamp((int)Math.Round(g), 0, 255);
+            }
+            a *= px[i + 3] / 255f;
+            if (a <= 0.004f) { px[i] = px[i + 1] = px[i + 2] = px[i + 3] = 0; clear++; continue; }
+            if (a < 0.996f) soft++;
+            px[i] = (byte)Clamp((int)Math.Round(r), 0, 255); px[i + 2] = (byte)Clamp((int)Math.Round(b), 0, 255);
+            px[i + 3] = (byte)Clamp((int)Math.Round(a * 255f), 0, 255);
+        }
+        WriteRgba(outPath, px, w, h);
+        return w + "x" + h + ", " + (100 * clear / (w * h)) + "% transparent, " + soft + " soft edge pixels";
+    }
+
+    // Like Downsample, but colour is averaged weighted by alpha (no dark or magenta fringes).
+    static byte[] DownsampleAlpha(byte[] px, int w, int h, out int nw, out int nh)
+    {
+        nw = Math.Max(1, w / 2); nh = Math.Max(1, h / 2);
+        var o = new byte[nw * nh * 4];
+        for (int y = 0; y < nh; y++)
+            for (int x = 0; x < nw; x++)
+            {
+                int x0 = Math.Min(x * 2, w - 1), x1 = Math.Min(x * 2 + 1, w - 1);
+                int y0 = Math.Min(y * 2, h - 1), y1 = Math.Min(y * 2 + 1, h - 1);
+                int[] s = { (y0 * w + x0) * 4, (y0 * w + x1) * 4, (y1 * w + x0) * 4, (y1 * w + x1) * 4 };
+                float wa = 0, r = 0, g = 0, b = 0;
+                foreach (int k in s) { float a = px[k + 3]; wa += a; r += px[k] * a; g += px[k + 1] * a; b += px[k + 2] * a; }
+                int d = (y * nw + x) * 4;
+                if (wa > 0) { o[d] = (byte)(r / wa); o[d + 1] = (byte)(g / wa); o[d + 2] = (byte)(b / wa); }
+                o[d + 3] = (byte)((wa / 4f) + 0.5f);
+            }
+        return o;
+    }
+
+    // One DXT5 block: 8 bytes of alpha (two endpoints, 3-bit indices), then a DXT1 colour block
+    // encoded from the visible pixels (transparent ones take the visible pixels' mean colour).
+    static void EncodeBlockAlpha(byte[] px, int w, int h, int bx, int by, byte[] dst, int o)
+    {
+        var tmp = new byte[64]; var al = new int[16];
+        float mr = 0, mg = 0, mb = 0; int vis = 0;
+        for (int i = 0; i < 16; i++)
+        {
+            int x = Math.Min(bx + (i & 3), w - 1), y = Math.Min(by + (i >> 2), h - 1);
+            int s = (y * w + x) * 4;
+            for (int c = 0; c < 4; c++) tmp[i * 4 + c] = px[s + c];
+            al[i] = px[s + 3];
+            if (al[i] > 0) { mr += px[s]; mg += px[s + 1]; mb += px[s + 2]; vis++; }
+        }
+        if (vis > 0) { mr /= vis; mg /= vis; mb /= vis; }
+        for (int i = 0; i < 16; i++)
+            if (al[i] == 0) { tmp[i * 4] = (byte)mr; tmp[i * 4 + 1] = (byte)mg; tmp[i * 4 + 2] = (byte)mb; }
+        int a0 = 0, a1 = 255;
+        for (int i = 0; i < 16; i++) { if (al[i] > a0) a0 = al[i]; if (al[i] < a1) a1 = al[i]; }
+        var pal = new int[8];
+        pal[0] = a0; pal[1] = a1;
+        for (int k = 2; k < 8; k++) pal[k] = ((8 - k) * a0 + (k - 1) * a1 + 3) / 7;
+        ulong bits = 0;
+        if (a0 != a1)
+            for (int i = 0; i < 16; i++)
+            {
+                int best = 0, bestD = int.MaxValue;
+                for (int k = 0; k < 8; k++) { int d = Math.Abs(al[i] - pal[k]); if (d < bestD) { bestD = d; best = k; } }
+                bits |= (ulong)best << (3 * i);
+            }
+        dst[o] = (byte)a0; dst[o + 1] = (byte)a1;
+        for (int k = 0; k < 6; k++) dst[o + 2 + k] = (byte)((bits >> (8 * k)) & 0xFF);
+        EncodeBlock(tmp, 4, 4, 0, 0, dst, o + 8);
+    }
+
+    static byte[] EncodeLevelAlpha(byte[] px, int w, int h)
+    {
+        int bw = Math.Max(1, (w + 3) / 4), bh = Math.Max(1, (h + 3) / 4);
+        var o = new byte[bw * bh * 16];
+        for (int y = 0; y < bh; y++)
+            for (int x = 0; x < bw; x++)
+                EncodeBlockAlpha(px, w, h, x * 4, y * 4, o, (y * bw + x) * 16);
+        return o;
+    }
+
+    // Converts an image with alpha (PNG) to BLP2 DXT5 with mipmaps. Powers of two only.
+    public static string ConvertAlpha(string inPath, string outPath) { return Write(inPath, outPath, true); }
+
     // ---------- Public API ----------
     // Converts an image (PNG/JPG) to BLP2 DXT1 with mipmaps. Width and height must be powers of two.
-    public static string Convert(string inPath, string outPath)
+    public static string Convert(string inPath, string outPath) { return Write(inPath, outPath, false); }
+
+    static string Write(string inPath, string outPath, bool alpha)
     {
         int w, h;
         var px = ReadRgba(inPath, out w, out h);
@@ -180,9 +283,9 @@ public static class AzfBlp
         int lw = w, lh = h; var lp = px;
         while (true)
         {
-            levels.Add(EncodeLevel(lp, lw, lh));
+            levels.Add(alpha ? EncodeLevelAlpha(lp, lw, lh) : EncodeLevel(lp, lw, lh));
             if (lw == 1 && lh == 1) break;
-            int nw, nh; lp = Downsample(lp, lw, lh, out nw, out nh); lw = nw; lh = nh;
+            int nw, nh; lp = alpha ? DownsampleAlpha(lp, lw, lh, out nw, out nh) : Downsample(lp, lw, lh, out nw, out nh); lw = nw; lh = nh;
             if (levels.Count == 16) break;
         }
         using (var fs = new FileStream(outPath, FileMode.Create))
@@ -191,8 +294,8 @@ public static class AzfBlp
             bw.Write(new byte[] { (byte)'B', (byte)'L', (byte)'P', (byte)'2' });
             bw.Write((uint)1);          // type: DXT / uncompressed family
             bw.Write((byte)2);          // compression: DXT
-            bw.Write((byte)0);          // alpha depth: none
-            bw.Write((byte)0);          // alpha type: DXT1
+            bw.Write((byte)(alpha ? 8 : 0)); // alpha depth
+            bw.Write((byte)(alpha ? 7 : 0)); // alpha type: DXT5 or DXT1
             bw.Write((byte)1);          // has mips
             bw.Write((uint)w); bw.Write((uint)h);
             uint offset = HeaderSize;
@@ -204,28 +307,40 @@ public static class AzfBlp
         return w + "x" + h + ", " + levels.Count + " mips, " + new FileInfo(outPath).Length + " bytes";
     }
 
-    // Decodes mip 0 of a BLP2 DXT1 file to PNG (for verification).
+    // Decodes mip 0 of a BLP2 DXT1 or DXT5 file to PNG (for verification).
     public static void Decode(string blpPath, string pngPath)
     {
         var bytes = File.ReadAllBytes(blpPath);
         if (bytes[0] != 'B' || bytes[1] != 'L' || bytes[2] != 'P' || bytes[3] != '2') throw new InvalidDataException("Not BLP2");
-        if (bytes[8] != 2 || bytes[10] != 0) throw new InvalidDataException("Only DXT1 is supported");
+        bool dxt5 = bytes[10] == 7;
+        if (bytes[8] != 2 || (bytes[10] != 0 && !dxt5)) throw new InvalidDataException("Only DXT1 and DXT5 are supported");
         int w = (int)BitConverter.ToUInt32(bytes, 12), h = (int)BitConverter.ToUInt32(bytes, 16);
         int off = (int)BitConverter.ToUInt32(bytes, 20);
+        int size = dxt5 ? 16 : 8;
         var px = new byte[w * h * 4];
         int bw = Math.Max(1, (w + 3) / 4), bh = Math.Max(1, (h + 3) / 4);
-        var a = new float[3]; var b = new float[3]; var p = new float[4, 3];
+        var a = new float[3]; var b = new float[3]; var p = new float[4, 3]; var pal = new int[8];
         for (int by = 0; by < bh; by++)
             for (int bx = 0; bx < bw; bx++)
             {
-                int o = off + (by * bw + bx) * 8;
+                int o = off + (by * bw + bx) * size;
+                ulong abits = 0;
+                if (dxt5)
+                {
+                    int a0 = bytes[o], a1 = bytes[o + 1];
+                    pal[0] = a0; pal[1] = a1;
+                    if (a0 > a1) for (int k = 2; k < 8; k++) pal[k] = ((8 - k) * a0 + (k - 1) * a1) / 7;
+                    else { for (int k = 2; k < 6; k++) pal[k] = ((6 - k) * a0 + (k - 1) * a1) / 5; pal[6] = 0; pal[7] = 255; }
+                    for (int k = 0; k < 6; k++) abits |= (ulong)bytes[o + 2 + k] << (8 * k);
+                    o += 8;
+                }
                 ushort c0 = BitConverter.ToUInt16(bytes, o), c1 = BitConverter.ToUInt16(bytes, o + 2);
                 uint idx = BitConverter.ToUInt32(bytes, o + 4);
                 From565(c0, a); From565(c1, b);
                 for (int k = 0; k < 3; k++)
                 {
                     p[0, k] = a[k]; p[1, k] = b[k];
-                    if (c0 > c1) { p[2, k] = (2 * a[k] + b[k]) / 3f; p[3, k] = (a[k] + 2 * b[k]) / 3f; }
+                    if (dxt5 || c0 > c1) { p[2, k] = (2 * a[k] + b[k]) / 3f; p[3, k] = (a[k] + 2 * b[k]) / 3f; }
                     else { p[2, k] = (a[k] + b[k]) / 2f; p[3, k] = 0; }
                 }
                 for (int i = 0; i < 16; i++)
@@ -233,10 +348,22 @@ public static class AzfBlp
                     int x = bx * 4 + (i & 3), y = by * 4 + (i >> 2);
                     if (x >= w || y >= h) continue;
                     int j = (int)((idx >> (i * 2)) & 3), d = (y * w + x) * 4;
-                    px[d] = (byte)Math.Round(p[j, 0]); px[d + 1] = (byte)Math.Round(p[j, 1]); px[d + 2] = (byte)Math.Round(p[j, 2]); px[d + 3] = 255;
+                    px[d] = (byte)Math.Round(p[j, 0]); px[d + 1] = (byte)Math.Round(p[j, 1]); px[d + 2] = (byte)Math.Round(p[j, 2]);
+                    px[d + 3] = dxt5 ? (byte)pal[(int)((abits >> (3 * i)) & 7)] : (byte)255;
                 }
             }
         WriteRgba(pngPath, px, w, h);
+    }
+
+    // Mean absolute alpha difference (0-255) between two same-size images.
+    public static double AlphaError(string aPath, string bPath)
+    {
+        int aw, ah, bw2, bh2;
+        var a = ReadRgba(aPath, out aw, out ah); var b = ReadRgba(bPath, out bw2, out bh2);
+        if (aw != bw2 || ah != bh2) throw new ArgumentException("Size mismatch");
+        double s = 0;
+        for (int i = 3; i < a.Length; i += 4) s += Math.Abs(a[i] - b[i]);
+        return s / (aw * ah);
     }
 
     // Peak signal-to-noise ratio (dB) between two same-size images, RGB only.

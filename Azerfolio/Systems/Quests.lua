@@ -223,6 +223,149 @@ function Quests.Builder(Q, ids, areas)
     return b
 end
 
+-- Pure: the quest difficulty colour name for a quest level and the player's level, the
+-- client's rule (QuestDifficultyColors): red 5+ above, orange 3-4 above, yellow within 2,
+-- green down to greenRange below, grey under that. greenRange comes from the client's
+-- GetQuestGreenRange() when it has one; the fallback is the classic table [unverified].
+function Quests.GreenRange(level)
+    if type(level) ~= "number" then return 5 end
+    if level <= 5 then return 5 end
+    if level <= 39 then return math.floor(level / 10) + 5 end
+    if level <= 59 then return math.floor(level / 5) + 1 end
+    return 12
+end
+function Quests.Difficulty(questLevel, level, greenRange)
+    if type(questLevel) ~= "number" or type(level) ~= "number" then return nil end
+    local d = questLevel - level
+    if d >= 5 then return "red" end
+    if d >= 3 then return "orange" end
+    if d >= -2 then return "yellow" end
+    if -d <= (greenRange or Quests.GreenRange(level)) then return "green" end
+    return "grey"
+end
+
+local function idList(v)
+    if type(v) == "table" then return v end
+    if type(v) == "number" and v > 0 then return { v } end
+    return {}
+end
+
+-- Pure: what the checklist shows for one quest (spec §7.3): ready (can take now), locked,
+-- unknown (eligibility not known), done, unavailable, or open (eligible, completion unknown).
+function Quests.KindOf(o)
+    if o.eligibility == "unavailable" then return "unavailable" end
+    if o.eligibility == "unknown" then return "unknown" end
+    if o.completion == "complete" then return "done" end
+    if o.eligibility == "locked" then return "locked" end
+    if o.completion == "incomplete" then return "ready" end
+    return "open"
+end
+
+-- Pure: Ready now, storylines and single quests from a zone's objectives (Evaluate fills
+-- o.kind). Storylines are quests joined by prerequisite or next-quest links (QuestieDB
+-- preQuestGroup / preQuestSingle / availableStartingWith / nextQuestInChain) within the zone;
+-- columns follow chain depth, so branches stack. info(id) -> the quest's detail record.
+--   { ready, stories (unfinished: those with a ready quest first, then by level), finished,
+--     singles (ready, locked, unknown, open, unavailable, done; then by level) }
+function Quests.Shape(objectives, info)
+    local byId, pre, parent = {}, {}, {}
+    for _, o in ipairs(objectives) do byId[o.id] = o end
+    local function root(x)
+        while parent[x] ~= nil and parent[x] ~= x do x = parent[x] end
+        return x
+    end
+    local function link(a, b) -- a must come before b
+        if not (byId[a] and byId[b]) or a == b then return end
+        pre[b] = pre[b] or {}
+        for _, x in ipairs(pre[b]) do if x == a then return end end
+        table.insert(pre[b], a)
+        local ra, rb = root(a), root(b)
+        if ra ~= rb then parent[ra] = rb end
+    end
+    for _, o in ipairs(objectives) do
+        local r = info(o.id)
+        if r then
+            for _, p in ipairs(idList(r.preGroup)) do link(p, o.id) end
+            for _, p in ipairs(idList(r.preSingle)) do link(p, o.id) end
+            for _, p in ipairs(idList(r.startingWith)) do link(p, o.id) end
+            for _, n in ipairs(idList(r.next)) do link(o.id, n) end
+        end
+    end
+    local memo, visiting = {}, {}
+    local function depth(id)
+        if memo[id] then return memo[id] end
+        if visiting[id] then return 0 end -- a loop in the data: break it
+        visiting[id] = true
+        local d = 0
+        for _, p in ipairs(pre[id] or {}) do d = math.max(d, depth(p) + 1) end
+        visiting[id] = nil
+        memo[id] = d
+        return d
+    end
+    local function byLevel(a, b)
+        local la, lb = a.questLevel or 0, b.questLevel or 0
+        if la ~= lb then return la < lb end
+        local na, nb = tostring(a.name), tostring(b.name)
+        if na ~= nb then return na < nb end
+        return a.id < b.id
+    end
+    local comps, order = {}, {}
+    for _, o in ipairs(objectives) do
+        local r = root(o.id)
+        if not comps[r] then comps[r] = {}; order[#order + 1] = r end
+        table.insert(comps[r], o)
+    end
+    local stories, singles = {}, {}
+    for _, key in ipairs(order) do
+        local list = comps[key]
+        if #list < 2 then
+            singles[#singles + 1] = list[1]
+        else
+            local cols = {}
+            for _, o in ipairs(list) do
+                local d = depth(o.id) + 1
+                cols[d] = cols[d] or {}
+                table.insert(cols[d], o)
+            end
+            local columns = {}
+            for d = 1, table.maxn(cols) do if cols[d] then table.sort(cols[d], byLevel); columns[#columns + 1] = cols[d] end end
+            local done, total, ready, level = 0, 0, 0, nil
+            for _, o in ipairs(list) do
+                if o.eligibility == "eligible" or o.eligibility == "locked" then
+                    total = total + 1
+                    if o.completion == "complete" then done = done + 1 end
+                end
+                if o.kind == "ready" then ready = ready + 1 end
+                if o.kind ~= "done" and o.questLevel and (not level or o.questLevel < level) then level = o.questLevel end
+            end
+            local first = columns[1][1]
+            stories[#stories + 1] = { id = first.id, name = first.name, columns = columns, size = #list, done = done,
+                total = total, ready = ready, finished = total > 0 and done == total, level = level or 99 }
+        end
+    end
+    local active, finished = {}, {}
+    for _, s in ipairs(stories) do table.insert(s.finished and finished or active, s) end
+    table.sort(active, function(a, b)
+        if (a.ready > 0) ~= (b.ready > 0) then return a.ready > 0 end
+        if a.level ~= b.level then return a.level < b.level end
+        if tostring(a.name) ~= tostring(b.name) then return tostring(a.name) < tostring(b.name) end
+        return a.id < b.id
+    end)
+    table.sort(finished, function(a, b)
+        if tostring(a.name) ~= tostring(b.name) then return tostring(a.name) < tostring(b.name) end
+        return a.id < b.id
+    end)
+    local rank = { ready = 1, locked = 2, unknown = 3, open = 4, unavailable = 5, done = 6 }
+    table.sort(singles, function(a, b)
+        if rank[a.kind] ~= rank[b.kind] then return rank[a.kind] < rank[b.kind] end
+        return byLevel(a, b)
+    end)
+    local ready = {}
+    for _, o in ipairs(objectives) do if o.kind == "ready" then ready[#ready + 1] = o end end
+    table.sort(ready, byLevel)
+    return { ready = ready, stories = active, finished = finished, singles = singles }
+end
+
 -- Pure: a zone's quest objectives and progress for one character.
 --   ctx: QuestRules.Context; ids: the zone's quest IDs; mapID; repeatable: left out count.
 --   { status = "ready", mapID, objectives, progress, count, repeatable, reasons = { [reason] = n } }
@@ -239,12 +382,35 @@ function Quests.Evaluate(ctx, mapID, ids, repeatable)
         local o = O.New({ id = id, category = Quests.CATEGORY, zone = mapID, name = info and info.name,
             completion = R.Completion(ctx.completed, id), eligibility = elig, source = "questiedb" })
         o.questLevel, o.reqLevel, o.reason = info and info.level, info and info.reqLevel, why
+        o.kind = Quests.KindOf(o)
+        o.difficulty = Quests.Difficulty(o.questLevel, ctx.char and ctx.char.level, ctx.greenRange)
+        -- A quest locked behind others names the ones still to do (any zone), when known.
+        if why == "prerequisite" and info then
+            local names = {}
+            local function add(p)
+                if not (ctx.completed and ctx.completed[p]) then
+                    local r = ctx.info(p)
+                    if r and r.name then names[#names + 1] = r.name end
+                end
+            end
+            for _, p in ipairs(idList(info.preGroup)) do add(p) end
+            for _, p in ipairs(idList(info.preSingle)) do add(p) end
+            for _, p in ipairs(idList(info.startingWith)) do add(p) end
+            if #names > 0 then o.prereqs = names; o.prereqAny = info.preSingle ~= nil and info.preGroup == nil end
+        end
         objectives[#objectives + 1] = o
         if why then reasons[why] = (reasons[why] or 0) + 1 end
     end
     local progress = ns.Progression.Aggregate({ { category = Quests.CATEGORY, coverage = coverage, objectives = objectives } })
+    local unknownReasons = {}
+    for _, o in ipairs(objectives) do
+        if o.eligibility == "unknown" and o.reason then unknownReasons[o.reason] = (unknownReasons[o.reason] or 0) + 1 end
+    end
+    local shape = Quests.Shape(objectives, ctx.info)
     return { status = "ready", mapID = mapID, objectives = objectives, progress = progress,
-        count = #objectives, repeatable = repeatable or 0, reasons = reasons, coverage = coverage }
+        count = #objectives, repeatable = repeatable or 0, reasons = reasons, unknownReasons = unknownReasons,
+        coverage = coverage, ready = shape.ready, stories = shape.stories, finished = shape.finished,
+        singles = shape.singles }
 end
 
 ---------------------------------------------------------------------------------------------
@@ -297,7 +463,14 @@ local function info(id)
 end
 
 local function context()
-    if not ctx then ctx = ns.QuestRules.Context(info, completed, character()) end
+    if not ctx then
+        ctx = ns.QuestRules.Context(info, completed, character())
+        -- The client's green range for quest colours, when it has the function [unverified].
+        if type(GetQuestGreenRange) == "function" then
+            local ok, g = pcall(GetQuestGreenRange)
+            if ok and type(g) == "number" then ctx.greenRange = g end
+        end
+    end
     return ctx
 end
 

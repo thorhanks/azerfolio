@@ -95,7 +95,7 @@ Theme.layout = {
     cardMinWidth = 240,        -- cards are at least this wide; the grid adds columns as it can
     cardGap = 16,
     cardArtAspect = 5 / 16,    -- art band height / width
-    cardBody = 78,             -- name line, pips, meta line
+    cardBody = 122,            -- name line, three category bars, meta line (108 overlapped in game)
     zoneRow = 48,              -- list view row
     zoneThumb = { 64, 32 },
     levelBarWidth = 120,
@@ -126,6 +126,21 @@ Theme.layout = {
     milestoneRow = 26,
     milestoneIcon = 18,
 }
+
+-- Zone completion categories (spec §7.7), in display order: label, unit, icon.
+-- Icons: the map is the Zones tab's [verified-ingame]; the other two are classic client files
+-- [unverified on Forever: check in /azf shots].
+Theme.categoryOrder = { "explore", "quests", "flights" }
+Theme.category = {
+    explore = { label = "Exploration", unit = "areas", icon = "Interface\\Icons\\INV_Misc_Map_01" },
+    quests = { label = "Quests", unit = "quests", icon = "Interface\\GossipFrame\\AvailableQuestIcon" },
+    flights = { label = "Flight paths", unit = "flight paths", icon = "Interface\\Icons\\Ability_Mount_Gryphon_01" },
+}
+Theme.layout.catBar = 6          -- category bar height (cards, rows)
+Theme.layout.catIcon = 14
+Theme.layout.catSlot = 14        -- one category's line on a card
+Theme.layout.catGap = 4
+Theme.layout.catCount = 58       -- "125/125" right of a bar (44 wrapped "42/68" in game)
 
 -- Space the window's outside parts take (tabs right, legend below, portrait ring and glow).
 Theme.outside = { left = 8, right = 64, top = 8, bottom = 50 }

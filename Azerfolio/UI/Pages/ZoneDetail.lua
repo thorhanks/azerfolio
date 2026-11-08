@@ -1,0 +1,889 @@
+-- Zone Detail (spec §7, mockups/DESIGN.md "Zone Detail is a dashboard"): the zone's banner
+-- header, then either the dashboard (the war banner and one tile per category) or one
+-- category's page: Exploration (To discover / Discovered), Quests (Ready now, storylines,
+-- finished storylines, the coverage note) or Flight paths. Used by UI/Pages/Zones.lua, which
+-- owns the modes and B. Everything shown comes from ns.Zones / ns.Exploration / ns.Quests /
+-- ns.FlightPaths; this file only draws it. Frames are pooled and reused.
+local _, ns = ...
+
+local Detail = {}
+ns.ZoneDetail = Detail
+
+Detail.PAGES = { "explore", "quests", "flights" }
+local NODE_W, NODE_H, NODE_DOT = 88, 58, 22
+local CHIP_H, CHIP_COLS = 30, 3
+local TILE_H = 104
+local STANDARD_W = 300
+
+local DIFF_COLOR = { red = { 1, 0.13, 0.13 }, orange = { 1, 0.5, 0.25 }, yellow = { 1, 1, 0 },
+    green = { 0.25, 0.75, 0.25 }, grey = { 0.62, 0.62, 0.62 } }
+local DIFF_TEXT = { red = "far above your level", orange = "above your level", yellow = "about your level",
+    green = "easy for you", grey = "far below your level" }
+local KIND_LABEL = { ready = "Ready now", locked = "Locked", unknown = "Not counted", done = "Done",
+    unavailable = "Not for this character", open = "Completion not known" }
+
+local function cap(s) s = tostring(s or ""); return (s:gsub("^%l", string.upper)) end
+
+-- "Level 10 (from 7) · Locked: needs Find the Lost Guards"
+function Detail.QuestLine(q)
+    local lv = q.questLevel and ("Level " .. q.questLevel) or "Level ?"
+    if q.reqLevel and q.questLevel and q.reqLevel ~= q.questLevel then lv = lv .. " (from " .. q.reqLevel .. ")" end
+    local state = KIND_LABEL[q.kind] or "?"
+    if q.kind == "ready" and q.difficulty then
+        state = state .. ", " .. DIFF_TEXT[q.difficulty]
+    elseif q.kind ~= "ready" and q.kind ~= "done" and q.reason then
+        local why = cap(q.reason)
+        if q.reason == "prerequisite" and q.prereqs then
+            why = (q.prereqAny and #q.prereqs > 1 and "Needs one of " or "Needs ") .. table.concat(q.prereqs, ", ")
+        end
+        state = state .. ": " .. why
+    end
+    return lv .. "  ·  " .. state
+end
+
+---------------------------------------------------------------------------------------------
+-- Building blocks
+---------------------------------------------------------------------------------------------
+
+local function cropBanner(banner)
+    local w, h = banner:GetWidth(), banner:GetHeight()
+    if not (w and h and w > 0) then return end
+    local top, bottom = ns.Theme.BannerCrop(banner.mapID, w, h)
+    banner.art:SetTexCoord(0, 1, top, bottom)
+end
+
+local function circle(parent, layer, size, sub)
+    local t = parent:CreateTexture(nil, layer, nil, sub)
+    t:SetSize(size, size)
+    local m = parent:CreateMaskTexture()
+    if m then
+        m:SetAllPoints(t)
+        m:SetTexture(ns.Theme.circleMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        pcall(t.AddMaskTexture, t, m)
+    end
+    return t
+end
+
+-- An area or flight path row: check or ring, name.
+local function checkRow(parent)
+    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
+    local row = ns.Widgets.FocusRow(parent, L.checkRow)
+    row.done = row:CreateTexture(nil, "ARTWORK")
+    row.done:SetSize(L.checkIcon, L.checkIcon)
+    row.done:SetPoint("LEFT", S.s2, 0)
+    row.done:SetTexture(T.files.checkDone)
+    if row.done.SetDesaturated then row.done:SetDesaturated(true) end
+    row.done:SetVertexColor(T.RGB("complete"))
+    row.todo = circle(row, "ARTWORK", L.checkIcon - 8)
+    row.todo:SetPoint("CENTER", row.done, "CENTER")
+    row.todo:SetColorTexture(T.RGB("todo"))
+    row.name = T.Text(row, "sm", "white")
+    row.name:SetPoint("LEFT", row.done, "RIGHT", S.s2, 0)
+    row.name:SetPoint("RIGHT", row, "RIGHT", -S.s2, 0)
+    row.name:SetJustifyH("LEFT")
+    row.name:SetWordWrap(false)
+    return row
+end
+
+-- A Ready now chip: the quest level in its difficulty colour, then the name.
+local function newChip(parent)
+    local T, S = ns.Theme, ns.Theme.space
+    local b = ns.Widgets.FocusRow(parent, CHIP_H)
+    b.bg = T.Solid(b, "ctlBg", "BACKGROUND")
+    b.bg:SetAllPoints()
+    b.edge = ns.Widgets.Edge(b, "BORDER")
+    b.edge:SetColor("ctlEdge")
+    b.lvbg = T.Solid(b, "black", "ARTWORK")
+    b.lvbg:SetSize(26, 20)
+    b.lvbg:SetPoint("LEFT", S.s1 + 2, 0)
+    b.lv = T.Text(b, "xs", "white")
+    b.lv:SetPoint("CENTER", b.lvbg, "CENTER", 0, 0)
+    b.name = T.Text(b, "sm", "white")
+    b.name:SetPoint("LEFT", b.lvbg, "RIGHT", S.s2, 0)
+    b.name:SetPoint("RIGHT", b, "RIGHT", -S.s2, 0)
+    b.name:SetJustifyH("LEFT"); b.name:SetWordWrap(false)
+    return b
+end
+
+-- A storyline node: a dot (state) with the name under it.
+local function newNode(parent)
+    local T = ns.Theme
+    local b = CreateFrame("Button", nil, parent)
+    b:SetSize(NODE_W, NODE_H)
+    T.RowHighlight(b, "HIGHLIGHT")
+    local hi = T.RowHighlight(b)
+    hi:SetShown(false)
+    function b:SetFocused(on) hi:SetShown(on) end
+    ns.Widgets.HoverInfo(b)
+    b.ring = circle(b, "ARTWORK", NODE_DOT)
+    b.ring:SetPoint("TOP", 0, -3)
+    b.dot = circle(b, "ARTWORK", NODE_DOT - 6, 1)
+    b.dot:SetPoint("CENTER", b.ring, "CENTER")
+    b.mark = b:CreateTexture(nil, "OVERLAY")
+    b.mark:SetSize(14, 14); b.mark:SetPoint("CENTER", b.ring, "CENTER")
+    b.glyph = T.Text(b, "xs", "white")
+    b.glyph:SetPoint("CENTER", b.ring, "CENTER", 0, 0)
+    b.name = T.Text(b, "xs", "text")
+    b.name:SetPoint("TOP", b.ring, "BOTTOM", 0, -2)
+    b.name:SetWidth(NODE_W - 4)
+    b.name:SetJustifyH("CENTER")
+    if b.name.SetMaxLines then b.name:SetMaxLines(2) end
+    return b
+end
+
+local function paintNode(b, q)
+    local T = ns.Theme
+    local k = q.kind
+    local ring, dot, alpha = { 0.56, 0.51, 0.44 }, { 0.10, 0.07, 0.04 }, 1
+    b.mark:Hide(); b.glyph:SetText("")
+    if k == "done" then
+        ring, dot = T.color.complete, T.color.complete
+        b.mark:SetTexture(T.files.checkDone)
+        if b.mark.SetDesaturated then b.mark:SetDesaturated(true) end
+        b.mark:SetVertexColor(0.23, 0.14, 0.02); b.mark:Show()
+    elseif k == "ready" then
+        ring, dot = DIFF_COLOR[q.difficulty] or T.color.todo, T.color.todo
+    elseif k == "unknown" or k == "open" then
+        b.glyph:SetText("?")
+    elseif k == "unavailable" then
+        alpha = 0.5
+    end
+    b.ring:SetColorTexture(ring[1], ring[2], ring[3], 1)
+    b.dot:SetColorTexture(dot[1], dot[2], dot[3], 1)
+    b.name:SetText(q.name or ("Quest " .. tostring(q.id)))
+    b.name:SetTextColor(T.RGB((k == "ready" and "white") or (k == "done" and "dim") or "text"))
+    b:SetAlpha(alpha)
+end
+
+---------------------------------------------------------------------------------------------
+-- Construction
+---------------------------------------------------------------------------------------------
+
+function Detail.New(page)
+    local T, L, S, W = ns.Theme, ns.Theme.layout, ns.Theme.space, ns.Widgets
+    local d = CreateFrame("Frame", nil, page)
+    d:SetAllPoints()
+    d:Hide()
+
+    -- Banner header ---------------------------------------------------------------------------
+    local banner = CreateFrame("Frame", nil, d)
+    banner:SetPoint("TOPLEFT"); banner:SetPoint("TOPRIGHT")
+    banner:SetHeight(L.bannerHeight)
+    banner.art = banner:CreateTexture(nil, "BACKGROUND")
+    banner.art:SetAllPoints()
+    banner:SetScript("OnSizeChanged", cropBanner)
+    local shade = banner:CreateTexture(nil, "BORDER")
+    shade:SetAllPoints()
+    shade:SetColorTexture(1, 1, 1, 1)
+    local ok = type(CreateColor) == "function" and pcall(shade.SetGradient, shade, "HORIZONTAL",
+        CreateColor(0, 0, 0, 0.85), CreateColor(0, 0, 0, 0.15))
+    if not ok then shade:SetColorTexture(0, 0, 0, 0.5) end
+    local rshade = banner:CreateTexture(nil, "BORDER", nil, 1)
+    rshade:SetPoint("TOPRIGHT"); rshade:SetPoint("BOTTOMRIGHT")
+    rshade:SetWidth(L.bannerRightShade)
+    rshade:SetColorTexture(1, 1, 1, 1)
+    local rok = type(CreateColor) == "function" and pcall(rshade.SetGradient, rshade, "HORIZONTAL",
+        CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, 0.8))
+    if not rok then rshade:SetColorTexture(0, 0, 0, 0.45) end
+    local rule = T.Solid(banner, "divider", "ARTWORK")
+    rule:SetPoint("BOTTOMLEFT"); rule:SetPoint("BOTTOMRIGHT"); rule:SetHeight(2)
+    banner.name = T.Text(banner, "xxl", "gold")
+    banner.name:SetPoint("BOTTOMLEFT", banner, "BOTTOMLEFT", S.s6, S.s6 + S.s2)
+    banner.crumb = T.Text(banner, "lg", "text")
+    banner.crumb:SetPoint("BOTTOMLEFT", banner.name, "BOTTOMRIGHT", S.s2, 2)
+    banner.sub = T.Text(banner, "sm", "text")
+    banner.sub:SetPoint("TOPLEFT", banner.name, "BOTTOMLEFT", 0, -S.s1)
+    local back = CreateFrame("Button", nil, banner, "UIPanelButtonTemplate")
+    back:SetSize(150, 24)
+    back:SetPoint("TOPRIGHT", -S.s4, -S.s3)
+    back:SetText("Zones")
+    back:SetScript("OnClick", function() page:Back() end)
+    d.back = back
+    local map = CreateFrame("Button", nil, banner, "UIPanelButtonTemplate")
+    map:SetSize(110, 24)
+    map:SetText("World map")
+    map:SetScript("OnClick", function() page:OpenMap() end)
+    d.mapButton = map
+    -- A category page's count, right side: "42 of 68" and the percentage.
+    banner.pct = T.Text(banner, "xxl", "white")
+    banner.pct:SetPoint("BOTTOMRIGHT", banner, "BOTTOMRIGHT", -S.s6, S.s6 + S.s2)
+    banner.count = T.Text(banner, "sm", "text")
+    banner.count:SetPoint("RIGHT", banner.pct, "LEFT", -S.s3, 0)
+    d.banner = banner
+
+    -- Dashboard -------------------------------------------------------------------------------
+    local dash = CreateFrame("Frame", nil, d)
+    dash:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", L.listInset, -S.s4)
+    dash:SetPoint("BOTTOMRIGHT", -S.s6, S.s3)
+    d.dash = dash
+    local std = CreateFrame("Frame", nil, dash)
+    std:SetPoint("TOPLEFT"); std:SetPoint("BOTTOMLEFT")
+    std:SetWidth(STANDARD_W)
+    std.art = std:CreateTexture(nil, "BACKGROUND")
+    std.art:SetAllPoints()
+    std.edge = W.Edge(std, "BORDER")
+    std.edge:SetColor("cardEdge")
+    std.banner = ns.ZoneBanner.New(std)
+    std.banner:SetPoint("TOP", std, "TOP", 0, -S.s2)
+    std.pct = T.Text(std, "xxl", "white")
+    std.pct:SetPoint("TOP", std.banner, "BOTTOM", 0, -S.s3) -- -24 cut the note off in the split view
+    std.cap = T.Text(std, "sm", "dim")
+    std.cap:SetPoint("TOP", std.pct, "BOTTOM", 0, -S.s1)
+    std.note = T.Text(std, "xs", "dim")
+    std.note:SetPoint("TOP", std.cap, "BOTTOM", 0, -S.s2)
+    std.note:SetWidth(STANDARD_W - 2 * S.s4)
+    std.note:SetJustifyH("CENTER")
+    d.standard = std
+    d.tiles = {}
+    for i, key in ipairs(T.categoryOrder) do
+        local tile = CreateFrame("Button", nil, dash)
+        tile:SetHeight(TILE_H)
+        tile:SetPoint("TOPLEFT", std, "TOPRIGHT", S.s6, -(i - 1) * (TILE_H + S.s3))
+        tile:SetPoint("RIGHT", dash, "RIGHT", 0, 0)
+        tile.bg = T.Solid(tile, "cardBg", "BACKGROUND")
+        tile.bg:SetAllPoints()
+        tile.edge = W.Edge(tile, "BORDER")
+        tile.icon = tile:CreateTexture(nil, "ARTWORK")
+        tile.icon:SetSize(20, 20)
+        tile.icon:SetPoint("TOPLEFT", S.s4, -S.s3)
+        tile.icon:SetTexture(T.category[key].icon)
+        tile.title = T.Text(tile, "md", "gold")
+        tile.title:SetPoint("LEFT", tile.icon, "RIGHT", S.s2, 0)
+        tile.title:SetText(T.category[key].label)
+        tile.pct = T.Text(tile, "lg", "todo")
+        tile.pct:SetPoint("TOPRIGHT", -S.s4, -S.s3)
+        tile.count = T.Text(tile, "md", "white")
+        tile.count:SetPoint("RIGHT", tile.pct, "LEFT", -S.s3, 0)
+        tile.well = T.Solid(tile, "well", "BORDER", 1)
+        tile.well:SetHeight(8)
+        tile.well:SetPoint("TOPLEFT", tile.icon, "BOTTOMLEFT", 0, -S.s2)
+        tile.well:SetPoint("RIGHT", tile, "RIGHT", -S.s4, 0)
+        tile.fill = T.Solid(tile, "todo", "ARTWORK")
+        tile.fill:SetHeight(8)
+        tile.fill:SetPoint("TOPLEFT", tile.well, "TOPLEFT")
+        tile.line1 = T.Text(tile, "sm", "text")
+        tile.line1:SetPoint("TOPLEFT", tile.well, "BOTTOMLEFT", 0, -S.s2)
+        tile.line1:SetPoint("RIGHT", tile, "RIGHT", -S.s4, 0)
+        tile.line1:SetJustifyH("LEFT"); tile.line1:SetWordWrap(false)
+        tile.line2 = T.Text(tile, "sm", "dim")
+        tile.line2:SetPoint("TOPLEFT", tile.line1, "BOTTOMLEFT", 0, -S.s1)
+        tile.line2:SetPoint("RIGHT", tile, "RIGHT", -120, 0)
+        tile.line2:SetJustifyH("LEFT"); tile.line2:SetWordWrap(false)
+        tile.hint = T.Text(tile, "xs", "dim")
+        tile.hint:SetPoint("BOTTOMRIGHT", -S.s4, S.s3)
+        tile.glyph = T.Glyph(tile, "A")
+        tile.glyph:SetPoint("RIGHT", tile.hint, "LEFT", -2, 0)
+        T.RowHighlight(tile, "HIGHLIGHT")
+        function tile:SetFocused(on) self.focused = on; self:Paint() end
+        function tile:Paint()
+            if self.focused then self.edge:SetColor("focus"); self.edge:SetThickness(2)
+            else self.edge:SetColor(self.state == "complete" and "complete" or "cardEdge"); self.edge:SetThickness(1) end
+        end
+        W.HoverInfo(tile)
+        tile.key = key
+        tile:SetScript("OnClick", function(self) if self.item and self.item.onActivate then self.item.onActivate(self.item) end end)
+        d.tiles[i] = tile
+    end
+
+    -- Pages (a scroll area) ---------------------------------------------------------------------
+    local scroll = W.Scroll(d)
+    scroll:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, -S.s3)
+    scroll:SetPoint("BOTTOMRIGHT", 0, S.s2)
+    d.scroll = scroll
+    d.headers, d.checks, d.chips, d.nodes, d.folds, d.lines, d.texts = {}, {}, {}, {}, {}, {}, {}
+    d.message = T.Text(scroll.child, "md", "dim")
+    d.message:SetPoint("TOPLEFT", L.listInset, -S.s4)
+    d.message:SetPoint("RIGHT", scroll.child, "RIGHT", -S.s6, 0)
+    d.message:SetJustifyH("LEFT")
+    d.toggle = W.FocusRow(scroll.child, L.checkRow)
+    d.toggle.text = T.Text(d.toggle, "sm", "text")
+    d.toggle.text:SetPoint("LEFT", S.s3, 0)
+    d.toggle:SetScript("OnClick", function(self) if self.item then self.item.onActivate(self.item) end end)
+    return d
+end
+
+---------------------------------------------------------------------------------------------
+-- Pools (one counter per kind, reset on every fill)
+---------------------------------------------------------------------------------------------
+
+local function take(d, kind, make)
+    d.used[kind] = (d.used[kind] or 0) + 1
+    local list = d[kind]
+    local f = list[d.used[kind]]
+    if not f then f = make(); list[d.used[kind]] = f end
+    f:ClearAllPoints()
+    f:Show()
+    return f
+end
+
+local function resetPools(d)
+    d.used = {}
+    for _, kind in ipairs({ "headers", "checks", "chips", "nodes", "folds", "lines", "texts" }) do
+        for _, f in ipairs(d[kind]) do f:Hide() end
+    end
+    d.message:Hide()
+    d.toggle:Hide()
+end
+
+local function header(d, y, title, count)
+    local L, S = ns.Theme.layout, ns.Theme.space
+    local h = take(d, "headers", function() return ns.Widgets.Header(d.scroll.child) end)
+    h:SetPoint("TOPLEFT", d.scroll.child, "TOPLEFT", L.listInset, -y)
+    h:SetPoint("TOPRIGHT", d.scroll.child, "TOPRIGHT", -S.s6, -y)
+    h.text:SetText(title)
+    h.count:SetText(count or "")
+    return y + L.listHeader + S.s2
+end
+
+local function text(d, y, s, size, color, x)
+    local L, S = ns.Theme.layout, ns.Theme.space
+    local fs = take(d, "texts", function()
+        local f = CreateFrame("Frame", nil, d.scroll.child)
+        f.fs = ns.Theme.Text(f, "sm", "text")
+        f.fs:SetPoint("TOPLEFT"); f.fs:SetPoint("TOPRIGHT")
+        f.fs:SetJustifyH("LEFT")
+        return f
+    end)
+    ns.Theme.SetFont(fs.fs, size or "sm")
+    fs.fs:SetTextColor(ns.Theme.RGB(color or "text"))
+    fs:SetPoint("TOPLEFT", d.scroll.child, "TOPLEFT", x or L.listInset, -y)
+    fs:SetPoint("RIGHT", d.scroll.child, "RIGHT", -S.s6, 0)
+    fs.fs:SetText(s)
+    local h = math.max(ns.Theme.size[size or "sm"] + 4, fs.fs.GetStringHeight and fs.fs:GetStringHeight() or 0)
+    fs:SetHeight(h)
+    return y + h + S.s1
+end
+
+---------------------------------------------------------------------------------------------
+-- Header (banner)
+---------------------------------------------------------------------------------------------
+
+local function bannerSub(zone)
+    local parts = { zone.continent }
+    local lo, hi = ns.Zones.LevelsFor(ns.ZoneData, zone.mapID)
+    if lo then parts[#parts + 1] = lo == hi and ("Level " .. lo) or string.format("Levels %d-%d", lo, hi) end
+    local faction = ns.Zones.FactionFor(ns.ZoneData, zone.mapID)
+    if faction then parts[#parts + 1] = faction == "Contested" and "Contested" or (faction .. " territory") end
+    return table.concat(parts, "  ·  ")
+end
+
+local function catOf(entry, key)
+    for _, c in ipairs(entry and entry.cats or {}) do if c.key == key then return c end end
+end
+
+local function fillBanner(d, zone, entry, pageKey)
+    local T = ns.Theme
+    local b = d.banner
+    local art = T.ZoneArt(zone.mapID)
+    if art then b.art:SetTexture(art) else b.art:SetColorTexture(0, 0, 0, 1) end
+    b.mapID = zone.mapID
+    cropBanner(b)
+    b.name:SetText(pageKey and T.category[pageKey].label or zone.name)
+    b.crumb:SetText(pageKey and ("·  " .. zone.name) or "")
+    b.sub:SetText(bannerSub(zone))
+    d.back:SetText(pageKey and zone.name or "Zones")
+    local c = pageKey and catOf(entry, pageKey)
+    if c and not c.pending then
+        b.pct:SetText(ns.Progression.PercentText(c.progress) or "-")
+        b.pct:SetTextColor(T.RGB(c.state == "complete" and "complete" or (c.completed > 0 and "todo" or "white")))
+        b.count:SetText(string.format("%d of %d", c.completed, c.denominator))
+    else
+        b.pct:SetText(""); b.count:SetText("")
+    end
+end
+
+---------------------------------------------------------------------------------------------
+-- Dashboard
+---------------------------------------------------------------------------------------------
+
+local PENDING_TEXT = {
+    achievements = "The game isn't returning achievement data right now.",
+    building = "Reading quests from QuestieDB...",
+    flightmaster = "Talk to any flight master on this continent to check which you know.",
+}
+
+local function fillDashboard(d, zone, entry, page)
+    local T, S = ns.Theme, ns.Theme.space
+    local rows = {}
+    local std = d.standard
+    local art = T.ZoneArt(zone.mapID)
+    if art then std.art:SetTexture(art) else std.art:SetColorTexture(0.05, 0.03, 0.02, 1) end
+    if std.art.SetDesaturated then std.art:SetDesaturated(entry.state == "untouched") end
+    std.art:SetVertexColor(0.38, 0.36, 0.34)
+    local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"
+    std.banner:Set(entry, faction, page.animateBanner)
+    page.animateBanner = false
+    local claimed = entry.state == "complete"
+    std.pct:SetText(claimed and "Claimed" or (entry.combined and ns.Progression.PercentText(entry.combined) or "-"))
+    std.pct:SetTextColor(T.RGB(claimed and "complete" or "white"))
+    local applies = entry.combined and entry.combined.applies or 0
+    std.cap:SetText(claimed and (zone.name .. " is complete") or string.format("%s  ·  %d %s", zone.name, applies,
+        applies == 1 and "category" or "categories"))
+    local note = ""
+    if entry.combined and entry.combined.unchecked and not claimed then
+        note = "Some objectives can't be checked yet, so this zone can't be claimed in full."
+    elseif entry.combined and entry.combined.pending then
+        note = "Some categories aren't known yet; see their tiles."
+    end
+    std.note:SetText(note)
+
+    local ex, q, f = ns.Exploration.ForZone(zone), ns.Quests.ForZone(zone.mapID), ns.FlightPaths.ForZone(zone.mapID)
+    for i, key in ipairs(T.categoryOrder) do
+        local tile = d.tiles[i]
+        local c = catOf(entry, key)
+        local line1, line2, open = "", "", nil
+        if key == "explore" then
+            if ex.status == "tracked" then
+                local nextArea, left = nil, 0
+                for _, o in ipairs(ex.objectives or {}) do
+                    if o.completion == "incomplete" then left = left + 1; nextArea = nextArea or o.name end
+                end
+                line1 = nextArea and ("Next: |cffffffff" .. nextArea .. "|r" .. (left > 1 and ("  and " .. (left - 1) .. " more") or ""))
+                    or "Every area discovered"
+                open = "Areas"
+            elseif ex.status == "untracked" then
+                line1 = "The game has no Explore achievement for " .. zone.name .. "."
+            else
+                line1 = PENDING_TEXT.achievements
+            end
+        elseif key == "quests" then
+            if q.status == "ready" and c then
+                line1 = string.format("|cffe08a3c%d|r ready now   |cffffffff%d|r storylines going   |cffffffff%d|r finished",
+                    #(q.ready or {}), #(q.stories or {}), #(q.finished or {}))
+                local first = q.ready and q.ready[1]
+                line2 = first and ("Next: " .. first.name) or ""
+                if c.unchecked and c.unchecked > 0 then line2 = line2 .. (line2 ~= "" and "  ·  " or "") .. c.unchecked .. " unchecked" end
+                open = "Quests"
+            elseif q.status == "ready" then
+                line1 = (q.count or 0) > 0 and "None of the quests here are for this character."
+                    or ("QuestieDB lists no quests in " .. zone.name .. ".")
+                if (q.count or 0) > 0 then open = "Quests" end
+            elseif q.status == "unavailable" then
+                line1 = "Quests need the QuestieDB addon, which isn't loaded."
+            else
+                line1 = PENDING_TEXT.building
+            end
+        else
+            if f.status == "ready" then
+                local names = {}
+                for _, o in ipairs(f.objectives) do
+                    names[#names + 1] = (o.completion == "complete" and "|cffffcc33" or "|cffb5a891") .. o.name .. "|r"
+                end
+                line1 = table.concat(names, "   ")
+                open = "Flight paths"
+            elseif f.status == "pending" then
+                line1 = PENDING_TEXT.flightmaster
+                open = "Flight paths"
+            else
+                line1 = "No flight master for you in " .. zone.name .. "."
+            end
+        end
+        tile.state = c and c.state or nil
+        if c and not c.pending then
+            tile.count:SetText(string.format("%d of %d", c.completed, c.denominator))
+            tile.pct:SetText(ns.Progression.PercentText(c.progress) or "-")
+            tile.pct:SetTextColor(T.RGB(c.state == "complete" and "complete" or "todo"))
+            local frac = c.denominator > 0 and c.completed / c.denominator or 0
+            local w = (tile:GetWidth() or 0) - 2 * S.s4
+            if w <= 0 then w = 400 end
+            tile.fill:SetWidth(math.max(0.001, w * frac))
+            tile.fill:SetShown(frac > 0)
+            local r, g, b = T.RGB(c.state == "complete" and "complete" or "todo")
+            tile.fill:SetColorTexture(r, g, b, 1)
+            tile.well:Show()
+        else
+            tile.count:SetText(""); tile.pct:SetText(c and c.pending and "?" or "")
+            tile.pct:SetTextColor(T.RGB("dim"))
+            tile.fill:Hide(); tile.well:SetShown(c ~= nil)
+        end
+        tile.line1:SetText(line1)
+        tile.line2:SetText(line2)
+        tile.hint:SetText(open or "")
+        tile.glyph:SetShown(open ~= nil)
+        tile.icon:SetAlpha(c and 1 or 0.45)
+        tile.title:SetTextColor(T.RGB(c and "gold" or "dim"))
+        local detail = c and not c.pending and string.format("%d of %d  ·  %s", c.completed, c.denominator, line1:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
+            or line1:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+        tile.item = { key = "tile:" .. key, frame = tile, title = T.category[key].label, detail = detail,
+            actionLabel = open and "Open" or nil,
+            onActivate = open and function() page:OpenPage(key) end or nil }
+        tile:Paint()
+        rows[#rows + 1] = { items = { tile.item } }
+        if open then rows.canOpen = true end
+    end
+    -- Nothing to open (a zone with nothing tracked): no focus stops, so the split view's A
+    -- stays in the list; the tiles say why.
+    if not rows.canOpen then return {} end
+    rows.canOpen = nil
+    return rows
+end
+
+---------------------------------------------------------------------------------------------
+-- Exploration page
+---------------------------------------------------------------------------------------------
+
+local MESSAGES = {
+    untracked = "The game has no Explore achievement for %s, so Azerfolio can't track its exploration.",
+    unavailable = "The game isn't returning achievement data right now. Try again in a moment.",
+}
+
+local function fillExplore(d, zone)
+    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
+    local ex = ns.Exploration.ForZone(zone)
+    local rows, child = {}, d.scroll.child
+    if ex.status ~= "tracked" then
+        d.message:SetText(string.format(MESSAGES[ex.status] or MESSAGES.unavailable, zone.name))
+        d.message:Show()
+        child:SetHeight(100)
+        return rows
+    end
+    local p = ex.progress
+    local complete = p.trackedComplete
+    local y = 0
+    local notes = {}
+    if complete then notes[#notes + 1] = "|cffffcc33Fully explored:|r every area the game lists for this zone is discovered." end
+    if p.completionUnknown > 0 then
+        notes[#notes + 1] = string.format("The game didn't say whether %d %s discovered; %s under State unknown and not counted.",
+            p.completionUnknown, p.completionUnknown == 1 and "area is" or "areas are",
+            p.completionUnknown == 1 and "it's listed" or "they're listed")
+    end
+    if p.coverage ~= "complete" and p.completionUnknown == 0 and not complete then
+        notes[#notes + 1] = "Some areas couldn't be identified, so this zone has no percentage."
+    end
+    if ex.uncertain then
+        notes[#notes + 1] = "The game's list of areas differs from Azerfolio's catalogue (a game update?). Showing the game's list."
+    end
+    if #notes > 0 then y = text(d, y, table.concat(notes, "\n"), "sm", "text") + S.s2 end
+
+    local todo = { title = "To discover", list = {}, count = p.incomplete }
+    local found = { title = "Discovered", list = {}, count = p.complete }
+    local unsure = { title = "State unknown", list = {}, count = p.completionUnknown }
+    for _, c in ipairs(ex.objectives) do
+        if c.completion == "complete" then table.insert(found.list, c)
+        elseif c.completion == "incomplete" then table.insert(todo.list, c)
+        else table.insert(unsure.list, c) end
+    end
+    local groups = {}
+    if not (complete and #todo.list == 0) then groups[#groups + 1] = todo end
+    groups[#groups + 1] = found
+    if #unsure.list > 0 then groups[#groups + 1] = unsure end
+    for gi, g in ipairs(groups) do
+        if gi > 1 then y = y + S.s2 end
+        y = header(d, y, g.title, g.count == 1 and "1 area" or (g.count .. " areas")) - S.s1
+        if #g.list == 0 then y = y + S.s2 end
+        for i = 1, #g.list, 2 do
+            local items = {}
+            for col = 0, 1 do
+                local c = g.list[i + col]
+                if c then
+                    local row = take(d, "checks", function() return checkRow(child) end)
+                    if col == 0 then
+                        row:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
+                        row:SetPoint("TOPRIGHT", child, "TOP", -S.s2, -y)
+                    else
+                        row:SetPoint("TOPLEFT", child, "TOP", S.s2 + L.listInset / 2, -y)
+                        row:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
+                    end
+                    local done = c.completion == "complete"
+                    local unknown = c.completion ~= "complete" and c.completion ~= "incomplete"
+                    row.done:SetShown(done)
+                    row.todo:SetShown(not done)
+                    local tr, tg, tb = T.RGB(unknown and "untouched" or "todo")
+                    row.todo:SetColorTexture(tr, tg, tb, 1)
+                    row.name:SetText(c.name or "?")
+                    row.name:SetTextColor(T.RGB((done or unknown) and "dim" or "white"))
+                    row.item = { key = "c" .. tostring(c.id), frame = row, title = c.name,
+                        detail = done and "Discovered" or (unknown and "The game didn't say whether this is discovered")
+                            or "Not discovered yet", scroll = d.scroll, topGap = L.listHeader + S.s1 + S.s2 }
+                    items[#items + 1] = row.item
+                end
+            end
+            rows[#rows + 1] = { items = items, section = gi }
+            y = y + L.checkRow + 2
+        end
+    end
+    child:SetHeight(math.max(1, y))
+    return rows
+end
+
+---------------------------------------------------------------------------------------------
+-- Quests page
+---------------------------------------------------------------------------------------------
+
+local function questItem(d, frame, key, q, topGap)
+    return { key = key, frame = frame, title = q.name or ("Quest " .. tostring(q.id)), detail = Detail.QuestLine(q),
+        scroll = d.scroll, topGap = topGap }
+end
+
+-- A storyline's track at y: columns by depth, branches stacked. Returns new y and focus rows.
+local function track(d, y, story, showUnavailable, keyPrefix)
+    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
+    local child = d.scroll.child
+    local cols = {}
+    for _, col in ipairs(story.columns) do
+        local keep = {}
+        for _, q in ipairs(col) do if showUnavailable or q.kind ~= "unavailable" then keep[#keep + 1] = q end end
+        if #keep > 0 then cols[#cols + 1] = keep end
+    end
+    if #cols == 0 then return y, {} end
+    local x0 = L.listInset
+    local maxStack = 1
+    for _, col in ipairs(cols) do maxStack = math.max(maxStack, #col) end
+    if #cols > 1 then
+        local line = take(d, "lines", function() return T.Solid(child, "divider", "BORDER") end)
+        line:SetHeight(2)
+        line:SetPoint("TOPLEFT", child, "TOPLEFT", x0 + NODE_W / 2, -(y + 3 + NODE_DOT / 2 - 1))
+        line:SetWidth((#cols - 1) * NODE_W)
+    end
+    local rows = {}
+    for level = 1, maxStack do
+        local items = {}
+        for ci, col in ipairs(cols) do
+            local q = col[level]
+            if q then
+                local n = take(d, "nodes", function() return newNode(child) end)
+                n:SetPoint("TOPLEFT", child, "TOPLEFT", x0 + (ci - 1) * NODE_W, -(y + (level - 1) * NODE_H))
+                paintNode(n, q)
+                n.item = questItem(d, n, keyPrefix .. q.id, q, L.listHeader + S.s6)
+                items[#items + 1] = n.item
+            end
+        end
+        rows[#rows + 1] = { items = items }
+    end
+    return y + maxStack * NODE_H + S.s2, rows
+end
+
+local function fillQuests(d, zone, page)
+    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
+    local child = d.scroll.child
+    local q = ns.Quests.ForZone(zone.mapID)
+    local rows = {}
+    if q.status ~= "ready" then
+        d.message:SetText(q.status == "unavailable" and "Quests need the QuestieDB addon, which isn't loaded. Exploration and flight paths are unaffected."
+            or "Reading quests from QuestieDB...")
+        d.message:Show()
+        child:SetHeight(100)
+        return rows
+    end
+    if (q.count or 0) == 0 then
+        d.message:SetText("QuestieDB lists no quests in " .. zone.name .. ".")
+        d.message:Show()
+        child:SetHeight(100)
+        return rows
+    end
+    local show = ns.db.zones.showUnavailable
+    local y, section = 0, 0
+    local p = q.progress
+    if p.denominator == 0 then
+        y = text(d, y, string.format("None of the %d quests here are for this character, so quests don't count toward %s.",
+            p.unavailable, zone.name), "sm", "dim") + S.s2
+    end
+
+    -- Ready now: chips, three to a row.
+    if #(q.ready or {}) > 0 then
+        section = section + 1
+        y = header(d, y, "Ready now", #q.ready .. (#q.ready == 1 and " quest" or " quests"))
+        local width = (child:GetWidth() or 900) - L.listInset - S.s6
+        local cw = math.floor((width - (CHIP_COLS - 1) * S.s2) / CHIP_COLS)
+        for i = 1, #q.ready, CHIP_COLS do
+            local items = {}
+            for c = 0, CHIP_COLS - 1 do
+                local quest = q.ready[i + c]
+                if quest then
+                    local b = take(d, "chips", function() return newChip(child) end)
+                    b:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset + c * (cw + S.s2), -y)
+                    b:SetWidth(cw)
+                    local col = DIFF_COLOR[quest.difficulty] or { 1, 1, 1 }
+                    b.lv:SetText(quest.questLevel or "?")
+                    b.lv:SetTextColor(col[1], col[2], col[3])
+                    b.name:SetText(quest.name or "?")
+                    b.item = questItem(d, b, "r:" .. quest.id, quest, L.listHeader + S.s2)
+                    items[#items + 1] = b.item
+                end
+            end
+            rows[#rows + 1] = { items = items, section = section }
+            y = y + CHIP_H + S.s2
+        end
+        y = y + S.s2
+    end
+
+    -- Storylines in progress, then single quests not done.
+    local singles = {}
+    for _, s in ipairs(q.singles or {}) do
+        if s.kind ~= "done" and (show or s.kind ~= "unavailable") then singles[#singles + 1] = s end
+    end
+    local singlesDone = 0
+    for _, s in ipairs(q.singles or {}) do if s.kind == "done" then singlesDone = singlesDone + 1 end end
+    if #(q.stories or {}) > 0 or #singles > 0 then
+        section = section + 1
+        y = header(d, y, "Storylines", #q.stories .. " in progress")
+        for _, story in ipairs(q.stories) do
+            y = text(d, y, string.format("|cffffffff%s|r   |cffb5a891%d of %d done|r%s", story.name or "?", story.done, story.total,
+                story.ready > 0 and string.format("  |cffe08a3c%d ready|r", story.ready) or ""), "sm", "text")
+            local trows
+            y, trows = track(d, y, story, show, "q:")
+            for _, r in ipairs(trows) do r.section = section; rows[#rows + 1] = r end
+        end
+        if #singles > 0 then
+            y = text(d, y, string.format("|cffffffffSingle quests|r   |cffb5a891%d done|r", singlesDone), "sm", "text")
+            local width = (child:GetWidth() or 900) - L.listInset - S.s6
+            local perRow = math.max(1, math.floor(width / NODE_W))
+            for i = 1, #singles, perRow do
+                local items = {}
+                for c = 0, perRow - 1 do
+                    local s = singles[i + c]
+                    if s then
+                        local n = take(d, "nodes", function() return newNode(child) end)
+                        n:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset + c * NODE_W, -y)
+                        paintNode(n, s)
+                        n.item = questItem(d, n, "q:" .. s.id, s, L.listHeader + S.s6)
+                        items[#items + 1] = n.item
+                    end
+                end
+                rows[#rows + 1] = { items = items, section = section }
+                y = y + NODE_H
+            end
+            y = y + S.s2
+        end
+    end
+
+    -- Finished storylines, folded; A unfolds one.
+    if #(q.finished or {}) > 0 then
+        section = section + 1
+        y = header(d, y, "Finished", string.format("%d storylines  ·  %d single quests", #q.finished, singlesDone))
+        for _, story in ipairs(q.finished) do
+            local open = page.openStories[story.id]
+            local b = take(d, "folds", function()
+                local r = ns.Widgets.FocusRow(child, L.checkRow)
+                r.done = r:CreateTexture(nil, "ARTWORK")
+                r.done:SetSize(L.checkIcon, L.checkIcon); r.done:SetPoint("LEFT", S.s2, 0)
+                r.done:SetTexture(T.files.checkDone)
+                if r.done.SetDesaturated then r.done:SetDesaturated(true) end
+                r.done:SetVertexColor(T.RGB("complete"))
+                r.name = T.Text(r, "sm", "dim"); r.name:SetPoint("LEFT", r.done, "RIGHT", S.s2, 0)
+                r.count = T.Text(r, "xs", "dim"); r.count:SetPoint("RIGHT", -S.s3, 0)
+                r:SetScript("OnClick", function(self) if self.item then self.item.onActivate(self.item) end end)
+                return r
+            end)
+            b:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
+            b:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
+            b.name:SetText(story.name or "?")
+            b.count:SetText(story.total .. " quests   " .. (open and "-" or "+"))
+            local id = story.id
+            b.item = { key = "fold:" .. id, frame = b, title = story.name, scroll = d.scroll, topGap = L.listHeader + S.s2,
+                detail = string.format("%d quests, every one you can do is done. A %s the storyline.", story.size,
+                    open and "folds" or "shows"),
+                actionLabel = open and "Fold" or "Show",
+                onActivate = function() page:ToggleStory(id) end }
+            rows[#rows + 1] = { items = { b.item }, section = section }
+            y = y + L.checkRow + 2
+            if open then
+                local trows
+                y, trows = track(d, y + S.s1, story, show, "fq:")
+                for _, r in ipairs(trows) do r.section = section; rows[#rows + 1] = r end
+            end
+        end
+        y = y + S.s2
+    end
+
+    -- Footer: what the numbers leave out, and the can't-do toggle.
+    local left = {}
+    if (q.repeatable or 0) > 0 then left[#left + 1] = q.repeatable .. " repeatable" end
+    if p.eligibilityUnknown > 0 then
+        local why, n = {}, 0
+        for w in pairs(q.unknownReasons or {}) do n = n + 1; why[#why + 1] = w end
+        table.sort(why)
+        if n > 1 then for i, w in ipairs(why) do why[i] = w .. " " .. q.unknownReasons[w] end end
+        left[#left + 1] = string.format("%d we can't check yet (%s)", p.eligibilityUnknown, table.concat(why, ", "))
+    end
+    y = y + S.s2
+    y = text(d, y, "From QuestieDB, which may miss quests." .. (#left > 0 and (" Not counted: " .. table.concat(left, ", ") .. ".") or ""),
+        "xs", "dim")
+    if p.unavailable > 0 then
+        section = section + 1
+        local t = d.toggle
+        t:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -(y + S.s1))
+        t:SetWidth(320)
+        t.text:SetText(string.format("%s %d %s you can't do", show and "Hide" or "Show", p.unavailable,
+            p.unavailable == 1 and "quest" or "quests"))
+        t.item = { key = "toggle", frame = t, title = (show and "Hide" or "Show") .. " quests you can't do",
+            detail = "Other faction or class, a finished chain or a choice already made. Never counted.",
+            scroll = d.scroll, actionLabel = show and "Hide" or "Show",
+            onActivate = function() page:ToggleUnavailable() end }
+        t:Show()
+        rows[#rows + 1] = { items = { t.item }, section = section }
+        y = y + L.checkRow + S.s2
+    end
+    child:SetHeight(math.max(1, y + S.s4))
+    return rows
+end
+
+---------------------------------------------------------------------------------------------
+-- Flight paths page
+---------------------------------------------------------------------------------------------
+
+local function fillFlights(d, zone)
+    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
+    local child = d.scroll.child
+    local f = ns.FlightPaths.ForZone(zone.mapID)
+    local rows, y = {}, 0
+    if f.status == "none" or f.status == "unavailable" then
+        d.message:SetText("No flight master for you in " .. zone.name .. ".")
+        d.message:Show()
+        child:SetHeight(100)
+        return rows
+    end
+    if f.status == "pending" then
+        y = text(d, y, PENDING_TEXT.flightmaster .. " Until then, Azerfolio can't tell which of these you know.", "sm", "text") + S.s2
+    end
+    y = header(d, y, "Flight masters", #f.objectives == 1 and "1 flight path" or (#f.objectives .. " flight paths"))
+    for i = 1, #f.objectives, 2 do
+        local items = {}
+        for col = 0, 1 do
+            local o = f.objectives[i + col]
+            if o then
+                local row = take(d, "checks", function() return checkRow(child) end)
+                if col == 0 then
+                    row:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
+                    row:SetPoint("TOPRIGHT", child, "TOP", -S.s2, -y)
+                else
+                    row:SetPoint("TOPLEFT", child, "TOP", S.s2 + L.listInset / 2, -y)
+                    row:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
+                end
+                local known, unknown = o.completion == "complete", o.completion == "unknown"
+                row.done:SetShown(known)
+                row.todo:SetShown(not known)
+                local tr, tg, tb = T.RGB(unknown and "untouched" or "todo")
+                row.todo:SetColorTexture(tr, tg, tb, 1)
+                row.name:SetText(o.name or "?")
+                row.name:SetTextColor(T.RGB(known and "dim" or "white"))
+                row.item = { key = "f" .. tostring(o.id), frame = row, title = o.name, scroll = d.scroll,
+                    detail = known and "Known: you can fly here" or (unknown and "Not checked yet: talk to a flight master on this continent")
+                        or "Not discovered yet: talk to the flight master there" }
+                items[#items + 1] = row.item
+            end
+        end
+        rows[#rows + 1] = { items = items, section = 1 }
+        y = y + L.checkRow + 2
+    end
+    child:SetHeight(math.max(1, y))
+    return rows
+end
+
+---------------------------------------------------------------------------------------------
+-- Fill
+---------------------------------------------------------------------------------------------
+
+-- Fills the detail for `zone` (a { mapID, name, continent } table) on `pageKey` (nil = the
+-- dashboard). `entry` is the zone's ns.Zones entry. Returns the focus rows.
+function Detail.Fill(d, zone, entry, pageKey, page)
+    resetPools(d)
+    fillBanner(d, zone, entry, pageKey)
+    d.dash:SetShown(pageKey == nil)
+    d.scroll:SetShown(pageKey ~= nil)
+    d.scroll:SetVerticalScroll(0)
+    if pageKey == nil then return fillDashboard(d, zone, entry, page) end
+    if pageKey == "explore" then return fillExplore(d, zone) end
+    if pageKey == "quests" then return fillQuests(d, zone, page) end
+    return fillFlights(d, zone)
+end

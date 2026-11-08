@@ -109,6 +109,73 @@ function Progression.Aggregate(sets)
     return r
 end
 
+-- A category's state from its Aggregate result (the state language, mockups/DESIGN.md):
+-- complete (trackedComplete), progress (some confirmed done), untouched (counted objectives,
+-- none done, no completion unknown), or unknown.
+function Progression.CategoryState(p)
+    if type(p) ~= "table" then return "unknown" end
+    if p.trackedComplete then return "complete" end
+    if (p.completed or 0) > 0 then return "progress" end
+    if (p.denominator or 0) > 0 and (p.completionUnknown or 0) == 0 then return "untouched" end
+    return "unknown"
+end
+
+-- Zone completion across categories (spec §7.7). list: { { key, progress = Aggregate result
+-- or nil, pending = reason or nil }, ... } in display order. A category applies when it has
+-- counted objectives (denominator > 0); one that doesn't and isn't pending is left out, never
+-- 0%. Pending categories (data not readable yet: "questiedb", "building", "flightmaster"...)
+-- are listed but can't count, and they stop the zone from being complete.
+--   cats         applying and pending categories: { key, progress, completed, denominator,
+--                percent, remaining, state, unchecked (counted objectives left out: uncounted),
+--                pending }
+--   applies      number of applying categories
+--   percent      equal-weight average of the applying categories' percentages, or nil
+--   completed, denominator   sums over applying categories (PercentText's 99% guard)
+--   remaining    confirmed not done, summed
+--   unchecked    some applying category has objectives it couldn't check (coverage not complete)
+--   pending      some category is pending
+--   state        complete | progress | untouched | unknown | untracked (nothing applies or pending)
+function Progression.Combine(list)
+    local r = { cats = {}, applies = 0, completed = 0, denominator = 0, remaining = 0,
+        unchecked = false, pending = false }
+    local sum, allComplete, allUntouched, anyDone = 0, true, true, false
+    for _, c in ipairs(list or {}) do
+        local p = c.progress
+        if type(p) == "table" and (p.denominator or 0) > 0 and p.percent then
+            local state = Progression.CategoryState(p)
+            r.cats[#r.cats + 1] = { key = c.key, progress = p, completed = p.completed, denominator = p.denominator,
+                percent = p.percent, remaining = p.remaining, state = state,
+                unchecked = (p.uncounted or 0) + (p.conflicts or 0) }
+            r.applies = r.applies + 1
+            sum = sum + p.percent
+            r.completed = r.completed + p.completed
+            r.denominator = r.denominator + p.denominator
+            r.remaining = r.remaining + p.remaining
+            if p.coverage ~= "complete" then r.unchecked = true end
+            if state ~= "complete" then allComplete = false end
+            if state ~= "untouched" then allUntouched = false end
+            if p.completed > 0 then anyDone = true end
+        elseif c.pending then
+            r.cats[#r.cats + 1] = { key = c.key, progress = p, pending = c.pending, state = "unknown" }
+            r.pending = true
+        end
+    end
+    if r.applies > 0 then r.percent = sum / r.applies end
+    if r.applies == 0 then
+        r.state = r.pending and "unknown" or "untracked"
+    elseif allComplete and not r.pending then
+        r.state = "complete"
+    elseif anyDone then
+        r.state = "progress"
+    elseif allUntouched then
+        r.state = "untouched"
+    else
+        r.state = "unknown"
+    end
+    r.trackedComplete = r.state == "complete"
+    return r
+end
+
 -- Percentage text for display, or nil when there is no valid percentage. Rounds down, so
 -- "100%" only appears when every counted objective is confirmed complete.
 function Progression.PercentText(result)

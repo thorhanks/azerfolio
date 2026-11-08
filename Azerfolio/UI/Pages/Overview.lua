@@ -687,7 +687,8 @@ local function build(parent)
             page.dirty = true
         end
     end
-    for _, msg in ipairs({ "AZF_EXPLORATION_UPDATED", "AZF_MILESTONE", "AZF_ZONE_VISITED", "AZF_LEVEL_CHANGED" }) do
+    for _, msg in ipairs({ "AZF_EXPLORATION_UPDATED", "AZF_MILESTONE", "AZF_ZONE_VISITED", "AZF_LEVEL_CHANGED",
+        "AZF_QUESTS_UPDATED", "AZF_FLIGHTS_UPDATED" }) do
         ns.Events.On(msg, changed)
     end
     -- Gamepad on/off changes the Continue card's A prompt.

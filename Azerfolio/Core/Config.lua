@@ -21,6 +21,7 @@ Config.ACCOUNT_DEFAULTS = {
         completion = "all",
         level = "all",
         sort = "recommended",
+        showUnavailable = false, -- Zone Detail, Quests page: show quests you can't do
     },
     -- 140 = top-left of the minimap; other addons' buttons sat at about 206 and 228 on the
     -- owner's client (WoWScrnShot_110726_181323).
@@ -36,6 +37,9 @@ Config.CHAR_DEFAULTS = {
     baseline = { taken = false, exploration = {} },
     milestones = {},
     recentZones = {},
+    -- Flight masters' lists, by continent mapID: { time, nodes = { [name] = "known"|"distant" } }
+    -- (Systems/FlightPaths.lua). Free-form; checked by SavedVariables.CleanFlights.
+    flights = {},
 }
 
 -- Allowed values, by dotted path. Anything else resets to the default.

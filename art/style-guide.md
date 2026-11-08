@@ -9,7 +9,7 @@ Azerfolio's zone illustrations are custom art in the spirit of classic Warcraft 
 | Zone illustrations | 43 tracked zones | One per zone with an Explore achievement |
 | Capitals and other places | 7 | Stormwind, Ironforge, Darnassus, Orgrimmar, Thunder Bluff, Undercity, Zephras Isle (shown greyed as "not tracked") |
 | Fallback | 1 | Used for any zone without finished art; must not look like a specific zone |
-| War banner pieces | 6 | Alliance and Horde banner cloth, pole and badge (prompts: [prompts.md](prompts.md) § War banner pieces). Alliance regal (gold border, fringe, tassels); Horde battle-worn (torn, patched, painted sigil, no fringe or gold). Painted on flat magenta; needs a transparency step in `tools/process-art.ps1` and alpha BLPs in `tools/Blp.cs` (DXT1 only today), still to be built |
+| War banner pieces | 6 | Alliance and Horde banner cloth, pole and badge (prompts: [prompts.md](prompts.md) § War banner pieces). Alliance regal (gold border, fringe, tassels); Horde battle-worn (torn, patched, painted sigil, no fringe or gold). Painted on flat magenta. Save as `art/source/banner-alliance.png`, `pole-horde.png`, `badge-alliance.png`... and run `tools/process-art.ps1`: fitted into 256×512 / 64×256 / 64×64, magenta keyed to alpha, written as BLP2 DXT5 to `Azerfolio\Media\Banner\` (mockup PNGs in `mockups/banner-art/`, not committed). The banner uses each piece as soon as it exists |
 
 Everything else uses native client textures (verified in Phase 0) or simple shapes drawn in Lua:
 

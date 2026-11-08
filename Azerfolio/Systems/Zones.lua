@@ -36,16 +36,42 @@ function Zones.StateOf(ex)
     return Zones.UNKNOWN
 end
 
--- Pure: one catalogue entry. zone = { mapID, name, continent, rank }, ex = ForZone result.
---   { mapID, name, continent, rank, tracked, state, progress (nil unless tracked and readable),
---     percent (nil without a valid percentage), minLevel, maxLevel, faction (nil = unknown) }
-function Zones.Entry(zone, ex)
-    local state = Zones.StateOf(ex)
+-- Pure: the category list for Progression.Combine (spec §7.7) from the three providers'
+-- ForZone results (any may be nil). Pending: data that will come (achievements not loaded,
+-- QuestieDB still reading, no flight master seen on the continent yet). A provider that can't
+-- ever answer here (no Explore achievement, no QuestieDB, no flight path) is left out.
+function Zones.Categories(ex, q, f)
+    local list = {}
+    if ex and ex.status == "tracked" then list[#list + 1] = { key = "explore", progress = ex.progress }
+    elseif ex and ex.status == "unavailable" then list[#list + 1] = { key = "explore", pending = "achievements" } end
+    if q and q.status == "ready" then
+        if q.progress and q.progress.denominator > 0 then list[#list + 1] = { key = "quests", progress = q.progress } end
+    elseif q and (q.status == "building" or q.status == "idle") then
+        list[#list + 1] = { key = "quests", pending = "building" }
+    end
+    if f and f.status == "ready" then list[#list + 1] = { key = "flights", progress = f.progress }
+    elseif f and f.status == "pending" then list[#list + 1] = { key = "flights", progress = f.progress, pending = "flightmaster" } end
+    return list
+end
+
+-- Pure: one catalogue entry. zone = { mapID, name, continent, rank }; ex, q, f = the
+-- exploration, quest and flight path ForZone results (q and f may be nil).
+--   { mapID, name, continent, rank, tracked, state (combined, spec §7.7), percent (combined, nil
+--     without one), combined (Progression.Combine result), cats (= combined.cats), left (confirmed
+--     not done, all categories), progress (exploration's; nil unless tracked and readable),
+--     minLevel, maxLevel, faction (nil = unknown) }
+function Zones.Entry(zone, ex, q, f)
+    local combined = ns.Progression.Combine(Zones.Categories(ex, q, f))
     local progress = ex and ex.status == "tracked" and ex.progress or nil
+    local state = combined.state
+    if state ~= Zones.COMPLETE and state ~= Zones.PROGRESS and state ~= Zones.UNTOUCHED and state ~= Zones.UNTRACKED then
+        state = Zones.UNKNOWN
+    end
     return {
         mapID = zone.mapID, name = zone.name or "", continent = zone.continent, rank = zone.rank or 0,
-        tracked = state ~= Zones.UNTRACKED, state = state, progress = progress,
-        percent = progress and progress.percent or nil, uncertain = ex and ex.uncertain or false,
+        tracked = state ~= Zones.UNTRACKED, state = state, progress = progress, combined = combined,
+        cats = combined.cats, percent = combined.percent, left = combined.remaining,
+        uncertain = ex and ex.uncertain or false,
         minLevel = zone.minLevel, maxLevel = zone.maxLevel, faction = zone.faction,
     }
 end
@@ -80,7 +106,8 @@ function Zones.All()
             local lo, hi = Zones.LevelsFor(ns.ZoneData, z.mapID)
             local zone = { mapID = z.mapID, name = z.name, continent = s.title, rank = rank,
                 minLevel = lo, maxLevel = hi, faction = Zones.FactionFor(ns.ZoneData, z.mapID) }
-            out[#out + 1] = Zones.Entry(zone, ns.Exploration.ForZone(z.mapID))
+            out[#out + 1] = Zones.Entry(zone, ns.Exploration.ForZone(z.mapID),
+                ns.Quests and ns.Quests.ForZone(z.mapID), ns.FlightPaths and ns.FlightPaths.ForZone(z.mapID))
         end
     end
     return out
@@ -189,13 +216,14 @@ local SORTS = {
     alphabetical = byName,
     highest = withPercent(function(a, b) if a.percent ~= b.percent then return a.percent > b.percent end end),
     lowest = withPercent(function(a, b) if a.percent ~= b.percent then return a.percent < b.percent end end),
-    -- Fewest areas left first; complete zones after the unfinished ones.
+    -- Highest % first (the zone's categories weigh equally), then fewest objectives left;
+    -- complete zones after the unfinished ones.
     closest = withPercent(function(a, b)
         local ca, cb = a.state == Zones.COMPLETE, b.state == Zones.COMPLETE
         if ca ~= cb then return cb end
-        local ra, rb = a.progress.remaining, b.progress.remaining
-        if ra ~= rb then return ra < rb end
         if a.percent ~= b.percent then return a.percent > b.percent end
+        local ra, rb = a.left or 0, b.left or 0
+        if ra ~= rb then return ra < rb end
     end),
 }
 Zones.SORTS = SORTS

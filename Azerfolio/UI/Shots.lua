@@ -103,6 +103,14 @@ local function steps(which)
     local pick = zones[1]
     for _, z in ipairs(zones) do if z.mapID == here then pick = z end end
     list[#list + 1] = { label = "zone detail", fn = function() openDetail(pick) end }
+    -- Its category pages (the dashboard's tiles), where they open.
+    for _, key in ipairs({ "explore", "quests", "flights" }) do
+        list[#list + 1] = { label = "zone detail, " .. key, fn = function()
+            local page = zonesPage()
+            openDetail(pick)
+            if page and page.OpenPage then page:OpenPage(key) end
+        end }
+    end
     -- A zone the game has no Explore achievement for (the "can't track" message).
     for _, z in ipairs(zones) do
         local ok, ex = pcall(ns.Exploration.ForZone, z)
