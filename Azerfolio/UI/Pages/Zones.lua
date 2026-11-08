@@ -101,9 +101,9 @@ local MESSAGES = {
 -- The banner's second line: continent and level range (from the zone guide).
 local function bannerSub(zone)
     local parts = { zone.continent }
-    if zone.minLevel then
-        parts[#parts + 1] = zone.minLevel == zone.maxLevel and ("Level " .. zone.minLevel)
-            or string.format("Levels %d-%d", zone.minLevel, zone.maxLevel)
+    local lo, hi = ns.Zones.LevelsFor(ns.ZoneData, zone.mapID)
+    if lo then
+        parts[#parts + 1] = lo == hi and ("Level " .. lo) or string.format("Levels %d-%d", lo, hi)
     end
     return table.concat(parts, "  ·  ")
 end

@@ -47,7 +47,7 @@ end
 local function steps(which)
     if which == "banners" then return bannerSteps() end
     local minW, minH = ns.Config.RANGES["window.width"][1], ns.Config.RANGES["window.height"][1]
-    local function size(w, h) return function() UI.GetFrame():SetSize(w, h); UI.Relayout() end end
+    local function size(w, h) return function() UI.FitSize(w, h) end end
     local list = {}
     for _, def in ipairs(UI.tabs) do
         list[#list + 1] = { label = def.id, fn = function() UI.ApplyGeometry(); UI.SelectTab(def.id) end }

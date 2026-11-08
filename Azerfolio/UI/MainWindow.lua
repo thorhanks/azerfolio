@@ -596,3 +596,16 @@ end
 -- For /azf shots and tests.
 function UI.GetFrame() return window end
 function UI.ApplyGeometry() if window then applyGeometry() end end
+
+-- Resizes the window for a moment (shots), moved so it stays on screen. Not saved.
+function UI.FitSize(width, height)
+    if not window then return end
+    local w = ns.db.window
+    local minW, minH = minSize()
+    local x, y, fw, fh = UI.ClampGeometry(w.x, w.y, width, height,
+        UIParent:GetWidth(), UIParent:GetHeight(), minW, minH, ns.Theme.outside)
+    window:ClearAllPoints()
+    window:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    window:SetSize(fw, fh)
+    UI.Relayout()
+end

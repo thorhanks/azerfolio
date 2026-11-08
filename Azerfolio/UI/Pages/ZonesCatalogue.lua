@@ -62,15 +62,15 @@ function Catalogue.ZoneDetail(z)
     local parts = { z.continent }
     if z.minLevel then
         parts[#parts + 1] = (z.minLevel == z.maxLevel and ("Level " .. z.minLevel)
-            or string.format("Levels %d-%d", z.minLevel, z.maxLevel)) .. " (zone guide)"
+            or string.format("Levels %d-%d", z.minLevel, z.maxLevel)) .. " (guide)"
     end
     if z.state == "untracked" then
-        parts[#parts + 1] = "Exploration isn't tracked: the game has no Explore achievement here"
+        parts[#parts + 1] = "Exploration not tracked (no Explore achievement)"
     elseif not z.progress then
-        parts[#parts + 1] = "Exploration data isn't available right now"
+        parts[#parts + 1] = "No exploration data right now"
     else
         local p = z.progress
-        local s = string.format("%d of %d areas discovered", p.completed, p.denominator)
+        local s = string.format("%d of %d discovered", p.completed, p.denominator)
         if p.completionUnknown > 0 then s = s .. string.format(", %d unknown", p.completionUnknown) end
         parts[#parts + 1] = s
         if z.uncertain then parts[#parts + 1] = "the game's list differs from the catalogue" end
@@ -166,13 +166,15 @@ local function newRow(parent)
     r.pct = T.Text(r, "sm", "text")
     r.pct:SetPoint("RIGHT", r, "RIGHT", -S.s2, 0)
     r.pct:SetWidth(L.pctWidth); r.pct:SetJustifyH("RIGHT")
+    -- Level column, on one line in the row's middle: "Lv a-b" then the bar.
     r.lvbar = W.LevelBar(r)
-    r.lvbar:SetPoint("BOTTOMRIGHT", r.pct, "BOTTOMLEFT", -S.s3, 10)
+    r.lvbar:SetPoint("RIGHT", r.pct, "LEFT", -S.s3, 0)
     r.lv = T.Text(r, "xs", "dim")
-    r.lv:SetPoint("BOTTOMLEFT", r.lvbar, "TOPLEFT", 0, 4)
+    r.lv:SetPoint("RIGHT", r.lvbar, "LEFT", -S.s2, 0)
+    r.lv:SetWidth(L.levelTextWidth); r.lv:SetJustifyH("RIGHT")
     r.name = T.Text(r, "md", "white")
     r.name:SetPoint("TOPLEFT", r.thumb, "TOPRIGHT", S.s3, 2)
-    r.name:SetPoint("RIGHT", r.lvbar, "LEFT", -S.s3, 0)
+    r.name:SetPoint("RIGHT", r.lv, "LEFT", -S.s3, 0)
     r.name:SetJustifyH("LEFT"); r.name:SetWordWrap(false)
     r.pips = W.Pips(r)
     r.pips:SetPoint("BOTTOMLEFT", r.thumb, "BOTTOMRIGHT", S.s3, 2)
@@ -198,11 +200,22 @@ local function fillRow(r, z, width)
     r.pct:SetTextColor(T.RGB(STATE_PCT[z.state] or "dim"))
     r.lv:SetText(levelText(z) or "Lv ?")
     r.lvbar:Set(z.minLevel, z.maxLevel, char().level, ns.Zones.FitsLevel(z, char().level))
+    -- The split view's narrow list keeps the level text and drops the bar (room for pips).
+    local compact = width < L.levelBarMinRow
+    r.lvbar:SetShown(not compact)
+    r.lv:ClearAllPoints()
+    if compact then
+        r.lv:SetPoint("RIGHT", r.pct, "LEFT", -S.s3, 0)
+    else
+        r.lv:SetPoint("RIGHT", r.lvbar, "LEFT", -S.s2, 0)
+    end
     local p = z.progress
     r.pips:SetShown(p ~= nil)
     r.note:ClearAllPoints()
     -- Room for pips: the name column minus the "n/m" note.
-    local room = width - (S.s2 + L.zoneThumb[1] + S.s3) - (L.levelBarWidth + S.s3 + L.pctWidth + S.s2 + S.s3) - 60
+    local bar = compact and 0 or (S.s2 + L.levelBarWidth)
+    local room = width - (S.s2 + L.zoneThumb[1] + S.s3)
+        - (L.levelTextWidth + bar + S.s3 + L.pctWidth + S.s2 + S.s3) - 60
     if p then
         local used = r.pips:Set(p.complete, p.incomplete, p.completionUnknown, math.max(40, room))
         r.note:SetPoint("LEFT", r.pips, "LEFT", used + S.s2, 0)
@@ -232,9 +245,10 @@ function Catalogue.New(page)
     rule:SetPoint("BOTTOMLEFT"); rule:SetPoint("BOTTOMRIGHT"); rule:SetHeight(1)
     cat.toolbar = tb
 
-    local function control(key, title, detail, onActivate)
+    local function control(key, title, detail, onActivate, actionLabel)
         local b = W.Control(tb)
-        b.item = { key = key, frame = b, title = title, detail = detail, onActivate = onActivate }
+        b.item = { key = key, frame = b, title = title, detail = detail, onActivate = onActivate,
+            actionLabel = actionLabel }
         b:SetScript("OnClick", function() onActivate(b.item) end)
         cat.controls[#cat.controls + 1] = b
         return b
@@ -245,14 +259,14 @@ function Catalogue.New(page)
         local value = s[1]
         cat.status[#cat.status + 1] = control("tb:status:" .. value, s[2],
             value == "all" and "Show every zone." or ("Show only zones confirmed " .. s[2]:lower() .. "."),
-            function() settings().completion = value; cat:Refresh() end)
+            function() settings().completion = value; cat:Refresh() end, "Show")
         cat.status[#cat.status].value = value
     end
     cat.options = {}
     for _, o in ipairs(OPTIONS) do
         local b = control("tb:" .. o.key, o.label, "Press A to choose.", function()
             page:OpenPopup(o, cat.options[o.key])
-        end)
+        end, "Choose")
         b.option = o
         cat.options[o.key] = b
     end
@@ -260,7 +274,7 @@ function Catalogue.New(page)
 
     -- Search: a plain edit box in a control frame. A or X focuses it; Enter or Escape leaves.
     local search = control("tb:search", "Search", "Type part of a zone's name. Enter or Escape to finish.",
-        function() cat:FocusSearch() end)
+        function() cat:FocusSearch() end, "Type")
     search:SetWidth(L.searchWidth)
     search.text:Hide()
     local box = CreateFrame("EditBox", nil, search)
@@ -289,7 +303,7 @@ function Catalogue.New(page)
         local value = v[1]
         local b = control("tb:view:" .. value, v[2] .. " view", "Y cycles the views.", function()
             settings().displayMode = value; cat:Refresh()
-        end)
+        end, "Switch")
         b.value = value
         cat.views[#cat.views + 1] = b
     end
@@ -383,7 +397,7 @@ function Catalogue.New(page)
                 b:Hide()
             else
                 b:SetLabel(o.label .. ": |cffffd100" .. label(o, s[o.key]) .. "|r")
-                b.item.detail = string.format("%s: %s. Press A to choose.", o.label, label(o, s[o.key]))
+                b.item.detail = label(o, s[o.key]) .. ". Press A to choose."
                 place(b)
             end
         end

@@ -42,7 +42,8 @@ local function scrollIntoView(item, toTop)
     if toTop then
         new = cur + (vTop - top) - (item.topGap or SCROLL_PAD)
     elseif top > vTop - SCROLL_PAD then
-        new = cur - (top - vTop) - SCROLL_PAD
+        -- Scrolling up: keep item.topGap above it, so a section's header comes back into view.
+        new = cur - (top - vTop) - (item.topGap or SCROLL_PAD)
     elseif bottom < vBottom + SCROLL_PAD then
         new = cur + (vBottom - bottom) + SCROLL_PAD
     end
