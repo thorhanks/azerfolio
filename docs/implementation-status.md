@@ -83,6 +83,7 @@ Planned steps (owner approves each):
    - Zones page: redraws the shown detail on an update for its zone, keeping focus on the same area.
    - `/azf debug exploration`: the current zone's counts, %, coverage and catalogue check, plus the total. Debug mode writes a capped trace (`AzerfolioDB.trace`, 100 entries; addon state only) so in-game results can be read from the file.
    - Tests: 122 passed (12 new: catalogue match, cache, micro map, one update per discovery with the detail and focus following, unrelated events ignored, login/refresh, totals, trace, debug report).
+   - In game (Gideon, Elwynn Forest; trace in `AzerfolioDB.trace`, file written 19:54:23): first report 8/12, catalogue matches, coverage complete, and **all 43 zones readable: 8/549, coverage complete** [verified-ingame]. One discovery gave exactly one refresh (GetTime 42722.532, `changed = true`, 8 → 9/12); no other refresh in the ~6 minutes traced, so unrelated `CRITERIA_UPDATE`s didn't trigger extra work. Second report 9/12 and 9/549 [verified-ingame]. Not confirmed from files: the on-screen redraw of the open detail (no screenshot taken); `RECEIVED_ACHIEVEMENT_LIST` isn't in the trace because debug was turned on after login.
 4. Baseline and milestones: first load records the baseline; only later transitions become milestones (deduplicated, capped).
 5. In-game end to end on Elwynn Forest: discover an area, watch it update, `/reload`.
 
