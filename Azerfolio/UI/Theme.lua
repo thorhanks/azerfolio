@@ -22,6 +22,8 @@ Theme.color = {
     dim = hex("b5a891"),          -- secondary text
     divider = hex("5a4128"),      -- horizontal rules
     xpFill = hex("8a64e8"),
+    todo = hex("e08a3c"),         -- state language: in progress / not yet discovered
+    complete = hex("ffcc33"),     -- state language: complete / discovered
     focus = { 1, 0.902, 0 },      -- GAMEPAD_SMARTNAV_CURSOR_COLOR [verified-ingame]
     black = { 0, 0, 0 },
     ink = hex("2b1a0c"),
@@ -62,6 +64,8 @@ Theme.layout = {
     listInset = 32,            -- list rows start here (room for the chevron)
     thumb = { 56, 28 },        -- zone art thumbnail (2:1)
     rowHiSide = 6,             -- row highlight end caps
+    checkRow = 32,             -- Zone Detail area row
+    checkIcon = 20,
 }
 
 -- Space the window's outside parts take (tabs right, legend below, portrait ring and glow).
@@ -123,6 +127,7 @@ Theme.files = {
     resizeHighlight = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight",
     resizeDown = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down",
     white = "Interface\\Buttons\\WHITE8X8",
+    checkDone = "Interface\\RaidFrame\\ReadyCheck-Ready", -- green check, tinted gold [verified-ingame]
 }
 
 -- Gamepad glyph atlases (atlas names are case-insensitive). Shoulder/trigger names are

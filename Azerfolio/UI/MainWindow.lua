@@ -383,12 +383,20 @@ local function currentHints()
     local list = {}
     local item = ns.Focus and ns.Focus.Current()
     if item and item.onActivate then list[#list + 1] = { "A", item.actionLabel or "Select" } end
+    local page = window and window.pages[current]
     for _, h in ipairs((def and def.hints) or {}) do list[#list + 1] = h end
     if ns.Focus and ns.Focus.HasSections() then
-        list[#list + 1] = { { "LT", "RT" }, (def and def.sectionLabel) or "Section" }
+        list[#list + 1] = { { "LT", "RT" }, (page and page.sectionLabel) or (def and def.sectionLabel) or "Section" }
     end
-    list[#list + 1] = { "B", "Close" }
+    list[#list + 1] = { "B", (page and page.backLabel) or "Close" }
     return list
+end
+
+-- B: the page goes back a level if it can (Zone Detail -> list); otherwise the window closes.
+function UI.Back()
+    local page = window and window.pages[current]
+    if page and page.Back and page:Back() then return end
+    UI.Hide()
 end
 
 -- Everything that depends on whether the controller drives the window: the frame's focus

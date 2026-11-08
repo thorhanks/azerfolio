@@ -99,11 +99,16 @@ function Focus.SetPage(id, page)
     Focus.Rebuild()
 end
 
--- Re-reads the current page's focus rows (keeps focus on the same key).
+-- Re-reads the current page's focus rows. Keeps focus on the same key, or moves it to
+-- page.pendingFocusKey if the page set one (e.g. back from Zone Detail to its zone).
 function Focus.Rebuild()
     local g, page = grid(), tabId and pages[tabId]
     if not g then return end
     g:SetRows(page and page.GetFocusRows and page:GetFocusRows() or {})
+    if page and page.pendingFocusKey ~= nil then
+        g:FocusKey(page.pendingFocusKey)
+        page.pendingFocusKey = nil
+    end
     Focus.Update(true)
 end
 

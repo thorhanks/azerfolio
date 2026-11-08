@@ -16,6 +16,7 @@ Core\Events.lua
 Core\Character.lua
 Core\Commands.lua
 Systems\Maps.lua
+Systems\Exploration.lua
 UI\Theme.lua
 UI\FocusGrid.lua
 UI\MainWindow.lua

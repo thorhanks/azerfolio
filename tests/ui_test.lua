@@ -17,9 +17,29 @@ local MAPS = {
     [2665] = { name = "Zephras Isle", mapType = 3, parentMapID = 0 },
 }
 
+-- Explore achievements (category 14777 = Eastern Kingdoms), shaped like the real API.
+local ACH = {
+    [14777] = { { id = 776, name = "Explore Elwynn Forest" }, { id = 627, name = "Explore Dun Morogh" } },
+    [14778] = { { id = 728, name = "Explore Durotar" } },
+}
+local CRITERIA = {
+    [776] = { { "Northshire Valley", true, 1146 }, { "Goldshire", true, 1147 }, { "Fargodeep Mine", false, 1148 },
+        { "Crystal Lake", false, 1149 }, { "Tower of Azora", false, 1150 } },
+    [627] = { { "Coldridge Valley", true, 1200 } },
+    [728] = { { "Valley of Trials", false, 1300 } },
+}
+local achievementsReady = true
+
 local function boot(savedAccount)
     wow.install({
         C_Map = { GetMapInfo = function(id) return MAPS[id] end },
+        GetCategoryNumAchievements = function(cat) return achievementsReady and #(ACH[cat] or {}) or 0 end,
+        GetAchievementInfo = function(cat, i) local a = ACH[cat] and ACH[cat][i]; if a then return a.id, a.name end end,
+        GetAchievementNumCriteria = function(id) return #(CRITERIA[id] or {}) end,
+        GetAchievementCriteriaInfo = function(id, i)
+            local c = CRITERIA[id][i]
+            return c[1], 43, c[2], c[2] and 1 or 0, 1, "", 0, 0, "", c[3], true
+        end,
         UnitName = function() return "Gideon" end,
         UnitLevel = function() return 9 end,
         UnitXP = function() return 273 end,
@@ -166,6 +186,80 @@ return function(t)
         padUI = true
     end)
 
+    t.test("exploration is read from the zone's Explore achievement", function()
+        local ns = boot()
+        local ex = ns.Exploration.ForZone({ mapID = 1429, name = "Elwynn Forest" })
+        t.eq(ex.status, "tracked")
+        t.eq(ex.achievementID, 776)
+        t.eq(#ex.criteria, 5)
+        t.eq(ex.criteria[1].id, 1146); t.eq(ex.criteria[1].name, "Northshire Valley"); t.eq(ex.criteria[1].completed, true)
+        t.eq(ex.summary.done, 2); t.eq(ex.summary.todo, 3); t.eq(ex.summary.total, 5)
+        t.eq(ns.Exploration.ForZone({ mapID = 1436, name = "Westfall" }).status, "untracked")
+    end)
+
+    t.test("unknown completion is counted as unknown, never done or not done", function()
+        local ns = boot()
+        local s = ns.Exploration.Summarize({ { completed = true }, { completed = false }, { completed = nil } })
+        t.eq(s.done, 1); t.eq(s.todo, 1); t.eq(s.unknown, 1); t.eq(s.total, 3)
+    end)
+
+    t.test("no achievement data yet: unavailable, and retried later", function()
+        achievementsReady = false
+        local ns = boot()
+        t.eq(ns.Exploration.ForZone({ mapID = 1429, name = "Elwynn Forest" }).status, "unavailable")
+        achievementsReady = true
+        t.eq(ns.Exploration.ForZone({ mapID = 1429, name = "Elwynn Forest" }).status, "tracked", "not cached empty")
+    end)
+
+    t.test("A opens Zone Detail on the first area to discover; B goes back to the same zone", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 2, lastTab = "zones" })
+        slash("")
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().title, "Elwynn Forest")
+        press(ns, "PAD1")
+        local page = ns.UI.GetFrame().pages.zones
+        t.eq(page.mode, "detail")
+        t.eq(page.detail.banner.name:GetText(), "Elwynn Forest")
+        t.eq(ns.Focus.Current().title, "Fargodeep Mine", "first area to discover")
+        t.eq(ns.Focus.Current().detail, "Not discovered yet")
+        press(ns, "PADDRIGHT")
+        t.eq(ns.Focus.Current().title, "Crystal Lake", "two columns")
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().title, "Northshire Valley", "RT: Discovered section")
+        t.eq(ns.Focus.Current().detail, "Discovered")
+        press(ns, "PAD2")
+        t.eq(page.mode, "list", "B goes back")
+        t.eq(ns.UI.IsShown(), true, "the window stays open")
+        t.eq(ns.Focus.Current().title, "Elwynn Forest", "same zone focused")
+        press(ns, "PAD2")
+        t.eq(ns.UI.IsShown(), false, "B on the list closes")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("an untracked zone says so instead of showing areas", function()
+        local ns = boot({ schemaVersion = 2, lastTab = "zones" })
+        slash("")
+        local page = ns.UI.GetFrame().pages.zones
+        page:Open({ mapID = 1436, name = "Westfall", continent = "Eastern Kingdoms" })
+        t.ok(page.detail.message:IsShown())
+        t.ok(page.detail.message:GetText():find("no Explore achievement for Westfall"))
+        t.eq(#page:GetFocusRows(), 0)
+    end)
+
+    t.test("opening zones repeatedly reuses the area rows", function()
+        local ns = boot({ schemaVersion = 2, lastTab = "zones" })
+        slash("")
+        local page = ns.UI.GetFrame().pages.zones
+        page:Open({ mapID = 1429, name = "Elwynn Forest" }); page:Back()
+        local before = wow.frameCount()
+        for _ = 1, 5 do
+            page:Open({ mapID = 1429, name = "Elwynn Forest" }); page:Back()
+            page:Open({ mapID = 1426, name = "Dun Morogh" }); page:Back()
+        end
+        t.eq(wow.frameCount(), before)
+    end)
+
     t.test("tabs are registered in order and wrap around", function()
         local ns = boot()
         t.eq(#ns.UI.tabs, 2)
@@ -297,7 +391,7 @@ return function(t)
         slash("shots")
         wow.runTimers()
         t.eq(_G.screenshotsTaken, #ns.UI.ShotSteps())
-        t.eq(_G.screenshotsTaken, 5)
+        t.eq(_G.screenshotsTaken, 6)
         t.eq(ns.UI.CurrentTab(), "zones", "tab restored")
         t.eq(ns.UI.GetFrame():GetWidth(), 1160, "size restored")
         t.eq(ns.UI.shotsRunning, false)

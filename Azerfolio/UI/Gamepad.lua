@@ -71,7 +71,7 @@ local function handle(action)
     elseif action == "nextTab" then
         ns.UI.NextTab(1)
     elseif action == "back" then
-        ns.UI.Hide()
+        ns.UI.Back()
     elseif action == "activate" then
         ns.Focus.Activate()
     elseif action == "prevSection" or action == "nextSection" then

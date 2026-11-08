@@ -27,6 +27,20 @@ local function steps()
             UI.SelectTab(def.id); size(minW, minH)()
         end }
     end
+    -- Zone Detail for the zone the player stands in (or the first listed zone).
+    list[#list + 1] = { label = "zone detail", fn = function()
+        UI.ApplyGeometry(); UI.SelectTab("zones")
+        local here = C_Map and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
+        local pick
+        for _, s in ipairs(ns.Maps.Sections()) do
+            for _, z in ipairs(s.zones) do
+                pick = pick or { mapID = z.mapID, name = z.name, continent = s.title }
+                if z.mapID == here then pick = { mapID = z.mapID, name = z.name, continent = s.title } end
+            end
+        end
+        local page = UI.GetFrame().pages.zones
+        if pick and page and page.Open then page:Open(pick); UI.shotsOpenedDetail = true end
+    end }
     return list
 end
 UI.ShotSteps = steps
@@ -49,6 +63,9 @@ function UI.RunShots()
     local function finish(msg)
         UI.shotsRunning = false
         UI.ApplyGeometry()
+        if UI.shotsOpenedDetail then
+            UI.SelectTab("zones"); UI.GetFrame().pages.zones:Back(); UI.shotsOpenedDetail = nil
+        end
         if UI.shotsFocusKey ~= nil then
             UI.SelectTab("zones"); ns.Focus.FocusKey(UI.shotsFocusKey); UI.shotsFocusKey = nil
         end
