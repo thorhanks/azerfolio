@@ -247,11 +247,11 @@ local function fillDetail(d, zone)
     end
 
     local groups = { { title = "To discover", list = {} }, { title = "Discovered", list = {} } }
-    for _, c in ipairs(ex.criteria) do
-        if c.completed == true then table.insert(groups[2].list, c)
-        elseif c.completed == false then table.insert(groups[1].list, c) end
+    for _, c in ipairs(ex.objectives) do
+        if c.completion == "complete" then table.insert(groups[2].list, c)
+        elseif c.completion == "incomplete" then table.insert(groups[1].list, c) end
     end
-    local counts = { ex.summary.todo, ex.summary.done }
+    local counts = { ex.progress.remaining, ex.progress.completed }
 
     local y, used = 0, 0
     for gi, g in ipairs(groups) do
@@ -281,7 +281,7 @@ local function fillDetail(d, zone)
                         row:SetPoint("TOPLEFT", child, "TOP", S.s2 + L.listInset / 2, -y)
                         row:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
                     end
-                    local done = c.completed == true
+                    local done = c.completion == "complete"
                     row.done:SetShown(done)
                     row.todo:SetShown(not done)
                     row.name:SetText(c.name or "?")

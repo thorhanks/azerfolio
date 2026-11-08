@@ -191,16 +191,26 @@ return function(t)
         local ex = ns.Exploration.ForZone({ mapID = 1429, name = "Elwynn Forest" })
         t.eq(ex.status, "tracked")
         t.eq(ex.achievementID, 776)
-        t.eq(#ex.criteria, 5)
-        t.eq(ex.criteria[1].id, 1146); t.eq(ex.criteria[1].name, "Northshire Valley"); t.eq(ex.criteria[1].completed, true)
-        t.eq(ex.summary.done, 2); t.eq(ex.summary.todo, 3); t.eq(ex.summary.total, 5)
+        t.eq(#ex.objectives, 5)
+        local o = ex.objectives[1]
+        t.eq(o.id, 1146); t.eq(o.name, "Northshire Valley"); t.eq(o.completion, "complete")
+        t.eq(o.eligibility, "eligible"); t.eq(o.category, "exploration"); t.eq(o.zone, 1429)
+        t.eq(ex.progress.completed, 2); t.eq(ex.progress.remaining, 3); t.eq(ex.progress.total, 5)
+        t.eq(ex.progress.coverage, "complete"); t.eq(ns.Progression.PercentText(ex.progress), "40%")
         t.eq(ns.Exploration.ForZone({ mapID = 1436, name = "Westfall" }).status, "untracked")
     end)
 
-    t.test("unknown completion is counted as unknown, never done or not done", function()
+    t.test("a non-boolean done flag is unknown, never done or not done", function()
         local ns = boot()
-        local s = ns.Exploration.Summarize({ { completed = true }, { completed = false }, { completed = nil } })
-        t.eq(s.done, 1); t.eq(s.todo, 1); t.eq(s.unknown, 1); t.eq(s.total, 3)
+        local real = _G.GetAchievementCriteriaInfo
+        _G.GetAchievementCriteriaInfo = function(achID, i)
+            local r = { real(achID, i) }
+            if i == 2 then r[3] = nil end
+            return unpack(r, 1, 10)
+        end
+        local p = ns.Exploration.ForZone({ mapID = 1429, name = "Elwynn Forest" }).progress
+        _G.GetAchievementCriteriaInfo = real
+        t.eq(p.completionUnknown, 1); t.eq(p.denominator, 4); t.eq(p.coverage, "partial")
     end)
 
     t.test("no achievement data yet: unavailable, and retried later", function()

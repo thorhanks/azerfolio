@@ -1,7 +1,8 @@
 -- Exploration objectives for a zone, read live from the game's "Explore <zone>" achievement
 -- criteria (Phase 1, docs/research/exploration-validation.md): objective ID = criteriaID,
 -- completion = the criterion's done flag, per character. [verified-ingame]
--- This is the native-API reader; Phase 5 adds the generated catalogue, events and baseline.
+-- This is the native-API reader; counts come from ns.Progression. Phase 5 step 3 moves the
+-- zone lookup to the generated catalogue and adds events; step 4 the baseline.
 -- The UI shows what this returns and never counts on its own.
 local _, ns = ...
 
@@ -33,20 +34,10 @@ local function buildIndex()
     return any and found or nil
 end
 
--- Pure: summary counts from a criteria list. Unknown completion is counted separately and
--- never as done or not done.
-function Exploration.Summarize(criteria)
-    local s = { total = #criteria, done = 0, todo = 0, unknown = 0 }
-    for _, c in ipairs(criteria) do
-        if c.completed == true then s.done = s.done + 1
-        elseif c.completed == false then s.todo = s.todo + 1
-        else s.unknown = s.unknown + 1 end
-    end
-    return s
-end
-
 -- Exploration for a zone { mapID, name }:
---   { status = "tracked", achievementID, criteria = { { id, name, completed } }, summary }
+--   { status = "tracked", achievementID, objectives, progress }
+--       objectives: ns.Objectives (category "exploration", id = criteriaID); every criterion is
+--       eligible (the game marks none ineligible, plan §9). progress: ns.Progression.Aggregate.
 --   { status = "untracked" }   the game has no Explore achievement for this zone
 --   { status = "unavailable" } achievement data can't be read right now
 function Exploration.ForZone(zone)
@@ -56,16 +47,20 @@ function Exploration.ForZone(zone)
     if not achID then return { status = "untracked" } end
     local n = try("GetAchievementNumCriteria", GetAchievementNumCriteria, achID)
     if type(n) ~= "number" then return { status = "unavailable" } end
-    local criteria = {}
+    local O = ns.Objectives
+    local objectives = {}
     for i = 1, n do
         local name, _, done, _, _, _, _, _, _, criteriaID = try("GetAchievementCriteriaInfo",
             GetAchievementCriteriaInfo, achID, i)
-        local completed -- nil = unknown, unless the game returned a boolean
-        if type(done) == "boolean" then completed = done end
-        criteria[#criteria + 1] = { id = criteriaID, name = name, completed = completed }
+        local o = O.New({ id = criteriaID, category = "exploration", zone = zone.mapID, name = name,
+            completion = O.CompletionFromFlag(done), eligibility = O.ELIGIBLE, source = "achievement" })
+        if o then objectives[#objectives + 1] = o end
     end
-    return { status = "tracked", achievementID = achID, criteria = criteria,
-        summary = Exploration.Summarize(criteria) }
+    -- A criterion without an ID can't be counted; the zone's list is then incomplete.
+    local coverage = #objectives == n and "complete" or "partial"
+    local progress = ns.Progression.Aggregate({
+        { category = "exploration", coverage = coverage, objectives = objectives } })
+    return { status = "tracked", achievementID = achID, objectives = objectives, progress = progress }
 end
 
 -- For tests: forget the index.

@@ -69,7 +69,12 @@ Built in steps the owner approves one at a time:
 
 Planned steps (owner approves each):
 1. **Catalogue** (done 2026-11-07): `tools/gen-exploration.lua` reads the AzerfolioDiag dump and writes `Azerfolio/Data/Exploration.lua` (`ns.ExplorationCatalogue`: data version 1, client 1.60.1.70862, zones keyed by mapID → achievementID and criteriaIDs in the game's order; names as comments only). It refuses to write if a zone matches more than one map, a criterion isn't type 43, or a criteriaID repeats. Result: 43 zones, 549 criteria, no duplicates; running it twice gives the same file. In the TOC after `Data\Art.lua`. Tests: 94 passed.
-2. Objective model and `Progression` (pure): completion and eligibility as separate states, counts per state, percentage or nil, coverage, dedup by objective ID.
+2. **Objective model and `Progression`** (done 2026-11-07; not yet checked in game):
+   - `Systems/Objectives.lua` (pure): an objective has id, category, zone, name, completion (`complete`/`incomplete`/`unknown`) and eligibility (`eligible`/`locked`/`unavailable`/`unknown`) as separate fields; bad values become `unknown`; only a real boolean done flag counts as confirmed.
+   - `Systems/Progression.lua` (pure), the only aggregation: takes sets `{ category, coverage, objectives }` and returns counts per state, `completed`/`remaining`/`denominator` (eligible or locked, completion known, from complete-coverage categories; spec §5.2), `uncounted`, `conflicts`, `percent` (nil without a denominator), `coverage` (`complete`/`partial`/`unavailable`), included and excluded categories, and `trackedComplete`. Each objective is counted once by category + ID; a duplicate with different states becomes unknown. `PercentText` rounds down, so "100%" appears only when everything counted is confirmed.
+   - `Exploration.ForZone` now returns `objectives` and `progress` (from Progression) instead of its own summary; the Zone Detail counts read `progress`. A criterion the game returns without an ID makes the zone's coverage `partial`.
+   - Not yet: objectives with unknown completion aren't listed in Zone Detail (no design for it yet; Phase 6).
+   - Tests: 110 passed (16 new Progression/model tests, plus an unknown-flag test through the reader).
 3. `ExplorationTracker`: zone lookup by mapID from the catalogue, live criteria with a catalogue check, per-zone cache, refresh on `RECEIVED_ACHIEVEMENT_LIST` / `CRITERIA_UPDATE` / `MAP_EXPLORATION_UPDATED` (debounced, current zone only), `AZF_EXPLORATION_UPDATED` to the open UI.
 4. Baseline and milestones: first load records the baseline; only later transitions become milestones (deduplicated, capped).
 5. In-game end to end on Elwynn Forest: discover an area, watch it update, `/reload`.
