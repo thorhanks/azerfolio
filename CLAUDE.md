@@ -12,8 +12,9 @@ Read before working:
 
 ## Current state (2026-11-08)
 
-- Phases 0–5 done. The window has the **native Forever look** (`PortraitFrameTemplate` and the atlases in `mockups/DESIGN.md` § Native look), gamepad focus, Zones list / Zone Detail / wide split view (window ≥ 1440), launchers (minimap button, addon compartment; no key binding, removed 2026-11-08). Exploration: generated catalogue (`Data/Exploration.lua`, regenerate with `luajit tools/gen-exploration.lua`), `Systems/Objectives`, `Progression` (all counts), `Exploration` (tracker, live refresh, `AZF_EXPLORATION_UPDATED`), `Milestones` (per-character baseline, `AZF_MILESTONE`). **Phase 6 done** (Zones catalogue: cards/list, status/Show/Level/Sort, search, X/Y; Zone Detail with progress banner, unknown areas, notes, world map on X; `Systems/Zones`, account schema 4). The client has no level ranges or faction, so both come from the hand-curated, unofficial `Data/Zones.lua` (Warcraft Wiki + the owner). `/azf debug zones` traces the catalogue. **Phase 7 done** (Overview: `Systems/Overview.lua` picks, `UI/Pages/Overview.lua`, visit tracker in `recentZones`, `/azf debug overview`). **Phase 8 done; v1 closed 2026-11-08 as version 1.0.0** (every spec §12 v1 criterion met, `docs/testing.md` § Phase 8). Known: the 39.5 ms peak frame isn't attributed yet. **Phase 9** (Quests, v1.1) in progress: QuestieDB is read at runtime as an optional dependency; step 2 (`Systems/Quests.lua` index, curated `Data/QuestAreas.lua`; Darkspear Islands is a PvP battleground, left out) is done (2,706 of 5,233 quests in zone counts, 8.6 ms over 11 frames). Step 3 (completion and eligibility: `Systems/QuestRules.lua`, quest objectives in `Progression`) is done (Gideon: Elwynn 42/68; addon memory 6.3 MB after GC). Next: step 4, the Zone Detail quest section (mockup first). Dungeon and raid quests are kept per instance for a Dungeons tab later.
-- Debug mode (`/azf debug`) writes a capped trace to `AzerfolioDB.trace`; read it after `/reload`. `/azf debug exploration` prints the current zone, the total and milestones. `RECEIVED_ACHIEVEMENT_LIST` doesn't fire on `/reload`.
+- v1 (1.0.0) closed 2026-11-08. **Phase 9** (Quests, v1.1): steps 1–3 done (QuestieDB at runtime, quest index, completion and eligibility). **Next: step 4**, the Zone Detail quest section, mockup first. Details and measurements: `docs/implementation-status.md`.
+- Level ranges and factions come from the hand-curated, unofficial `Data/Zones.lua`; quest areas from `Data/QuestAreas.lua`. Dungeon and raid quests are kept per instance for a later Dungeons tab.
+- Debug mode (`/azf debug`) writes a capped trace to `AzerfolioDB.trace`; read it after `/reload` with `luajit tools/trace-report.lua` (not ad hoc scripts). `/azf debug exploration` prints the current zone, the total and milestones. `RECEIVED_ACHIEVEMENT_LIST` doesn't fire on `/reload`.
 - Banner crop offsets: `Theme.bannerFocus`; check with `/azf shots banners`.
 - In game, the owner may still have **Azerfolio Diagnostics** enabled with its event sniffer on. Ask them to turn it off (`/azfdiag sniff`, then untick the addon) when it's no longer needed.
 
@@ -54,12 +55,21 @@ Read before working:
 
 - Link addons: `powershell -File tools/link-addons.ps1` (`-Unlink` to remove)
 - Tests: `luajit tests/run.lua` (from repo root)
+- Read the addon's trace: `luajit tools/trace-report.lua [summary|last [n]|quests|zone <mapID>|perf|kind <name> [n]]`
+- QuestieDB offline (base rows, no corrections): `luajit tools/qdb.lua [quest <id>...|area <areaID>|name <text>|stats]`
 - Read the diagnostic dump: `luajit tools/diag-report.lua [summary|env|explore|criteria <achID>|maps|zone|events|log [n]|quests|questdb [areas]|art|ns <filter>|errors]`
 - Diagnostics in game: `/azfdiag` (help), `/azfdiag all`, `/azfdiag zone`, `/azfdiag zones` (level ranges, map rects; report `zones`), `/azfdiag questdb` (QuestieDB API, read cost, corrections, race masks, quest areas; report `questdb [areas]`), `/azfdiag sniff`, `/azfdiag art`, `/azfdiag skin` (native frame textures; report `skin [tree [filter]]`)
-- Addon in game: `/azf help`, `/azf status`, `/azf debug [zone|exploration|zones|overview|quests|perf]`, `/azf refresh`, `/azf shot`, `/azf shots` (screenshots every tab and state), `/azf shots banners`
+- Addon in game: `/azf help`, `/azf status`, `/azf debug [zone|exploration|zones|overview|quests [full]|perf [gc|reset]]`, `/azf refresh`, `/azf shot`, `/azf shots` (screenshots every tab and state), `/azf shots banners`
 - Mockups: start the `mockups` preview (`.claude/launch.json`, serves `mockups/` on http://localhost:8765 via `tools/serve-mockups.ps1`). Regenerate zone data with `luajit tools/export-mock-data.lua | Out-File -Encoding utf8 mockups/data.js`. Mockup state (Gideon's progress, level ranges, factions) is sample data in `mockups/app.js`, not addon data.
 - Zone art: owner saves generated images as `art/source/<mapID>-<slug>.png` (prompts in `art/prompts.md`, rules in `art/style-guide.md`), then `powershell -File tools/process-art.ps1`. This writes `Azerfolio/Media/Zones/<mapID>.blp` (1024×512 BLP2 DXT1 + mips, via `tools/Blp.cs`), the mockup PNGs, and `Azerfolio/Data/Art.lua`. Never hand-edit `Data/Art.lua`. Use the `.blp` extension in texture paths. Review with `tools/art-contact-sheet.ps1`. Only BLPs are committed; `art/source/` and mockup PNGs are git-ignored.
-- Git: not on PATH; use `C:\Users\thorh\AppData\Local\GitHubDesktop\app-3.6.10\resources\app\git\cmd\git.exe`. Pass commit messages with `-F <file>` (PowerShell 5.1 mangles quotes in arguments). Pushing needs the owner (GitHub Desktop holds the login).
+- Commit: write the message to a scratch file, then `powershell -File tools/commit.ps1 -MessageFile <file> -All` (or `-Paths a,b`). Git isn't on PATH; the script holds the path (`C:\Users\thorh\AppData\Local\GitHubDesktop\app-3.6.10\resources\app\git\cmd\git.exe`). Pushing needs the owner (GitHub Desktop holds the login).
+
+## Keeping token use down
+
+- Read in-game results with `tools/trace-report.lua` and `tools/diag-report.lua`; extend those tools instead of writing one-off scripts.
+- Read only the part of a file you need (Grep, then Read with offset/limit).
+- Keep `docs/implementation-status.md` short (one compact entry per step); move closed phases to `docs/history/`.
+- Start a new session for each Phase step; this file and the status doc are the handoff.
 
 ## Code layout
 

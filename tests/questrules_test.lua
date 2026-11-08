@@ -125,6 +125,11 @@ return function(t)
         t.same({ eval(ns, recs, 10, nil) }, { "unknown", "completed quests not known" })
     end)
 
+    t.test("debug report: level reasons are grouped", function()
+        local ns = load()
+        t.same(ns.Quests.GroupReasons({ ["level 12"] = 2, ["level 30"] = 5, class = 1 }), { level = 7, class = 1 })
+    end)
+
     t.test("rules: a read error or missing record is unknown", function()
         local ns = load()
         t.same({ eval(ns, { [1] = { err = true } }, 1) }, { "unknown", "QuestieDB read error" })

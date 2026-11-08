@@ -424,8 +424,29 @@ local function top(t, n)
     return out
 end
 
--- /azf debug quests: the catalogue's state and counts, in chat and the trace.
-function Quests.DebugReport()
+-- Pure: "level 12", "level 30"... as one "level" bucket (the report stays short).
+function Quests.GroupReasons(reasons)
+    local out = {}
+    for why, n in pairs(reasons or {}) do
+        local k = tostring(why):match("^level %d+$") and "level" or why
+        out[k] = (out[k] or 0) + n
+    end
+    return out
+end
+
+local function checklist(r)
+    local out = {}
+    for _, o in ipairs(r.objectives or {}) do
+        out[#out + 1] = string.format("%d %s L%s/%s %s %s %s", o.id, tostring(o.name),
+            tostring(o.questLevel), tostring(o.reqLevel), o.completion, o.eligibility, tostring(o.reason or ""))
+    end
+    return out
+end
+
+-- /azf debug quests [full]: the catalogue's state and counts, in chat and the trace (read it
+-- with `luajit tools/trace-report.lua quests`). The trace keeps one line per zone and the
+-- current zone's checklist; "full" adds every zone's checklist (large).
+function Quests.DebugReport(option)
     if state.status == "idle" then Quests.Start() end
     if state.status ~= "ready" then
         local pos, n, phase
@@ -478,6 +499,7 @@ function Quests.DebugReport()
     ns.Printf("  all zones: %d/%d done (%s), eligible %d, locked %d, unavailable %d, unknown %d, coverage %s",
         ap.completed, ap.denominator, ns.Progression.PercentText(ap) or "no %", ap.eligible, ap.locked,
         ap.unavailable, ap.eligibilityUnknown, ap.coverage)
+    reasons = Quests.GroupReasons(reasons)
     ns.Printf("  reasons: %s", table.concat(top(reasons, 8), ", "))
 
     -- Where the character's completed quests fall: in a zone count, or left out and why.
@@ -507,10 +529,15 @@ function Quests.DebugReport()
         ns.Printf("  this zone (%d): %d quests, %d/%d done, eligible %d, locked %d, unavailable %d, unknown %d, %d repeatable left out",
             here, hq.count, hp.completed, hp.denominator, hp.eligible, hp.locked, hp.unavailable,
             hp.eligibilityUnknown, hq.repeatable)
-        for _, o in ipairs(hq.objectives) do
-            hereList[#hereList + 1] = string.format("%d %s L%s/%s %s %s %s", o.id, tostring(o.name),
-                tostring(o.questLevel), tostring(o.reqLevel), o.completion, o.eligibility, tostring(o.reason or ""))
+        hereList = checklist(hq)
+    end
+    local full
+    if option == "full" then
+        full = {}
+        for mapID in pairs(i.zones) do
+            full[#full + 1] = { mapID = mapID, quests = checklist(Quests.ForZone(mapID)) }
         end
+        table.sort(full, function(a, b) return a.mapID < b.mapID end)
     end
     ns.Printf("  listed zones without quests: %s", #empty > 0 and table.concat(empty, ", ") or "none")
     ns.Printf("  indexed maps not in the zone list: %s", #notListed > 0 and table.concat(notListed, ", ") or "none")
@@ -519,7 +546,7 @@ function Quests.DebugReport()
     for _ in pairs(i.instances) do instances = instances + 1 end
     ns.Debug.Trace("quests", { report = true, status = "ready", total = i.total, counted = i.counted, left = L,
         instances = instances, zones = zones, empty = empty, notListed = notListed, unmapped = unmapped,
-        sorts = i.sorts, steps = state.steps, workMs = state.workMs, maxStepMs = state.maxStepMs,
+        full = full, hereCount = hq and hq.count, steps = state.steps, workMs = state.workMs, maxStepMs = state.maxStepMs,
         elapsedMs = state.elapsedMs, evalMs = evalMs, completedKnown = completed ~= nil,
         character = { name = c.name, raceID = c.raceID, classID = c.classID, level = c.level },
         all = { completed = ap.completed, denominator = ap.denominator, eligible = ap.eligible, locked = ap.locked,
