@@ -78,8 +78,9 @@ Planned steps (owner approves each):
    - Tests: 204 passed (rescan skip and cost, counters and report, client metrics, XP vs level redraw, damaged lists, a fully corrupted SavedVariables boot).
 2. **In-game validation** (`docs/testing.md` § Phase 8 steps): visual review shots, a play session with `/azf debug perf`, controller-only pass, Escape and the controller key binding, another UI scale, a full restart, Azerfolio alone, Thragor and contested zones. Fixes from what it finds.
    - First run (2026-11-07, owner ran steps 1-10; results in `docs/testing.md`): every screen renders at UI scale 0.65 and 0.8 and with Azerfolio alone; 369 s of play cost about 10 ms of addon callbacks in total, 0 errors, 2410 KB; Thragor's faction and level filters are correct [verified-ingame]. The client profiler's 39.5 ms peak frame wasn't attributed, so opening the window (`ui:open`), tab switches and page builds (`ui:tab …`), relayouts and each `/azf shots` step are now timed too (debug mode only). In the wide split view `/azf shots` no longer takes the "other view" shot (it repeated the previous one). Tests: 206 passed.
-   - Open: the owner's answers for Lua errors, the controller key binding and Escape, persistence after the full restart, and Thragor's Zone Detail. Design question: hide the empty "To discover · 0 areas" header on a fully explored zone (mockup first).
-3. **Close v1:** every §12 criterion checked off with evidence.
+   - Owner's answers: no Lua errors during play; position, size, tab and view kept after the full restart; Thragor's Zone Detail (The Barrens, Durotar) correct [verified-ingame, owner]. **Step 2 done** except two items the owner deferred: opening from a controller-bound key (none bound yet) and Escape in game.
+   - Design question: hide the empty "To discover · 0 areas" header on a fully explored zone (mockup first).
+3. **Close v1** (waiting): every spec §12 criterion is met (`docs/testing.md` § Phase 8 status table) except the controller key binding and Escape in game. Optional: attribute the 39.5 ms peak frame with `/azf debug perf` now that window opens, page builds and shots are timed.
 
 ## Phase 7 — Overview dashboard: done (2026-11-07)
 

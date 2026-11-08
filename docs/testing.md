@@ -142,23 +142,23 @@ Automated: `luajit tests/run.lua` covers the Overview's picks (Continue, next go
 
 Automated: `luajit tests/run.lua` (204 tests). Phase 8 adds: performance counters and `/azf debug perf`, the re-read after a discovery outside the current zone skipping fully explored zones (with its cost traced), no Overview rebuild on XP gains, damaged milestone and recent-zone entries cleaned on load, and a boot from a fully corrupted SavedVariables that opens both tabs and runs every command without errors.
 
-Evidence so far, and what's still open (filled in as the steps below run):
+Status of every criterion (updated 2026-11-07 after the owner's run; details in the results table below):
 
-| Spec §12 criterion | Evidence | Open |
+| Spec §12 criterion | Evidence | Status |
 |---|---|---|
-| **Window:** `/azerfolio` and `/azf` toggle; launcher; key binding works from a controller | Phase 2/4: slash commands, minimap button, compartment and key binding (owner) | Key binding pressed on the controller (step 5) |
-| Every screen usable with the gamepad alone, focus highlight and hint bar | Phase 4-7 shots; owner ran Phases 6-7 with the controller. Typing a search needs the keyboard (no on-screen keyboard in this client; owner accepted) | Full pass in one session (step 4) |
-| Draggable, resizable; position and size persist | Phase 4: across `/reload` (SavedVariables) | Across a full restart (step 7) |
-| Overview and Zones tabs work; Escape closes | Tabs: Phases 4-7. Escape: tests (`UISpecialFrames`) | Escape in game (step 5) |
-| Cohesive native Warcraft style | Native-look shots, Phase 4 | Visual review of every screen (step 2) |
-| **Overview:** all five criteria | Phase 7 (pass, Gideon) | - |
-| **Zones:** all three criteria | Phase 6 (pass, Gideon and Thragor) | - |
-| **Exploration:** all four criteria | Phases 5-6 (pass) | - |
-| **Quality:** no Lua errors in normal use | `/azf status` errors 0 in Phase 2-7 checks | A play session with script errors shown (steps 1-3) |
-| No noticeable performance impact | Code review (below) | `/azf debug perf` after a play session (step 3) |
-| SavedVariables survive reloads and restarts; invalid settings recover | Reloads: Phases 2-7. Invalid settings: tests | Full restart (step 7) |
-| Usable across window sizes and UI scales | 1000×640, 1160×740 and the wide split at UI scale 0.65 (Phases 4-6) | Another UI scale (step 6) |
-| Automated tests pass | 204 passed | - |
+| **Window:** `/azerfolio` and `/azf` toggle; launcher; key binding works from a controller | Slash commands, minimap button, compartment and keyboard key binding (Phases 2/4, owner) | **Open:** no controller button bound yet; the owner will test it later |
+| Every screen usable with the gamepad alone, focus highlight and hint bar | Phase 4-7 shots; Phase 8 step 4 controller-only pass (owner). Typing a search needs the keyboard (no on-screen keyboard in this client; owner accepted) | Met |
+| Draggable, resizable; position and size persist | `/reload` (Phases 2-7) and a full restart (Phase 8 step 7, owner) | Met |
+| Overview and Zones tabs work; Escape closes | Tabs: Phases 4-8. Escape: tests (`UISpecialFrames`) | **Open:** Escape not reported in game |
+| Cohesive native Warcraft style | Phase 4 native-look shots; Phase 8 visual review of every screen | Met |
+| **Overview:** all five criteria | Phase 7 (Gideon) | Met |
+| **Zones:** all three criteria | Phase 6 (Gideon and Thragor); Phase 8 Thragor Zone Detail | Met |
+| **Exploration:** all four criteria | Phases 5-6 | Met |
+| **Quality:** no Lua errors in normal use | Phase 8 play session with script errors shown: none (owner); trace 0 errors | Met |
+| No noticeable performance impact | Phase 8 perf trace: about 10 ms of callbacks in 369 s, 0.0016 ms per frame on average | Met (the 39.5 ms peak frame is still to be attributed: open, page build or shots) |
+| SavedVariables survive reloads and restarts; invalid settings recover | Reloads and a full restart (owner); invalid settings: tests incl. a fully corrupted boot | Met |
+| Usable across window sizes and UI scales | 1000×640, 1160×740 and the wide split at UI scale 0.65; UI scale 0.8 (Phase 8 shots) | Met |
+| Automated tests pass | 206 passed | Met |
 
 **Performance review (code, 2026-11-07):**
 - Per-frame work: none while idle. The only `OnUpdate` is the minimap button while it's dragged; the focus chevron is an animation.
@@ -181,3 +181,4 @@ Evidence so far, and what's still open (filled in as the steps below run):
 | Date | By | Result |
 |---|---|---|
 | 2026-11-07 | Owner (Gideon, Thragor) + agent | Partial. Owner ran steps 1-10. **Shots** (`WoWScrnShot_110726_224819`-`224836` wide window, `224911`-`224929` wide, `225628`-`225646` UI scale 0.8, `225919`-`225936` after the restart with Azerfolio alone): every screen renders at both scales, no clipping, overlapping or missing text; cards, list, wide split, Sort popup, Zone Detail (in progress, fully explored), Overview with live numbers (Westfall 2 of 14 = 14%, tracked 14 of 549, activity 4 today) [verified-ingame]. **Perf** (trace `perf`, 369 s of play with debug on): 0 errors; busiest callback the Overview redraw (2 calls, 4.7 ms total, 2.4 ms max); 15 `CRITERIA_UPDATE` gave 5 debounced reads (1.08 ms total); 3 XP updates cost 0.03 ms and no Overview rebuild; memory 2410 KB; client profiler: session average 0.0016 ms per frame, 31 frames over 1 ms, 3 over 10 ms, peak 39.5 ms (not attributed: opening the window, page builds and `/azf shots` weren't counted yet; now they are). Map scan 1.2-1.4 ms once per session (trace `maps`). `RECEIVED_ACHIEVEMENT_LIST` fired after the full restart and the relog, as expected. **Thragor** (`/azf debug zones`): Horde, "Relevant to me" hides the 12 Alliance zones and capitals, contested kept; Durotar 2/11 (per character); with "For my level" 4 zones (Tirisfal, Durotar, Mulgore, Zephras Isle). Found: in the wide split view the "other view" shot repeated the previous one (now left out when wide); a fully explored zone shows an empty "To discover · 0 areas" header (design question, not changed). Waiting on the owner for: Lua errors seen (step 3), the controller key binding and Escape (step 5), whether position, size, tab and view were the same after the restart (step 7), and the Thragor Zone Detail check (step 9) |
+| 2026-11-07 | Owner (Gideon, Thragor) | Owner's answers for the run above: **no Lua errors** during play (step 3); window position, size, tab and view **kept after the full restart** (step 7); Thragor's Zone Detail for The Barrens and Durotar **correct** (step 9). Step 5: no controller button is bound to Azerfolio yet, so opening from the controller is **deferred** (owner asked to be reminded); Escape not reported |
