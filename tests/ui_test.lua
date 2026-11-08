@@ -1095,6 +1095,20 @@ return function(t)
         t.eq(list[100].id, 1148); t.eq(list[1].id, 90002)
     end)
 
+    t.test("/azf debug zones reports the catalogue in chat and in the trace", function()
+        _G.UnitFactionGroup = function() return "Alliance", "Alliance" end
+        local ns = boot({ schemaVersion = 4, debug = true })
+        slash("debug zones")
+        local all = table.concat(wow.chat, "\n")
+        t.ok(all:find("Zones: 6 listed, 5 shown %(status all, show relevant"), all)
+        t.ok(all:find("complete 1, in progress 1, untouched 1, unknown 2, not tracked 1"), all)
+        t.ok(all:find("other faction's territory %(Alliance%): Durotar"), all)
+        local e = ns.db.trace[#ns.db.trace]
+        t.eq(e.kind, "zones"); t.eq(e.shown, 5); t.eq(#e.zones, 6)
+        t.ok(table.concat(e.zones, ";"):find("1429 progress 2/5 1%-10 Alliance"), table.concat(e.zones, ";"))
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
     t.test("/azf shots starts the Zones shots on the catalogue even from Zone Detail", function()
         local ns = boot({ schemaVersion = 4, lastTab = "zones" })
         slash("")

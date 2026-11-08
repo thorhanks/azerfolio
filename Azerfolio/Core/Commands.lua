@@ -11,6 +11,7 @@ local HELP = {
     "/azf debug - turn debug output on or off",
     "/azf debug zone - show the current map and zone",
     "/azf debug exploration - show the current zone's exploration and the total",
+    "/azf debug zones - show the Zones catalogue's counts and filters",
     "/azf shot - take a test screenshot (development)",
     "/azf shots - screenshot every tab and state (development)",
     "/azf shots banners - screenshot the zones with a banner offset (development)",
@@ -107,6 +108,8 @@ function Commands.Handle(input)
             debugZone()
         elseif sub == "exploration" or sub == "progress" then
             ns.Exploration.DebugReport()
+        elseif sub == "zones" then
+            ns.Zones.DebugReport()
         else
             ns.Print("Unknown debug option. Type /azf help.")
         end

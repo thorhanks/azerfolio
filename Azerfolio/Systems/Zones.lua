@@ -243,6 +243,33 @@ function Zones.Groups(list, sort)
     return groups
 end
 
+-- /azf debug zones: the catalogue as the character sees it with the saved filters, in chat
+-- and (debug mode) in the trace, so the in-game check can be read from SavedVariables.
+function Zones.DebugReport()
+    local all, c, s = Zones.All(), ns.character or {}, ns.db.zones
+    local q = Zones.Query(all, { completion = s.completion, faction = s.faction, level = s.level, sort = s.sort }, c)
+    local states, zones, hidden = {}, {}, {}
+    for _, z in ipairs(all) do
+        states[z.state] = (states[z.state] or 0) + 1
+        local p = z.progress
+        zones[#zones + 1] = string.format("%d %s %s %s %s", z.mapID, z.state,
+            p and (p.completed .. "/" .. p.denominator) or "-",
+            z.minLevel and (z.minLevel .. "-" .. z.maxLevel) or "?", z.faction or "?")
+        if not Zones.IsRelevant(z, c.faction) then hidden[#hidden + 1] = z.name end
+    end
+    local shown = {}
+    for _, z in ipairs(q.zones) do shown[#shown + 1] = z.mapID end
+    ns.Printf("Zones: %d listed, %d shown (status %s, show %s, level %s, sort %s, view %s)", q.total, q.shown,
+        s.completion, s.faction, s.level, s.sort, s.displayMode)
+    ns.Printf("  complete %d, in progress %d, untouched %d, unknown %d, not tracked %d",
+        states.complete or 0, states.progress or 0, states.untouched or 0, states.unknown or 0, states.untracked or 0)
+    ns.Printf("  other faction's territory (%s): %s", tostring(c.faction),
+        #hidden > 0 and table.concat(hidden, ", ") or "none")
+    ns.Debug.Trace("zones", { character = c.name, faction = c.faction, level = c.level,
+        completion = s.completion, show = s.faction, levelFilter = s.level, sort = s.sort, view = s.displayMode,
+        total = q.total, shown = q.shown, shownIDs = shown, states = states, otherFaction = hidden, zones = zones })
+end
+
 -- Pure: filter, sort and group in one go.
 --   { zones (filtered, sorted), groups, total = #list, shown = #zones, available = Available(list) }
 function Zones.Query(list, opts, char)

@@ -77,3 +77,32 @@ Agent checks afterwards: `AzerfolioDB` and `AzerfolioCharDB` files exist with sc
 | Date | By | Result |
 |---|---|---|
 | 2026-11-07 | Owner (Gideon) + agent | Pass. Chat output correct for every step (seen in the screenshot). `Screenshot()` works for addons: `Screenshots\WoWScrnShot_110726_121155.jpg`, 3440×1440 JPG. Account file at `WTF\Account\COMPUTERWISPERER\SavedVariables\Azerfolio.lua` (schema 1, debug persisted as true); character file at `WTF\Account\COMPUTERWISPERER\91\Gideon-Everhope\SavedVariables\Azerfolio.lua` (schema 1) |
+
+## Phase 6 - Zones catalogue and Zone Detail (spec §12 "Zones" and "Exploration")
+
+Automated: `luajit tests/run.lua` covers states, filters, sorts, sections, the catalogue page, popups, search, Zone Detail states and the world map round trip against mocks.
+
+| Spec §12 criterion | How it's checked |
+|---|---|
+| Applicable zones listed; illustrated cards by default; compact mode; mode persists | Shots; `displayMode` in `AzerfolioDB` after a reload (steps 2-3) |
+| Faction and completion filters, search, sorting | Steps 4-7; `/azf debug zones` trace on Gideon and Thragor (steps 9, 11) |
+| Zone Detail opens; back restores catalogue state | Step 8 |
+| Azerfolio's own tracking; no other addon required | TOC has no dependencies (agent, from files) |
+| Verified per-objective states; discovered vs undiscovered correct | Step 8 against the game's Achievements window |
+| Refreshes when a new area is discovered | Phase 5 (verified in game); cards redraw: automated test |
+| Missing data never produces a false completion claim | Automated (unknown / partial / unavailable never complete) |
+
+**Steps (owner)**, on Gideon:
+1. `/reload`, then `/azf debug` (debug on).
+2. Open Azerfolio, Zones tab. Cards show. Press **Y**: List view.
+3. `/reload`, open Zones again: still List. Press **Y** back to Cards.
+4. Status: choose **In progress**, then **All** again.
+5. **Show**: choose **All zones** (Horde zones like Durotar appear), then **Relevant to me** again.
+6. Press **X**, type `dun`, Enter: only Dun Morogh. Clear the text.
+7. **Sort**: choose **Lowest %**, then **Recommended** again.
+8. Open **Elwynn Forest**, then press **B**: back on Elwynn in the list. Open the game's Achievements window (Exploration > Eastern Kingdoms > Explore Elwynn Forest) and compare its count with Azerfolio's.
+9. `/azf debug zones`, then `/azf shots` (wait about 20 seconds).
+
+On Thragor:
+10. Log in, open Azerfolio once.
+11. `/azf debug zones`, then `/azf debug` (debug off) and `/reload`.
