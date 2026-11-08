@@ -137,7 +137,7 @@ return function(t)
         t.eq(b.Step(10), false, "index done; details next")
         t.eq(select(3, b.Progress()), "details")
         local guard = 0
-        while not b.Step(10) and guard < 50 do guard = guard + 1 end
+        while not b.Step(10, 2) and guard < 50 do guard = guard + 1 end
         t.eq(b.steps, 3 + 11, "21 zone quests, 2 per details step")
         local n = 0
         for _ in pairs(b.details) do n = n + 1 end
@@ -178,7 +178,7 @@ return function(t)
         _G.LibQuestieDB = nil
         local s = ns.Quests.State()
         t.eq(s.status, "ready")
-        t.eq(s.steps, 3 + 12, "1,200 quests in index batches of 500, 1,199 details in batches of 100")
+        t.eq(s.steps, 3 + 24, "1,200 quests in index batches of 500, 1,199 details in batches of 50")
         local z = ns.Quests.ForZone({ mapID = 1429 })
         t.eq(z.count, 1198)
         t.eq(z.repeatable, 1)

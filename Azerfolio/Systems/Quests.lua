@@ -23,7 +23,7 @@ ns.Quests = Quests
 Quests.CATEGORY = "quests"
 Quests.CONTRACT = 4      -- QuestieDB contract this was written against [verified-ingame]
 Quests.BATCH = 500       -- index pass: quests per frame (3 reads each; 8.6 ms for 5,233 in game)
-Quests.DETAIL_BATCH = 100 -- details pass: quests per frame (20 reads each)
+Quests.DETAIL_BATCH = 50 -- details pass: quests per frame (20 reads each; 100 gave one 15.7 ms frame)
 Quests.START_DELAY = 5   -- seconds after AZF_READY: after the exploration baseline (3 s)
 Quests.REFRESH_DELAY = 1 -- after QUEST_TURNED_IN, so the completed list has the quest [unverified]
 
@@ -176,15 +176,15 @@ function Quests.ReadDetails(Q, id)
 end
 
 -- Pure: a builder that reads `ids` through the reader table Q (QuestieDB's Quest API) in
--- steps: the index first, then details for every quest in a zone. builder.Step(n) does up to
--- n quests of the current pass (n / 5 in the details pass) and returns true when both passes
--- are done. Every read is pcall'd; a quest whose index read fails counts as "error".
+-- steps: the index first, then details for every quest in a zone. builder.Step(n, d) reads up
+-- to n quests in the index pass or d in the details pass (defaults BATCH, DETAIL_BATCH) and
+-- returns true when both passes are done. Every read is pcall'd; a quest whose index read fails counts as "error".
 function Quests.Builder(Q, ids, areas)
     local index, pos = Quests.NewIndex(), 0
     local details, todo, dpos = {}, nil, 0
     local b = { index = index, details = details, steps = 0, phase = "index" }
     local qf = type(Q.questFlags) == "function" and Q.questFlags or nil
-    function b.Step(n)
+    function b.Step(n, d)
         b.steps = b.steps + 1
         if b.phase == "index" then
             local last = math.min(#ids, pos + (n or Quests.BATCH))
@@ -208,7 +208,7 @@ function Quests.Builder(Q, ids, areas)
             end
             return false
         end
-        local last = math.min(#todo, dpos + math.max(1, math.floor((n or Quests.BATCH) / 5)))
+        local last = math.min(#todo, dpos + math.max(1, d or Quests.DETAIL_BATCH))
         for i = dpos + 1, last do
             details[todo[i]] = Quests.ReadDetails(Q, todo[i])
         end
@@ -342,7 +342,7 @@ function Quests.Start()
     local started, maxStep = clock(), 0
     local function step()
         local t0 = clock()
-        local ran, done = pcall(b.Step, Quests.BATCH)
+        local ran, done = pcall(b.Step, Quests.BATCH, Quests.DETAIL_BATCH)
         if t0 and clock() then
             local d = clock() - t0
             b.workMs = b.workMs + d
