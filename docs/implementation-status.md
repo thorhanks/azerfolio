@@ -65,6 +65,15 @@ Built in steps the owner approves one at a time:
 - **Lua restyle (in-game check passed 2026-11-07, shots `WoWScrnShot_110726_171831`–`171835`):** frame, portrait ring, title, glow, strip, XP bar, side tabs, LB/RB glyphs and the diamond-metal legend all render natively. The first face-glyph name guesses failed (drawn square fallback); now using the source's `gamepad-xbox1-button*-normal` names and a round fallback — needs one more look.
 - Restyle details: the window is `PortraitFrameTemplate` (title, portrait ring, close, `FrameGlow` shown while the controller drives it); character strip with the native stat-bar XP; content on `UI-Character-Info-General-BG`; side tabs (`common-sidetab` + masked icon, `-selected`, `-hover`) with LB/RB glyph atlases; legend box below the frame (diamond-metal nine-slice over file 131071) with the info line and hints. Off-screen recovery now keeps the tabs and legend on screen. Face-button glyph atlas names are guesses with a drawn fallback; `/azf status` prints which were found. Tests: 62 passed.
 
+## Phase 5 — Exploration catalogue and progression engine: in progress
+
+Planned steps (owner approves each):
+1. **Catalogue** (done 2026-11-07): `tools/gen-exploration.lua` reads the AzerfolioDiag dump and writes `Azerfolio/Data/Exploration.lua` (`ns.ExplorationCatalogue`: data version 1, client 1.60.1.70862, zones keyed by mapID → achievementID and criteriaIDs in the game's order; names as comments only). It refuses to write if a zone matches more than one map, a criterion isn't type 43, or a criteriaID repeats. Result: 43 zones, 549 criteria, no duplicates; running it twice gives the same file. In the TOC after `Data\Art.lua`. Tests: 94 passed.
+2. Objective model and `Progression` (pure): completion and eligibility as separate states, counts per state, percentage or nil, coverage, dedup by objective ID.
+3. `ExplorationTracker`: zone lookup by mapID from the catalogue, live criteria with a catalogue check, per-zone cache, refresh on `RECEIVED_ACHIEVEMENT_LIST` / `CRITERIA_UPDATE` / `MAP_EXPLORATION_UPDATED` (debounced, current zone only), `AZF_EXPLORATION_UPDATED` to the open UI.
+4. Baseline and milestones: first load records the baseline; only later transitions become milestones (deduplicated, capped).
+5. In-game end to end on Elwynn Forest: discover an area, watch it update, `/reload`.
+
 ## Phase 3 — Art pipeline ready; waiting for zone art (2026-11-07)
 
 - `art/style-guide.md`: look and feel, camera, safe area (core = middle 40% × 40–62% band, checked against all four crops), palette by region type, image spec, workflow, review checklist. UI chrome uses native textures, so only 51 images are needed (43 zones, 7 untracked places, 1 fallback).

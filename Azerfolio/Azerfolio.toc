@@ -12,6 +12,7 @@
 
 Core\Init.lua
 Data\Art.lua
+Data\Exploration.lua
 Core\Config.lua
 Core\SavedVariables.lua
 Core\Debug.lua

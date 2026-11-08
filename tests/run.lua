@@ -12,6 +12,7 @@ local FILES = {
     "tests/addon_smoke_test.lua",
     "tests/ui_test.lua",
     "tests/focusgrid_test.lua",
+    "tests/catalogue_test.lua",
 }
 
 local t = {}
