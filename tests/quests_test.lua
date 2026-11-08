@@ -203,7 +203,7 @@ return function(t)
         t.eq(ns.Quests.State(), s, "builds once")
     end)
 
-    t.test("maps: Darkspear Islands (type 6) is listed; other type 6 maps aren't", function()
+    t.test("maps: only zone maps are listed; Darkspear Islands (type 6) isn't", function()
         wow.install({ C_Map = { GetMapInfo = function(id)
             local maps = {
                 [1414] = { name = "Kalimdor", mapType = 2, parentMapID = 947 },
@@ -219,7 +219,7 @@ return function(t)
         t.eq(#sections, 1)
         local names = {}
         for _, z in ipairs(sections[1].zones) do names[#names + 1] = z.name end
-        t.eq(table.concat(names, ","), "Darkspear Islands,Durotar")
+        t.eq(table.concat(names, ","), "Durotar", "type 6 maps (battlegrounds, Darkspear Islands) aren't zones")
         t.eq(sections[1].title, "Kalimdor")
     end)
 
@@ -234,9 +234,9 @@ return function(t)
                 if kind == "zone" then zones = zones + 1 end
             end
         end
-        t.eq(zones, 65)
+        t.eq(zones, 64)
         t.eq(A.zone[16732], 1437, "Excavation Site: Wetlands -> Wetlands")
-        t.eq(A.zone[16606], 2524, "Darkspear Islands")
+        t.eq(seen[16606], "battleground", "Darkspear Islands is a PvP battleground")
         for _, dungeonOnZone in ipairs({ 133, 978, 1517, 1717 }) do
             t.eq(seen[dungeonOnZone], "dungeon", "area " .. dungeonOnZone)
         end

@@ -76,7 +76,6 @@ ns.QuestAreaData = {
         [493] = 1450,   -- Moonglade
         [618] = 1452,   -- Winterspring
         [1377] = 1451,  -- Silithus
-        [16606] = 2524, -- Darkspear Islands (map type 6; a quest-only zone in Systems/Maps)
         [16651] = 2652, -- Shen'dralas
         [1637] = 1454,  -- Orgrimmar
         [1638] = 1456,  -- Thunder Bluff
@@ -118,5 +117,7 @@ ns.QuestAreaData = {
         [2597] = true,  -- Alterac Valley
         [3277] = true,  -- Warsong Gulch
         [3358] = true,  -- Arathi Basin
+        [16606] = true, -- Darkspear Islands: a PvP battleground (map type 6, level-bracket PvP
+                        -- quests per faction); left out, owner 2026-11-08
     },
 }

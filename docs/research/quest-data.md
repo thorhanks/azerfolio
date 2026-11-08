@@ -86,7 +86,7 @@ Guards: everything behind `pcall`; a missing addon or a contract mismatch makes 
 2. **Capitals** get a quest section (Stormwind 131, Orgrimmar 92, Ironforge 84), though they have no exploration.
 3. **Unmapped areas:** a small hand-curated, unofficial area → zone table of our own, owner-approved, only for clear subzones (Excavation Site: Wetlands → Wetlands). The others (Blackrock Mountain, Sunken Temple, City of Dalaran, Ruins of Lordaeron, Hall of Thanes, Crafting) are left out with a note.
 4. **Class, profession and holiday quests** (negative sorts): left out of zone counts, with a note saying how many.
-5. **Darkspear Islands** (uiMap 2524, map type 6, 18 quests): added to the zone list as a quest-only zone without exploration. Needs a small `Systems/Maps` change for this one type-6 map.
+5. **Darkspear Islands** (uiMap 2524, map type 6, 18 quests): first added as a quest-only zone, then **left out like the other battlegrounds** (owner, 2026-11-08): it's a PvP battleground, and its quests are level-bracket PvP quests, one set per faction ("Darkspear Islands Clash", "Conflict at Darkspear Islands", "The Battle for Darkspear Islands!") [verified-files, offline decode].
 
 Every left-out quest is counted by reason, so the coverage note never hides anything.
 
