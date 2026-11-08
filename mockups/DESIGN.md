@@ -4,13 +4,30 @@ The HTML mockup in this folder is the visual reference for the Lua UI. This file
 
 Run it: start the `mockups` preview (http://localhost:8765). Use the dev bar to switch data scenarios, simulate a discovery, and toggle the wide window.
 
+## Native look (2026-11-07)
+
+The owner chose the **full native Forever look**: Azerfolio looks like the client's own Character / Reputation window. The Lua UI uses the client's templates and atlases (identified with `/azfdiag skin`; table in `docs/research/client-capabilities.md` § Native frame style). The mockup draws CSS approximations measured from the in-game screenshot `WoWScrnShot_110726_165420`.
+
+| Part | Lua source | Mockup |
+|---|---|---|
+| Frame, portrait ring, title band, close | `PortraitFrameTemplate` (`SetTitle`, `PortraitContainer.portrait` + `SetPortraitTexture`) | `.window`, `.titlebar`, `.portrait`, `.close` |
+| Controller-focus glow | `gamepad-uiframemetal-largeportrait-focus` (shown while the controller drives the window) | outer yellow glow on `.window` |
+| Panes | `UI-Character-Info-General-BG` / `-Stat-BG`; `common-framedivider` between panes; `common-insideframe` for inset panels | dark warm-brown gradient; `.inset`-style panels |
+| Tabs | `common-sidetab` (`-hover`, `-selected`) on the right edge, `Gamepad-Xbox1-Trigger-LB/RB-Normal` above and below | `.sidetabs` (icon-only; the name shows in the info line) |
+| Group headers | `common-button-list-collapseExpand` + `common-button-list-minus`, gold text | `.group-h` (sticky) |
+| Row highlight | `charactercreate-customize-dropdown-linemouseover-side/-middle` | highlight bar on focused rows, chips, buttons |
+| Progress bars | `common-stat-bar-BG` + tinted `common-stat-bar-white` + `common-stat-bar-Mask` | `.bar`, `.xp` |
+| Focus pointer | `gamepad-largecursor-white` tinted `GAMEPAD_SMARTNAV_CURSOR_COLOR`, bobbing ±4 | `.pointer` chevron |
+| Legend | Our own box in the `GamepadPersistentInputLegend` style (`UI-Frame-DiamondMetal-*` edge): info line left, button hints right | `.legendbox` below the frame |
+| Font | `Fonts\FRIZQT__.TTF`; names white, headings gold (1, 0.82, 0) | Marcellus stand-in |
+
 ## Design system
 
 | Token | Values |
 |---|---|
-| Type scale | 12 / 14 / 16 / 20 / 26 / 32 px. Nothing below 12 (couch distance). Cinzel-style caps for headings and labels only; names in a mixed-case serif; body in a sans |
+| Type scale | 12 / 14 / 16 / 20 / 26 / 32 px. Nothing below 12 (couch distance). One face (FRIZQT); gold for headings and labels, white for names, warm grey for secondary text |
 | Spacing | 4 px grid: 4 / 8 / 12 / 16 / 24. 8 between related items, 16 between siblings, 24 between page sections and as page gutter |
-| Radii | 4 controls, 6 cards and panels, 10 window |
+| Radii | 4 controls, 6 cards and panels; the frame is the native template |
 | Frames | One frame per element. No border-plus-outline, no panel inside a framed panel inside a section |
 
 ## State language (used everywhere)
@@ -26,8 +43,10 @@ Run it: start the `mockups` preview (http://localhost:8765). Use the dev bar to 
 
 ## Window chrome
 
-- **Header (76 px; 44 px compact on Zones):** portrait, name, race/class/faction, XP (16 px bar, 12 px text), current subzone, then the "AZERFOLIO" wordmark and close button. There is no separate title bar.
-- **Footer (60 px):** tabs (with LB/RB glyphs) | **info line** | button hints. The info line describes the focused control. This is how gamepad users get tooltip content; floating tooltips appear only on mouse hover.
+- **Frame:** the native portrait frame. Title band (24) reads "Azerfolio"; the player's portrait sits in the ring that overlaps the top-left corner; close at the right end of the title band.
+- **Character strip (52; 34 compact on Zones):** right of the portrait ring: name, level, race, class, faction, the XP bar (native stat bar, 300 wide) and the current subzone and zone. Compact shows one line.
+- **Tabs:** icon tabs on the right edge, outside the frame, with LB above and RB below. The active tab has a bright edge and glow.
+- **Legend box (44), below the frame:** **info line** on the left, button hints on the right. The info line describes the focused control; it is how gamepad users get tooltip content. Floating tooltips appear only on mouse hover.
 
 ## Screens
 
@@ -40,7 +59,7 @@ Run it: start the `mockups` preview (http://localhost:8765). Use the dev bar to 
 - Recommended sort groups by level bracket under **sticky** headers ("n of m complete"); LT/RT jump between sections.
 - **Cards (about 208 px tall, 7–8 visible):** 16:5 art; name + percentage on one line; pips; meta line (Lv range, faction, small "Your level" tag, n/m). Only the single best next zone gets a "Recommended next" ribbon.
 - **List:** thumbnail, name and faction, level bar (zone range on 1–60 with your level marked, green when it fits), pips and n/m, percentage (✓ when complete).
-- **Atlas:** both continents as a sepia ink-on-parchment schematic grid; 34 px tiles with 14 px names that wrap to two lines; partial fill for in progress, ✓ for complete, ● for "you are here". Zones outside the current filters are dimmed, not hidden. Zones without a known position are listed under "Position not mapped yet". Opens focused on your current zone.
+- **Atlas:** both continents as a schematic grid on a dark map table; 34 px tiles with 14 px names that wrap to two lines; partial fill for in progress, ✓ for complete, ● for "you are here". Zones outside the current filters are dimmed, not hidden. Zones without a known position are listed under "Position not mapped yet". Opens focused on your current zone.
 
 **Zone Detail:** a slim banner (124 px) with name, levels, faction, continent, "Next: <zone>", big percentage and pips. Left: "To discover" (inviting, dashed rings) above "Discovered" (quiet, gold checks); LT/RT jump between them. Right: the **zone map** (the game's revealed pieces from `C_MapExplorationInfo.GetExploredMapTextures`, in 1002×668 map units, cutting through fog; fully revealed at 100%), a World map button (X), and the focused objective's state.
 
@@ -52,7 +71,7 @@ Run it: start the `mockups` preview (http://localhost:8765). Use the dev bar to 
 
 | Input | Action |
 |---|---|
-| D-pad | Move focus (yellow `#ffe600` outline and glow; small items such as cards and tiles also scale 3%; large panels don't) |
+| D-pad | Move focus: the native yellow chevron points at the focused control. Rows, chips and buttons also get the native highlight bar; art cards and tiles get a thin yellow edge and scale 3%; large panels only get the edge |
 | A | Activate |
 | B | Back, close a popup or celebration, otherwise close the window |
 | LB / RB | Switch tabs |
@@ -66,7 +85,7 @@ Focus is restored when returning to a screen. The addon uses explicit focus grid
 
 - Zone art is a generated landscape placeholder; the real art comes from the art pipeline.
 - Level ranges and faction territory are typical classic values typed into the mockup. The addon needs a verified source before showing them.
-- Fonts are web stand-ins for WoW's fonts.
+- Fonts are web stand-ins for WoW's fonts. Frame, tabs, bars and glyphs are CSS approximations of the native atlases.
 - Map base art is a stylized placeholder. Revealed pieces are real only for Gideon's Elwynn Forest; other zones use approximations.
 - Atlas positions are a hand-made schematic; in game, positions must come from verified map data.
 - Scenario data other than "Gideon today" is invented for design review.

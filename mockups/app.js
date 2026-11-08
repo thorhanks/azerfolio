@@ -233,8 +233,8 @@
     line.dataset.name = CHAR.name;
     line.innerHTML = `Level ${CHAR.level} ${CHAR.race} <span class="class-paladin">${CHAR.className}</span> · <span class="fac ${CHAR.faction}">${CHAR.faction}</span>`;
     $("#xpFill").style.width = `${(CHAR.xp / CHAR.xpMax * 100).toFixed(1)}%`;
-    $("#xpText").textContent = `XP ${CHAR.xp.toLocaleString()} / ${CHAR.xpMax.toLocaleString()}`;
-    $("#charZone").innerHTML = compact ? `<b>${CHAR.zone}</b>${CHAR.subzone}` : `<span>${CHAR.subzone}</span>`;
+    $("#xpText").textContent = `${CHAR.xp.toLocaleString()} / ${CHAR.xpMax.toLocaleString()} XP`;
+    $("#charZone").innerHTML = `<b>${CHAR.subzone}</b>${CHAR.zone}`;
   }
 
   // =====================================================================================
@@ -557,7 +557,7 @@
     if (last && ui.wide) last.scrollIntoView({ block: "center" });
     setFocus(last || $("#scroll .focusable") || $(".toolbar .focusable"));
   }
-  function closeWindow() { $("#window").hidden = true; $("#reopen").hidden = false; hideTooltip(); }
+  function closeWindow() { $("#window").hidden = true; $("#reopen").hidden = false; hideTooltip(); placePointer(); }
   function reopen() { $("#window").hidden = false; $("#reopen").hidden = true; render(); focusFirst(); }
   function toast(html, ms = 2200) { const t = $("#toast"); t.innerHTML = html; t.hidden = false; clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.hidden = true), ms); }
 
@@ -638,12 +638,25 @@
   let focused = null;
   function scope() { return $("#celebrate") || $("#flyout") || $("#window"); }
   function visibleFocusables() { return $$(".focusable", scope()).filter(el => el.offsetParent !== null); }
+  // Native focus pointer: the yellow chevron (SmartNavigation's gamepad-largecursor-white) left of the
+  // focused control. Hidden when the control is scrolled out of its list.
+  function placePointer() {
+    const p = $("#pointer");
+    if (!focused || !document.contains(focused) || $("#window").hidden) { p.hidden = true; return; }
+    const w = $("#window").getBoundingClientRect(), r = focused.getBoundingClientRect(), s = currentScale;
+    const sc = focused.closest(".scroll");
+    if (sc) { const b = sc.getBoundingClientRect(), cy = r.top + r.height / 2; if (cy < b.top || cy > b.bottom) { p.hidden = true; return; } }
+    p.hidden = false;
+    p.style.left = ((r.left - w.left) / s - 20) + "px";
+    p.style.top = ((r.top - w.top) / s + r.height / s / 2 - 11) + "px";
+  }
   function setFocus(el, o = {}) {
     if (focused) focused.classList.remove("focused");
     focused = el || null;
-    if (!el) return hideTooltip();
+    if (!el) { placePointer(); return hideTooltip(); }
     el.classList.add("focused");
     if (!o.noScroll) el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    requestAnimationFrame(placePointer);
     showInfo(el); // gamepad focus describes itself in the footer, never in a floating tooltip
     hideTooltip();
     // Focus-driven updates: checklist info, and the wide split's detail pane.
@@ -758,7 +771,7 @@
     if (el) showTooltip(el); else hideTooltip(); // floating tooltips are for the mouse only
   });
   $("#reopen").addEventListener("click", reopen);
-  document.addEventListener("scroll", (e) => { if (e.target.classList && e.target.classList.contains("scroll") && !e.target._programmatic) hideTooltip(); }, true);
+  document.addEventListener("scroll", (e) => { if (e.target.classList && e.target.classList.contains("scroll")) { placePointer(); if (!e.target._programmatic) hideTooltip(); } }, true);
 
   // =====================================================================================
   // Dev controls and scaling
@@ -781,8 +794,10 @@
   let currentScale = 1;
   function fit() {
     const stage = $("#stage").getBoundingClientRect();
-    currentScale = $("#scaleToggle").checked ? Math.min((stage.width - 24) / winW(), (stage.height - 24) / 740, 1.6) : 1;
-    $("#window").style.transform = `scale(${currentScale})`;
+    // Room for the parts outside the frame: side tabs (right), legend box (below), portrait ring and glow.
+    currentScale = $("#scaleToggle").checked ? Math.min((stage.width - 2 * 80) / winW(), (stage.height - 2 * 70) / 740, 1.6) : 1;
+    $("#window").style.transform = `translateY(-20px) scale(${currentScale})`;
+    placePointer();
   }
   window.addEventListener("resize", fit);
   $("#scaleToggle").addEventListener("change", (e) => { fit(); e.target.blur(); });

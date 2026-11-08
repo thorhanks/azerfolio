@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Azerfolio Mockup</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Alegreya:wght@500;700&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -29,31 +29,41 @@
 
 <div class="stage" id="stage">
   <div class="window" id="window">
+    <!-- Native Forever chrome (see DESIGN.md): PortraitFrameTemplate frame with portrait ring, title band
+         and close button; the controller-focus glow; right-side tabs; a legend box below the frame. -->
+    <div class="titlebar">
+      <div class="portrait"><svg viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="pg" cx="50%" cy="40%"><stop offset="0" stop-color="#f6d6a8"/><stop offset="1" stop-color="#8a5a33"/></radialGradient></defs><circle cx="32" cy="32" r="32" fill="url(#pg)"/><path d="M32 12 L48 20 V34 C48 44 40 50 32 54 C24 50 16 44 16 34 V20 Z" fill="#f58cba" stroke="#5b2a3e" stroke-width="2"/><path d="M32 20 V46 M22 30 H42" stroke="#fff4d6" stroke-width="4" stroke-linecap="round"/></svg></div>
+      <div class="title" id="winTitle">Azerfolio</div>
+      <button class="close focusable" id="closeBtn" data-tip="<b>Close</b>Close Azerfolio." aria-label="Close">&#x2715;</button>
+    </div>
     <header class="charheader">
-      <div class="portrait"><svg viewBox="0 0 64 64" aria-hidden="true"><defs><radialGradient id="pg" cx="50%" cy="40%"><stop offset="0" stop-color="#f6d6a8"/><stop offset="1" stop-color="#8a5a33"/></radialGradient></defs><circle cx="32" cy="32" r="30" fill="url(#pg)"/><path d="M32 12 L48 20 V34 C48 44 40 50 32 54 C24 50 16 44 16 34 V20 Z" fill="#f58cba" stroke="#5b2a3e" stroke-width="2"/><path d="M32 20 V46 M22 30 H42" stroke="#fff4d6" stroke-width="4" stroke-linecap="round"/></svg></div>
       <div class="charinfo">
         <div class="charname" id="charName"></div>
         <div class="charline" id="charLine"></div>
-        <div class="xp"><div class="xpfill" id="xpFill"></div><span id="xpText"></span></div>
       </div>
+      <div class="xp"><div class="xpfill" id="xpFill"></div><span id="xpText"></span></div>
       <div class="charzone" id="charZone"></div>
-      <div class="brand">Azerfolio</div>
-      <button class="close focusable" id="closeBtn" data-tip="Close Azerfolio" aria-label="Close">✕</button>
     </header>
 
     <main class="content" id="content"></main>
 
-    <footer class="bottom">
-      <nav class="tabs" id="tabs">
-        <span class="glyph shoulder">LB</span>
-        <button class="tab focusable" data-tab="overview" data-tip="Your progress at a glance">Overview</button>
-        <button class="tab focusable" data-tab="zones" data-tip="Every zone and its exploration">Zones</button>
-        <span class="glyph shoulder">RB</span>
-      </nav>
+    <nav class="sidetabs" id="tabs">
+      <span class="glyph shoulder">LB</span>
+      <button class="tab focusable" data-tab="overview" aria-label="Overview" data-tip="<b>Overview</b>Your progress at a glance.">
+        <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="5" y="7" width="30" height="26" rx="2" fill="#6b3d1e" stroke="#2a1608" stroke-width="2"/><path d="M20 10 C14 8 10 9 8 10 V30 C10 29 14 28 20 30 C26 28 30 29 32 30 V10 C30 9 26 8 20 10 Z" fill="#ead7ae" stroke="#5a3f24" stroke-width="1.5"/><path d="M20 10 V30" stroke="#8a6d2f" stroke-width="1.5"/><path d="M11 15 H17 M11 19 H17 M11 23 H16 M23 15 H29 M23 19 H29 M23 23 H28" stroke="#8a6d2f" stroke-width="1.2"/></svg>
+      </button>
+      <button class="tab focusable" data-tab="zones" aria-label="Zones" data-tip="<b>Zones</b>Every zone and its exploration.">
+        <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M6 10 L15 7 L25 10 L34 7 V30 L25 33 L15 30 L6 33 Z" fill="#d9c495" stroke="#4a3218" stroke-width="2" stroke-linejoin="round"/><path d="M15 7 V30 M25 10 V33" stroke="#8a6d2f" stroke-width="1.5"/><path d="M9 25 C13 20 17 24 21 18 C24 14 28 17 31 13" stroke="#9c4f17" stroke-width="2" fill="none" stroke-dasharray="3 2"/><circle cx="31" cy="13" r="2.5" fill="#c0392b"/></svg>
+      </button>
+      <span class="glyph shoulder">RB</span>
+    </nav>
+
+    <footer class="legendbox">
       <div class="info" id="info"></div>
       <div class="hints" id="hints"></div>
     </footer>
 
+    <div class="pointer" id="pointer" hidden><svg viewBox="0 0 16 22" aria-hidden="true"><path d="M2 2 L14 11 L2 20 L5.5 11 Z" fill="#ffe600" stroke="#6b5200" stroke-width="1.2" stroke-linejoin="round"/></svg></div>
     <div class="tooltip" id="tooltip" hidden></div>
     <div class="toast" id="toast" hidden></div>
   </div>

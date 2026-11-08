@@ -12,7 +12,7 @@ Read before working:
 
 ## Current state (2026-11-07)
 
-- Phases 0–2 done. Phase 3 design is approved and all zone art is done (51 BLPs). **Next: Phase 4, the main window** (plan §6; build to `mockups/DESIGN.md`, including the gamepad input layer and `/azf shots`).
+- Phases 0–2 done. Phase 3 design is approved and all zone art is done (51 BLPs). Phase 4 in progress: step 1 (window shell) done; the owner then chose the **native Forever look** and approved the reworked mockup. **Next: restyle the Lua window to the native look** (`PortraitFrameTemplate` and the atlases in `mockups/DESIGN.md` § Native look), then Phase 4 step 2 (focus grid).
 - Open for Phase 4: a per-zone banner offset for tall landmarks (see the status doc).
 - In game, the owner may still have **Azerfolio Diagnostics** enabled with its event sniffer on. Ask them to turn it off (`/azfdiag sniff`, then untick the addon) when it's no longer needed.
 

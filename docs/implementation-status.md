@@ -51,6 +51,7 @@ Built in steps the owner approves one at a time:
 - Not verified yet: right-stick events.
 - **Next:** the owner chose the **full native look** (dark panes instead of parchment, glowing gold frame, round portrait, native tabs and prompts; reference: the Reputation frame). `/azfdiag skin` (built; tests 58 passed) records what draws the live CharacterFrame and gamepad overlays, checks candidate atlases and shows a template test. Report: `luajit tools/diag-report.lua skin [tree [filter]]`. Then the mockup, then Lua; Phase 4 step 2 waits for this.
 - **Probe result (2026-11-07):** every native piece is identified (table in `docs/research/client-capabilities.md` § Native frame style). `PortraitFrameTemplate` gives the gold chrome; panes, side tabs, list headers, row highlight, progress bars, shoulder glyphs, legend box and the focus chevron all have atlas names. Still unknown: the face-button (A/B/X/Y) glyph atlases.
+- **Mockup reworked to the native look (2026-11-07, approved by the owner):** portrait frame with title band and focus glow, character strip, dark panes, right-side icon tabs with LB/RB, legend box below the frame (info line + hints), native group headers, highlight bars, stat bars and the yellow chevron pointer. Every screen checked in the preview (Overview, Cards, List, Atlas, Zone Detail, wide split, celebration); no console errors. `mockups/DESIGN.md` updated with the Lua source for each part.
 
 ## Phase 3 — Art pipeline ready; waiting for zone art (2026-11-07)
 
