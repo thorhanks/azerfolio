@@ -107,9 +107,9 @@ function W.Control(parent)
         self.bg:SetColorTexture(r, g, bl, 1)
         self.text:SetTextColor(T.RGB(on and "gold" or "text"))
     end
-    function b:SetLabel(text)
+    function b:SetLabel(text, pad)
         self.text:SetText(text)
-        self:SetWidth(math.floor((self.text:GetStringWidth() or 0) + 2 * L.controlPad + 0.5))
+        self:SetWidth(math.floor((self.text:GetStringWidth() or 0) + 2 * (pad or L.controlPad) + 0.5))
     end
     hoverInfo(b)
     return b

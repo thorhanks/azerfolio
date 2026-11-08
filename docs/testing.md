@@ -106,3 +106,7 @@ Automated: `luajit tests/run.lua` covers states, filters, sorts, sections, the c
 On Thragor:
 10. Log in, open Azerfolio once.
 11. `/azf debug zones`, then `/azf debug` (debug off) and `/reload`.
+
+| Date | By | Result |
+|---|---|---|
+| 2026-11-07 | Owner (Gideon, Thragor) + agent | Pass. Owner ran every step with the controller and reported them done. Trace (`AzerfolioDB.trace`, file written 21:33:16): **Gideon** (Alliance, 9): 50 listed, 43 shown with "Relevant to me", hidden = exactly the 7 Horde zones and capitals; Elwynn 10/12 progress, 42 untouched, 7 not tracked; view persisted as `list` after the step-3 reload. **Thragor** (Horde, 1): 38 shown, hidden = the 12 Alliance zones and capitals, contested zones (Ashenvale, Barrens, ...) kept; Durotar 2/11, Elwynn 0/12 (per character). Shots `WoWScrnShot_110726_213025`–`213041`: "Alliance" faction labels on cards, banner 83% readable on the dark band, shots start on the cards. TOC has no `Dependencies`/`RequiredDeps` (files). Found: at 1000 wide the toolbar overflowed (Sort ran into Cards, search hidden behind it); fixed with short labels and tighter padding when narrow (tests; not re-shot) |

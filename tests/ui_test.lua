@@ -267,6 +267,18 @@ return function(t)
         t.eq(ns.Focus.Current().actionLabel, "Choose")
     end)
 
+    t.test("catalogue: a narrow toolbar drops the Show/Level/Sort prefixes to keep search", function()
+        local ns = boot({ schemaVersion = 4, lastTab = "zones", window = { width = 1000, height = 640 } })
+        slash("")
+        local cat = page(ns).catalogue
+        t.eq(cat.shortLabels, true, "1000 wide: short labels")
+        t.ok(not cat.options.sort.text:GetText():find("Sort:"), cat.options.sort.text:GetText())
+        t.ok(cat.search:GetWidth() >= ns.Theme.layout.searchMinWidth)
+        ns.UI.GetFrame():SetSize(1640, 740); ns.UI.Relayout()
+        t.eq(cat.shortLabels, false, "wide: full labels")
+        t.ok(cat.options.sort.text:GetText():find("Sort:"))
+    end)
+
     t.test("catalogue: the split view's narrow list drops the level bar, keeps the text", function()
         local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { displayMode = "list" } })
         slash("")

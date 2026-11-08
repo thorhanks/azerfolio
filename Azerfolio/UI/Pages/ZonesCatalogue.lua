@@ -388,8 +388,12 @@ function Catalogue.New(page)
         }
     end
 
-    local function layoutToolbar(available)
+    -- Lays out the left group (segments, then Show / Level / Sort). `short` drops the
+    -- "Show: " / "Level: " / "Sort: " prefixes (the info line still names the control).
+    -- Returns where the group ends.
+    local function layoutLeft(available, short)
         local s, x = settings(), L.listInset
+        local pad = short and L.controlPadTight or L.controlPad
         local function place(b)
             b:ClearAllPoints()
             b:SetPoint("LEFT", tb, "LEFT", x, 0)
@@ -397,7 +401,7 @@ function Catalogue.New(page)
             b:Show()
         end
         for _, b in ipairs(cat.status) do
-            b:SetLabel(b.item.title)
+            b:SetLabel(b.item.title, pad)
             b:SetOn(s.completion == b.value)
             place(b)
         end
@@ -407,14 +411,17 @@ function Catalogue.New(page)
             if o.needs and not available[o.needs] then
                 b:Hide()
             else
-                b:SetLabel(o.label .. ": |cffffd100" .. label(o, s[o.key]) .. "|r")
+                local value = "|cffffd100" .. label(o, s[o.key]) .. "|r"
+                b:SetLabel(short and value or (o.label .. ": " .. value), pad)
                 b.item.detail = label(o, s[o.key]) .. ". Press A to choose."
                 place(b)
             end
         end
-        cat.count:ClearAllPoints()
-        cat.count:SetPoint("LEFT", tb, "LEFT", x + S.s1, 0)
-        -- Right side: view toggle (not in the split view), then search to its left.
+        return x
+    end
+
+    local function layoutToolbar(available)
+        -- Right side first: view toggle (not in the split view); search goes to its left.
         local right = S.s4
         for i = #cat.views, 1, -1 do
             local b = cat.views[i]
@@ -427,15 +434,22 @@ function Catalogue.New(page)
                 right = right + b:GetWidth() + (i == 1 and S.s3 or 0)
             end
         end
-        -- Narrow windows: drop the count first, then shrink the search box.
         local width = tb:GetWidth() or 0
         if width <= 1 then local f = ns.UI.GetFrame(); width = (f and f:GetWidth() or 1160) - 2 * L.edgeInset end
+        -- Narrow windows: short labels if the full ones leave no room for the smallest search
+        -- box (WoWScrnShot_110726_213029: at 1000 wide, Sort ran into Cards), then drop the
+        -- count, then shrink the search box.
+        local x = layoutLeft(available, false)
+        cat.shortLabels = width - right - x - S.s2 < L.searchMinWidth
+        if cat.shortLabels then x = layoutLeft(available, true) end
+        cat.count:ClearAllPoints()
+        cat.count:SetPoint("LEFT", tb, "LEFT", x + S.s1, 0)
         local countEnd = x + S.s1 + (cat.count:GetStringWidth() or 0)
         local searchW = L.searchWidth
         local room = width - right - countEnd - S.s3
         cat.count:SetShown(room >= searchW)
         if room < searchW then room = width - right - x - S.s2 end
-        searchW = math.max(90, math.min(L.searchWidth, room))
+        searchW = math.max(L.searchMinWidth, math.min(L.searchWidth, room))
         cat.search:SetWidth(searchW)
         cat.search:ClearAllPoints()
         cat.search:SetPoint("RIGHT", tb, "RIGHT", -right, 0)

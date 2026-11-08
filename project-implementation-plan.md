@@ -302,7 +302,7 @@ Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue for
 
 **Tests:** filtering, sorting (including unknown handling and stable ties).
 
-**Done when:** Spec §12 "Zones" and "Exploration" criteria pass in game.
+**Done when:** Spec §12 "Zones" and "Exploration" criteria pass in game. *(Met 2026-11-07, Gideon and Thragor; see `docs/testing.md`.)*
 
 ### Phase 7 — Overview dashboard
 
@@ -401,6 +401,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Zones catalogue logic lives in `Systems/Zones.lua`; no `Data/Zones.lua` until a verified level or faction source exists (probe `/azfdiag zones` first) | Everything else in the planned metadata (name, continent, art, categories, coverage) already comes from the client, the catalogue and `Data/Art.lua`; don't guess levels or faction |
 | 2026-11-07 | No level ranges or faction territory from the client (`GetMapLevels` all zeros, no `GetZonePVPInfo`); they stay unknown and their filters aren't offered unless the owner approves a hand-curated source | Probe `/azfdiag zones`; honest-data rule |
 | 2026-11-07 | Level ranges: hand-curated `Data/Zones.lua` from the Warcraft Wiki "Zones by level (Classic)" page, provenance in the file; the four Forever-only zones from the owner; capitals stay unknown; shown as a guide, not game data | Owner approved an unofficial guide ("doesn't have to be perfect"); the client has none |
+| 2026-11-07 | Phase 6 accepted: catalogue, Zone Detail and the world map verified in game on both characters | Step 4 check; the narrow-toolbar fix rests on tests |
 | 2026-11-07 | Faction territory: hand-curated `Data/Zones.lua` `faction` from each zone's Warcraft Wiki (Classic) page; zones both factions quest in stay Contested even where the wiki's Affiliation names one; no entry = shown to both | Owner approved an unofficial source; a wrong "faction" value would hide a zone, a wrong "Contested" hides nothing |
 | 2026-11-07 | Completion filter = the design's status segments (All / In progress / Untouched / Complete), account schema 4; unknown and untracked zones show only under All; a filter whose data is unknown everywhere isn't offered | Approved design; spec §6.2 (unknown is never "incomplete"); a filter that can't filter is noise |
 
