@@ -31,7 +31,7 @@ local CRITERIA = {
 local achievementsReady = true
 local here = 1429 -- the player's map
 
-local function boot(savedAccount)
+local function boot(savedAccount, savedChar)
     wow.install({
         C_Map = { GetMapInfo = function(id) return MAPS[id] end, GetBestMapForUnit = function() return here end },
         GetCategoryNumAchievements = function(cat) return achievementsReady and #(ACH[cat] or {}) or 0 end,
@@ -51,7 +51,7 @@ local function boot(savedAccount)
         InputUtil = { IsGamepadUIEnabled = function() return padUI end },
         Screenshot = function() _G.screenshotsTaken = (_G.screenshotsTaken or 0) + 1 end,
     })
-    _G.AzerfolioDB, _G.AzerfolioCharDB = savedAccount, nil
+    _G.AzerfolioDB, _G.AzerfolioCharDB = savedAccount, savedChar
     _G.screenshotsTaken = 0
     local ns = wow.loadToc("Azerfolio", "Azerfolio")
     wow.fire("ADDON_LOADED", "Azerfolio")
@@ -715,6 +715,94 @@ return function(t)
         t.ok(all:find("Exploration 1429 %(achievement 776%): 2/5 discovered, 40%%, coverage complete, catalogue differs"), all)
         t.ok(all:find("All zones: no total yet, coverage unavailable %(43 zones, 40 unreadable%)"), all)
         t.eq(#ns.Debug.errors, 0)
+    end)
+
+    -- Baseline and milestones (end to end) ------------------------------------------------
+
+    local function discover(achID, index)
+        CRITERIA[achID][index][2] = true
+        wow.fire("CRITERIA_UPDATE"); wow.fire("MAP_EXPLORATION_UPDATED")
+        wow.runTimers()
+    end
+
+    t.test("milestones: first login takes the baseline and records nothing", function()
+        local ns = boot()
+        wow.runTimers() -- the login read of every zone
+        local b = ns.charDB.baseline
+        t.eq(b.taken, true)
+        t.same(b.exploration[1429].states, { [1146] = true, [1147] = true, [1148] = false, [1149] = false, [1150] = false })
+        t.eq(b.exploration[1429].complete, false)
+        t.ok(b.exploration[1426], "Dun Morogh baselined too, without being opened")
+        t.eq(b.exploration[1436], nil, "no data for Westfall: no baseline yet")
+        t.eq(#ns.charDB.milestones, 0)
+    end)
+
+    t.test("milestones: a live discovery is recorded once with a time, and survives a reload", function()
+        local ns = boot()
+        wow.runTimers()
+        local got = {}
+        ns.Events.On("AZF_MILESTONE", function(m) got[#got + 1] = m end)
+        discover(776, 3) -- Fargodeep Mine
+        local list = ns.charDB.milestones
+        t.eq(#list, 1); t.eq(#got, 1)
+        t.eq(list[1].kind, "area"); t.eq(list[1].category, "exploration")
+        t.eq(list[1].id, 1148); t.eq(list[1].mapID, 1429); t.eq(list[1].name, "Fargodeep Mine")
+        t.eq(type(list[1].time), "number", "seen live")
+        t.eq(ns.charDB.baseline.exploration[1429].states[1148], true)
+        local ns2 = boot(_G.AzerfolioDB, _G.AzerfolioCharDB)
+        wow.runTimers()
+        slash("refresh"); wow.runTimers()
+        CRITERIA[776][3][2] = false
+        t.eq(#ns2.charDB.milestones, 1, "no repeat after reload or refresh")
+    end)
+
+    t.test("milestones: progress made while Azerfolio wasn't watching has no time", function()
+        local ns = boot()
+        wow.runTimers()
+        local savedAccount, savedChar = _G.AzerfolioDB, _G.AzerfolioCharDB
+        CRITERIA[776][4][2] = true -- Crystal Lake, explored with the addon off
+        local ns2 = boot(savedAccount, savedChar)
+        wow.runTimers()
+        CRITERIA[776][4][2] = false
+        local list = ns2.charDB.milestones
+        t.eq(#list, 1); t.eq(list[1].id, 1149); t.eq(list[1].time, nil, "nobody saw when")
+    end)
+
+    t.test("milestones: finishing a zone records the area and the zone", function()
+        here = 1411
+        local ns = boot()
+        wow.runTimers()
+        discover(728, 1) -- Valley of Trials, Durotar's only area in the fixture
+        CRITERIA[728][1][2] = false
+        here = 1429
+        local list = ns.charDB.milestones
+        t.eq(#list, 2)
+        t.eq(list[1].kind, "area"); t.eq(list[2].kind, "zone"); t.eq(list[2].id, 1411)
+        t.eq(ns.charDB.baseline.exploration[1411].complete, true)
+    end)
+
+    t.test("milestones: a damaged baseline is rebuilt without milestones or errors", function()
+        local ns = boot(nil, { schemaVersion = 1, baseline = { taken = true, exploration = { [1429] = "junk" } },
+            milestones = { "junk" } })
+        wow.runTimers()
+        t.eq(type(ns.charDB.baseline.exploration[1429]), "table")
+        discover(776, 5)
+        CRITERIA[776][5][2] = false
+        t.eq(#ns.charDB.milestones, 2, "the junk entry plus one real milestone")
+        t.eq(ns.charDB.milestones[2].id, 1150)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("milestones: the list is capped at the newest 100", function()
+        local old = {}
+        for i = 1, 100 do old[i] = { kind = "area", category = "exploration", id = 90000 + i } end
+        local ns = boot(nil, { schemaVersion = 1, milestones = old })
+        wow.runTimers()
+        discover(776, 3)
+        CRITERIA[776][3][2] = false
+        local list = ns.charDB.milestones
+        t.eq(#list, 100)
+        t.eq(list[100].id, 1148); t.eq(list[1].id, 90002)
     end)
 
     t.test("/azf shots stops if the window is closed", function()

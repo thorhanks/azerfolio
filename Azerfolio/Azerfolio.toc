@@ -22,6 +22,7 @@ Core\Commands.lua
 Systems\Maps.lua
 Systems\Objectives.lua
 Systems\Progression.lua
+Systems\Milestones.lua
 Systems\Exploration.lua
 UI\Theme.lua
 UI\FocusGrid.lua

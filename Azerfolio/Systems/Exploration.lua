@@ -93,14 +93,18 @@ end
 --       eligible (the game marks none ineligible, plan §9). progress: ns.Progression.Aggregate.
 --   { status = "untracked" }   not in the catalogue (capitals, Zephras Isle): no Explore achievement
 --   { status = "unavailable" } achievement data can't be read right now (not cached; retried)
+local function load(mapID, live)
+    local r = read(mapID)
+    if r.status ~= "unavailable" then cache[mapID] = r end
+    -- Every fresh read updates the baseline and records confirmed transitions.
+    if r.status == "tracked" and ns.Milestones then ns.Milestones.Observe(r, live) end
+    return r
+end
+
 function Exploration.ForZone(zone)
     local mapID = type(zone) == "table" and zone.mapID or zone
     if type(mapID) ~= "number" then return { status = "untracked" } end
-    local hit = cache[mapID]
-    if hit then return hit end
-    local r = read(mapID)
-    if r.status ~= "unavailable" then cache[mapID] = r end
-    return r
+    return cache[mapID] or load(mapID, false)
 end
 
 -- Every tracked zone together. A zone that can't be read right now makes the category's
@@ -139,11 +143,12 @@ local function changed(old, new)
 end
 
 -- Re-reads one zone. Announces AZF_EXPLORATION_UPDATED({ mapID }) if anything changed.
+-- `live`: caused by a discovery event (milestones found get a time).
 -- Returns the new result and whether it changed.
-function Exploration.RefreshZone(mapID)
+function Exploration.RefreshZone(mapID, live)
     local old = cache[mapID]
     cache[mapID] = nil
-    local new = Exploration.ForZone(mapID)
+    local new = load(mapID, live)
     local diff = changed(old, new)
     local p = new.progress
     ns.Debug.Trace("exploration", { mapID = mapID, status = new.status, changed = diff,
@@ -160,7 +165,15 @@ end
 
 local function refreshCurrent()
     local mapID = Exploration.CurrentZone()
-    if mapID then Exploration.RefreshZone(mapID) end
+    if mapID then Exploration.RefreshZone(mapID, true) end
+end
+
+-- Reads every zone once, so each one has a baseline before the player discovers anything in
+-- it (a zone first read by a discovery would otherwise take that discovery as its baseline).
+Exploration.BASELINE_DELAY = 3 -- achievement data was readable 3 s after login [verified-ingame]
+local function readAll()
+    local all = Exploration.Overall()
+    ns.Debug.Trace("baseline", { zones = all.zones, unavailable = all.unavailable })
 end
 
 -- Forget everything and tell the UI to re-read (login data arrived, /azf refresh).
@@ -168,7 +181,12 @@ local function refreshAll(reason)
     Exploration.InvalidateAll()
     ns.Debug.Trace("exploration", { all = true, reason = reason })
     ns.Events.Send("AZF_EXPLORATION_UPDATED", nil)
+    if ns.ready then ns.Events.Debounce("exploration-all", 1, readAll) end
 end
+
+ns.Events.On("AZF_READY", function()
+    ns.Events.Debounce("exploration-all", Exploration.BASELINE_DELAY, readAll)
+end)
 
 -- A discovery fires CRITERIA_UPDATE, then MAP_EXPLORATION_UPDATED about 0.4 s later
 -- [verified-ingame]; CRITERIA_UPDATE also fires for unrelated criteria, so it is debounced and
@@ -208,6 +226,14 @@ function Exploration.DebugReport()
         ns.Progression.PercentText(ap)) or "no total yet"
     ns.Printf("All zones: %s, coverage %s (%d zones, %d unreadable)", count, ap.coverage,
         all.zones, all.unavailable)
+    local ms = ns.Milestones.Summary(3)
+    if ms then
+        ns.Printf("Baseline: %d zones; milestones: %d", ms.zones, ms.count)
+        for _, m in ipairs(ms.recent) do
+            ns.Printf("  %s %s (zone %s)%s", m.kind, tostring(m.name or m.id), tostring(m.mapID),
+                m.time and "" or ", time not seen")
+        end
+    end
     ns.Debug.Trace("report", { mapID = mapID, completed = p.completed, denominator = p.denominator,
         unknown = p.completionUnknown, coverage = p.coverage, catalogueMatch = r.catalogueMatch,
         allCompleted = ap.completed, allDenominator = ap.denominator, allCoverage = ap.coverage,
