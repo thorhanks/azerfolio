@@ -412,6 +412,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-07 | Performance counters only in debug mode, via the event dispatcher (`/azf debug perf`); client memory and profiler metrics read only where the client has them | Plan Phase 8 task 3 asks for callback counts in debug mode; no cost when debug is off; the profiler's metric names aren't verified, so every enum value is read |
 | 2026-11-07 | The re-read after `MAP_EXPLORATION_UPDATED` skips fully explored zones | A discovery can't be undone, so they can't change; cuts the Phase 7 known cost as zones complete |
 | 2026-11-07 | Level-dependent pages listen to `AZF_LEVEL_CHANGED`, not `AZF_CHARACTER_UPDATED` | XP updates fire on every kill; only the header shows XP |
+| 2026-11-07 | Zone Detail of a fully explored zone has no "To discover" section; the "Fully explored" note replaces it | Owner's request after the Phase 8 visual review: an empty "0 areas" header looked unfinished |
 | 2026-11-07 | Malformed milestone and recent-zone entries are dropped on load | A damaged file must not break the Overview; a bad time is removed, never replaced (honest data) |
 
 ## 10. Definition of done (v1)

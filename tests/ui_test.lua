@@ -339,6 +339,16 @@ return function(t)
         local d = page(ns).detail
         t.eq(d.banner.pct:GetText(), "100%")
         t.ok(d.note:GetText():find("Fully explored"), d.note:GetText())
+        t.eq(d.headers[1].text:GetText(), "Discovered", "no empty To discover section")
+        t.eq(d.headers[1].count:GetText(), "1 area")
+        t.eq(d.headers[2]:IsShown(), false)
+        local rows = page(ns).detailRows
+        t.eq(#rows, 1); t.eq(rows[1].section, 1)
+        t.eq(ns.Focus.Current().title, "Coldridge Valley", "focus starts on the first discovered area")
+        page(ns):Open({ mapID = 1411, name = "Durotar", continent = "Kalimdor" })
+        t.eq(d.headers[1].text:GetText(), "To discover", "an untouched zone keeps both sections")
+        t.eq(d.headers[2].text:GetText(), "Discovered"); t.eq(d.headers[2].count:GetText(), "0 areas")
+        t.eq(#ns.Debug.errors, 0)
     end)
 
     t.test("zone detail: X opens the world map on the zone; Azerfolio hides and comes back", function()

@@ -464,8 +464,8 @@
       <div class="detail-body">
         <div class="scroll" id="${opts.back ? "scroll" : "detailscroll"}">
           ${z.tracked ? `
-            <h2 class="section" data-group>To discover <small>${remaining.length}</small></h2>
-            ${remaining.length ? `<div class="checklist">${remaining.map(check).join("")}</div>` : `<div class="note">Every area discovered. ✦</div>`}
+            ${remaining.length ? `<h2 class="section" data-group>To discover <small>${remaining.length}</small></h2>
+            <div class="checklist">${remaining.map(check).join("")}</div>` : `<div class="note">Fully explored: every area the game lists for this zone is discovered. ✦</div>`}
             <h2 class="section" data-group>Discovered <small>${found.length}</small></h2>
             ${found.length ? `<div class="checklist">${found.map(check).join("")}</div>` : `<div class="note">Nothing yet — head out and explore.</div>`}`
           : `<div class="empty"><b>Exploration isn't tracked here</b>The game has no Explore achievement for ${esc(z.name)}, so Azerfolio can't verify progress.</div>`}

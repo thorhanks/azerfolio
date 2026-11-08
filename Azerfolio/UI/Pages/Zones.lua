@@ -197,16 +197,22 @@ local function fillDetail(d, zone)
         y = math.max(h, #notes * (T.size.sm + 4)) + S.s3
     end
 
-    local groups = { { title = "To discover", list = {} }, { title = "Discovered", list = {} },
-        { title = "State unknown", list = {} } }
-    for _, c in ipairs(ex.objectives) do
-        if c.completion == "complete" then table.insert(groups[2].list, c)
-        elseif c.completion == "incomplete" then table.insert(groups[1].list, c)
-        else table.insert(groups[3].list, c) end
-    end
-    if #groups[3].list == 0 then groups[3] = nil end
     -- Listed counts (every area shown), not the percentage's denominator.
-    local counts = { p.incomplete, p.complete, p.completionUnknown }
+    local todo = { title = "To discover", list = {}, count = p.incomplete }
+    local found = { title = "Discovered", list = {}, count = p.complete }
+    local unsure = { title = "State unknown", list = {}, count = p.completionUnknown }
+    for _, c in ipairs(ex.objectives) do
+        if c.completion == "complete" then table.insert(found.list, c)
+        elseif c.completion == "incomplete" then table.insert(todo.list, c)
+        else table.insert(unsure.list, c) end
+    end
+    -- A fully explored zone has no "To discover" section; the note above says so (DESIGN.md).
+    local groups = {}
+    if not (complete and #todo.list == 0) then groups[#groups + 1] = todo end
+    groups[#groups + 1] = found
+    if #unsure.list > 0 then groups[#groups + 1] = unsure end
+    local counts = {}
+    for gi, g in ipairs(groups) do counts[gi] = g.count end
 
     for gi, g in ipairs(groups) do
         if gi > 1 then y = y + S.s3 end
