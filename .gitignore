@@ -9,3 +9,5 @@ art/review/
 *.lua.bak
 WTF/
 mockups/banner-art/*.png
+mockups/chrome-art/*.png
+mockups/icon-art/*.png

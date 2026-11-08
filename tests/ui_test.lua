@@ -1446,9 +1446,9 @@ return function(t)
         t.eq(ns.UI.CurrentTab(), "overview")
         local p = overview(ns).parts
         t.eq(p.hero.name:GetText(), "Elwynn Forest")
-        t.eq(p.hero.kicker:GetText(), "CONTINUE EXPLORING · CURRENT ZONE")
+        t.eq(p.hero.kicker:GetText(), "CONTINUE · YOUR ZONE")
         t.eq(p.hero.pct:GetText(), "40%", "the same number the Zones card shows")
-        t.eq(p.hero.count:GetText(), "2 of 5")
+        t.eq(p.hero.count:GetText(), "2 of 5 areas")
         t.ok(p.hero.left:GetText():find("3|r areas to go"), p.hero.left:GetText())
         t.eq(p.goal:IsShown(), false, "no other zone in progress: no next goal")
         local groups = overview(ns).pools.groups

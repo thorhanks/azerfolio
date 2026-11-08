@@ -355,6 +355,26 @@ public static class AzfBlp
         WriteRgba(pngPath, px, w, h);
     }
 
+    // A keyed frame's border thickness for nine-slicing, as fractions of width and height:
+    // along the middle row (and column), from the outside edge to where the empty centre begins.
+    // Returns "x,y", or "" when the frame has no empty centre to measure.
+    public static string MeasureFrame(string path)
+    {
+        int w, h;
+        var px = ReadRgba(path, out w, out h);
+        Func<int, int, int> a = (x, y) => px[(y * w + x) * 4 + 3];
+        int row = h / 2, col = w / 2, left = -1, top = -1;
+        int x0 = 0; while (x0 < w / 2 && a(x0, row) < 128) x0++;          // outside margin
+        int x1 = x0; while (x1 < w / 2 && a(x1, row) >= 64) x1++;         // the border band
+        if (x0 < w / 2 && x1 < w / 2 && x1 > x0) left = x1;
+        int y0 = 0; while (y0 < h / 2 && a(col, y0) < 128) y0++;
+        int y1 = y0; while (y1 < h / 2 && a(col, y1) >= 64) y1++;
+        if (y0 < h / 2 && y1 < h / 2 && y1 > y0) top = y1;
+        if (left < 0 || top < 0) return "";
+        return ((double)left / w).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) + "," +
+            ((double)top / h).ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     // Mean absolute alpha difference (0-255) between two same-size images.
     public static double AlphaError(string aPath, string bPath)
     {

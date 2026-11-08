@@ -257,8 +257,10 @@ end
 local function kicker(model)
     local hero, cur = model.hero, model.current
     if hero.why == "current" then
-        return hero.zone.progress.completed > 0 and "Continue exploring · current zone"
-            or "Start exploring · current zone"
+        local z, p = hero.zone, hero.zone.progress
+        if z.state == "complete" then return "Your zone · claimed" end
+        if p and p.denominator > 0 and p.remaining == 0 then return "Your zone · every area discovered" end
+        return (z.state == "untouched" and "Start" or "Continue") .. " · your zone"
     end
     if cur and cur.state == "complete" then return cur.name .. " explored · next up" end
     if hero.why == "level" then return "Next for your level" end
@@ -378,13 +380,21 @@ local function build(parent)
             cropArt(hero.art, z.mapID, L.heroArt, L.heroHeight - 2)
             hero.kicker:SetText(kicker(m):upper())
             hero.name:SetText(z.name)
-            hero.pips:Set(p.complete, p.incomplete, p.completionUnknown, w - L.heroArt - L.heroScore - S.s4)
-            hero.left:SetText(p.completed > 0
-                and (color("complete") .. p.remaining .. "|r " .. (p.remaining == 1 and "area" or "areas") .. " to go")
-                or (plural(p.remaining, "area", "areas") .. " to discover"))
-            hero.pct:SetText(ns.Progression.PercentText(p) or "-")
-            hero.pct:SetTextColor(T.RGB(p.completed > 0 and "todo" or "white"))
-            hero.count:SetText(string.format("%d of %d", p.completed, p.denominator))
+            -- Exploration's pips when the zone has them; the zone's overall % (all categories).
+            hero.pips:SetShown(p ~= nil)
+            if p then hero.pips:Set(p.complete, p.incomplete, p.completionUnknown, w - L.heroArt - L.heroScore - S.s4) end
+            local left = {}
+            for _, c in ipairs(z.cats or {}) do
+                if not c.pending and c.remaining and c.remaining > 0 then
+                    left[#left + 1] = color("complete") .. c.remaining .. "|r " .. T.category[c.key].unit
+                end
+            end
+            hero.left:SetText(z.state == "complete" and "Every category complete"
+                or (#left > 0 and (table.concat(left, "  ·  ") .. " to go") or ""))
+            local cp = z.combined
+            hero.pct:SetText(z.state == "complete" and "Claimed" or (cp and ns.Progression.PercentText(cp) or "-"))
+            hero.pct:SetTextColor(T.RGB(z.state == "complete" and "complete" or ((cp and cp.completed > 0) and "todo" or "white")))
+            hero.count:SetText(p and string.format("%d of %d areas", p.completed, p.denominator) or "")
             local pad = ns.Gamepad and ns.Gamepad.IsActive()
             hero.glyph:SetShown(pad)
             hero.go:ClearAllPoints()
@@ -393,10 +403,11 @@ local function build(parent)
             else
                 hero.go:SetPoint("BOTTOMLEFT", hero, "BOTTOMLEFT", L.heroArt + S.s4, S.s3)
             end
-            hero.go:SetText(p.completed > 0 and "Continue" or "Start")
+            local go = z.state == "complete" and "Open" or (z.state == "untouched" and "Start" or "Continue")
+            hero.go:SetText(go)
             local detail = ns.ZonesCatalogue.ZoneDetail(z) .. "  ·  Open the zone to see what's left."
             rows[#rows + 1] = { items = { item(hero, "hero", z.name, detail, function() openZone(z) end, "L",
-                p.completed > 0 and "Continue" or "Start") }, section = section }
+                go) }, section = section }
             y = y + L.heroHeight
         else
             hero.empty:ClearAllPoints()

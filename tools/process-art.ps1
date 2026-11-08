@@ -1,4 +1,4 @@
-# Processes zone illustrations for the addon and the mockup (see art/style-guide.md §6).
+﻿# Processes zone illustrations for the addon and the mockup (see art/style-guide.md §6).
 #   art/source/<mapID>-<slug>.(png|jpg|jpeg)  ->  mockups/zone-art/<mapID>.png        (1024x512 PNG, 2:1 crop)
 #                                              ->  Azerfolio/Media/Zones/<mapID>.blp   (BLP2 DXT1 + mipmaps, for the game)
 #   art/source/fallback*.(png|jpg|jpeg)       ->  fallback.png / fallback.blp
@@ -51,49 +51,117 @@ function Convert-Image([string]$inPath, [string]$outPath, [double]$fx, [double]$
     } finally { $src.Dispose() }
 }
 
-# War banner pieces (art/prompts.md § War banner pieces): painted on flat magenta, fitted into a
-# power-of-two canvas (padding is magenta too, so it keys out), keyed to alpha, then BLP2 DXT5.
-$PieceSizes = @{ banner = @(256, 512); pole = @(64, 256); badge = @(64, 64) }
-$PieceBlpOut = Join-Path $PSScriptRoot '..\Azerfolio\Media\Banner'
-$PieceMockOut = Join-Path $PSScriptRoot '..\mockups\banner-art'
-foreach ($dir in $PieceBlpOut, $PieceMockOut) { New-Item -ItemType Directory -Force $dir | Out-Null }
+# Pieces other than zone art (art/prompts.md): war banner pieces, interface chrome and icons.
+#   kind      canvas    how                                   output
+#   banner    256x512   fit, magenta keyed, DXT5              Media\Banner
+#   pole      64x256    fit, keyed, DXT5                      Media\Banner
+#   streamer  64x512    fit, keyed, DXT5                      Media\Banner
+#   badge     64x64     fit, keyed, DXT5 (no longer used)     Media\Banner
+#   frame     256x256 (frame-card) / 512x64 (frame-bar): stretched, keyed, DXT5, border measured -> Media\Chrome
+#   plate     512x128   stretched, keyed, DXT5                Media\Chrome
+#   divider   512x64    stretched, keyed, DXT5                Media\Chrome
+#   fill      512x64    stretched, opaque DXT1                Media\Chrome
+#   icon      128x128   centre-cropped square, opaque DXT1    Media\Icons
+# Nine-slice borders (frames, plates) are measured from the keyed image, or set in art/slices.json.
+$PieceKinds = @{
+    banner = @{ size = @(256, 512); fit = 'fit'; key = $true; dir = 'Banner' }
+    pole = @{ size = @(64, 256); fit = 'fit'; key = $true; dir = 'Banner' }
+    streamer = @{ size = @(64, 512); fit = 'fit'; key = $true; dir = 'Banner' }
+    badge = @{ size = @(64, 64); fit = 'fit'; key = $true; dir = 'Banner' }
+    'frame-card' = @{ size = @(256, 256); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
+    'frame-bar' = @{ size = @(512, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
+    plate = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
+    divider = @{ size = @(512, 64); fit = 'stretch'; key = $true; dir = 'Chrome' }
+    fill = @{ size = @(512, 64); fit = 'stretch'; key = $false; dir = 'Chrome' }
+    icon = @{ size = @(128, 128); fit = 'crop'; key = $false; dir = 'Icons' }
+}
+$MediaRoot = if ($env:AZF_MEDIA_ROOT) { $env:AZF_MEDIA_ROOT } else { Join-Path $PSScriptRoot '..\Azerfolio\Media' }
+$PieceMockRoot = if ($env:AZF_PIECE_MOCK_ROOT) { $env:AZF_PIECE_MOCK_ROOT } else { Join-Path $PSScriptRoot '..\mockups' }
+$MockDirs = @{ Banner = 'banner-art'; Chrome = 'chrome-art'; Icons = 'icon-art' }
+foreach ($d in 'Banner', 'Chrome', 'Icons') {
+    New-Item -ItemType Directory -Force (Join-Path $MediaRoot $d) | Out-Null
+    New-Item -ItemType Directory -Force (Join-Path $PieceMockRoot $MockDirs[$d]) | Out-Null
+}
+$SlicesFile = Join-Path $PSScriptRoot '..\art\slices.json'
+$slices = @{}
+if (Test-Path $SlicesFile) {
+    (Get-Content $SlicesFile -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $slices[$_.Name] = $_.Value }
+}
+$measured = @{}
+
+# The kind of a source file by its name, or $null.
+function Get-PieceKind([string]$name) {
+    if ($name -match '^(banner|pole|streamer|badge)-(alliance|horde)$') { return $Matches[1] }
+    if ($name -eq 'frame-card' -or $name -eq 'frame-bar') { return $name }
+    if ($name -match '^plate-[a-z0-9-]+$') { return 'plate' }
+    if ($name -match '^divider(-[a-z0-9-]+)?$') { return 'divider' }
+    if ($name -match '^bar-fill(-[a-z0-9-]+)?$') { return 'fill' }
+    if ($name -match '^icon-[a-z0-9-]+$') { return 'icon' }
+    return $null
+}
 
 function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
-    $cw, $ch = $PieceSizes[$kind]
+    $k = $PieceKinds[$kind]
+    $cw, $ch = $k.size
     $src = [System.Drawing.Image]::FromFile($inPath)
     try {
-        $scale = [Math]::Min($cw / $src.Width, $ch / $src.Height)
-        $dw = [int][Math]::Round($src.Width * $scale); $dh = [int][Math]::Round($src.Height * $scale)
         $dst = New-Object System.Drawing.Bitmap $cw, $ch, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
         $g = [System.Drawing.Graphics]::FromImage($dst)
         $g.Clear([System.Drawing.Color]::FromArgb(255, 255, 0, 255))
         $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
         $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-        $g.DrawImage($src, [int](($cw - $dw) / 2), [int](($ch - $dh) / 2), $dw, $dh)
+        if ($k.fit -eq 'fit') {
+            $scale = [Math]::Min($cw / $src.Width, $ch / $src.Height)
+            $dw = [int][Math]::Round($src.Width * $scale); $dh = [int][Math]::Round($src.Height * $scale)
+            $g.DrawImage($src, [int](($cw - $dw) / 2), [int](($ch - $dh) / 2), $dw, $dh)
+        } elseif ($k.fit -eq 'crop') {
+            $side = [Math]::Min($src.Width, $src.Height)
+            $g.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, $cw, $ch),
+                [int](($src.Width - $side) / 2), [int](($src.Height - $side) / 2), $side, $side, [System.Drawing.GraphicsUnit]::Pixel)
+        } else {
+            $g.DrawImage($src, 0, 0, $cw, $ch)
+        }
         $g.Dispose()
         $tmp = Join-Path ([IO.Path]::GetTempPath()) "azf-$name.png"
         $dst.Save($tmp, [System.Drawing.Imaging.ImageFormat]::Png)
         $dst.Dispose()
     } finally { $src.Dispose() }
-    $png = Join-Path (Resolve-Path $PieceMockOut).Path "$name.png"
-    $keyed = [AzfBlp]::KeyMagenta($tmp, $png)
+    $png = Join-Path (Resolve-Path (Join-Path $PieceMockRoot $MockDirs[$k.dir])).Path "$name.png"
+    $blp = Join-Path (Resolve-Path (Join-Path $MediaRoot $k.dir)).Path "$name.blp"
+    $note = ''
+    if ($k.key) {
+        $note = [AzfBlp]::KeyMagenta($tmp, $png)
+        $null = [AzfBlp]::ConvertAlpha($png, $blp)
+    } else {
+        Copy-Item $tmp $png -Force
+        $null = [AzfBlp]::Convert($png, $blp)
+        $note = "${cw}x${ch}, opaque"
+    }
     Remove-Item $tmp -ErrorAction SilentlyContinue
-    $blp = Join-Path (Resolve-Path $PieceBlpOut).Path "$name.blp"
-    $null = [AzfBlp]::ConvertAlpha($png, $blp)
-    return "$([IO.Path]::GetFileName($inPath)) -> $name.blp [$keyed]"
+    if ($k.slice) {
+        if ($slices.ContainsKey($name)) {
+            $measured[$name] = @([double]$slices[$name].x, [double]$slices[$name].y); $note += ", border from slices.json"
+        } else {
+            $m = [AzfBlp]::MeasureFrame($png)
+            if ($m) { $xy = $m.Split(','); $measured[$name] = @([double]$xy[0], [double]$xy[1]); $note += ", border $m" }
+            else { $note += ", BORDER NOT MEASURED: no empty centre; set it in art/slices.json" }
+        }
+    }
+    return "$([IO.Path]::GetFileName($inPath)) -> $($k.dir)\$name.blp [$note]"
 }
 
 $processed = 0
 $files = Get-ChildItem $Source -File | Where-Object { $_.Extension -match '^\.(png|jpe?g)$' } | Sort-Object Name
 foreach ($f in $files) {
-    if ($f.BaseName -match '^(banner|pole|badge)-(alliance|horde)$') {
-        Write-Output (Convert-Piece $f.FullName $f.BaseName $Matches[1])
+    $kind = Get-PieceKind $f.BaseName
+    if ($kind) {
+        Write-Output (Convert-Piece $f.FullName $f.BaseName $kind)
         $processed++
         continue
     }
     if ($f.BaseName -match '^(\d+)(?:[-_ ].*)?$') { $key = $Matches[1] }
     elseif ($f.BaseName -match '^fallback') { $key = 'fallback' }
-    else { Write-Output "Skip $($f.Name): name must start with a map ID (e.g. 1429-elwynn-forest.png) or 'fallback'"; continue }
+    else { Write-Output "Skip $($f.Name): not a zone (map ID first), fallback, banner, chrome or icon name (art/prompts.md)"; continue }
     $fx = 0.5; $fy = 0.5
     if ($focal.ContainsKey($key)) { if ($null -ne $focal[$key].x) { $fx = [double]$focal[$key].x }; if ($null -ne $focal[$key].y) { $fy = [double]$focal[$key].y } }
     $target = Join-Path (Resolve-Path $Out).Path "$key.png"
@@ -117,14 +185,40 @@ $lua = @('-- Generated by tools/process-art.ps1. Do not edit.',
          '    zones = {')
 foreach ($id in $ids) { $lua += "        [$id] = true," }
 $lua += '    },'
+function Get-Names([string]$dir) {
+    @(Get-ChildItem (Join-Path $MediaRoot $dir) -Filter *.blp | ForEach-Object { $_.BaseName } | Sort-Object)
+}
+$inv = [System.Globalization.CultureInfo]::InvariantCulture
 # War banner pieces in Media\Banner (UI/ZoneBanner.lua uses them instead of its stand-in).
-$pieces = @(Get-ChildItem $PieceBlpOut -Filter *.blp | ForEach-Object { $_.BaseName } | Sort-Object)
+$pieces = Get-Names 'Banner'
 $lua += '    banner = {'
 foreach ($p in $pieces) { $lua += "        [""$p""] = true," }
+$lua += '    },'
+# Interface chrome in Media\Chrome: true, or { x, y } nine-slice borders (fractions of the image).
+$chrome = Get-Names 'Chrome'
+$lua += '    chrome = {'
+foreach ($p in $chrome) {
+    if ($measured.ContainsKey($p)) { $lua += "        [""$p""] = { x = $($measured[$p][0].ToString($inv)), y = $($measured[$p][1].ToString($inv)) }," }
+    elseif ($slices.ContainsKey($p)) { $lua += "        [""$p""] = { x = $(([double]$slices[$p].x).ToString($inv)), y = $(([double]$slices[$p].y).ToString($inv)) }," }
+    else { $lua += "        [""$p""] = true," }
+}
+$lua += '    },'
+# Icons in Media\Icons, by name without the "icon-" prefix.
+$icons = Get-Names 'Icons'
+$lua += '    icons = {'
+foreach ($p in $icons) { $lua += "        [""$($p -replace '^icon-', '')""] = true," }
 $lua += @('    },', '}')
 [IO.File]::WriteAllLines((Resolve-Path (Split-Path $ArtLua)).Path + '\' + (Split-Path $ArtLua -Leaf), $lua, (New-Object System.Text.UTF8Encoding $false))
 
-$js = "// Generated by tools/process-art.ps1. Do not edit.`nwindow.AZF_ART = { fallback: $($hasFallback.ToString().ToLower()), ids: [$($ids -join ',')] };`n"
+# The mockup's index: zone art, banner pieces, chrome (with borders) and icons.
+$q = '"'
+$chromeJs = ($chrome | ForEach-Object {
+    if ($measured.ContainsKey($_)) { $q + $_ + $q + ': { x: ' + $measured[$_][0].ToString($inv) + ', y: ' + $measured[$_][1].ToString($inv) + ' }' }
+    else { $q + $_ + $q + ': true' } }) -join ', '
+$bannerJs = ($pieces | ForEach-Object { $q + $_ + $q }) -join ','
+$iconsJs = ($icons | ForEach-Object { $q + ($_ -replace '^icon-', '') + $q }) -join ','
+$js = '// Generated by tools/process-art.ps1. Do not edit.' + "`n" + 'window.AZF_ART = { fallback: ' + $hasFallback.ToString().ToLower() +
+    ', ids: [' + ($ids -join ',') + '], banner: [' + $bannerJs + '], chrome: { ' + $chromeJs + ' }, icons: [' + $iconsJs + '] };' + "`n"
 [IO.File]::WriteAllText((Join-Path (Resolve-Path $MockOut).Path 'index.js'), $js, (New-Object System.Text.UTF8Encoding $false))
 
-Write-Output "Processed $processed image(s). Art available for $($ids.Count) zone(s); fallback: $hasFallback; banner pieces: $($pieces.Count)."
+Write-Output "Processed $processed image(s). Art available for $($ids.Count) zone(s); fallback: $hasFallback; banner pieces: $($pieces.Count); chrome: $($chrome.Count); icons: $($icons.Count)."

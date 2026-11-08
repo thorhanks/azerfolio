@@ -138,4 +138,68 @@ Negative prompt: the zone one, plus `perspective, angled view, cropped edges, ba
 | badge-alliance | 1:1 | A small round embroidered patch: deep blue cloth disc edged with a raised gold-thread ring, empty center |
 | badge-horde | 1:1 | A small round disc of tanned hide with an iron rim held by rivets, empty center |
 
-Tips: generate 3–4 variants of each; pick the pair (cloth plus pole) that reads as one object. Save as `art/source/banner-alliance.png` and so on. Category icons go on the badges in game (client icons), so the badges stay empty.
+Tips: generate 3–4 variants of each; pick the pair (cloth plus pole) that reads as one object. Save as `art/source/banner-alliance.png` and so on. The badges are no longer used (replaced by streamers, below; owner 2026-11-08).
+
+### Streamers (battle honours)
+
+One streamer is tied below the finial for each category the zone has finished (Explored, Quests, Flight paths). Same style block as the banner pieces. They hang straight down; the game sways them a little.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| streamer-alliance | 1:6 tall | A single long narrow ceremonial silk streamer ribbon hanging straight down, royal blue with a thin gold embroidered edge on both sides, a small gold knot at the top, the bottom end cut into a swallowtail with a tiny gold tassel; pristine, regal |
+| streamer-horde | 1:6 tall | A single long narrow strip of torn crimson cloth hanging straight down, ragged frayed edges, tied at the top with a leather thong and a small carved bone bead, the bottom end torn and uneven; battle-worn, no gold |
+
+## Interface chrome (frame kit; added 2026-11-08)
+
+Frames and ornaments that dress the cards, tiles, bars and headers so they look like the client's own panels. **Faction-neutral**: antique gold and dark bronze, like the native frame around the window. Each piece is painted alone on flat magenta; frames have an **empty magenta centre** (the processing script measures the border from it and stretches the frame to any size without distorting the corners, a nine-slice).
+
+Style block for chrome:
+
+```
+Hand-painted fantasy game user interface ornament in the style of a classic high-fantasy MMO,
+ornate antique gold metal with dark aged bronze, fine engraved filigree, subtle warm highlights
+and soft shading, crisp clean silhouette, perfectly symmetrical left to right and top to bottom,
+front-facing flat orthographic view, the object fills the frame edge to edge with a small even
+margin, isolated on a perfectly flat solid pure magenta (#FF00FF) background, no shadow on the
+background, no text, no letters, no gems larger than a fingertip.
+Subject:
+```
+
+Negative prompt: the banner one, plus `perspective, 3D render, glossy plastic, neon, sci-fi, busy background, uneven border thickness, asymmetric corners`.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| frame-card | 1:1 | A rectangular picture frame border made of a thin band of dark bronze with a fine gold inner rim, larger ornate gold filigree corner pieces with a small round boss in each corner, the four sides plain and even between the corners; the whole inside of the frame is empty magenta; the border band is about one twentieth of the image width |
+| frame-bar | 8:1 | A long thin horizontal progress bar housing: a slim dark bronze casing with a fine gold rim, small ornate gold end caps at the left and right; the long inside channel is empty magenta |
+| bar-fill | 8:1 | A long thin horizontal bar of glowing molten liquid gold with soft highlights along the top and slightly darker underside, filling the entire image edge to edge (no magenta, no border) |
+| plate-header | 6:1 | A horizontal title plate: a long flat band of dark worn leather framed by thin gold rails top and bottom, with ornate gold filigree end pieces at the left and right; the centre band is plain dark leather (room for text) |
+| divider | 8:1 | A thin horizontal ornamental divider line of gold filigree, slender and tapering to points at both ends, with a small diamond-shaped gold ornament in the centre |
+
+Tips: frames must be symmetrical, with an even band between the corners (it is stretched). If the processing script reports a border it couldn't measure, set it by hand in `art/slices.json` (`{ "frame-card": { "x": 0.08, "y": 0.08 } }`, fractions of width and height).
+
+## Icons (tabs and categories; added 2026-11-08)
+
+Square icons in the style of the game's ability icons, one set, so new tabs only need a new line here. No frame: the game draws the border. Save as `art/source/icon-<name>.png`.
+
+Style block for icons:
+
+```
+Hand-painted fantasy game ability icon in the style of a classic high-fantasy MMO, a single bold
+central object filling most of a square, strong silhouette readable at very small size, rich
+saturated colors, warm golden rim light from the upper left, dark softly vignetted painted
+background (not black), visible soft brush texture, no frame, no border, no text, no letters.
+1:1 square.
+Subject:
+```
+
+Negative prompt: the zone one, plus `frame, border, rounded corners, photo, tiny details`.
+
+| File | Use | Subject line |
+|---|---|---|
+| icon-overview | Overview tab | An open leather-bound adventurer's journal with a red ribbon bookmark, pages showing a small hand-drawn map and check marks, a quill resting across it |
+| icon-zones | Zones tab | A rolled-open parchment map of a fantasy continent with a brass compass lying on top |
+| icon-explore | Exploration category | A brass spyglass held out over a misty valley with a distant mountain peak |
+| icon-quests | Quests category | A tall golden exclamation mark glowing above a sealed parchment scroll |
+| icon-flights | Flight paths category | A gryphon in flight with wings spread wide, seen from the side, against an evening sky |
+
+Future tabs add one line each (for example icon-dungeons: a dark stone archway with a glowing portal).

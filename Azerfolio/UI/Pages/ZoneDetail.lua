@@ -408,6 +408,13 @@ local function fillDashboard(d, zone, entry, page)
     local std = d.standard
     local art = T.ZoneArt(zone.mapID)
     if art then std.art:SetTexture(art) else std.art:SetColorTexture(0.05, 0.03, 0.02, 1) end
+    -- Cover, don't squash: the 2:1 art cropped to the tall panel's shape, centred (owner: it
+    -- looked squished in game).
+    local pw, ph = std:GetWidth() or 0, std:GetHeight() or 0
+    if art and pw > 0 and ph > 0 then
+        local f = math.min(1, (pw / ph) / 2)
+        std.art:SetTexCoord(0.5 - f / 2, 0.5 + f / 2, 0, 1)
+    end
     if std.art.SetDesaturated then std.art:SetDesaturated(entry.state == "untouched") end
     std.art:SetVertexColor(0.38, 0.36, 0.34)
     local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"

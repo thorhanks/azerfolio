@@ -200,11 +200,11 @@ function Overview.Build(input)
         return Overview.Suggestable(input.objectivesFor and input.objectivesFor(z.mapID))
     end
 
-    -- The Continue card: the current zone while it has areas left, else the closest zone to
-    -- finish, else the next one for your level.
+    -- The Continue card: the zone you're in whenever it's tracked, finished or not (owner,
+    -- 2026-11-08); else the closest zone to finish, else the next one for your level.
     local closest = Overview.Closest(relevant)
     local forLevel = Overview.ForLevel(relevant, char.level, current and current.continent)
-    if current and unfinished(current) and current.progress.remaining > 0 then
+    if current and current.tracked then
         model.hero = { zone = current, why = "current" }
     elseif closest[1] then
         model.hero = { zone = closest[1], why = "closest" }
