@@ -881,15 +881,18 @@
     const top = 58, rise = H - 8 - vis - top;
     const y = top + (1 - p) * rise, cx = (W - cw) / 2;
     const finished = z.cats.filter(c => catState(c) === "complete");
-    const sw = 26, sh = sw * 8, slots = [cx - 22, cx + cw - 4, cx - 40];
+    // Hung from the crossbar's ends, measured on the pieces (as ZoneBanner.lua): x from the cloth
+    // canvas's left edge; the tie (28 of 208) on the bar's middle (88/512 of the canvas).
+    const sw = 26, sh = sw * 8, xs = k === "horde" ? [-14, cw - 12, -30] : [2, cw - 28, -14];
+    const sy = y - pad + ch * 88 / 512 - 28;
     const streamers = hasPiece("streamer-" + k) ? finished.slice(0, 3).map((c, i) =>
-      `<image class="streamer" style="animation-delay:${i * .6}s" href="banner-art/streamer-${k}.png" x="${slots[i]}" y="${y - (sh - sw * 6) / 2 - 4}" width="${sw}" height="${sh}"/>`).join("") : "";
+      `<image class="streamer" href="banner-art/streamer-${k}.png" x="${cx + xs[i]}" y="${sy}" width="${sw}" height="${sh}"/>`).join("") : "";
     const drop = opts.animate ? (opts.from != null ? (opts.from - p) * rise : p * rise) : 0;
     const id = "ps" + (++svgId), mx = W / 2;
     // Round 3: motes drift up behind the banner, more as the zone fills (in the hoist's group).
     // The pole glow and the 25/50/75% rings were removed (owner, 2026-11-08).
     const motes = opts.mini ? "" : Array.from({ length: Math.round(2 + p * 9) }, (_, i) => {
-      const x = cx + 12 + ((i * 53) % (cw - 24)), d = 5 + (i % 4) * 1.3;
+      const x = cx - 30 + ((i * 53) % (cw + 60)), d = 5 + (i % 4) * 1.3;
       return `<circle class="mote" style="animation-delay:-${(i * 1.7) % d}s;animation-duration:${d}s" cx="${x}" cy="${y + vis * .9}" r="${1.2 + (i % 3) * .5}" fill="#ffe7a0"/>`;
     }).join("");
     const rays = done && !opts.mini ? `<g class="prays">${Array.from({ length: 10 }, (_, i) => { const a = i * Math.PI / 5;

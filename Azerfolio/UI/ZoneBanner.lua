@@ -27,8 +27,16 @@ Banner.ART.rise = Banner.ART.size[2] - 8 - Banner.ART.visible - Banner.ART.top
 -- Battle streamers: one per finished category, tied at the crossbar's ends (left, right,
 -- outer left). Canvas 1:8 with the 1:6 painting centred.
 Banner.ART.streamer = { 26, 208 }
--- Just outside the cloth's edges (-6 laid the first over the banner's border in game).
-Banner.ART.streamerX = { -22, Banner.ART.cloth[1] - 4, -40 }
+-- Hung from the crossbar's ends (left, right, outer left), x from the cloth canvas's left edge.
+-- Measured on the pieces (256px canvas = 150 units): the Alliance bar spans 8-142 with the cloth
+-- at 23-127; the Horde bar is the cloth's own top edge, 1-148, cloth 9-141. A streamer's painting
+-- is 5-20 of its 26-wide canvas, its tie at 28 of 208. -22 hung it clear of the bar in game.
+Banner.ART.streamerX = {
+    Alliance = { 2, Banner.ART.cloth[1] - 28, -14 },
+    Horde = { -14, Banner.ART.cloth[1] - 12, -30 },
+}
+-- The streamer canvas's top below the cloth canvas's top: the tie on the bar's middle (88/512).
+Banner.ART.streamerY = Banner.ART.cloth[2] * 88 / 512 - 28
 
 Banner.LOOK = {
     Alliance = { cloth = { 0.14, 0.32, 0.72 }, dark = { 0.06, 0.15, 0.34 }, trim = { 0.89, 0.73, 0.31 },
@@ -118,20 +126,37 @@ function Banner.New(parent)
     -- Round 3 effects (painted standard only; mockups/DESIGN.md "Design round 3"). The pole
     -- glow and the 25/50/75% rings were removed (owner, 2026-11-08: didn't look right).
     -- Motes drifting up behind the banner, more as the zone fills.
+    -- Each mote is a small frame: in game a Translation on a texture only faded in place at the
+    -- bottom (WoWScrnShot of 2026-11-08, owner), while Translations on frames (the hoist) move.
+    -- They sit in a layer between the pole and the cloth, so they show around the banner's sides.
     c.motes = {}
+    local moteLayer = CreateFrame("Frame", nil, f)
+    moteLayer:SetAllPoints(f)
+    if f.GetFrameLevel then
+        moteLayer:SetFrameLevel(f:GetFrameLevel() + 1)
+        c:SetFrameLevel(f:GetFrameLevel() + 2)
+    end
+    f.moteLayer = moteLayer
     for i = 1, 11 do
-        local m = circle(c, "BACKGROUND", 3 + (i % 3), 2)
-        m:SetColorTexture(1, 0.91, 0.63, 1)
+        local m = CreateFrame("Frame", nil, moteLayer)
+        local size = 3 + (i % 3)
+        m:SetSize(size, size)
+        local dot = circle(m, "ARTWORK", size)
+        dot:SetPoint("CENTER")
+        dot:SetColorTexture(1, 0.91, 0.63, 1)
         m:SetAlpha(0)
         if m.CreateAnimationGroup then
             local ag = m:CreateAnimationGroup()
             ag:SetLooping("REPEAT")
             local d = 5 + (i % 4) * 1.3
+            local wait = (i * 1.7) % d -- staggers the motes; they stay hidden while waiting
             local up = ag:CreateAnimation("Translation"); up:SetOffset(0, 150); up:SetDuration(d)
             local fin = ag:CreateAnimation("Alpha"); fin:SetFromAlpha(0); fin:SetToAlpha(0.9); fin:SetDuration(d * 0.15)
             local fout = ag:CreateAnimation("Alpha"); fout:SetFromAlpha(0.9); fout:SetToAlpha(0)
-            fout:SetDuration(d * 0.85); fout:SetStartDelay(d * 0.15)
-            if up.SetStartDelay then up:SetStartDelay((i * 1.7) % d); fin:SetStartDelay((i * 1.7) % d) end
+            fout:SetDuration(d * 0.85)
+            if up.SetStartDelay then
+                up:SetStartDelay(wait); fin:SetStartDelay(wait); fout:SetStartDelay(wait + d * 0.15)
+            end
             m.anim = ag
         end
         m:Hide()
@@ -217,7 +242,8 @@ function Banner.New(parent)
         local n = on and math.floor(2 + pct * 9 + 0.5) or 0
         for i, m in ipairs(c.motes) do
             m:ClearAllPoints()
-            m:SetPoint("CENTER", c, "TOPLEFT", 12 + ((i * 53) % (A.cloth[1] - 24)), -(A.pad + A.visible * 0.9))
+            -- Spread past the cloth's edges (the canvas plus 30 each side), from near its foot.
+            m:SetPoint("CENTER", c, "TOPLEFT", -30 + ((i * 53) % (A.cloth[1] + 60)), -(A.pad + A.visible * 0.9))
             local show = i <= n
             m:SetShown(show)
             if m.anim then if show then m.anim:Play() else m.anim:Stop() end end
@@ -272,8 +298,8 @@ function Banner.New(parent)
                     k = k + 1
                     local s = c.streamers[k]
                     s:ClearAllPoints()
-                    s:SetPoint("TOPLEFT", c, "TOPLEFT", A.streamerX[k],
-                        -(A.pad - (A.streamer[2] - A.streamer[1] * 6) / 2 - 4))
+                    local xs = A.streamerX[faction] or A.streamerX.Alliance
+                    s:SetPoint("TOPLEFT", c, "TOPLEFT", xs[k], -A.streamerY)
                     s:Show()
                 end
             end
