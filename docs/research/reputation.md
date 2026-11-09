@@ -63,4 +63,4 @@ Owner's choice: derive from quest rewards, with no hand-curated table. Draft rul
 2. Faction 471 (Wetlands, Hinterlands): which faction is it on Forever? The game returns nothing for it.
 3. Do Zandalar Tribe, Hydraxian Waterlords and Brood of Nozdormu read once met, or on a level-60 character?
 4. Thragor: does a Horde character see Windshapers and not High Order (that would make Zephras Isle's factions one per side)?
-5. Does reputation count toward combined zone completion? It has no "done" state below Exalted, so it probably shouldn't.
+5. *(Decided 2026-11-08: reputation stays out of combined zone completion. It has no "done" state below Exalted, so it's shown as progress beside the categories.)*

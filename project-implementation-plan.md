@@ -354,6 +354,20 @@ Owner request 2026-11-08, after v1.1.
 2. Atlas view (DESIGN.md "Zones: Atlas"): mockup review, positions from verified map data, then Lua. *(Done 2026-11-08.)*
 
 **Done when:** both checked in game and approved by the owner. *(Done 2026-11-08: closed as 1.2.0.)*
+
+### Phase 11 — Zone reputation (v1.3)
+
+Owner's choice 2026-11-08. Spec §7.8, §8.9; research `docs/research/reputation.md`.
+
+**Tasks**
+1. Research and probe: zone factions from quest rewards (`qdb.lua reps rule`), `C_Reputation` on Forever (`/azfdiag reps`). Decisions recorded: derived zone factions, not a completion category, hidden where there's none. *(Done 2026-11-08.)*
+2. Mockup: the reputation section on the zone dashboard (reaction, bar, Not met yet, at war, gamepad focus), sample data from the survey. Owner review before Lua.
+3. Systems: a pure zone-faction rule (tested on fixtures) and `Systems/Reputation` (index from `Quests`' zone data, standing reader guarded with `pcall`, `UPDATE_FACTION` debounced, met list read without changing the player's headers).
+4. UI: the section on Zone Detail, following the approved mockup; `/azf debug reputation` trace.
+5. In-game check on Gideon and Thragor: standing matches the game's Reputation window, updates after a quest turn-in, the other side's factions hidden. Settle the open questions (faction 471; Zandalar, Hydraxian Waterlords and Brood of Nozdormu with no data).
+
+**Done when:** the section shows correct, game-confirmed standing for every zone faction on both characters, never touches the combined %, and the owner approves.
+
 ## 7. Phase 0 questions
 
 All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabilities.md`.
@@ -451,6 +465,9 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-08 | Phase 10 accepted; v1.2 closed as version 1.2.0 | Celebrations and the Atlas checked in game on Gideon. Owner approved |
 | 2026-11-08 | Not tracked per zone: rares, treasures, fishing, quest storylines, bounties. Recipes wait for a Professions tab; a dungeon tile in the zone detail (art + quest progress, opens the Dungeons tab) waits for the Dungeons tab | Owner's review of the offline surveys (`qdb.lua rares/objects/recipes`): gaps in the data, no kill or loot history, little reward |
 | 2026-11-08 | Reputation next. A zone's factions are derived from the reputation rewards of its quests (QuestieDB), not a hand-curated table | Owner's choice; the survey shows clear zone factions ([research/reputation.md](docs/research/reputation.md)) |
+| 2026-11-08 | Reputation stays out of combined zone completion; shown as progress beside it | No "done" state below Exalted. Owner approved |
+| 2026-11-08 | The reputation section is hidden in zones with no zone faction (no home-faction fallback) | A home-faction bar would repeat in every leveling zone. Owner's choice |
+| 2026-11-08 | Phase 11 (zone reputation, v1.3) planned; task 1 (research) done | Spec §7.8, §8.9 |
 
 ## 10. Definition of done (v1)
 

@@ -51,13 +51,17 @@ These are hard rules. When a requirement elsewhere conflicts with one of these, 
 - **Zone completion across categories** (§7.7): exploration, quests and flight paths together, not exploration alone (owner, 2026-11-08).
 - **Flight paths** discovered per zone (§8.5), if the client can confirm them.
 
+### v1.3 — Zone reputation
+
+- The zone's own factions on Zone Detail, with the character's standing (§7.8, §8.9). Owner's choice, 2026-11-08.
+
 ### Later (architecture must allow, do not build)
 
-Class progression, professions, collections, dungeons and raids, rares and world bosses, Legacy progression, reputations, account-wide and cross-character views, custom goals, smarter recommendations, waypoint integration, localization.
+Class progression, professions (recipes: known vs. available, where to get them), collections, dungeons and raids (incl. a dungeon tile on Zone Detail: art and quest progress, opens the Dungeons tab), Legacy progression, a full reputations view, account-wide and cross-character views, custom goals, smarter recommendations, waypoint integration, localization.
 
 ### Out of scope
 
-Public release and packaging, network or cloud features, sharing between players, route optimization, gear/talent advice, required third-party addons.
+Rares, treasures, fishing, quest storylines as goals, and bounties as zone categories (owner, 2026-11-08: data gaps, no history, little reward). Public release and packaging, network or cloud features, sharing between players, route optimization, gear/talent advice, required third-party addons.
 
 ## 4. Main window
 
@@ -255,6 +259,16 @@ Decided 2026-11-08 (owner): a zone's completion is holistic, not exploration alo
 - **Display:** Zone Detail shows the zone standard (§7.1); catalogue cards and list rows show one thin bar per category instead of the exploration pips (the pips stay inside the exploration section); the Overview uses the same combined % and progress art. Catalogue states (complete, in progress, untouched), filters and sorts use the combined state.
 - **Celebrations:** one per category ("Elwynn Forest Explored", "... Quests Complete", "... Flight Paths") and a larger one for Zone Complete.
 
+### 7.8 Zone reputation (v1.3)
+
+Decided 2026-11-08 (owner):
+
+- Zone Detail shows the **zone's own factions** (§8.9) with the character's standing: reaction (Hated … Exalted, the client's labels), a bar with progress into the current reaction (standing − its threshold, out of the next threshold − the current one), and "Not met yet" for factions not in the character's reputation list. At war is shown.
+- **Not a completion category:** it never counts toward the combined % (§7.7), the war banner, claims or celebrations.
+- **Hidden** when the zone has no zone faction for this character (most leveling zones and the capitals).
+- Quest reputation amounts are QuestieDB's base values; if shown, they are labeled as approximate, never as exact gains.
+- Layout comes from the mockup step.
+
 ### 7.6 Map actions
 
 Where supported: open the world map to this zone, show where an exploration objective is, tooltips on objectives.
@@ -290,6 +304,15 @@ The bundled exploration catalogue uses game IDs (not names) as keys, is versione
 ### 8.5 Flight paths (v1.1)
 
 Requested by the owner 2026-11-08. One objective per flight path node in a zone that the character's faction can use; complete when the client confirms the character knows it. Flight paths count toward the zone's % like any category (owner, 2026-11-08). **Catalogue:** the client's own node list (`C_TaxiMap.GetTaxiNodesForMap`: every node on the continent, both factions, with `name` "Place, Zone" and `faction`); the node's zone comes from the name's zone suffix and its position, with a small curated override table (e.g. "Stormwind, Elwynn" belongs to Stormwind City); `zzOLD…` leftovers are ignored. **Knowledge:** the flight master's list, below. Probe results (`/azfdiag taxi`, 2026-11-08) [verified-ingame]: `C_TaxiMap.GetTaxiNodesForMap(zone)` returns the whole continent's nodes for any zone (36 Eastern Kingdoms, 38 Kalimdor), each with `nodeID`, `name` ("Sentinel Hill, Westfall"), `faction`, `atlasName` and `isUndiscovered`, which was false for every node, Horde ones included, on a level-10 Alliance character: it does **not** say what the character knows. So knowledge must come from the flight master's list (`TaxiNodeGetType`, only while the flight map is open; Forever opens it through `PLAYER_INTERACTION_MANAGER_FRAME_SHOW` type 5, not `TAXIMAP_OPENED`), remembered per character. With the map open (Stormwind): 18 Alliance and neutral Eastern Kingdoms nodes, `CURRENT` / `REACHABLE` = known (Stormwind, Sentinel Hill), `DISTANT` = not known. Details: `docs/research/client-capabilities.md` § Flight paths. A continent whose flight master list hasn't been seen yet has **unknown** flight paths (category shown as "Visit a flight master to check"), never "not discovered". If the client can't confirm knowledge, the category is unavailable, never guessed.
+
+### 8.9 Reputation (v1.3)
+
+Research and probe: `docs/research/reputation.md`.
+
+- **Zone factions** are derived at runtime from the `reputationReward` of the zone's quests (QuestieDB composed view, same zone mapping as quests). No hand-curated table. Rule: count the quests that raise each faction; leave out home factions (capitals, races, Alliance/Horde) and battleground factions; keep a faction with ≥ 5 such quests in the zone, or ≥ 3 when the zone holds ≥ 50% of the faction's quests in all zones. Offline, this gives 21 zones.
+- **Standing** from `C_Reputation.GetFactionDataByID` (Forever has no classic faction globals). "Met" = the faction is in `C_Reputation`'s index list. Factions the game returns no data for (the other side's) are left out.
+- Without QuestieDB there are no zone factions, so the section is hidden, the same as quests being unavailable.
+- Refresh on `UPDATE_FACTION`, debounced. Standing is read from the game, never stored. Azerfolio never changes the player's reputation UI state (collapsed headers, watched faction).
 
 ### 8.6 Aggregation output
 

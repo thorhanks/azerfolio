@@ -10,9 +10,9 @@ Keep this file short: one compact entry per step, with measurements. When a phas
 
 ## Next
 
-Not planned yet. Candidates are in spec §3 "Later". Start a new phase in the plan before building.
+**Phase 11: zone reputation (v1.3)**, plan §6 Phase 11, spec §7.8 and §8.9. Next: task 2, the mockup of the reputation section on the zone dashboard (owner review before Lua).
 
-- 2026-11-08, reputation research: owner chose reputation next. Zone factions come from quest reputation rewards (`qdb.lua reps`). Forever has only `C_Reputation`: the met list holds 5 factions for Gideon, and by-ID reads also cover unmet factions (38 of 52 IDs). Findings and open questions in [research/reputation.md](research/reputation.md).
+- 2026-11-08, task 1, reputation research (done): owner chose reputation next. Zone factions come from quest reputation rewards (`qdb.lua reps`). Forever has only `C_Reputation`: the met list holds 5 factions for Gideon, and by-ID reads also cover unmet factions (38 of 52 IDs). Findings and open questions in [research/reputation.md](research/reputation.md). Decided: zone factions derived from quests (`qdb.lua reps rule`, 21 zones), not a completion category, section hidden where there's none.
 
 ## Tooling (2026-11-08)
 
