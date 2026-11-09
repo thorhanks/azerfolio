@@ -360,11 +360,11 @@ All v1 criteria met 2026-11-08 (evidence: `docs/testing.md` § Phase 8).
 - [x] Automated tests pass for pure-logic modules.
 
 ### v1.1 Quests
-- [ ] Reads quest completion; shows known quests per zone.
-- [ ] Eligibility rules applied; repeatables and unavailable quests excluded from totals.
-- [ ] Incomplete coverage clearly labeled; no unverifiable total presented as complete.
-- [ ] Zone completion combines the applying categories (§7.7); a category that doesn't apply is left out, not 0%.
-- [ ] Flight paths per zone, confirmed by the client, or shown as unavailable with the reason.
+- [x] Reads quest completion; shows known quests per zone.
+- [x] Eligibility rules applied; repeatables and unavailable quests excluded from totals.
+- [x] Incomplete coverage clearly labeled; no unverifiable total presented as complete.
+- [x] Zone completion combines the applying categories (§7.7); a category that doesn't apply is left out, not 0%.
+- [x] Flight paths per zone, confirmed by the client, or shown as unavailable with the reason.
 
 ## 13. Definition of v1 success
 
