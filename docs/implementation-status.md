@@ -22,6 +22,8 @@ Keep this file short: one compact entry per step, with measurements. When a phas
 
 - 2026-11-08, minimum window size (owner's shot `WoWScrnShot_110826_224414`: the ledger fell off the bottom, the pole poked out): the dashboard's right column (tiles, Next up, Reputation) scrolls and follows focus; the standard refits on every resize (scale floor 0.2); the ledger uses the compact columns below 640 wide and a row with wrapped tags grows to fit. `/azf shots reputation` adds the minimum size (5 shots). Checked in game `WoWScrnShot_110826_225321`-`225328`.
 
+- 2026-11-08, task 5, both characters (approval pending): Thragor and Gideon get the same 20 zones and the same standing for shared factions; side factions follow the side (Thragor 2778, 2787; Gideon 2779, 589). Each game Reputation window shows only home factions, which agrees with "Not met yet" everywhere. Settled: 471 and Brood of Nozdormu hidden (no data), Zephras Isle one faction per side, Feralas keeps the rule (owner). Still open: a met zone faction against the game's window and a refresh after a zone-faction turn-in (neither character has one). `trace-report.lua reputation` now prints the standing that changed between refreshes. Shots `WoWScrnShot_110826_225848`-`230104`.
+
 ## Tooling (2026-11-08)
 
 - `luajit tools/trace-report.lua [summary|last [n]|quests|zone <mapID>|perf|kind <name> [n]]` reads `AzerfolioDB.trace` compactly. Use it instead of ad hoc scripts.

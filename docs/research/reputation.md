@@ -63,10 +63,17 @@ Owner's choice: derive from quest rewards, with no hand-curated table. Draft rul
 - With QuestieDB's corrections (composed view), the rule gives **20 zones** and 19 factions, not the base rows' 21: Feralas loses Steamwheedle Cartel (base rows: quests 7003, 7721, 7725, 7726), and The Barrens gains Powderfuse 2827 (3 quests; base rows: 1, quest 97253) with Ratchet at 27 (base 25). Cause (task 4, `/azf debug reputation` + `trace-report.lua reputation`, Gideon) [verified-ingame]: the corrections give reputation rewards to two Forever Barrens quests that have none in the base rows, "Chol'aruk the Ravener" 97003 (Horde) and 97005 (Alliance): each raises Ratchet 150, Steamwheedle Cartel 169, Gadgetzan, Booty Bay, Everlook and Powderfuse by 75 (and its side's home factions). The Barrens thus gains two Powderfuse and two Ratchet quests (with 97253: 3 and 27). Steamwheedle Cartel's all-zones count goes from 7 to 9, so Feralas' 4 (7003, 7721, plus the repeatables 7725, 7726, read the same as the base rows) fall to 44%, under the rule's 50% share, and the faction drops. The Feralas quests themselves are unchanged. The 97003 and 97005 corrections also give fractional amounts (37.5, 2.5) for home factions.
 - No data for 471, 910, 2778 and 2787, as in the probe; every zone faction is unmet for Gideon, with the probe's starting standings (Bloodsail Hated 35,500 / 36,000, Timbermaw Hostile 2,500 / 3,000 at war).
 
+## Task 5: both characters (2026-11-08) [verified-ingame]
+
+- Thragor (level 1 Orc, Durotar) and Gideon (level 10 Human): same rule result (20 zones, 19 factions) and the same standing for every shared zone faction (all at their starting standing, none met). Side-specific factions follow the side: Thragor reads 2778 and 2787, not 2779 or Wintersaber Trainers 589; Gideon the reverse. So the other side's factions drop out on their own.
+- The game's Reputation window lists only each character's home factions (four each), so "Not met yet" on every zone faction agrees with it. A met zone faction's numbers against the window, and a refresh after a turn-in that raises a zone faction, are still unchecked: neither character has one yet.
+- Thragor's ledger in Stranglethorn: the Horde standard, Booty Bay and Bloodsail as for Gideon, 86 quests counted for the Horde side.
+
 ## Open questions
 
 1. *(Decided: derive from quest rewards, rule above.)*
-2. Faction 471 (Wetlands, Hinterlands): which faction is it on Forever? The game returns nothing for it.
-3. Do Zandalar Tribe, Hydraxian Waterlords and Brood of Nozdormu read once met, or on a level-60 character?
-4. Thragor: does a Horde character see Windshapers and not High Order (that would make Zephras Isle's factions one per side)?
+2. *(Settled 2026-11-08: hidden.)* Faction 471 (Wetlands, Hinterlands): the game returns nothing for it on either side, so it never shows. What it is on Forever stays unknown.
+3. *(Settled 2026-11-08 for now.)* Zandalar Tribe and Hydraxian Waterlords aren't zone factions under the rule, so they never come up. Brood of Nozdormu 910 (Silithus) returns nothing on either character at levels 1 and 10, so it's hidden; whether it reads at 60 can't be checked yet.
+4. *(Settled 2026-11-08: one per side.)* Zephras Isle: Thragor reads 2778, Gideon 2779.
+6. *(Decided 2026-11-08, owner: keep the rule.)* Feralas loses Steamwheedle Cartel to the in-game corrections (above). No hand-made exception: Feralas has no Reputation section.
 5. *(Decided 2026-11-08: reputation stays out of combined zone completion. It has no "done" state below Exalted, so it's shown as progress beside the categories.)*

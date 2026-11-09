@@ -194,10 +194,19 @@ function R.reputation()
     if not b then p("no reputation build in the trace (debug on, then /reload)"); return end
     p("build #%d at %.1f: %s zones, %s factions", bi, b.t, num(b.zones), num(b.factions))
     for _, k in ipairs(keys(b.list)) do p("  %-5s %s", k, tostring(b.list[k])) end
+    -- Each refresh, with the factions whose standing differs from the refresh before (another
+    -- character after a relog, or a change while playing).
+    local prev
     for _, e in ipairs(trace) do
         if e.kind == "reputation" and e.refresh then
             p("refresh %s at %.1f: read %s, no data %s, met list %s, headers opened %s", tostring(e.refresh), e.t,
                 num(e.read), num(e.missing), e.metComplete and "complete" or "incomplete", num(e.expanded))
+            if prev and e.standing then
+                for _, k in ipairs(keys(e.standing)) do
+                    if prev[k] ~= e.standing[k] then p("    %-5s %s -> %s", k, tostring(prev[k]), tostring(e.standing[k])) end
+                end
+            end
+            prev = e.standing or prev
         end
     end
     local r = latest(function(e) return e.kind == "reputation" and e.refresh end)
