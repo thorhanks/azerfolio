@@ -247,8 +247,11 @@ function R.zones()
     table.sort(ids, function(a, b) return a < b end)
     for _, id in ipairs(ids) do
         local x = z.zones[id]
-        p("  %-5d %-28s parent %-5s flags %-6s levels %-22s rect %s", id, tostring(x.name), tostring(x.parent),
-            tostring(x.flags), packed(x.levels), packed(x.rect))
+        p("  %-5d %-28s parent %-5s flags %-6s levels %-22s rect %s%s", id, tostring(x.name), tostring(x.parent),
+            tostring(x.flags), packed(x.levels), packed(x.rect), x.world and ("  world " .. packed(x.world)) or "")
+    end
+    for _, id in ipairs(keys(z.continents or {})) do
+        p("  continent %d on the world map: %s", id, packed(z.continents[id]))
     end
 end
 

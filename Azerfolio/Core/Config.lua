@@ -47,7 +47,7 @@ Config.ENUMS = {
         CENTER = true, TOP = true, BOTTOM = true, LEFT = true, RIGHT = true,
         TOPLEFT = true, TOPRIGHT = true, BOTTOMLEFT = true, BOTTOMRIGHT = true,
     },
-    ["zones.displayMode"] = { cards = true, list = true },
+    ["zones.displayMode"] = { cards = true, list = true, atlas = true },
     ["zones.faction"] = { relevant = true, all = true },
     -- The design's status segments (mockups/DESIGN.md): All / In progress / Untouched / Complete.
     ["zones.completion"] = { all = true, progress = true, untouched = true, complete = true },

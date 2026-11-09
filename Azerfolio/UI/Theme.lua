@@ -126,6 +126,7 @@ Theme.layout = {
     sugItem = 30,              -- one suggestion pick
     sugCols = 2,
     panelPad = 12,             -- inside a framed panel
+    atlasPanel = 240,          -- the Overview's Atlas panel height (Phase 10)
 }
 
 -- Painted art from tools/process-art.ps1 (Data/Art.lua lists what exists; the client can't

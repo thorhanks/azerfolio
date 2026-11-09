@@ -1,6 +1,6 @@
 -- The Zones catalogue (spec §6, mockups/DESIGN.md "Zones"): a toolbar (status segments,
 -- Level / Sort popups, zone count, search, Cards / List toggle) above illustrated cards
--- (default) or a compact list, grouped into sections. Data, filters, sorts and counts come from
+-- (default), a compact list grouped into sections, or the Atlas (UI/AtlasChart.lua). Data, filters, sorts and counts come from
 -- ns.Zones; this file only draws them. Cards, rows and headers are pooled and reused on every
 -- redraw. Used by UI/Pages/Zones.lua, which owns the page, Zone Detail and the split view.
 local _, ns = ...
@@ -21,7 +21,7 @@ local OPTIONS = {
         items = { { "recommended", "Recommended" }, { "alphabetical", "A-Z" }, { "highest", "Highest %" },
             { "lowest", "Lowest %" }, { "closest", "Closest to done" } } },
 }
-local VIEWS = { { "cards", "Cards" }, { "list", "List" } }
+local VIEWS = { { "cards", "Cards" }, { "list", "List" }, { "atlas", "Atlas" } }
 Catalogue.OPTIONS, Catalogue.STATUS, Catalogue.VIEWS = OPTIONS, STATUS, VIEWS
 
 local STATE_EDGE = { complete = "complete", progress = "todo" }
@@ -339,8 +339,10 @@ function Catalogue.New(page)
     cat.emptyText = T.Text(scroll.child, "md", "dim")
     cat.emptyText:SetPoint("TOP", cat.emptyTitle, "BOTTOM", 0, -S.s2)
     -- Cards re-flow when the width changes their column count.
-    scroll.onWidth = function()
+    scroll.onWidth = function(w)
         if cat.view == "cards" and cat.columns ~= cat:Columns() then cat:Refresh() end
+        -- The Atlas scales with the width.
+        if cat.view == "atlas" and math.abs((cat.atlasWidth or 0) - (w or 0)) >= 1 then cat.atlasWidth = w; cat:Refresh() end
     end
 
     ---------------------------------------------------------------------------------------------
@@ -363,12 +365,15 @@ function Catalogue.New(page)
     -- The view in use: the split view's list is always the compact list.
     function cat:View()
         if page.wide then return "list" end
-        return settings().displayMode == "list" and "list" or "cards"
+        local m = settings().displayMode
+        return (m == "list" or m == "atlas") and m or "cards"
     end
 
+    -- Y: Cards -> List -> Atlas -> Cards.
+    local NEXT_VIEW = { cards = "list", list = "atlas", atlas = "cards" }
     function cat:CycleView()
         if page.wide then return false end
-        settings().displayMode = self:View() == "cards" and "list" or "cards"
+        settings().displayMode = NEXT_VIEW[self:View()]
         self:Refresh()
         return true
     end
@@ -514,6 +519,8 @@ function Catalogue.New(page)
         for _, r in ipairs(self.rows) do r:Hide() end
         for _, h in ipairs(self.headers) do h:Hide() end
         local child, width = scroll.child, self:Width()
+        if self.chart then self.chart:SetShown(self.view == "atlas") end
+        if self.view == "atlas" then return self:DrawAtlas(all, q, child, width) end
         local rows, byMap, used = { toolbarRow() }, {}, { cards = 0, rows = 0, headers = 0 }
         local function take(kind, make)
             used[kind] = used[kind] + 1
@@ -586,6 +593,32 @@ function Catalogue.New(page)
         if page.OnCatalogueChanged then page:OnCatalogueChanged() end
     end
 
+    -- The Atlas view (Phase 10): every tracked zone on the painted sea chart, those outside
+    -- the filters dimmed; opens on your current zone.
+    function cat:DrawAtlas(all, q, child, width)
+        self.emptyTitle:Hide(); self.emptyText:Hide()
+        self.chart = self.chart or ns.AtlasChart.New(child, false)
+        local chart = self.chart
+        chart:ClearAllPoints()
+        chart:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, 0)
+        chart:Show()
+        local tracked, shown = {}, {}
+        for _, z in ipairs(all) do if z.tracked then tracked[#tracked + 1] = z end end
+        for _, z in ipairs(q.zones) do shown[z.mapID] = true end
+        local w = width - L.listInset - S.s6
+        local h = math.floor(w / ns.AtlasChart.SOURCE_ASPECT + 0.5)
+        local current = ns.Exploration.CurrentZone()
+        local rows, byMap = ns.AtlasChart.Draw(chart, tracked, w, h, { shown = shown, current = current,
+            item = function(tile, z) return zoneItem(tile, z) end })
+        local focus = { toolbarRow() }
+        for _, r in ipairs(rows) do focus[#focus + 1] = r end
+        child:SetHeight(h + S.s2)
+        self.focusRows, self.byMap = focus, byMap
+        self.sectionCount = 0
+        local here = current and byMap[current]
+        self.firstZone = (here and here.item and here.item.zone) or (q.zones[1] and zoneObject(q.zones[1])) or nil
+        if page.OnCatalogueChanged then page:OnCatalogueChanged() end
+    end
     -- The zone object for a mapID that's in the current list, or nil.
     function cat:ZoneFor(mapID)
         local f = self.byMap[mapID]

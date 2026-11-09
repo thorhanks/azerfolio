@@ -794,9 +794,17 @@ local function dumpZoneMeta()
                 name = info.name, parent = parent, flags = info.flags,
                 levels = packArgs(try("GetMapLevels", C_Map.GetMapLevels, id)),
                 rect = parent and packArgs(try("GetMapRectOnMap", C_Map.GetMapRectOnMap, id, parent)) or nil,
+                -- Where the zone sits on the world map (Azeroth, 947): the Atlas places zones
+                -- that belong to no continent (Zephras Isle) this way (Phase 10).
+                world = packArgs(try("GetMapRectOnMap", C_Map.GetMapRectOnMap, id, 947)),
             }
             count = count + 1
         end
+    end
+    -- The continents on the world map, to line the islands up with them.
+    z.continents = {}
+    for _, id in ipairs({ 1414, 1415 }) do
+        z.continents[id] = packArgs(try("GetMapRectOnMap", C_Map.GetMapRectOnMap, id, 947))
     end
     z.count = count
     DB.zoneMeta = z

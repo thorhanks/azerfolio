@@ -79,6 +79,12 @@ local function steps(which)
         if UI.shotsView == nil then UI.shotsView = ns.db.zones.displayMode end
         page.catalogue:CycleView()
     end } end
+    -- The Atlas view (Phase 10).
+    if not UI.IsWide() then list[#list + 1] = { label = "zones, atlas", fn = function()
+        local page = zonesPage()
+        if UI.shotsView == nil then UI.shotsView = ns.db.zones.displayMode end
+        ns.db.zones.displayMode = "atlas"; page.catalogue:Refresh()
+    end } end
     list[#list + 1] = { label = "zones, sort popup", fn = function()
         local page = zonesPage()
         local cat = page.catalogue
@@ -89,7 +95,9 @@ local function steps(which)
     list[#list + 1] = { label = "zones, popup closed", fn = function()
         local page = zonesPage()
         if page.popup:IsShown() then page:ClosePopup() end
-        if UI.shotsView and ns.db.zones.displayMode ~= UI.shotsView then page.catalogue:CycleView() end
+        if UI.shotsView and ns.db.zones.displayMode ~= UI.shotsView then
+            ns.db.zones.displayMode = UI.shotsView; page.catalogue:Refresh()
+        end
     end, skip = true }
     for _, def in ipairs(UI.tabs) do
         list[#list + 1] = { label = def.id .. " at minimum size", fn = function()
@@ -159,7 +167,9 @@ function UI.RunShots(which)
         UI.ApplyGeometry(); UI.Relayout()
         local page = zonesPage()
         if page and page.popup:IsShown() then page:ClosePopup() end
-        if page and UI.shotsView and ns.db.zones.displayMode ~= UI.shotsView then page.catalogue:CycleView() end
+        if page and UI.shotsView and ns.db.zones.displayMode ~= UI.shotsView then
+            ns.db.zones.displayMode = UI.shotsView; page.catalogue:Refresh()
+        end
         UI.shotsView = nil
         if UI.shotsOpenedDetail then
             UI.SelectTab("zones"); UI.GetFrame().pages.zones:Back(); UI.shotsOpenedDetail = nil

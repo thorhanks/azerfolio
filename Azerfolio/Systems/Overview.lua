@@ -166,7 +166,7 @@ function Overview.Build(input)
     end
 
     local overall = input.overall or {}
-    local model = { zones = counts(zones, char.faction),
+    local model = { all = zones, zones = counts(zones, char.faction),
         completion = Overview.Tracked(overall.explore, overall.quests, overall.flights) }
 
     local current = input.current and byMap[input.current]

@@ -66,6 +66,7 @@ ns.Art = {
         ["streamer-horde"] = true,
     },
     chrome = {
+        ["atlas-backdrop"] = true,
         ["bar-fill"] = true,
         ["divider"] = true,
         ["frame-bar"] = { x = 0.082, y = 0.3281 },

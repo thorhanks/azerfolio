@@ -723,3 +723,91 @@ body.chrome .celebrate .card::before { content: ""; position: absolute; inset: -
 .gamealert small { display: block; font-size: var(--fs-xs); color: var(--dim); letter-spacing: 1px; text-transform: uppercase; }
 .gamealert.show { animation: alertIn 5s ease-in-out both; }
 @keyframes alertIn { 0% { opacity: 0; transform: translate(-50%, -12px); } 8%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }.gamealert[hidden] { display: none; }
+
+/* The Atlas (Phase 10): each continent from the client's zone rectangles; tiles of zone art. */
+.atlasview { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s6); align-items: start; }
+.atlasview .continent { display: flex; flex-direction: column; align-items: center; }
+.atlasview .continent .ovplate { align-self: stretch; margin-top: 0; }
+.amap { position: relative; height: 860px; max-width: 100%; border-radius: 4px;
+  background: radial-gradient(ellipse at 50% 45%, rgba(56,40,20,.55), rgba(12,8,4,.2) 75%); }
+.atile { position: absolute; padding: 0; border: 1px solid rgba(0,0,0,.8); border-radius: 3px; overflow: hidden; cursor: pointer; background: #1a120a;
+  box-shadow: 0 2px 6px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,220,150,.12); color: var(--white); font: var(--fs-xs)/1.15 var(--font); text-align: left; }
+.atile .aart { position: absolute; inset: 0; }
+.atile .aart > * { width: 100%; height: 100%; object-fit: cover; display: block; }
+.atile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.05) 35%, rgba(0,0,0,.78)); pointer-events: none; }
+.atile .aname { position: absolute; left: 5px; right: 5px; bottom: 5px; z-index: 2; text-shadow: 0 1px 2px #000, 0 0 4px #000; }
+.atile .apct { position: absolute; right: 4px; top: 3px; z-index: 2; font-size: 11px; color: var(--st-progress); text-shadow: 0 1px 2px #000; }
+.atile .apct svg.pennant { width: 16px; height: 20px; }
+.atile .abar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 3; background: rgba(0,0,0,.6); }
+.atile .abar i { display: block; height: 100%; background: var(--grad-progress); }
+.atile.untouched .aart, .atile.untracked .aart { filter: grayscale(.9) brightness(.55); }
+.atile.untouched .aname { color: var(--dim); }
+.atile.complete { border-color: #c9a227; box-shadow: 0 0 0 1px #6b4c0a, 0 0 12px rgba(255,200,60,.45); }
+.atile.complete .aname { color: var(--wow-gold); }
+.atile.dim { opacity: .28; }
+.atile.here { box-shadow: 0 0 0 2px var(--white), 0 2px 8px rgba(0,0,0,.7); z-index: 4; }
+.atile .apin { position: absolute; left: 50%; top: 42%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; z-index: 3;
+  background: #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 10px #fff; animation: pinPulse 1.6s ease-in-out infinite; }
+@keyframes pinPulse { 50% { box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 0 7px rgba(255,255,255,.25); } }
+.atile.city { padding: 0 4px; z-index: 5; border-radius: 9px; display: grid; place-items: center; text-align: center;
+  background: linear-gradient(180deg, #3a2a14, #1c1208); border-color: #8a6d3b; color: var(--text); font-size: 10px; white-space: nowrap; }
+.atile.city::after { display: none; }
+.atile.city.complete { color: var(--wow-gold); border-color: #c9a227; }
+.atile.focused { outline: 2px solid var(--focus, #ffe600); outline-offset: 1px; z-index: 6; transform: scale(1.04); }
+.atile.city.focused { transform: scale(1.08); }
+.unplaced { margin-top: var(--s3); display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; font-size: var(--fs-xs); color: var(--dim); }
+.atile.loose { position: relative; width: 150px; height: 30px; }
+.atile.loose::after { display: none; }
+.atile.loose .aname { bottom: 7px; }
+.atile.loose .apct { top: 7px; }
+/* The Overview thumbnail: the same places as coloured blocks. */
+.minimap .grids { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s4); justify-items: center; }
+.amap.mini { height: 190px; background: none; }
+.amap.mini .atile { border-radius: 2px; box-shadow: none; background: #3d342a; border: 1px solid rgba(0,0,0,.6); }
+.amap.mini .atile.city { padding: 0; border-radius: 3px; background: #8a6d3b; }
+.amap.mini .atile.complete { background: var(--st-complete); }
+.amap.mini .atile.progress { background: linear-gradient(90deg, var(--st-progress) var(--p), #3d342a var(--p)); }
+.amap.mini .atile.here { outline: 2px solid var(--white); box-shadow: none; }
+
+/* Phase 10: the Atlas on the painted sea chart (chrome-art/atlas-backdrop.png, 4:3). Regions match
+   the painting: Kalimdor's land on the left third, the Eastern Kingdoms' on the right. */
+.atlasview { position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 4px; overflow: hidden;
+  background: #0d1e22 url(chrome-art/atlas-backdrop.png) center / 100% 100% no-repeat; box-shadow: inset 0 0 0 1px rgba(0,0,0,.8), inset 0 0 40px rgba(0,0,0,.6); }
+.aregion { position: absolute; top: 3%; bottom: 3%; display: flex; flex-direction: column; align-items: center; }
+.aregion.ka { left: 1%; width: 38%; }
+.aregion.ek { left: 63%; width: 36%; }
+.aregion.sea { left: 40%; width: 22%; justify-content: center; }
+.aregion .amap { flex: 1; height: auto; min-height: 0; background: none; }
+.aname-plate { font: var(--fs-md) var(--font); color: var(--wow-gold); text-shadow: 0 1px 3px #000, 0 0 8px #000; letter-spacing: 1px; margin-bottom: 4px; }
+.isleslot { width: 50%; display: flex; flex-direction: column; align-items: center; }
+.atile.isle { position: relative; width: 100%; aspect-ratio: 1.65; }
+.islecap { margin-top: 6px; font: italic var(--fs-xs) var(--font); color: rgba(220,200,160,.75); text-shadow: 0 1px 2px #000; }
+/* The painted frame around the sea chart (owner, 2026-11-08). Drawn inside the edge: the chart clips. */
+body.chrome .atlasview::before { content: ""; position: absolute; inset: 0; z-index: 7; pointer-events: none;
+  border: 26px solid transparent; border-image: url(chrome-art/frame-card.png) var(--card-slice) / 26px stretch; }
+body.chrome .atlasview { border-radius: 2px; }
+.aregion { top: 4%; bottom: 4%; }
+/* The Overview's Atlas panel: the same sea chart, zones as small coloured blocks (owner, 2026-11-08). */
+.minimap:has(.atlasview.mini) { padding: 0 !important; background: none; overflow: hidden; }
+.atlasview.mini { width: 100%; }
+.atlasview.mini .aregion { top: 7%; bottom: 7%; }
+.atlasview.mini .amap.mini { height: auto; flex: 1; }
+.atlasview.mini .amap.mini .atile { opacity: .92; box-shadow: 0 1px 2px rgba(0,0,0,.7); border-color: rgba(0,0,0,.75); }
+.atlasview.mini .amap.mini .atile.untouched { background: rgba(40,32,24,.85); }
+.atlasview.mini .aregion.sea { justify-content: center; align-items: center; }
+.atlasview.mini .atile.isle { position: relative; width: 22%; aspect-ratio: 1.65; border-radius: 2px; background: rgba(40,32,24,.85); border: 1px solid rgba(0,0,0,.75); }
+.atlasview.mini .atile.isle.progress { background: linear-gradient(90deg, var(--st-progress) var(--p), rgba(40,32,24,.85) var(--p)); }
+.atlasview.mini .atile.isle.complete { background: var(--st-complete); }
+.atlasview.mini .minicap { position: absolute; right: 30px; bottom: 22px; z-index: 8; font: var(--fs-sm) var(--font); color: var(--wow-gold); text-shadow: 0 1px 3px #000, 0 0 6px #000; }
+.atlasview.mini { aspect-ratio: auto; height: 240px; background-size: cover; } .atlasview.mini .aregion { top: 9%; bottom: 9%; }
+.atlasview.mini .amap.mini .atile.untouched, .atlasview.mini .atile.isle.untouched { background: rgba(18,12,6,.38); border-color: rgba(255,226,160,.45); box-shadow: none; } .atlasview.mini .amap.mini .atile.capital.untouched { border-color: rgba(255,210,120,.7); }
+/* Overview chart blocks with the zone's art (owner, 2026-11-08). */
+.atlasview.mini .amap.mini .atile.withart { background: #1a120a; border: 1px solid rgba(0,0,0,.85); border-radius: 2px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.7); }
+.atlasview.mini .atile.withart .aart { position: absolute; inset: 0; }
+.atlasview.mini .atile.withart .aart > * { width: 100%; height: 100%; object-fit: cover; display: block; }
+.atlasview.mini .atile.withart.untouched .aart { filter: grayscale(.85) brightness(.6); }
+.atlasview.mini .atile.withart.untouched { border-color: rgba(0,0,0,.85); }
+.atlasview.mini .atile.withart.complete { border-color: #e2bb4f; box-shadow: 0 0 0 1px #6b4c0a, 0 0 6px rgba(255,200,60,.6); }
+.atlasview.mini .atile.withart.here { outline: 2px solid #fff; outline-offset: 0; z-index: 4; }
+.atlasview.mini .atile.withart .abar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0,0,0,.65); }
+.atlasview.mini .atile.withart .abar b { display: block; height: 100%; background: var(--st-progress); }

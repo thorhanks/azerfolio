@@ -62,6 +62,7 @@ function Convert-Image([string]$inPath, [string]$outPath, [double]$fx, [double]$
 #   divider   512x64    stretched, keyed, DXT5                Media\Chrome
 #   fill      512x64    stretched, opaque DXT1                Media\Chrome
 #   icon      128x128   centre-cropped square, opaque DXT1    Media\Icons
+#   backdrop  1024x1024 stretched (4:3 source), opaque DXT1  Media\Chrome (atlas-*: the Atlas's sea map)
 # Nine-slice borders (frames, plates) are measured from the keyed image, or set in art/slices.json.
 $PieceKinds = @{
     banner = @{ size = @(256, 512); fit = 'fit'; key = $true; dir = 'Banner' }
@@ -74,6 +75,7 @@ $PieceKinds = @{
     divider = @{ size = @(512, 64); fit = 'stretch'; key = $true; dir = 'Chrome' }
     fill = @{ size = @(512, 64); fit = 'stretch'; key = $false; dir = 'Chrome' }
     icon = @{ size = @(128, 128); fit = 'crop'; key = $false; dir = 'Icons' }
+    backdrop = @{ size = @(1024, 1024); fit = 'stretch'; key = $false; dir = 'Chrome' }
 }
 $MediaRoot = if ($env:AZF_MEDIA_ROOT) { $env:AZF_MEDIA_ROOT } else { Join-Path $PSScriptRoot '..\Azerfolio\Media' }
 $PieceMockRoot = if ($env:AZF_PIECE_MOCK_ROOT) { $env:AZF_PIECE_MOCK_ROOT } else { Join-Path $PSScriptRoot '..\mockups' }
@@ -97,6 +99,7 @@ function Get-PieceKind([string]$name) {
     if ($name -match '^divider(-[a-z0-9-]+)?$') { return 'divider' }
     if ($name -match '^bar-fill(-[a-z0-9-]+)?$') { return 'fill' }
     if ($name -match '^icon-[a-z0-9-]+$') { return 'icon' }
+    if ($name -match '^atlas-[a-z0-9-]+$') { return 'backdrop' }
     return $null
 }
 

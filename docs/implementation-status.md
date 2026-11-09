@@ -10,7 +10,7 @@ Keep this file short: one compact entry per step, with measurements. When a phas
 
 0. Small fixes: the six "Welcome!" voucher quests left out (Elwynn now 43 of 67); right stick stays with the camera (owner).
 1. **Celebrations** — done (mockup approved 2026-11-08). `Systems/Celebrations.lua` (pure Snapshot/Diff; live: first snapshot 8 s after ready, then compares after updates; queue), `UI/Celebration.lua` (overlay with still rays, motes, the painted frame; category medal with the streamer, claim with the hoisted standard; A/B continue via `UI.modal`; on-screen alert with the window closed). `/azf debug celebrate explore|quests|flights|claim [mapID]`. In game (19:01): alert, claim, Explored and Westfall flight path previews render; A and B continue.
-2. **Atlas** — next: mockup review, then Lua.
+2. **Atlas** — done (mockup approved 2026-11-08). `Systems/Atlas.lua`: zone rectangles from `C_Map.GetMapRectOnMap` (read once per session), pure `Layout` (one tile size at each true centre, pushed apart until none overlap; 0 overlaps on the real Eastern Kingdoms data, 40+ before). `UI/AtlasChart.lua`: the painted sea chart (`Media\Chrome\atlas-backdrop`, owner's art) in the frame; Kalimdor left, Eastern Kingdoms right; Zephras Isle (no rectangle on any map, `/azfdiag zones` world probe) in the sea as "Uncharted waters". Zones tab: Y cycles Cards, List, Atlas. Overview: Atlas panel with art blocks; A opens the Atlas on your zone. In game (19:41): both render; filters dim; A opens a zone. Fixed after: "Open Atlas" was under the Eastern Kingdoms' tiles (not re-checked).
 
 ## Tooling (2026-11-08)
 

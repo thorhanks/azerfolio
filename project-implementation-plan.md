@@ -351,7 +351,7 @@ Owner request 2026-11-08, after v1.1.
 
 **Tasks**
 1. Celebrations (spec §7.7, DESIGN.md "Celebrations"): a category of a zone completing (the streamer it earns) or the zone being claimed, seen while you play; full-window overlay with the window open, an on-screen alert with it closed. *(Done 2026-11-08.)*
-2. Atlas view (DESIGN.md "Zones: Atlas"): mockup review, positions from verified map data, then Lua.
+2. Atlas view (DESIGN.md "Zones: Atlas"): mockup review, positions from verified map data, then Lua. *(Done 2026-11-08.)*
 
 **Done when:** both checked in game and approved by the owner.
 ## 7. Phase 0 questions
@@ -446,6 +446,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-08 | Phase 9 accepted; v1.1 closed as version 1.1.0 | Every spec §12 "v1.1 Quests" criterion met in game on Gideon and Thragor (`docs/testing.md` § Phase 9). Owner approved |
 | 2026-11-08 | "Welcome!" quests (5805, 5841-5844, 5847) left out as "excluded" (`Data/QuestAreas.lua` `excludedQuests`) | Started by the old gift voucher; the owner found none in game |
 | 2026-11-08 | Celebrations come from in-memory snapshots of the Zones entries: a category known open and now complete, or a claim together with such a change; nothing saved, nothing at login; the alert waits for the window | Spec §7.7; honest data (no celebration for data that only arrived late) without bringing back the removed milestone history |
+| 2026-11-08 | Atlas places: the client's zone rectangles (`GetMapRectOnMap`) read live, laid out as equal tiles at each true centre and pushed apart until none overlap; zones with no rectangle anywhere go in the sea as "Uncharted waters"; cities are full cards; Kalimdor left | Spec: positions from verified map data; the real rectangles overlap too much to draw as they are. Owner approved the mockup |
 
 ## 10. Definition of done (v1)
 

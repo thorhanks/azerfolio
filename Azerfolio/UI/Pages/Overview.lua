@@ -4,7 +4,8 @@
 --   level), the Next goal, and Suggested next (up to 3 zones, each with its Next up picks:
 --   areas, ready quests, a flight path).
 --   Right: Tracked completion (one row per category plus Zones; the headline is the
---   equal-weight average of the categories with data) and Recent zones (recently visited).
+--   equal-weight average of the categories with data), Recent zones (recently visited) and the
+--   Atlas panel (the painted sea chart with every zone at its place; A opens the Atlas view).
 -- What to show comes from ns.Overview (pure picks over ns.Zones and ns.Progression results);
 -- this file only draws it. A on a zone opens Zone Detail, on a pick its page focused on it (B
 -- comes back here); A on a category row opens Zones, on Zones opens it filtered.
@@ -28,6 +29,13 @@ local function openZone(z, target)
     local frame = ns.UI.GetFrame()
     local zp = frame and frame.pages.zones
     if zp and zp.ShowZone then zp:ShowZone(zoneObject(z), target, "overview") end
+end
+
+local function openAtlas()
+    ns.UI.SelectTab("zones")
+    local frame = ns.UI.GetFrame()
+    local zp = frame and frame.pages.zones
+    if zp and zp.ShowAtlas then zp:ShowAtlas() end
 end
 
 local function openZones(status)
@@ -310,11 +318,24 @@ local function build(parent)
 
     local recentPlate = T.Plate(child, L.plate)
     recentPlate.title:SetText("Recent zones")
+    -- The Atlas panel (Phase 10): the painted sea chart with every zone's art at its place.
+    local atlasPlate = T.Plate(child, L.plate)
+    atlasPlate.title:SetText("Atlas")
+    local atlas = ns.AtlasChart.New(child, true)
+    W.HoverInfo(atlas)
+    atlas.focusEdge = W.Edge(atlas, "OVERLAY")
+    atlas.focusEdge:SetColor("focus"); atlas.focusEdge:SetThickness(2)
+    function atlas:SetFocused(on)
+        self.focused = on
+        for i = 1, 4 do self.focusEdge[i]:SetShown(on == true) end
+    end
+    atlas:SetFocused(false)
     local recentPanel = newPanel(child, false)
     local recentEmpty = T.Text(recentPanel, "sm", "dim")
     recentEmpty:SetJustifyH("LEFT")
     page.parts = { hero = hero, goal = goal, track = track, zonesRow = zrow, recent = recentPanel,
-        sugEmpty = sugEmpty, recentEmpty = recentEmpty, sugPlate = sugPlate, recentPlate = recentPlate }
+        sugEmpty = sugEmpty, recentEmpty = recentEmpty, sugPlate = sugPlate, recentPlate = recentPlate,
+        atlas = atlas, atlasPlate = atlasPlate }
 
     -- The width the page draws into (before the first layout, from the window).
     local function width()
@@ -599,7 +620,22 @@ local function build(parent)
             ry = ry + L.recentRow + 2
         end
         recentPanel:SetHeight(ry + S.s2)
-        y = y + ry + S.s2
+        y = y + ry + S.s2 + S.s4
+
+        -- The Atlas panel: A opens the Atlas view on your current zone.
+        atlasPlate:ClearAllPoints()
+        atlasPlate:SetPoint("TOPLEFT", child, "TOPLEFT", x - 6, -y)
+        atlasPlate:SetWidth(w + 12)
+        y = y + L.plate + S.s3
+        atlas:ClearAllPoints()
+        atlas:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
+        local zones = {}
+        for _, z in ipairs(m.all or {}) do if z.tracked then zones[#zones + 1] = z end end
+        ns.AtlasChart.Draw(atlas, zones, w, L.atlasPanel, { current = m.current and m.current.mapID })
+        items[#items + 1] = item(atlas, "atlas", "Atlas",
+            "Every zone at its place on the map, with its art and progress. A opens the Atlas.",
+            function() openAtlas() end, "R", "Open", L.plate + S.s3 + S.s3)
+        y = y + L.atlasPanel + S.s2
         return items, y
     end
 

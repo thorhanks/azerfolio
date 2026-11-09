@@ -33,26 +33,7 @@
     { mapID: 1458, name: "Undercity", continent: "Eastern Kingdoms", faction: "Horde" },
     { mapID: 2521, name: "Zephras Isle", continent: "Azeroth", faction: "Unknown" },
   ];
-  // Schematic atlas: rough geographic grid positions [col, row]. Zones without a known
-  // position are listed as "not placed" rather than guessed.
-  const ATLAS = {
-    "Eastern Kingdoms": {
-      "Tirisfal Glades": [1, 0], "Western Plaguelands": [2, 0], "Eastern Plaguelands": [3, 0],
-      "Silverpine Forest": [0, 1], "Alterac Mountains": [1, 1], "The Hinterlands": [3, 1],
-      "Hillsbrad Foothills": [1, 2], "Arathi Highlands": [2, 2], "Wetlands": [2, 3],
-      "Dun Morogh": [1, 4], "Loch Modan": [2, 4], "Searing Gorge": [1, 5], "Badlands": [2, 5],
-      "Burning Steppes": [1, 6], "Elwynn Forest": [1, 7], "Redridge Mountains": [2, 7],
-      "Westfall": [0, 8], "Duskwood": [1, 8], "Deadwind Pass": [2, 8], "Swamp of Sorrows": [3, 8],
-      "Stranglethorn Vale": [1, 9], "Blasted Lands": [3, 9],
-    },
-    "Kalimdor": {
-      "Teldrassil": [0, 0], "Moonglade": [2, 0], "Winterspring": [3, 0],
-      "Darkshore": [1, 1], "Felwood": [2, 1], "Mount Hyjal": [3, 1],
-      "Ashenvale": [2, 2], "Azshara": [3, 2], "Stonetalon Mountains": [1, 3], "The Barrens": [2, 3], "Durotar": [3, 3],
-      "Desolace": [0, 4], "Mulgore": [1, 4], "Dustwallow Marsh": [3, 4],
-      "Feralas": [0, 5], "Thousand Needles": [2, 5], "Silithus": [0, 6], "Un'Goro Crater": [1, 6], "Tanaris": [2, 6],
-    },
-  };
+  // Atlas positions: atlas-rects.js (the client's zone rectangles; Phase 10).
 
   const now = new Date();
   const ago = (days, h, m) => { const d = new Date(now); d.setDate(d.getDate() - days); d.setHours(h, m, 0, 0); return d; };
@@ -536,37 +517,89 @@
     </div></div>`;
   }
 
+  // ---- The Atlas (DESIGN.md "Zones: Atlas", Phase 10) ----
+  // Each continent drawn from the client's own zone rectangles (atlas-rects.js: real data from
+  // C_Map.GetMapRectOnMap). The rectangles are fractions of a 3:2 map, so x is stretched by 1.5.
+  // A zone is a tile of its own art at its place (shrunk a little so neighbours don't touch);
+  // cities are small plates on top. Zones the client gives no place are listed below.
+  const CONT = { EK: "Eastern Kingdoms", KA: "Kalimdor" };
+  // Layout (the addon's will be the same pure function): one tile size for zones and a
+  // smaller pill for cities, each centred on its zone's true centre; overlapping tiles are then
+  // pushed apart along the axis where they overlap least, a little at a time, until none
+  // overlap. Directions between neighbours survive; sizes don't (the real rectangles overlap).
+  const TILE = { w: 0.135, h: 0.082, cw: 0.12, ch: 0.032, gap: 0.01 };
+  function relax(items) {
+    for (let it = 0; it < 400; it++) {
+      let moved = false;
+      for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+        const A = items[i], B = items[j];
+        const ox = (A.w + B.w) / 2 + TILE.gap - Math.abs(A.x - B.x), oy = (A.h + B.h) / 2 + TILE.gap - Math.abs(A.y - B.y);
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        if (ox < oy) { const s = (A.x < B.x || (A.x === B.x && i < j)) ? -1 : 1; A.x += s * ox / 2 * 0.5; B.x -= s * ox / 2 * 0.5; }
+        else { const s = (A.y < B.y || (A.y === B.y && i < j)) ? -1 : 1; A.y += s * oy / 2 * 0.5; B.y -= s * oy / 2 * 0.5; }
+      }
+      if (!moved) break;
+    }
+  }
+  function placesOf(code) {
+    const list = tracked.map(z => ({ z, R: (window.AZF_RECTS || {})[z.mapID] })).filter(p => p.R && p.R.c === code);
+    if (!list.length) return null;
+    list.sort((a, b) => a.z.mapID - b.z.mapID); // a fixed order: the same layout every time
+    list.forEach(p => { const [x0, x1, y0, y1] = p.R.r;
+      p.x = (x0 + x1) / 2 * 1.5; p.y = (y0 + y1) / 2;
+      p.w = TILE.w; p.h = TILE.h; }); // cities are full art cards too (owner, 2026-11-08)
+    relax(list);
+    const l = Math.min(...list.map(p => p.x - p.w / 2)), r = Math.max(...list.map(p => p.x + p.w / 2));
+    const tp = Math.min(...list.map(p => p.y - p.h / 2)), bt = Math.max(...list.map(p => p.y + p.h / 2));
+    const w = r - l, h = bt - tp;
+    list.forEach(p => { p.box = { left: (p.x - p.w / 2 - l) / w * 100, top: (p.y - p.h / 2 - tp) / h * 100, width: p.w / w * 100, height: p.h / h * 100 }; });
+    return { list, ratio: w / h };
+  }  function atlasTile(p, visible, mini) {
+    const z = p.z, b = p.box, here = z.name === CHAR.zone;
+    const cls = `atile ${p.R.city ? "capital" : ""} ${z.state} ${here ? "here" : ""} ${visible && !visible.has(z.name) ? "dim" : ""}`;
+    const style = `left:${b.left}%;top:${b.top}%;width:${b.width}%;height:${b.height}%`;
+    // The Overview's chart: the zone's art in a small block, its progress as a thin bar.
+    if (mini) return `<i class="${cls} withart" style="${style}"><span class="aart">${art(z)}</span>${z.state === "progress"
+      ? `<span class="abar"><b style="width:${Math.round((z.pct || 0) * 100)}%"></b></span>` : ""}</i>`;
+    const tip = `<b>${esc(z.name)}</b>${pctText(z.pct)} · ${z.cats.map(c => `${c.label} ${c.done}/${c.total}`).join(" · ")}${here ? " · You are here" : ""}`;
+    return `<button class="${cls} focusable" style="${style}" data-open="${esc(z.name)}" data-tip="${tip}">
+      <span class="aart">${art(z)}</span>
+      <span class="aname">${esc(z.name)}</span><span class="apct">${z.state === "complete" ? pennant() : pctText(z.pct)}</span>
+      ${z.state === "progress" ? `<span class="abar"><i style="width:${Math.round(z.pct * 100)}%"></i></span>` : ""}
+      ${here ? `<span class="apin"></span>` : ""}</button>`;
+  }
+  function atlasMap(code, visible, mini) {
+    const P = placesOf(code);
+    if (!P) return "";
+    return `<div class="amap ${mini ? "mini" : ""}" style="aspect-ratio:${P.ratio.toFixed(3)}">${P.list.map(p => atlasTile(p, visible, mini)).join("")}</div>`;
+  }
+
   // Overview thumbnail: one focus stop that opens the full Atlas view.
   function miniAtlas() {
-    const grid = (name) => {
-      const cells = ATLAS[name];
-      return `<div class="mg">${Object.entries(cells).map(([zn, [c, r]]) => {
-        const z = byName[zn]; if (!z) return "";
-        return `<i class="${z.state} ${zn === CHAR.zone ? "here" : ""}" style="grid-column:${c + 1};grid-row:${r + 1};--p:${z.state === "progress" ? Math.round(z.pct * 100) : 0}%"></i>`;
-      }).join("")}</div>`;
-    };
-    return `<button class="minimap focusable" data-atlas data-tip="<b>Atlas</b>Every tracked zone, coloured by progress. Press A to open.">
-      <div class="grids">${grid("Eastern Kingdoms")}${grid("Kalimdor")}</div>
-      <div class="cap"><span>Eastern Kingdoms · Kalimdor</span><span><b>Open Atlas ›</b></span></div></button>`;
+    return `<button class="minimap focusable" data-atlas data-tip="<b>Atlas</b>Every tracked zone at its place, coloured by progress. Press A to open.">
+      <div class="atlasview mini">
+        <div class="aregion ka">${atlasMap("KA", null, true)}</div>
+        <div class="aregion sea">${tracked.filter(z => !(window.AZF_RECTS || {})[z.mapID]).map(z =>
+          `<i class="atile isle ${z.state} ${z.name === CHAR.zone ? "here" : ""}" style="--p:${Math.round((z.pct || 0) * 100)}%"></i>`).join("")}</div>
+        <div class="aregion ek">${atlasMap("EK", null, true)}</div>
+        <span class="minicap">Open Atlas ›</span></div></button>`;
   }
 
-  // Full Atlas (a Zones view). Tiles outside the current filters are dimmed, not hidden.
+  // Full Atlas (a Zones view): one sea chart (the painted backdrop) with Kalimdor's cards over
+  // its left landmass and the Eastern Kingdoms' over its right; zones the game gives no place
+  // (Zephras Isle: no rectangle on any map, probed 2026-11-08) sit in the open sea between,
+  // marked as uncharted. Tiles outside the current filters are dimmed, not hidden.
   function atlasView(visible) {
-    const cont = (name) => {
-      const cells = ATLAS[name];
-      const rows = Math.max(...Object.values(cells).map(c => c[1])) + 1;
-      return `<div class="continent"><h3>${name}</h3><div class="cgrid" style="grid-template-rows:repeat(${rows},34px)">
-        ${Object.entries(cells).map(([zn, [c, r]]) => tile(byName[zn], `grid-column:${c + 1};grid-row:${r + 1}`)).join("")}</div></div>`;
-    };
-    const tile = (z, style) => !z ? "" : `<button class="tile focusable ${z.state} ${z.name === CHAR.zone ? "here" : ""} ${visible.has(z.name) ? "" : "dim"}" style="${style}" data-open="${esc(z.name)}"
-        data-tip="<b>${esc(z.name)}</b>${pctText(z.pct)} · ${z.cats.map(c => `${c.label} ${c.done}/${c.total}`).join(" · ")}${z.name === CHAR.zone ? " · You are here" : ""}">${z.state === "progress" ? `<i style="width:${Math.round(z.pct * 100)}%"></i>` : ""}<span>${esc(z.name)}</span></button>`;
-    const placed = new Set(Object.values(ATLAS).flatMap(Object.keys));
-    const unplaced = tracked.filter(z => !placed.has(z.name));
-    return `<div class="atlasview">${cont("Eastern Kingdoms")}${cont("Kalimdor")}</div>
-      ${unplaced.length ? `<div class="unplaced">Position not mapped yet:${unplaced.map(z => tile(z, "")).join("")}</div>` : ""}
-      <div class="atlasfoot"><div class="legend"><span><i class="c"></i>Complete</span><span><i class="p"></i>In progress</span><span><i class="u"></i>Untouched</span><span>● You are here</span></div></div>`;
+    const unplaced = tracked.filter(z => !(window.AZF_RECTS || {})[z.mapID]);
+    const loose = unplaced.map((z, i) => atlasTile({ z, R: { city: false }, box: { left: 0, top: 0, width: 100, height: 100 } }, visible)
+      .replace('class="atile', 'class="atile isle'));
+    return `<div class="atlasview">
+      <div class="aregion ka"><div class="aname-plate">${CONT.KA}</div>${atlasMap("KA", visible)}</div>
+      <div class="aregion sea">${loose.map(h => `<div class="isleslot">${h}<div class="islecap">Uncharted waters</div></div>`).join("")}</div>
+      <div class="aregion ek"><div class="aname-plate">${CONT.EK}</div>${atlasMap("EK", visible)}</div></div>
+      <div class="atlasfoot"><div class="legend"><span><i class="c"></i>Claimed</span><span><i class="p"></i>In progress</span><span><i class="u"></i>Untouched</span><span>● You are here</span></div></div>`;
   }
-
   // =====================================================================================
   // Zones catalogue
   // =====================================================================================

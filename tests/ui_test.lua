@@ -28,13 +28,24 @@ local CRITERIA = {
     [627] = { { "Coldridge Valley", true, 1200 } },
     [728] = { { "Valley of Trials", false, 1300 } },
 }
+-- Zone rectangles on their continent [verified-ingame, /azfdiag zones]; Zephras Isle has none.
+local RECTS = {
+    [1411] = { 1414, 0.5171, 0.6608, 0.448, 0.5917 }, [1438] = { 1414, 0.3601, 0.4985, 0.0395, 0.1778 },
+    [1429] = { 1415, 0.4109, 0.5095, 0.6565, 0.7551 }, [1426] = { 1415, 0.4034, 0.5433, 0.4834, 0.6233 },
+    [1436] = { 1415, 0.3688, 0.4683, 0.7187, 0.8182 },
+}
 local achievementsReady = true
 local here = 1429 -- the player's map
 local noQuestieDB = false -- boot without QuestieDB (set in a test, reset after boot)
 
 local function boot(savedAccount, savedChar)
     wow.install({
-        C_Map = { GetMapInfo = function(id) return MAPS[id] end, GetBestMapForUnit = function() return here end },
+        C_Map = { GetMapInfo = function(id) return MAPS[id] end, GetBestMapForUnit = function() return here end,
+            GetMapRectOnMap = function(id, on)
+                local r = RECTS[id]
+                if r and r[1] == on then return r[2], r[3], r[4], r[5] end
+                return 0, 0, 0, 0
+            end },
         GetCategoryNumAchievements = function(cat) return achievementsReady and #(ACH[cat] or {}) or 0 end,
         GetAchievementInfo = function(cat, i) local a = ACH[cat] and ACH[cat][i]; if a then return a.id, a.name end end,
         GetAchievementNumCriteria = function(id) return achievementsReady and #(CRITERIA[id] or {}) or 0 end,
@@ -205,7 +216,7 @@ return function(t)
         t.eq(cat:View(), "cards")
         t.eq(cat.columns, 4)
         local rows = page(ns):GetFocusRows()
-        t.eq(#rows[1].items, 10, "toolbar: 4 segments, Show, Level, Sort, search, Cards, List")
+        t.eq(#rows[1].items, 11, "toolbar: 4 segments, Show, Level, Sort, search, Cards, List, Atlas")
         t.eq(#rows[2].items, 4, "first card row")
         t.eq(rows[2].items[1].title, "Dun Morogh"); t.eq(rows[2].items[4].title, "Teldrassil")
         t.eq(rows[3].items[1].title, "Zephras Isle", "the bracket's fifth zone wraps")
@@ -225,7 +236,7 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
-    t.test("catalogue: Y switches Cards and List and the choice is saved", function()
+    t.test("catalogue: Y cycles Cards, List and Atlas and the choice is saved", function()
         padUI = true
         local ns = boot({ schemaVersion = 4, lastTab = "zones" })
         slash("")
@@ -234,6 +245,9 @@ return function(t)
         t.eq(page(ns).catalogue:View(), "list")
         t.eq(ns.Focus.Current().title, "Dun Morogh", "focus kept")
         t.eq(#page(ns):GetFocusRows()[2].items, 1, "one zone per row")
+        press(ns, "PAD4")
+        t.eq(ns.db.zones.displayMode, "atlas")
+        t.eq(page(ns).catalogue:View(), "atlas")
         press(ns, "PAD4")
         t.eq(ns.db.zones.displayMode, "cards")
         local ns2 = boot(_G.AzerfolioDB, _G.AzerfolioCharDB)
@@ -1001,7 +1015,7 @@ return function(t)
         local pictures = 0
         for _, s in ipairs(ns.UI.ShotSteps()) do if not s.skip then pictures = pictures + 1 end end
         t.eq(_G.screenshotsTaken, pictures)
-        t.eq(_G.screenshotsTaken, 15, "12 before, plus the zone's three category pages")
+        t.eq(_G.screenshotsTaken, 16, "12 before, the zone's three category pages and the Atlas")
         t.eq(ns.db.zones.displayMode, "cards", "view restored")
         t.eq(ns.UI.GetFrame().pages.zones.popup:IsShown(), false, "popup closed")
         local labels = {}
@@ -1233,7 +1247,7 @@ return function(t)
 
     t.test("quality: a fully corrupted SavedVariables boots, opens every tab and runs every command", function()
         local ns = boot({ schemaVersion = 4, debug = "x", window = { width = -5, height = 1e9, x = 0 / 0,
-                point = "NOWHERE" }, lastTab = {}, zones = { displayMode = "atlas", faction = 3,
+                point = "NOWHERE" }, lastTab = {}, zones = { displayMode = "globe", faction = 3,
                 completion = "done", level = false, sort = "random" }, launcher = { minimapAngle = 9999,
                 minimapHidden = "no" }, notifications = 1, trace = "x" },
             { schemaVersion = 1, baseline = { taken = "yes", exploration = { [1429] = { states = "x" },
@@ -1404,9 +1418,10 @@ return function(t)
             and p.zonesRow.legend:GetText():find("2 no data"), p.zonesRow.legend:GetText())
         t.eq(p.recentEmpty:IsShown(), true, "only the current zone visited so far")
         local rows = overview(ns):GetFocusRows()
-        t.eq(#rows, 2)
+        t.eq(#rows, 3)
         t.eq(keys(rows[1]), "hero,track:explore")
         t.eq(keys(rows[2]), "pick:explore:1148,pick:explore:1149,zones")
+        t.eq(keys(rows[3]), "atlas", "the Atlas panel")
         t.eq(overview(ns).hasSections, true)
         t.eq(#ns.Debug.errors, 0)
     end)
@@ -1456,7 +1471,7 @@ return function(t)
         t.eq(ns.Focus.Current().key, "hero", "LT: back to Continue")
         press(ns, "PADDRIGHT")
         t.eq(ns.Focus.Current().key, "track:explore")
-        press(ns, "PADDDOWN"); press(ns, "PADDDOWN")
+        press(ns, "PADDDOWN")
         t.eq(ns.Focus.Current().key, "zones", "down stays in the right column")
         press(ns, "PADDLEFT")
         t.eq(ns.Focus.Current().key, "pick:explore:1149", "left: the nearest pick")
@@ -1598,6 +1613,45 @@ return function(t)
         t.ok(card.line:GetText():find("^All 5 areas discovered%."), card.line:GetText())
         slash("debug celebrate bogus")
         t.ok(wow.chat[#wow.chat]:find("Usage"), wow.chat[#wow.chat])
+        t.eq(#ns.Debug.errors, 0)
+    end)
+    ---------------------------------------------------------------------------------------------
+    -- Atlas
+    ---------------------------------------------------------------------------------------------
+
+    t.test("atlas: Y to the Atlas: every tracked zone at its place, focus on your zone, A opens it", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { displayMode = "atlas" } })
+        slash("")
+        local cat = page(ns).catalogue
+        t.eq(cat:View(), "atlas")
+        local chart = cat.chart
+        t.ok(chart and chart:IsShown(), "the chart")
+        t.eq(ns.Focus.Current().title, "Elwynn Forest", "opens on your zone")
+        local elwynn, westfall = cat.byMap[1429], cat.byMap[1436]
+        t.eq(elwynn.name:GetText(), "Elwynn Forest"); t.eq(elwynn.pct:GetText(), "40%")
+        t.eq(elwynn.pin:IsShown(), true, "you are here")
+        local function x(f) local _, _, _, px = f:GetPoint(1); return px end
+        t.ok(x(westfall) < x(elwynn), "Westfall west of Elwynn")
+        t.eq(cat.byMap[1426].pct:GetText(), "Claimed", "Dun Morogh claimed")
+        t.eq(cat.byMap[1411]:GetAlpha() < 1, true, "Durotar outside the filters: dimmed, not hidden")
+        t.eq(chart.isleCap:IsShown(), false, "Zephras Isle isn't tracked here, so no uncharted card")
+        press(ns, "PAD1")
+        t.eq(page(ns).mode, "detail"); t.eq(page(ns).zone.mapID, 1429)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("atlas: the Overview's panel shows the chart; A opens the Atlas view", function()
+        padUI = true
+        local ns = boot()
+        slash("")
+        local p = overview(ns).parts
+        t.ok(p.atlas:IsShown(), "the panel")
+        ns.Focus.FocusKey("atlas")
+        press(ns, "PAD1")
+        t.eq(ns.UI.CurrentTab(), "zones")
+        t.eq(ns.db.zones.displayMode, "atlas")
+        t.eq(ns.Focus.Current().title, "Elwynn Forest")
         t.eq(#ns.Debug.errors, 0)
     end)
 end

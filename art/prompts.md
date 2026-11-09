@@ -177,6 +177,27 @@ Negative prompt: the banner one, plus `perspective, 3D render, glossy plastic, n
 
 Tips: frames must be symmetrical, with an even band between the corners (it is stretched). If the processing script reports a border it couldn't measure, set it by hand in `art/slices.json` (`{ "frame-card": { "x": 0.08, "y": 0.08 } }`, fractions of width and height).
 
+## Atlas backdrop (Phase 10; added 2026-11-08)
+
+One painting behind the whole Atlas view: an old painted sea chart of the world with the two continents. **The zone cards sit on top of it**, and their places come from the game, not from the painting, so the land should be loose and impressionistic: soft shapes, no detailed coastline that the cards would contradict. It must stay **dark and quiet** so the cards stand out. Save as `art/source/atlas-backdrop.png` (4:3 landscape); `tools/process-art.ps1` makes `Media\Chrome\atlas-backdrop.blp`.
+
+```
+Hand-painted fantasy world map in the style of an old illuminated sea chart, painterly with soft
+visible brush texture, seen straight from above. A deep dark teal and ink-blue ocean fills the image,
+with faint swirling current lines and very faint compass rhumb lines radiating across the sea.
+On the left third, one large tall landmass running from the top edge to near the bottom edge, its
+shape loose and impressionistic: a narrow wooded north, a broad middle, a sandy southern end; on the
+right third, a second large tall landmass, narrower, also running top to bottom: snowy hills in the
+north, green lowlands in the middle, a jungle peninsula reaching down in the south. The middle third
+is open sea, empty. Landmasses painted in muted earthy
+parchment tones (olive, ochre, umber) with soft darker edges, low contrast, no fine detail. A small
+faint gilded compass rose in the lower left corner. Dark aged vignette around all edges, overall
+dark and calm so other things can be placed on top. No text, no labels, no letters, no borders.
+4:3 landscape.
+```
+
+Negative prompt: the zone one, plus `bright, high contrast, labels, place names, grid lines, frame, border, modern map, satellite view, photograph`.
+
 ## Icons (tabs and categories; added 2026-11-08)
 
 Square icons in the style of the game's ability icons, one set, so new tabs only need a new line here. No frame: the game draws the border. Save as `art/source/icon-<name>.png`.

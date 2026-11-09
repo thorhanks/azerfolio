@@ -343,6 +343,20 @@ local function build(parent)
         refresh()
     end
 
+    -- Shows the Atlas view, focused on your current zone (the Overview's Atlas panel). It's the
+    -- catalogue, so B closes the window as there. The split view has no Atlas: it shows its list.
+    function page:ShowAtlas()
+        if self.popup:IsShown() then self.popup:Close() end
+        self.returnTo = nil
+        self.mode = "list"
+        ns.db.zones.displayMode = "atlas"
+        self.building = true
+        cat:Refresh()
+        self.building = false
+        self.pendingFocusKey = cat.firstZone and cat.firstZone.mapID
+        refresh()
+    end
+
     -- Opens the world map on the shown zone. The map needs the controller, so Azerfolio hides
     -- while it's open and comes back when it closes. Returns true if the map opened.
     function page:OpenMap()

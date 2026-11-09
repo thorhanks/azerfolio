@@ -85,6 +85,14 @@ function frameMethods:GetButtonState() return "NORMAL" end
 -- Only CENTER-to-UIParent anchors are tracked (enough for window geometry).
 function frameMethods:SetPoint(point, rel, relPoint, x, y)
     if point == "CENTER" and rel == _G.UIParent then self.cx, self.cy = x or 0, y or 0 end
+    self.lastPoint = { point, rel, relPoint, x, y }
+end
+function frameMethods:SetAlpha(a) self.alpha = a end
+function frameMethods:GetAlpha() return self.alpha or 1 end
+-- The last point set (the real one returns the n-th; enough for the tests).
+function frameMethods:GetPoint()
+    local p = self.lastPoint
+    if p then return p[1], p[2], p[3], p[4], p[5] end
 end
 function frameMethods:GetCenter()
     if self == _G.UIParent then return self.width / 2, self.height / 2 end
