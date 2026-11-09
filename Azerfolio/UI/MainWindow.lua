@@ -379,6 +379,7 @@ end
 
 -- The focused control's action, the current tab's hints, sections, then B to close.
 local function currentHints()
+    if UI.modal and UI.modal.hints then return UI.modal.hints end
     local def = UI.tabs[tabIndex(current) or 0]
     local list = {}
     local item = ns.Focus and ns.Focus.Current()

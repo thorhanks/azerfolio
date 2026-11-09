@@ -6,9 +6,11 @@ v1.1 (Phase 9, quests, flight paths, combined zone completion, the zone dashboar
 
 Keep this file short: one compact entry per step, with measurements. When a phase closes, move it to `docs/history/`.
 
-## Next
+## Phase 10 — Celebrations and the Atlas (v1.2): in progress
 
-Not planned yet. Candidates are in spec §3 "Later". Start a new phase in the plan before building.
+0. Small fixes: the six "Welcome!" voucher quests left out (Elwynn now 43 of 67); right stick stays with the camera (owner).
+1. **Celebrations** — done (mockup approved 2026-11-08). `Systems/Celebrations.lua` (pure Snapshot/Diff; live: first snapshot 8 s after ready, then compares after updates; queue), `UI/Celebration.lua` (overlay with still rays, motes, the painted frame; category medal with the streamer, claim with the hoisted standard; A/B continue via `UI.modal`; on-screen alert with the window closed). `/azf debug celebrate explore|quests|flights|claim [mapID]`. In game (19:01): alert, claim, Explored and Westfall flight path previews render; A and B continue.
+2. **Atlas** — next: mockup review, then Lua.
 
 ## Tooling (2026-11-08)
 

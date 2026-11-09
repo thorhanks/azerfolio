@@ -1537,4 +1537,67 @@ return function(t)
         local e = ns.db.trace[#ns.db.trace]
         t.eq(e.kind, "overview"); t.eq(e.hero, 1429)
     end)
+    ---------------------------------------------------------------------------------------------
+    -- Celebrations
+    ---------------------------------------------------------------------------------------------
+
+    -- Discovers Elwynn's last three areas (the mock zone then has nothing else to do: claimed).
+    local function finishElwynn(ns)
+        for i = 3, 5 do CRITERIA[776][i][2] = true end
+        wow.fire("CRITERIA_UPDATE"); wow.fire("MAP_EXPLORATION_UPDATED")
+        wow.runTimers()
+        for i = 3, 5 do CRITERIA[776][i][2] = false end
+    end
+
+    t.test("celebrations: claiming the zone you're in plays over the open window; A continues", function()
+        padUI = true
+        local ns = boot()
+        slash("")
+        ns.Celebrations.Check("first") -- the settled snapshot (normally a few seconds after login)
+        finishElwynn(ns)
+        local C = ns.Celebration
+        t.eq(C.IsShown(), true)
+        local card = C.GetOverlay().card
+        t.eq(card.kicker:GetText(), "ZONE CLAIMED"); t.eq(card.title:GetText(), "Elwynn Forest")
+        t.eq(card.line:GetText(), "Claimed for the Alliance.")
+        t.eq(ns.UI.modal ~= nil, true, "the controller drives the celebration")
+        press(ns, "PADDDOWN")
+        t.eq(C.IsShown(), true, "other buttons do nothing")
+        press(ns, "PAD1")
+        t.eq(C.IsShown(), false); t.eq(ns.UI.modal, nil)
+        t.eq(ns.UI.IsShown(), true, "the window stays open")
+        t.eq(#ns.Celebrations.Queue(), 0)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("celebrations: with the window closed, an alert now and the celebration on next open", function()
+        padUI = true
+        local ns = boot()
+        ns.Celebrations.Check("first")
+        finishElwynn(ns)
+        local a = ns.Celebration.GetAlert()
+        t.ok(a ~= nil, "the on-screen alert (the mock runs its 5 s timer at once, so it's gone again)")
+        t.eq(a.title:GetText(), "Elwynn Forest Claimed")
+        t.eq(#ns.Celebrations.Queue(), 1, "waiting for the window")
+        slash("")
+        t.eq(ns.Celebration.IsShown(), true)
+        press(ns, "PAD2")
+        t.eq(ns.Celebration.IsShown(), false, "B continues too")
+        t.eq(ns.UI.IsShown(), true, "B closed the celebration, not the window")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("celebrations: the debug preview; a category earns its streamer", function()
+        padUI = true
+        local ns = boot()
+        slash("debug celebrate explore 1429")
+        t.eq(ns.Celebration.GetAlert().title:GetText(), "Elwynn Forest Explored")
+        slash("")
+        local card = ns.Celebration.GetOverlay().card
+        t.eq(card.kicker:GetText(), "STREAMER EARNED")
+        t.ok(card.line:GetText():find("^All 5 areas discovered%."), card.line:GetText())
+        slash("debug celebrate bogus")
+        t.ok(wow.chat[#wow.chat]:find("Usage"), wow.chat[#wow.chat])
+        t.eq(#ns.Debug.errors, 0)
+    end)
 end

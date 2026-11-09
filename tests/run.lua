@@ -16,6 +16,7 @@ local FILES = {
     "tests/progression_test.lua",
     "tests/zones_test.lua",
     "tests/overview_test.lua",
+    "tests/celebrations_test.lua",
     "tests/quests_test.lua",
     "tests/questrules_test.lua",
     "tests/completion_test.lua",

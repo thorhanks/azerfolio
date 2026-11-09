@@ -68,6 +68,9 @@ function Gamepad.ShouldBeActive(windowShown, uiEnabled, combat)
 end
 
 local function handle(action)
+    -- A modal on the window (a celebration) takes every button first.
+    local modal = ns.UI.modal
+    if modal and modal.OnAction and modal.OnAction(action) then return end
     if action == "prevTab" then
         ns.UI.NextTab(-1)
     elseif action == "nextTab" then

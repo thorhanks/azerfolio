@@ -15,6 +15,7 @@ local HELP = {
     "/azf debug overview - show what the Overview picks and counts",
     "/azf debug quests [full] - show the quest catalogue from QuestieDB (full: every zone's checklist in the trace)",
     "/azf debug flights - show flight paths per zone and which flight masters you've visited",
+    "/azf debug celebrate explore|quests|flights|claim [mapID] - preview a celebration (window closed: the alert)",
     "/azf debug perf - event counts, timings and memory since debug was turned on (reset: start over; gc: collect garbage first)",
     "/azf shot - take a test screenshot (development)",
     "/azf shots - screenshot every tab and state (development)",
@@ -203,6 +204,13 @@ function Commands.Handle(input)
             ns.FlightPaths.DebugReport()
         elseif sub == "perf" then
             debugPerf(words[3])
+        elseif sub == "celebrate" then
+            local kind = words[3]
+            if kind ~= "explore" and kind ~= "quests" and kind ~= "flights" and kind ~= "claim" then
+                ns.Print("Usage: /azf debug celebrate explore|quests|flights|claim [mapID]")
+            else
+                ns.Celebrations.Preview(kind, tonumber(words[4]))
+            end
         else
             ns.Print("Unknown debug option. Type /azf help.")
         end

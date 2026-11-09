@@ -345,6 +345,15 @@ Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue for
 
 **Done when:** Spec §12 "v1.1 Quests" criteria pass. If full coverage risks stability, ship a clearly labeled subset.
 
+### Phase 10 — Celebrations and the Atlas (v1.2)
+
+Owner request 2026-11-08, after v1.1.
+
+**Tasks**
+1. Celebrations (spec §7.7, DESIGN.md "Celebrations"): a category of a zone completing (the streamer it earns) or the zone being claimed, seen while you play; full-window overlay with the window open, an on-screen alert with it closed. *(Done 2026-11-08.)*
+2. Atlas view (DESIGN.md "Zones: Atlas"): mockup review, positions from verified map data, then Lua.
+
+**Done when:** both checked in game and approved by the owner.
 ## 7. Phase 0 questions
 
 All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabilities.md`.
@@ -435,6 +444,8 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-08 | Focus grid: left/right from a row with nothing on that side goes to the nearest row with an item of the column on that side | The Overview's columns now differ in length; left from Zones did nothing |
 | 2026-11-08 | Without QuestieDB, quests are pending ("questiedb") in every zone with another category, so none can be claimed | In game, Elwynn showed "Claimed" on exploration alone with QuestieDB off: an unverifiable complete (spec §7.7, honest data) |
 | 2026-11-08 | Phase 9 accepted; v1.1 closed as version 1.1.0 | Every spec §12 "v1.1 Quests" criterion met in game on Gideon and Thragor (`docs/testing.md` § Phase 9). Owner approved |
+| 2026-11-08 | "Welcome!" quests (5805, 5841-5844, 5847) left out as "excluded" (`Data/QuestAreas.lua` `excludedQuests`) | Started by the old gift voucher; the owner found none in game |
+| 2026-11-08 | Celebrations come from in-memory snapshots of the Zones entries: a category known open and now complete, or a claim together with such a change; nothing saved, nothing at login; the alert waits for the window | Spec §7.7; honest data (no celebration for data that only arrived late) without bringing back the removed milestone history |
 
 ## 10. Definition of done (v1)
 

@@ -477,9 +477,6 @@ h2.section small { font-size: var(--fs-xs); color: var(--dim); }
 .warbanner.mini .flutter { animation-duration: 4s; }
 .zcard .badge.claimed { width: 30px; height: 38px; filter: drop-shadow(0 2px 3px #000); }
 .zcard .badge.claimed svg { width: 100%; height: 100%; }
-.celebrate.claim .card { padding-top: 0; }
-.celebrate.claim .claimart { width: 260px; height: 330px; margin: 0 auto var(--s2); }
-.celebrate.claim .claimart svg { width: 100%; height: 100%; overflow: visible; }
 /* ---- Design round 2 (owner, 2026-11-08): painted standard, taller header, frame kit, icons ---- */
 .detail:not(.paged) { grid-template-rows: 196px 1fr; }
 .detail-hero .zscore { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; padding: var(--s2) var(--s3);
@@ -623,15 +620,8 @@ body.chrome .catbar.progress .ctrack i { filter: hue-rotate(-16deg) saturate(1.2
 .tooltip .dim { color: #b5b5b5; }
 .toast { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); padding: var(--s2) var(--s4); background: rgba(0,0,0,.88); color: var(--wow-gold); border: 1px solid var(--frame-gold); border-radius: var(--r-ctl); font: var(--fs-md) var(--font); z-index: 45; text-align: center; }
 .toast small { display: block; font-size: var(--fs-xs); color: var(--text); }
-.celebrate { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; background: radial-gradient(circle, rgba(60,40,0,.75), rgba(0,0,0,.88)); overflow: hidden; border-radius: 2px; }
-.celebrate .rays { position: absolute; width: 1400px; height: 1400px; background: repeating-conic-gradient(rgba(255,209,0,.07) 0 6deg, transparent 6deg 18deg);
   -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 60%); mask-image: radial-gradient(circle, #000 0%, transparent 60%); animation: spin 30s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.celebrate .card { position: relative; text-align: center; padding: var(--s6) 40px; animation: rise .7s ease-out; }
-@keyframes rise { from { transform: scale(.6); opacity: 0; } }
-.celebrate .emblem { width: 110px; height: 110px; font-size: 56px; margin: 0 auto var(--s4); border-width: 4px; }
-.celebrate h1 { margin: 0; font: var(--fs-xxl) var(--font); color: var(--wow-gold); text-shadow: 0 3px 6px #000; font-weight: 400; }
-.celebrate p { margin: var(--s2) 0 var(--s4); font-size: var(--fs-md); color: var(--text); }
 
 /* Step 6, the Overview: painted plates for its section headers, the frame kit on every panel,
    tracked completion per category, and suggestions that mix areas, quests and flight paths. */
@@ -687,3 +677,49 @@ body.chrome .gbar.progress i { filter: hue-rotate(-16deg) saturate(1.25) brightn
 .trow .zlegend .p { background: var(--st-progress); } .trow .zlegend .u { background: var(--st-untouched); }
 .overview .minimap .mg { grid-auto-rows: 8px; } .ovplate { height: 30px; margin: var(--s2) -6px var(--s2); } .overview .col > .ovplate:first-of-type { margin-top: var(--s3); }
 .trow .stack { height: 12px; } .trow .stack .u { background: #5c4d3b; }
+
+/* Celebrations (DESIGN.md "Celebrations"): a dark, warm overlay with slow rays and motes; the
+   card in the painted frame; A or B continues. */
+.celebrate { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; overflow: hidden; border-radius: 2px;
+  background: radial-gradient(ellipse at 50% 45%, rgba(46,30,8,.94), rgba(4,2,0,.97) 70%); animation: celIn .35s ease-out; }
+@keyframes celIn { from { opacity: 0; } }
+.celebrate .rays { position: absolute; left: 50%; top: 42%; width: 1600px; height: 1600px; margin: -800px 0 0 -800px; pointer-events: none;
+  background: repeating-conic-gradient(rgba(255,209,0,.075) 0 5deg, transparent 5deg 15deg);
+  -webkit-mask: radial-gradient(circle, #000 0, transparent 52%); mask: radial-gradient(circle, #000 0, transparent 52%); animation: spin 60s linear infinite; }
+.celebrate .motes { position: absolute; inset: 0; pointer-events: none; }
+.celebrate .motes i { position: absolute; bottom: -10px; width: 4px; height: 4px; border-radius: 50%; background: #ffe7a0; box-shadow: 0 0 6px #ffd35a;
+  animation: celMote linear infinite; opacity: 0; }
+@keyframes celMote { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translateY(-560px); opacity: 0; } }
+.celebrate .card { position: relative; z-index: 2; text-align: center; min-width: 420px; max-width: 560px; padding: var(--s6) 44px var(--s6);
+  background: linear-gradient(180deg, rgba(36,26,17,.96), rgba(16,10,5,.98)); animation: celRise .6s cubic-bezier(.2,.9,.3,1.15); }
+body.chrome .celebrate .card::before { content: ""; position: absolute; inset: -5px; pointer-events: none;
+  border: 22px solid transparent; border-image: url(chrome-art/frame-card.png) var(--card-slice) / 22px stretch; }
+@keyframes celRise { from { transform: translateY(24px) scale(.9); opacity: 0; } }
+.celebrate .kicker { font-size: var(--fs-xs); letter-spacing: 2px; text-transform: uppercase; color: var(--wow-gold); opacity: .85; }
+.celebrate h1 { margin: var(--s1) 0 0; font: var(--fs-xxl) var(--font); color: var(--wow-gold); text-shadow: 0 3px 6px #000, 0 0 18px rgba(255,190,60,.35); font-weight: 400; }
+.celebrate p { margin: var(--s2) 0 var(--s4); font-size: var(--fs-md); color: var(--text); }
+.celebrate p b { color: var(--white); font-weight: 400; }
+.celebrate .claimart { width: 230px; height: 300px; margin: -8px auto var(--s2); }
+.celebrate .claimart svg { width: 100%; height: 100%; overflow: visible; }
+.celebrate .celcats { display: flex; justify-content: center; gap: var(--s4); margin: -6px 0 var(--s4); font-size: var(--fs-sm); color: var(--dim); }
+.celebrate .celcats span { display: inline-flex; align-items: center; gap: 6px; }
+.celebrate .celcats b { color: var(--complete, #ffd35a); font-weight: 400; }
+.celebrate .celmedal { position: relative; width: 150px; height: 150px; margin: 0 auto var(--s3); }
+.celebrate .celmedal .ring { z-index: 1; }
+.celebrate .celmedal .ring { position: absolute; left: 24px; top: 20px; width: 104px; height: 104px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 40%, #3a2a12, #120a03); box-shadow: 0 0 0 3px #b8892e, 0 0 0 6px #3a2605, 0 0 26px rgba(255,200,80,.45);
+  animation: celPop .6s .15s cubic-bezier(.2,.9,.3,1.4) both; }
+.celebrate .celmedal img.cimg.big { width: 64px; height: 64px; border-radius: 6px; box-shadow: 0 0 0 1px #000; }
+@keyframes celPop { from { transform: scale(.4); opacity: 0; } }
+.celebrate .celstreamer { position: absolute; right: 4px; top: 2px; width: 24px; height: 192px; object-fit: cover; object-position: 50% 12%; z-index: 0; transform-origin: 50% 0;
+  animation: celDrop .8s .45s cubic-bezier(.2,.9,.3,1.1) both; filter: drop-shadow(0 4px 6px rgba(0,0,0,.6)); }
+@keyframes celDrop { from { transform: translateY(-40px); opacity: 0; } }
+.celebrate.claim .card { padding-top: var(--s3); }
+
+/* The on-screen alert while the window is closed (in game: top centre of the screen). */
+.gamealert { position: fixed; left: 50%; top: 90px; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: var(--s3);
+  min-width: 320px; padding: 10px 70px; color: var(--wow-gold); font: var(--fs-md) var(--font); text-shadow: 0 1px 2px #000;
+  border: solid transparent; border-width: 0 64px; border-image: url(chrome-art/plate-header.png) 0 19% fill / 0 64px stretch; }
+.gamealert small { display: block; font-size: var(--fs-xs); color: var(--dim); letter-spacing: 1px; text-transform: uppercase; }
+.gamealert.show { animation: alertIn 5s ease-in-out both; }
+@keyframes alertIn { 0% { opacity: 0; transform: translate(-50%, -12px); } 8%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }.gamealert[hidden] { display: none; }

@@ -22,7 +22,14 @@
   </select></label>
   <button id="simulate">Simulate discovery</button>
   <label>Quests <select id="questMode"></select></label>
-  <button id="simulateClaim">Simulate claim</button>
+  <label>Celebrate <select id="celebrateSel">
+    <option value="">choose…</option>
+    <option value="explore">Area finished: Explored</option>
+    <option value="quests">Every quest done</option>
+    <option value="flights">Every flight path found</option>
+    <option value="claim">Zone claimed</option>
+    <option value="alert">Window closed: on-screen alert</option>
+  </select></label>
   <label>Look <select id="lookSel"><option>Alliance</option><option>Horde</option></select></label>
   <label><input type="checkbox" id="claimPreview"> Preview claimed</label>
   <span class="right">
@@ -72,6 +79,7 @@
     <div class="toast" id="toast" hidden></div>
   </div>
   <button class="reopen" id="reopen" hidden>Reopen Azerfolio (/azf)</button>
+  <div class="gamealert" id="gamealert" hidden></div>
 </div>
 
 <script src="data.js"></script>

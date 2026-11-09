@@ -950,19 +950,53 @@
       <path d="${ui.look === "Horde" ? "M5.5 3 H22 L21 9 L23 15 L19 19 L16 15 L12 20 L9 15 L5.5 18 Z" : "M5.5 3 H22 V18 L17 15 L13.75 19 L10.5 15 L5.5 18 Z"}" fill="${F.cloth}" stroke="${F.trim}" stroke-width="1.2"/>
       <path d="M10 9.5 l2.4 2.6 l4.6 -5" stroke="${F.trim}" stroke-width="1.8" fill="none"/></svg>`;
   }
-  // The claim moment: a full-window celebration with the banner rising to the top.
-  function showClaim(z) {
-    const claimed = { ...z, pct: 1, state: "complete", unchecked: false, cats: z.cats.map(c => ({ ...c, done: c.total, pct: 1, unchecked: 0 })) };
+  // ---- Celebrations (spec §7.7; design: DESIGN.md "Celebrations") ----
+  // Only for a change seen while you play: a category of a zone becoming complete (one
+  // streamer earned) or the whole zone becoming claimed. Both at once: only the claim.
+  // Window open: a full-window celebration (A or B continues). Window closed: an on-screen
+  // alert for a few seconds, and the celebration plays once when you next open Azerfolio.
+  const CEL = {
+    explore: { title: (z) => `${z.name} Explored`, line: (c) => `All ${c.total} areas discovered.` },
+    quests: { title: (z) => `${z.name}: Every Quest Done`, line: (c) => `All ${c.total} quests you can do here are complete.` },
+    flights: { title: (z) => `${z.name}: Every Flight Path`, line: (c) => `All ${c.total} flight ${c.total === 1 ? "path" : "paths"} discovered.` },
+  };
+  const finishCat = (c) => ({ ...c, done: c.total, pct: 1, unchecked: 0 });
+  function celebrate(z, kind) {
+    closeCelebrate(true);
     ui.celebrate = z.name;
     const el = document.createElement("div");
-    el.className = "celebrate claim"; el.id = "celebrate";
-    el.innerHTML = `<div class="rays"></div><div class="card"><div class="claimart">${bannerArt(claimed, { animate: true, from: z.pct || 0 })}</div>
-      <h1>${esc(z.name)} claimed</h1><p>for the ${ui.look}: ${z.cats.map(c => c.label.toLowerCase()).join(", ").replace(/, ([^,]*)$/, " and $1")} complete.</p>
-      <button class="btn focusable cel-ok">Continue <span class="glyph A">A</span></button></div>`;
+    el.className = `celebrate ${kind === "claim" ? "claim" : "cat"}`; el.id = "celebrate";
+    let body;
+    if (kind === "claim") {
+      const claimed = { ...z, pct: 1, state: "complete", unchecked: false, cats: z.cats.map(finishCat) };
+      body = `<div class="claimart">${progressArt(claimed, { animate: true, from: z.pct || 0 })}</div>
+        <div class="kicker">Zone claimed</div><h1>${esc(z.name)}</h1>
+        <p>Claimed for the ${ui.look}.</p>
+        <div class="celcats">${claimed.cats.map(c => `<span>${catIcon(c.key, "cimg sm")}<b>${c.total}</b> ${c.total === 1 ? c.unit.replace(/s$/, "").replace("flight paths", "flight path") : c.unit}</span>`).join("")}</div>`;
+    } else {
+      const c = catOf(z, kind) || { key: kind, total: 1, label: CATS[kind].label };
+      const k = ui.look === "Horde" ? "horde" : "alliance";
+      const after = { ...z, cats: z.cats.map(x => x.key === kind ? finishCat(x) : x) };
+      after.pct = after.cats.reduce((s, x) => s + x.done / x.total, 0) / after.cats.length;
+      body = `<div class="celmedal">${hasPiece("streamer-" + k) ? `<img class="celstreamer" src="banner-art/streamer-${k}.png" alt="">` : ""}
+          <div class="ring">${catIcon(kind, "cimg big")}</div></div>
+        <div class="kicker">Streamer earned</div><h1>${esc(CEL[kind].title(z))}</h1>
+        <p>${CEL[kind].line(c)} ${esc(z.name)} is now <b>${pctText(after.pct)}</b>.</p>`;
+    }
+    el.innerHTML = `<div class="rays"></div><div class="motes">${Array.from({ length: 18 }, (_, i) =>
+      `<i style="left:${(i * 37) % 100}%;animation-delay:-${(i * 0.7) % 6}s;animation-duration:${5 + (i % 4)}s"></i>`).join("")}</div>
+      <div class="card">${body}<button class="btn focusable cel-ok">Continue <span class="glyph A">A</span></button></div>`;
     $("#window").appendChild(el);
     setFocus($(".cel-ok"));
   }
-
+  // The on-screen alert while the window is closed (shown on the page, outside the window).
+  function gameAlert(z, kind) {
+    const a = $("#gamealert");
+    const title = kind === "claim" ? `${z.name} claimed` : CEL[kind].title(z);
+    a.innerHTML = `${catIcon(kind === "claim" ? "explore" : kind, "cimg")}<span><small>Azerfolio</small>${esc(title)}</span>`;
+    a.hidden = false; a.classList.remove("show"); void a.offsetWidth; a.classList.add("show");
+    clearTimeout(gameAlert.t); gameAlert.t = setTimeout(() => { a.hidden = true; }, 5000);
+  }
   // ---- Zone Detail category sections (Phase 9 step 4, spec §7.3, §7.7) ----
   const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
   // Reason as shown: "level 12" -> "Level 12"; a prerequisite names the quest when known.
@@ -1203,28 +1237,15 @@
     const nextC = z.criteria.find(c => !c.done);
     if (!nextC) return toast(`${esc(z.name)} is already fully explored.<small>Switch Data to try again.</small>`);
     (S.done[z.name] = S.done[z.name] || []).push(nextC.name);
-    S.milestones.push({ t: new Date(), kind: "area", area: nextC.name, zone: z.name });
     ui.newCrit = nextC.id;
     buildModel();
     const nz = byName[z.name];
-    toast(`Discovered: ${esc(nextC.name)}<small>${nz.done} of ${nz.total} in ${esc(z.name)} · milestone recorded</small>`);
+    toast(`Discovered: ${esc(nextC.name)}<small>${nz.done} of ${nz.total} in ${esc(z.name)}</small>`);
     rerenderKeepFocus();
-    if (nz.state === "complete") {
-      S.milestones.push({ t: new Date(), kind: "zone", zone: z.name });
-      setTimeout(() => showCelebrate(nz), 900);
-    }
+    if (nz.done === nz.total) setTimeout(() => celebrate(nz, nz.state === "complete" ? "claim" : "explore"), 900);
     setTimeout(() => { ui.newCrit = null; }, 1500);
   }
-  function showCelebrate(z) {
-    ui.celebrate = z.name;
-    const el = document.createElement("div");
-    el.className = "celebrate"; el.id = "celebrate";
-    el.innerHTML = `<div class="rays"></div><div class="card"><div class="emblem">✓</div><h1>${esc(z.name)} Explored</h1>
-      <p>All ${z.total} areas discovered. Added to your milestones.</p><button class="btn focusable cel-ok">Continue <span class="glyph A">A</span></button></div>`;
-    $("#window").appendChild(el);
-    setFocus($(".cel-ok"));
-  }
-  function closeCelebrate() { $("#celebrate")?.remove(); ui.celebrate = null; rerenderKeepFocus(); }
+  function closeCelebrate(quiet) { $("#celebrate")?.remove(); ui.celebrate = null; if (!quiet) rerenderKeepFocus(); }
 
   // =====================================================================================
   // Focus engine (spatial stand-in for the addon's explicit focus grid)
@@ -1385,10 +1406,12 @@
   $("#simulate").addEventListener("click", (e) => { simulateDiscovery(); e.target.blur(); });
   $("#questMode").innerHTML = Object.entries(QUEST_MODES).map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
   $("#questMode").addEventListener("change", (e) => { ui.quests = e.target.value; buildModel(); rerenderKeepFocus(); e.target.blur(); });
-  $("#simulateClaim").addEventListener("click", (e) => {
-    e.target.blur();
+  $("#celebrateSel").addEventListener("change", (e) => {
+    const kind = e.target.value; e.target.value = ""; e.target.blur();
     const z = byName[ui.detail || ui.selected || CHAR.zone];
-    if (z && z.tracked) showClaim(z);
+    if (!kind || !z || !z.tracked) return;
+    if (kind === "alert") return gameAlert(z, "explore");
+    celebrate(z, kind);
   });
   $("#lookSel").addEventListener("change", (e) => { ui.look = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#claimPreview").addEventListener("change", (e) => { ui.claimPreview = e.target.checked; rerenderKeepFocus(); e.target.blur(); });

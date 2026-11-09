@@ -12,7 +12,7 @@ Read before working:
 
 ## Current state (2026-11-08, v1.1.0)
 
-- v1 (1.0.0) and v1.1 (1.1.0, Phase 9: quests via QuestieDB, flight paths, combined zone completion, zone dashboard, Overview) closed 2026-11-08. **Next:** not planned; candidates in spec §3 "Later". History in `docs/history/`.
+- v1 (1.0.0) and v1.1 (1.1.0, Phase 9: quests via QuestieDB, flight paths, combined zone completion, zone dashboard, Overview) closed 2026-11-08. **Phase 10** (v1.2): celebrations done; **next: the Atlas view**, mockup first. History in `docs/history/`.
 - Level ranges and factions come from the hand-curated, unofficial `Data/Zones.lua`; quest areas from `Data/QuestAreas.lua`. Dungeon and raid quests are kept per instance for a later Dungeons tab.
 - Debug mode (`/azf debug`) writes a capped trace to `AzerfolioDB.trace`; read it after `/reload` with `luajit tools/trace-report.lua` (not ad hoc scripts). `/azf debug exploration` prints the current zone and the total. `RECEIVED_ACHIEVEMENT_LIST` doesn't fire on `/reload`.
 - Banner crop offsets: `Theme.bannerFocus`; check with `/azf shots banners`.

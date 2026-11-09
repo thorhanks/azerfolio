@@ -92,7 +92,12 @@ The owner chose the **full native Forever look**: Azerfolio looks like the clien
 
 **Wide window (ultrawide, about 1640 px):** Zones becomes a split view: compact list on the left, Zone Detail on the right, updating as focus moves. The Atlas view is available too; choosing a tile switches to the split view with that zone selected. A moves into the checklist; B returns to the list.
 
-**Completion moment:** a toast, pip pop and row flash, then a full-window celebration (emblem, "<Zone> Explored", soft rays masked to the centre, A to continue), and a highlighted milestone.
+**Celebrations (spec §7.7; approved 2026-11-08, built in Lua):**
+- **When:** only for a change seen while you play (the state before and after both confirmed by the game in this session; nothing is celebrated at login or for progress made with the addon off). Two kinds: a zone's **category becomes complete** (every area discovered, every quest you can do done, every flight path found: the streamer it earns) and the **zone is claimed** (every applying category complete). When one change does both, only the claim plays. (The mockup's discovery toast and row flash are stand-ins; the addon has neither.) In game the rays are still textures, not spinning: Rotation animations misbehave in this client.
+- **Category:** a dark, warm overlay over the window with slow rays and rising motes; a card in the painted frame: the category's painted icon in a gold ring with the faction's streamer dropping beside it, "Streamer earned", "<Zone> Explored" / "<Zone>: Every Quest Done" / "<Zone>: Every Flight Path", the count ("All 12 areas discovered.") and the zone's new %. A or B continues.
+- **Claim:** the same overlay; the zone's painted standard hoisted to the top with every streamer, "Zone claimed", the zone's name, "Claimed for the Alliance/Horde", the counts per category. A or B continues.
+- **Window closed:** an on-screen alert at the top centre of the screen for 5 seconds (the painted header plate, the category icon, "Azerfolio" and the title), not clickable; the celebration plays once when you next open Azerfolio. Several waiting: the claims first, then the rest, one after the other.
+- Mockup: dev bar "Celebrate" (each kind and the alert); "Simulate discovery" on "Gideon, 1 area left" plays Explored after the last area.
 
 ## Gamepad
 

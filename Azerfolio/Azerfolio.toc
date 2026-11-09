@@ -32,6 +32,7 @@ Systems\Quests.lua
 Systems\FlightPaths.lua
 Systems\Zones.lua
 Systems\Overview.lua
+Systems\Celebrations.lua
 UI\Theme.lua
 UI\FocusGrid.lua
 UI\MainWindow.lua
@@ -43,6 +44,7 @@ UI\Pages\Overview.lua
 UI\Pages\ZonesCatalogue.lua
 UI\Pages\ZoneDetail.lua
 UI\Pages\Zones.lua
+UI\Celebration.lua
 UI\Shots.lua
 UI\Launcher.lua
 Core\Lifecycle.lua
