@@ -43,9 +43,74 @@ local function bannerSteps()
     return list
 end
 
+-- The zone to show reputation on: the player's zone if it has factions, else the zone with
+-- the most (rivals first: their tags wrap), or nil when no zone has any.
+local function repZone(zones, here)
+    local best, bestScore
+    for _, z in ipairs(zones) do
+        local ok, list = pcall(ns.Reputation.ForZone, z)
+        if ok and list then
+            local score = #list * 10
+            for _, f in ipairs(list) do if #(f.rivals or {}) > 0 then score = score + 5 end end
+            if z.mapID == here then score = score + 1000 end
+            if not bestScore or score > bestScore then best, bestScore = z, score end
+        end
+    end
+    return best
+end
+
+-- Zone Detail's Reputation ledger (focus on its first faction) and that faction's page; with
+-- `wide`, the same in the wide split view.
+local function repSteps(zones, here, wide)
+    local z = repZone(zones, here)
+    if not z then return {} end
+    local function focusFirst()
+        local list = ns.Reputation.ForZone(z)
+        if list then ns.Focus.FocusKey(ns.ZoneDetail.RepKey(list[1].factionID)); UI.RefreshHints() end
+    end
+    local function openPage()
+        local page, list = zonesPage(), ns.Reputation.ForZone(z)
+        if page and list then page:OpenRep(list[1].factionID) end
+    end
+    if wide then
+        return {
+            { label = "zones wide, reputation", fn = function()
+                local page = zonesPage()
+                if page then page:Open(z); UI.shotsOpenedDetail = true end
+                focusFirst()
+            end },
+            { label = "zones wide, faction page", fn = openPage },
+        }
+    end
+    return {
+        { label = "zone detail, reputation", fn = function() openDetail(z); focusFirst() end },
+        { label = "zone detail, faction page", fn = openPage },
+    }
+end
+
+-- /azf shots reputation: the ledger and the faction page, normal size then wide.
+local function reputationSteps(zones, here)
+    local list = repSteps(zones, here, false)
+    if #list == 0 then return list end
+    list[#list + 1] = { label = "zones wide", fn = function()
+        local page = zonesPage()
+        if page and page.mode == "detail" then page:Back() end
+        if page and page.mode == "detail" then page:Back() end
+        UI.shotsOpenedDetail = nil
+        UI.SelectTab("zones"); UI.FitSize(wideSize())
+    end, skip = true }
+    for _, s in ipairs(repSteps(zones, here, true)) do list[#list + 1] = s end
+    return list
+end
+
 -- Each step changes the window, then one screenshot is taken.
 local function steps(which)
     if which == "banners" then return bannerSteps() end
+    if which == "reputation" or which == "rep" then
+        local here = C_Map and C_Map.GetBestMapForUnit
+            and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
+        return reputationSteps(allZones(), here)
+    end
     local minW, minH = ns.Config.RANGES["window.width"][1], ns.Config.RANGES["window.height"][1]
     local function size(w, h) return function() UI.FitSize(w, h) end end
     local list = {}
@@ -119,6 +184,8 @@ local function steps(which)
             if page and page.OpenPage then page:OpenPage(key) end
         end }
     end
+    -- The Reputation ledger and a faction page (Phase 11), where some zone has factions.
+    for _, s in ipairs(repSteps(zones, here, false)) do list[#list + 1] = s end
     -- A zone the game has no Explore achievement for (the "can't track" message).
     for _, z in ipairs(zones) do
         local ok, ex = pcall(ns.Exploration.ForZone, z)
@@ -140,6 +207,7 @@ local function steps(which)
         local item = ns.Focus.Current()
         if page and item and item.zone then page:Open(item.zone); UI.shotsOpenedDetail = true end
     end }
+    for _, s in ipairs(repSteps(zones, here, true)) do list[#list + 1] = s end
     return list
 end
 UI.ShotSteps = steps
@@ -172,7 +240,11 @@ function UI.RunShots(which)
         end
         UI.shotsView = nil
         if UI.shotsOpenedDetail then
-            UI.SelectTab("zones"); UI.GetFrame().pages.zones:Back(); UI.shotsOpenedDetail = nil
+            UI.SelectTab("zones")
+            local zp = UI.GetFrame().pages.zones
+            zp:Back() -- a category or faction page needs a second B to reach the catalogue
+            if zp.mode == "detail" then zp:Back() end
+            UI.shotsOpenedDetail = nil
         end
         if UI.shotsFocusKey ~= nil then
             UI.SelectTab("zones"); ns.Focus.FocusKey(UI.shotsFocusKey); UI.shotsFocusKey = nil

@@ -261,6 +261,50 @@ Theme.layout.catSlot = 14        -- one category's line on a card
 Theme.layout.catGap = 4
 Theme.layout.catCount = 58       -- "125/125" right of a bar (44 wrapped "42/68" in game)
 
+-- Zone reputation (Phase 11, mockups/DESIGN.md "Zone reputation", style.css .repsec/.frep/
+-- .repbar). Not a completion category: no state colours, the client's reaction colours.
+Theme.reaction = {
+    -- Reaction label text, 1..8 (Hated/Hostile red, Unfriendly orange, Neutral yellow, Friendly up green).
+    text = { hex("ff7a5c"), hex("ff7a5c"), hex("ff8a3d"), hex("ffd24d"), hex("4cd964"), hex("4cd964"), hex("4cd964"), hex("4cd964") },
+    -- The painted fill's tints (brighter than FACTION_BAR_COLORS: the pale fill isn't pure white).
+    fill = { hex("f0644a"), hex("f0644a"), hex("f07018"), hex("ffd21e"), hex("22d046"), hex("22d046"), hex("22d046"), hex("22d046") },
+    -- Fallback labels when the client's FACTION_STANDING_LABEL1..8 are missing.
+    labels = { "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted" },
+    unmetFill = 0.55,          -- the bar's fill alpha for a faction not met yet
+}
+Theme.color.repWar = hex("ff5a4a")    -- "At war" tag
+Theme.color.repRival = hex("d9b77a")  -- "Rival of" tag
+Theme.color.repRowTop = hex("241a11") -- ledger row gradient (rgba(36,26,17,.85) to rgba(16,10,5,.9))
+Theme.color.repRowBottom = hex("100a05")
+Theme.color.repRowEdge = hex("3a2e22")
+-- No ⚔ / ⇄ glyphs: the client's font draws them as boxes (WoWScrnShot_110826_222704).
+Theme.repTags = { war = "At war", rival = "Rival of %s", unmet = "Not met yet" }
+Theme.layout.rep = {
+    head = 30,                 -- "Reputation" title, the divider under it
+    divider = 12,              -- the painted divider's drawn height
+    row = 32, rowTall = 44,    -- one faction; taller when the tags wrap under the name
+    gap = 4,                   -- between rows
+    pad = 12,                  -- inside a row, left and right
+    react = 76, ladder = 216, num = 120, colGap = 12,                 -- 740 px window
+    wide = { react = 64, ladder = 148, num = 92, colGap = 8 },       -- the wide split's pane
+    sum = { react = 76, ladder = 260, num = 220, colGap = 12, row = 40 }, -- the faction page's summary
+    -- The notched bar (round 3, style.css .repbar): frame-bar housing drawn 14 px at the ends
+    -- and 6 px top and bottom; notches and the marker stick out past the well.
+    bar = {
+        height = 22, heightSum = 24, edgeX = 14, edgeY = 6,
+        notch = 2, notchOut = 4, cap = 5,
+        mark = 3, markOut = 3, glow = 6,
+        notchPast = hex("c9a24a"), notchNext = hex("ffe08a"), notchAhead = hex("8a6a1c"),
+    },
+}
+
+-- The client's reaction label (FACTION_STANDING_LABEL1..8), or the English fallback.
+function Theme.ReactionLabel(r)
+    local s = type(r) == "number" and rawget(_G, "FACTION_STANDING_LABEL" .. r)
+    if type(s) == "string" and s ~= "" then return s end
+    return Theme.reaction.labels[r] or "?"
+end
+
 -- Space the window's outside parts take (tabs right, legend below, portrait ring and glow).
 Theme.outside = { left = 8, right = 64, top = 8, bottom = 50 }
 

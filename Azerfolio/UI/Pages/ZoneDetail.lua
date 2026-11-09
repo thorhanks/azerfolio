@@ -1,9 +1,11 @@
 -- Zone Detail (spec §7, mockups/DESIGN.md "Zone Detail is a dashboard"): the zone's banner
 -- header, then either the dashboard (the war banner and one tile per category) or one
 -- category's page: Exploration (To discover / Discovered), Quests (Ready now, storylines,
--- finished storylines, the coverage note) or Flight paths. Used by UI/Pages/Zones.lua, which
--- owns the modes and B. Everything shown comes from ns.Zones / ns.Exploration / ns.Quests /
--- ns.FlightPaths; this file only draws it. Frames are pooled and reused.
+-- finished storylines, the coverage note) or Flight paths. Under Next up, the Reputation
+-- ledger (Phase 11; not part of the zone's progress); A on a faction opens its page (the
+-- zone's quests that raise it). Used by UI/Pages/Zones.lua, which owns the modes and B.
+-- Everything shown comes from ns.Zones / ns.Exploration / ns.Quests / ns.FlightPaths /
+-- ns.Reputation; this file only draws it. Frames are pooled and reused.
 local _, ns = ...
 
 local Detail = {}
@@ -169,6 +171,151 @@ local function paintNode(b, q)
 end
 
 ---------------------------------------------------------------------------------------------
+-- Reputation (Phase 11, mockups/DESIGN.md "Zone reputation"): not part of the zone's progress
+---------------------------------------------------------------------------------------------
+
+-- The faction page's key ("rep:<factionID>"), and the faction ID back from a page key.
+function Detail.RepKey(factionID) return "rep:" .. tostring(factionID) end
+function Detail.RepFaction(pageKey)
+    local id = type(pageKey) == "string" and pageKey:match("^rep:(%-?%d+)$")
+    return id and tonumber(id) or nil
+end
+
+local function nextLabel(f)
+    return f.reaction and f.reaction < 8 and ns.Theme.ReactionLabel(f.reaction + 1) or nil
+end
+
+-- "Not met yet   ⚔ At war   ⇄ Rival of Bloodsail Buccaneers", in their colours.
+local function repTags(f)
+    local T = ns.Theme
+    local function col(name, s)
+        local r, g, b = T.RGB(name)
+        return string.format("|cff%02x%02x%02x%s|r", r * 255, g * 255, b * 255, s)
+    end
+    local out = {}
+    if f.met == false then out[#out + 1] = col("dim", T.repTags.unmet) end
+    if f.atWar then out[#out + 1] = col("repWar", T.repTags.war) end
+    for _, r in ipairs(f.rivals or {}) do out[#out + 1] = col("repRival", string.format(T.repTags.rival, r.name or "?")) end
+    return table.concat(out, "   ")
+end
+
+-- One faction line: name and tags, the reaction in its colour, the notched bar, n / m. `plain`:
+-- not a focus stop (the faction page's summary).
+local function newRepRow(parent, plain)
+    local T, W = ns.Theme, ns.Widgets
+    local R = T.layout.rep
+    local row = plain and CreateFrame("Frame", nil, parent) or W.FocusRow(parent, R.row)
+    row:SetHeight(R.row)
+    row.bg = row:CreateTexture(nil, "BACKGROUND")
+    row.bg:SetAllPoints()
+    row.bg:SetColorTexture(1, 1, 1, 1)
+    local top, bottom = T.color.repRowTop, T.color.repRowBottom
+    local ok = type(CreateColor) == "function" and pcall(row.bg.SetGradient, row.bg, "VERTICAL",
+        CreateColor(bottom[1], bottom[2], bottom[3], 0.9), CreateColor(top[1], top[2], top[3], 0.85))
+    if not ok then row.bg:SetColorTexture(top[1], top[2], top[3], 0.88) end
+    row.edge = W.Edge(row, "BORDER")
+    row.edge:SetColor("repRowEdge")
+    row.name = T.Text(row, "sm", "white")
+    row.name:SetJustifyH("LEFT"); row.name:SetWordWrap(false)
+    row.tags = T.Text(row, "xs", "text")
+    row.tags:SetJustifyH("LEFT")
+    row.num = T.Text(row, "xs", "text")
+    row.num:SetJustifyH("RIGHT"); row.num:SetWordWrap(false)
+    row.react = T.Text(row, "sm", "white")
+    row.react:SetJustifyH("LEFT"); row.react:SetWordWrap(false)
+    row.bar = W.RepBar(row)
+    if not plain then
+        row:SetScript("OnClick", function(self) if self.item and self.item.onActivate then self.item.onActivate(self.item) end end)
+    end
+    return row
+end
+
+-- Fills a faction line for `width` with column widths `cols` ({ react, ladder, num, colGap,
+-- row }); `summary` adds what's left to the next reaction. Returns the line's height (taller
+-- when the tags wrap under the name).
+local function paintRepRow(row, f, width, cols, summary)
+    local T = ns.Theme
+    local R = T.layout.rep
+    local pad, gap = R.pad, cols.colGap
+    T.SetFont(row.name, summary and "md" or "sm")
+    row.name:SetText(f.name or ("Faction " .. tostring(f.factionID)))
+    row.name:SetTextColor(T.RGB(f.met == false and "text" or "white"))
+    row.tags:SetText(repTags(f))
+    local c = T.reaction.text[f.reaction] or T.color.text
+    row.react:SetText(T.ReactionLabel(f.reaction))
+    row.react:SetTextColor(c[1], c[2], c[3])
+    local num = ""
+    if not f.maxed and f.into and f.span then
+        num = ns.Widgets.Number(f.into) .. " / " .. ns.Widgets.Number(f.span)
+        local nxt = nextLabel(f)
+        if summary and nxt then num = num .. "  ·  " .. ns.Widgets.Number(f.span - f.into) .. " to " .. nxt end
+    end
+    row.num:SetText(num)
+    -- The numbers never cut: the client's font is wider than the mockup's ("35,500 / 3..." in
+    -- the wide split, WoWScrnShot_110826_222708), so the column grows to the text.
+    local numW = math.max(cols.num, math.ceil(row.num:GetStringWidth() or 0) + 2)
+    row.num:ClearAllPoints(); row.num:SetPoint("RIGHT", row, "RIGHT", -pad, 0); row.num:SetWidth(numW)
+    row.bar:ClearAllPoints(); row.bar:SetPoint("RIGHT", row, "RIGHT", -(pad + numW + gap), 0)
+    row.bar:Set(f, cols.ladder, summary and R.bar.heightSum or R.bar.height)
+    row.react:ClearAllPoints(); row.react:SetPoint("LEFT", row, "RIGHT", -(pad + numW + cols.ladder + cols.react + 2 * gap), 0)
+    row.react:SetWidth(cols.react)
+    -- Name and tags share what's left; the tags wrap under the name when both don't fit.
+    local avail = math.max(40, width - 2 * pad - cols.react - cols.ladder - numW - 3 * gap)
+    local nameW = math.min(avail, math.ceil(row.name:GetStringWidth() or 0) + 1)
+    row.name:SetWidth(nameW)
+    local tags = row.tags:GetText() or ""
+    local tagW = tags ~= "" and math.ceil(row.tags:GetStringWidth() or 0) + 1 or 0
+    local oneLine = tags == "" or nameW + gap + tagW <= avail
+    local h = oneLine and (cols.row or R.row) or R.rowTall
+    row:SetHeight(h)
+    row.name:ClearAllPoints(); row.tags:ClearAllPoints()
+    if oneLine then
+        row.name:SetPoint("LEFT", row, "LEFT", pad, 0)
+        row.tags:SetPoint("LEFT", row.name, "RIGHT", gap, -1)
+        row.tags:SetWidth(math.max(1, tagW))
+    else
+        row.name:SetPoint("TOPLEFT", row, "TOPLEFT", pad, -6)
+        row.tags:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -3)
+        row.tags:SetWidth(avail)
+    end
+    row.tags:SetShown(tags ~= "")
+    return h
+end
+Detail.PaintRepRow = paintRepRow
+
+-- The info line for a faction: "Friendly, 1,800 to Honored. A shows the 40 quests here that raise it."
+function Detail.RepInfo(f)
+    local s = ns.Theme.ReactionLabel(f.reaction)
+    local nxt = nextLabel(f)
+    if not f.maxed and f.into and f.span and nxt then
+        s = s .. ", " .. ns.Widgets.Number(f.span - f.into) .. " to " .. nxt
+    end
+    local n = f.count or #(f.quests or {})
+    return s .. string.format(". A shows the %d %s here that %s it.", n, n == 1 and "quest" or "quests", n == 1 and "raises" or "raise")
+end
+
+-- A quest chip on the faction page: level (or a gold check when done), name, state, "~+amount".
+local function newRepChip(parent)
+    local T, S = ns.Theme, ns.Theme.space
+    local b = newChip(parent)
+    b.mark = b:CreateTexture(nil, "OVERLAY")
+    b.mark:SetSize(16, 16); b.mark:SetPoint("CENTER", b.lvbg, "CENTER")
+    b.mark:SetTexture(T.files.checkDone)
+    if b.mark.SetDesaturated then b.mark:SetDesaturated(true) end
+    b.mark:SetVertexColor(T.RGB("complete"))
+    b.amt = T.Text(b, "xs", "dim")
+    b.amt:SetPoint("RIGHT", b, "RIGHT", -S.s2, 0)
+    b.amt:SetJustifyH("RIGHT"); b.amt:SetWordWrap(false)
+    b.state = T.Text(b, "xs", "dim")
+    b.state:SetPoint("RIGHT", b.amt, "LEFT", -S.s2, 0)
+    b.state:SetWordWrap(false)
+    b.name:ClearAllPoints()
+    b.name:SetPoint("LEFT", b.lvbg, "RIGHT", S.s2, 0)
+    b.name:SetPoint("RIGHT", b.state, "LEFT", -S.s2, 0)
+    return b
+end
+
+---------------------------------------------------------------------------------------------
 -- Construction
 ---------------------------------------------------------------------------------------------
 
@@ -310,6 +457,33 @@ function Detail.New(page)
     nu.empty:SetPoint("TOP", nu, "BOTTOM", 0, -S.s3)
     d.nextup = nu
     d.nextItems = {}
+    -- The Reputation ledger under Next up (Phase 11): a slim gold title over the painted
+    -- divider, the note on the right, one line per faction (placed by LayoutDash).
+    local R = L.rep
+    local rep = CreateFrame("Frame", nil, dash)
+    rep:SetHeight(R.head)
+    rep.title = T.Text(rep, "md", "gold")
+    rep.title:SetPoint("TOPLEFT", rep, "TOPLEFT", S.s1, 0)
+    rep.title:SetText("Reputation")
+    rep.note = T.Text(rep, "xs", "dim")
+    rep.note:SetPoint("TOPRIGHT", rep, "TOPRIGHT", -S.s1, -3)
+    rep.note:SetText("Not part of the zone's progress")
+    local divFile = T.Chrome("divider")
+    if divFile then
+        rep.rule = rep:CreateTexture(nil, "ARTWORK")
+        rep.rule:SetTexture(divFile)
+        rep.rule:SetHeight(R.divider)
+        rep.rule:SetPoint("TOPLEFT", rep, "TOPLEFT", 0, -(R.head - R.divider))
+        rep.rule:SetPoint("TOPRIGHT", rep, "TOPRIGHT", 0, -(R.head - R.divider))
+    else
+        rep.rule = T.Solid(rep, "gold", "ARTWORK", 0.28)
+        rep.rule:SetHeight(1)
+        rep.rule:SetPoint("TOPLEFT", rep, "TOPLEFT", 0, -(R.head - R.divider / 2))
+        rep.rule:SetPoint("TOPRIGHT", rep, "TOPRIGHT", 0, -(R.head - R.divider / 2))
+    end
+    rep:Hide()
+    d.rep = rep
+    d.repRows = {}
     dash:SetScript("OnSizeChanged", function() Detail.LayoutDash(d) end)
 
     -- Pages (a scroll area) ---------------------------------------------------------------------
@@ -318,6 +492,7 @@ function Detail.New(page)
     scroll:SetPoint("BOTTOMRIGHT", 0, S.s2)
     d.scroll = scroll
     d.headers, d.checks, d.chips, d.nodes, d.folds, d.lines, d.texts = {}, {}, {}, {}, {}, {}, {}
+    d.repChips, d.repSums = {}, {}
     d.message = T.Text(scroll.child, "md", "dim")
     d.message:SetPoint("TOPLEFT", L.listInset, -S.s4)
     d.message:SetPoint("RIGHT", scroll.child, "RIGHT", -S.s6, 0)
@@ -345,7 +520,7 @@ end
 
 local function resetPools(d)
     d.used = {}
-    for _, kind in ipairs({ "headers", "checks", "chips", "nodes", "folds", "lines", "texts" }) do
+    for _, kind in ipairs({ "headers", "checks", "chips", "nodes", "folds", "lines", "texts", "repChips", "repSums" }) do
         for _, f in ipairs(d[kind]) do f:Hide() end
     end
     d.message:Hide()
@@ -405,7 +580,12 @@ local function fillBanner(d, zone, entry, pageKey)
     if art then b.art:SetTexture(art) else b.art:SetColorTexture(0, 0, 0, 1) end
     b.mapID = zone.mapID
     cropBanner(b)
-    b.name:SetText(pageKey and T.category[pageKey].label or zone.name)
+    -- A faction page: "Booty Bay · Stranglethorn Vale", the reaction on the right.
+    local repID = Detail.RepFaction(pageKey)
+    local fac = repID and ns.Reputation.Faction(zone, repID)
+    local title = pageKey and (T.category[pageKey] and T.category[pageKey].label) or zone.name
+    if repID then title = fac and fac.name or "Reputation" end
+    b.name:SetText(title)
     b.crumb:SetText(pageKey and ("·  " .. zone.name) or "")
     b.sub:SetText(bannerSub(zone))
     d.back:SetText(pageKey and zone.name or "Zones")
@@ -413,8 +593,14 @@ local function fillBanner(d, zone, entry, pageKey)
     -- keeps the usual height with its category's count.
     b:SetHeight(pageKey and T.layout.bannerHeight or DASH_HEADER)
     cropBanner(b)
+    T.SetFont(b.pct, repID and "xl" or "xxl")
     local c = pageKey and catOf(entry, pageKey)
-    if c and not c.pending then
+    if fac then
+        local rc = T.reaction.text[fac.reaction] or T.color.text
+        b.pct:SetText(T.ReactionLabel(fac.reaction))
+        b.pct:SetTextColor(rc[1], rc[2], rc[3])
+        b.count:SetText("")
+    elseif c and not c.pending then
         b.pct:SetText(ns.Progression.PercentText(c.progress) or "-")
         b.pct:SetTextColor(T.RGB(c.state == "complete" and "complete" or (c.completed > 0 and "todo" or "white")))
         b.count:SetText(string.format("%d of %d", c.completed, c.denominator))
@@ -576,7 +762,11 @@ local function fillDashboard(d, zone, entry, page)
     end
     -- Nothing to open (a zone with nothing tracked): no focus stops, so the split view's A
     -- stays in the list; the tiles say why.
-    if not canOpen then d.nextup:Hide(); d.nextup.empty:Hide(); for _, b in ipairs(d.nextItems) do b:Hide() end; return {} end
+    if not canOpen then
+        d.nextup:Hide(); d.nextup.empty:Hide(); for _, b in ipairs(d.nextItems) do b:Hide() end
+        d.repList = nil; d.rep:Hide(); for _, r in ipairs(d.repRows) do r:Hide() end
+        return {}
+    end
     rows[#rows + 1] = { items = tileItems }
 
     -- Next up in <zone> (round 3): Zones.NextUp picks, each opens its page on that item.
@@ -624,6 +814,24 @@ local function fillDashboard(d, zone, entry, page)
         if col == 0 then row = { items = {} }; rows[#rows + 1] = row end
         table.insert(row.items, b.item)
     end
+    d.nextCount = #picks
+
+    -- Reputation (Phase 11): the zone's factions, hidden when there are none. Each line is a
+    -- focus stop; A opens the faction's page.
+    local factions = ns.Reputation and ns.Reputation.ForZone(zone)
+    d.repList = factions
+    for _, r in ipairs(d.repRows) do r:Hide() end
+    d.rep:SetShown(factions ~= nil)
+    for i, fac in ipairs(factions or {}) do
+        local r = d.repRows[i]
+        if not r then r = newRepRow(d.dash); d.repRows[i] = r end
+        local id = fac.factionID
+        r.item = { key = Detail.RepKey(id), frame = r, title = fac.name, detail = Detail.RepInfo(fac),
+            actionLabel = "Open", onActivate = function() page:OpenRep(id) end }
+        r.fac = fac
+        r:Show()
+        rows[#rows + 1] = { items = { r.item } }
+    end
     Detail.LayoutDash(d)
     return rows
 end
@@ -650,6 +858,26 @@ function Detail.LayoutDash(d)
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", d.nextup, "BOTTOMLEFT", 8 + col * (colW + S.s3), -(S.s2 + r * (NEXT_ITEM_H + S.s2)))
         b:SetWidth(colW)
+    end
+    -- The Reputation ledger: under Next up's items (or its "nothing to suggest" line).
+    if d.repList then
+        local R = ns.Theme.layout.rep
+        local n = d.nextCount or 0
+        local below = n > 0 and (S.s2 + math.ceil(n / NEXT_COLS) * (NEXT_ITEM_H + S.s2))
+            or (S.s3 + (d.nextup.empty:GetStringHeight() or 14))
+        local rep = d.rep
+        rep:ClearAllPoints()
+        rep:SetPoint("TOPLEFT", d.nextup, "BOTTOMLEFT", 8, -(below + S.s2))
+        rep:SetWidth(width)
+        local cols = d.wide and R.wide or R
+        local y = R.head + S.s1
+        for i, fac in ipairs(d.repList) do
+            local row = d.repRows[i]
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", rep, "TOPLEFT", 0, -y)
+            row:SetWidth(width)
+            y = y + paintRepRow(row, fac, width, cols) + R.gap
+        end
     end
 end
 
@@ -1006,6 +1234,112 @@ local function fillFlights(d, zone)
 end
 
 ---------------------------------------------------------------------------------------------
+-- Faction page (Phase 11): the zone's quests that raise one faction
+---------------------------------------------------------------------------------------------
+
+local REP_STATE = { locked = "Locked", unavailable = "Not for you", unknown = "Not checked" }
+
+local function fillRep(d, zone, factionID)
+    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
+    local R = L.rep
+    local child = d.scroll.child
+    local f = ns.Reputation.Faction(zone, factionID)
+    local rows = {}
+    if not f then
+        d.message:SetText("Azerfolio has no standing for this faction right now.")
+        d.message:Show()
+        child:SetHeight(100)
+        return rows
+    end
+    local width = (child:GetWidth() or 900) - L.listInset - S.s6
+    local y = 0
+    -- The summary: the ledger line, larger, with what's left to the next reaction.
+    local sum = take(d, "repSums", function() return newRepRow(child, true) end)
+    sum:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
+    sum:SetWidth(width)
+    y = y + paintRepRow(sum, f, width, R.sum, true) + S.s3
+    if #(f.rivals or {}) > 0 then
+        local names = {}
+        for _, r in ipairs(f.rivals) do names[#names + 1] = r.name or "?" end
+        y = text(d, y, string.format("Rivals: quests here that raise %s lower %s, and the other way round.",
+            f.name or "?", table.concat(names, " and ")), "sm", "repRival") + S.s2
+    end
+    -- Up to your level, then Later (from level n, names dimmed). LT/RT jump between them.
+    local level = ns.character and ns.character.level
+    local now, later = {}, {}
+    for _, q in ipairs(f.quests or {}) do
+        local from = q.reqLevel or q.questLevel
+        if type(level) == "number" and type(from) == "number" and from > level then later[#later + 1] = q
+        else now[#now + 1] = q end
+    end
+    local function byLevel(a, b)
+        local la, lb = a.questLevel or 0, b.questLevel or 0
+        if la ~= lb then return la < lb end
+        return (a.name or "") < (b.name or "")
+    end
+    table.sort(now, byLevel); table.sort(later, byLevel)
+    local groups = {}
+    if #now > 0 then groups[#groups + 1] = { title = "Up to your level", list = now, count = tostring(#now) } end
+    if #later > 0 then
+        local from
+        for _, q in ipairs(later) do
+            local v = q.reqLevel or q.questLevel
+            if v and (not from or v < from) then from = v end
+        end
+        groups[#groups + 1] = { title = "Later", list = later, later = true,
+            count = #later .. (from and ("  ·  from level " .. from) or "") }
+    end
+    local cw = math.floor((width - (CHIP_COLS - 1) * S.s2) / CHIP_COLS)
+    for gi, g in ipairs(groups) do
+        y = header(d, y, g.title, g.count)
+        for i = 1, #g.list, CHIP_COLS do
+            local items = {}
+            for c = 0, CHIP_COLS - 1 do
+                local q = g.list[i + c]
+                if q then
+                    local b = take(d, "repChips", function() return newRepChip(child) end)
+                    b:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset + c * (cw + S.s2), -y)
+                    b:SetWidth(cw)
+                    local kind = q.kind
+                    local done = kind == "done"
+                    local col = DIFF_COLOR[g.later and "grey" or q.difficulty] or DIFF_COLOR.grey
+                    b.lv:SetText(q.questLevel or "?")
+                    b.lv:SetTextColor(col[1], col[2], col[3])
+                    b.lv:SetShown(not done)
+                    b.mark:SetShown(done)
+                    b.name:SetText(q.name or ("Quest " .. tostring(q.id)))
+                    b.name:SetTextColor(T.RGB((done or g.later) and "dim" or (kind == "ready" and "white" or "text")))
+                    -- Under Later, a quest locked only by level says nothing: the header does.
+                    local levelOnly = g.later and kind == "locked" and type(q.reason) == "string" and q.reason:find("^level") ~= nil
+                    local st = not levelOnly and REP_STATE[kind] or nil
+                    local state = q.repeatable and (st and (st .. ", repeatable") or "Repeatable") or st or ""
+                    b.state:SetText(state)
+                    b.amt:SetText(q.amount and ("~+" .. ns.Widgets.Number(q.amount)) or "")
+                    b:SetAlpha(kind == "unavailable" and 0.5 or 1)
+                    local line = Detail.QuestLine({ questLevel = q.questLevel, reqLevel = q.reqLevel, kind = kind,
+                        difficulty = q.difficulty, reason = q.reason, prereqs = q.prereqs, prereqAny = q.prereqAny })
+                    if q.repeatable then line = line .. "  ·  Repeatable" end
+                    if q.amount then
+                        line = line .. string.format(".  About +%s %s (QuestieDB's base value).",
+                            ns.Widgets.Number(q.amount), f.name or "")
+                    end
+                    b.item = { key = "rq:" .. tostring(q.id), frame = b, title = q.name or ("Quest " .. tostring(q.id)),
+                        detail = line, scroll = d.scroll, topGap = L.listHeader + S.s2 }
+                    items[#items + 1] = b.item
+                end
+            end
+            rows[#rows + 1] = { items = items, section = gi }
+            y = y + CHIP_H + S.s2
+        end
+        y = y + S.s2
+    end
+    y = text(d, y + S.s2, "From QuestieDB. Amounts are its base values, so approximate; done, locked and not-for-you states are the Quests page's.",
+        "xs", "dim")
+    child:SetHeight(math.max(1, y + S.s4))
+    return rows
+end
+
+---------------------------------------------------------------------------------------------
 -- Fill
 ---------------------------------------------------------------------------------------------
 
@@ -1013,11 +1347,14 @@ end
 -- dashboard). `entry` is the zone's ns.Zones entry. Returns the focus rows.
 function Detail.Fill(d, zone, entry, pageKey, page)
     resetPools(d)
+    d.wide = page and page.wide or false
     fillBanner(d, zone, entry, pageKey)
     d.dash:SetShown(pageKey == nil)
     d.scroll:SetShown(pageKey ~= nil)
     d.scroll:SetVerticalScroll(0)
     if pageKey == nil then return fillDashboard(d, zone, entry, page) end
+    local repID = Detail.RepFaction(pageKey)
+    if repID then return fillRep(d, zone, repID) end
     if pageKey == "explore" then return fillExplore(d, zone) end
     if pageKey == "quests" then return fillQuests(d, zone, page) end
     return fillFlights(d, zone)

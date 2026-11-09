@@ -445,6 +445,132 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
+    -- Zone reputation (Phase 11): Systems/Reputation's shape, stubbed for Elwynn.
+    local function repStub(ns)
+        local factions = {
+            { factionID = 21, name = "Booty Bay", reaction = 5, standing = 7200, into = 4200, span = 6000, met = true,
+                count = 4, rivals = { { factionID = 87, name = "Bloodsail Buccaneers" } }, quests = {
+                    { id = 1, amount = 100, name = "Supply and Demand", questLevel = 8, reqLevel = 5, kind = "ready", difficulty = "yellow",
+                        completion = "incomplete", eligibility = "eligible" },
+                    { id = 2, amount = 75, name = "Done Deal", questLevel = 6, kind = "done", completion = "complete", eligibility = "eligible" },
+                    { id = 3, amount = 50, name = "Locked Away", questLevel = 9, kind = "locked", eligibility = "locked", reason = "prerequisite",
+                        prereqs = { "Done Deal" } },
+                    { id = 4, amount = 25, name = "Again and Again", questLevel = 9, kind = "ready", repeatable = true, difficulty = "yellow" },
+                    { id = 5, amount = 150, name = "The Bloodsail Buccaneers", questLevel = 41, reqLevel = 35, kind = "locked", eligibility = "locked",
+                        reason = "level 35" },
+                    { id = 6, amount = 100, name = "Horde Only", questLevel = 7, kind = "unavailable", eligibility = "unavailable" },
+                } },
+            { factionID = 87, name = "Bloodsail Buccaneers", reaction = 1, standing = -6500, into = 35500, span = 36000, met = false,
+                atWar = true, count = 3, rivals = { { factionID = 21, name = "Booty Bay" } }, quests = {} },
+            { factionID = 609, name = "Cenarion Circle", reaction = 8, standing = 42999, maxed = true, met = true, count = 5,
+                rivals = {}, quests = {} },
+        }
+        local real = { ForZone = ns.Reputation.ForZone, Faction = ns.Reputation.Faction }
+        ns.Reputation.ForZone = function(z)
+            local id = type(z) == "table" and z.mapID or z
+            if id == 1429 then return factions end
+        end
+        ns.Reputation.Faction = function(z, fid)
+            for _, f in ipairs(ns.Reputation.ForZone(z) or {}) do if f.factionID == fid then return f end end
+        end
+        return function() ns.Reputation.ForZone, ns.Reputation.Faction = real.ForZone, real.Faction end
+    end
+
+    t.test("zone reputation: the ledger under Next up; A opens a faction's page; B returns to it", function()
+        padUI = true
+        _G.FACTION_STANDING_LABEL5 = "Friendly"
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        local restore = repStub(ns)
+        slash("")
+        page(ns):Open(ELWYNN)
+        local d = page(ns).detail
+        t.eq(d.rep:IsShown(), true, "Elwynn has factions here")
+        t.eq(d.rep.title:GetText(), "Reputation"); t.eq(d.rep.note:GetText(), "Not part of the zone's progress")
+        local r1, r2, r3 = d.repRows[1], d.repRows[2], d.repRows[3]
+        t.eq(r1.name:GetText(), "Booty Bay"); t.eq(r1.react:GetText(), "Friendly", "the client's label")
+        t.eq(r1.num:GetText(), "4,200 / 6,000")
+        t.ok(r1.tags:GetText():find("Rival of Bloodsail Buccaneers"), r1.tags:GetText())
+        t.eq(r2.react:GetText(), "Hated", "fallback label without FACTION_STANDING_LABEL1")
+        t.ok(r2.tags:GetText():find("Not met yet") and r2.tags:GetText():find("At war"), r2.tags:GetText())
+        t.eq(r3.num:GetText(), "", "Exalted: no numbers")
+        -- The notched bar (216 wide, 188 inside the housing: 23.5 per reaction): past reactions
+        -- full, Friendly 70% in, the marker there; the notch into Friendly passed, Honored's next.
+        local bar = r1.bar
+        t.eq(bar.segs[4]:GetWidth(), 23.5); t.eq(bar.segs[6]:IsShown(), false)
+        t.ok(math.abs(bar.segs[5]:GetWidth() - 16.45) < 0.01, bar.segs[5]:GetWidth())
+        t.ok(math.abs(bar.pos - 110.45) < 0.01, bar.pos)
+        t.eq(bar.notches[4].state, "past"); t.eq(bar.notches[5].state, "next"); t.eq(bar.notches[6].state, "ahead")
+        t.eq(r2.bar.segs[1].alpha, 0.55, "not met: the fill at half strength")
+        t.eq(r3.bar.pos, 188, "Exalted: the marker at the end")
+        -- Each faction is its own focus stop, after the tiles and Next up.
+        local rows = page(ns):GetFocusRows()
+        t.eq(rows[#rows].items[1].key, "rep:609"); t.eq(rows[#rows - 2].items[1].key, "rep:21")
+        t.eq(rows[#rows - 2].items[1].detail, "Friendly, 1,800 to Honored. A shows the 4 quests here that raise it.")
+        ns.Focus.FocusKey("rep:21")
+        press(ns, "PAD1")
+        t.eq(page(ns).detailPage, "rep:21")
+        t.eq(d.banner.name:GetText(), "Booty Bay"); t.ok(d.banner.crumb:GetText():find("Elwynn Forest"))
+        t.eq(d.banner.pct:GetText(), "Friendly")
+        local sum = d.repSums[1]
+        t.ok(sum.num:GetText():find("1,800 to Honored"), sum.num:GetText())
+        t.eq(d.headers[1].text:GetText(), "Up to your level"); t.eq(d.headers[1].count:GetText(), "5")
+        t.eq(d.headers[2].text:GetText(), "Later"); t.eq(d.headers[2].count:GetText(), "1  ·  from level 35")
+        -- Chips by level: Done Deal 6, Horde Only 7, Supply and Demand 8, then the level 9s by name.
+        local chips = d.repChips
+        t.eq(chips[1].name:GetText(), "Done Deal"); t.eq(chips[1].mark:IsShown(), true, "done: the gold check")
+        t.eq(chips[2].alpha, 0.5, "not for you: dimmed"); t.eq(chips[2].state:GetText(), "Not for you")
+        t.eq(chips[3].amt:GetText(), "~+100")
+        t.eq(chips[4].state:GetText(), "Repeatable"); t.eq(chips[5].state:GetText(), "Locked")
+        t.eq(ns.Focus.Current().key, "rq:2", "focus on the first quest")
+        t.ok(ns.Focus.Current().detail:find("About %+75 Booty Bay"), ns.Focus.Current().detail)
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().key, "rq:5", "RT: Later")
+        t.eq(chips[6].state:GetText(), "", "under Later, a level lock isn't repeated on the chip")
+        t.eq(r2.tags:GetText():find("\226"), nil, "no glyphs the client's font lacks")
+        press(ns, "PAD2")
+        t.eq(page(ns).detailPage, nil); t.eq(ns.Focus.Current().key, "rep:21", "B: the dashboard, on the same faction")
+        restore()
+        -- A zone without factions: no section.
+        page(ns):Back()
+        page(ns):Open({ mapID = 1436, name = "Westfall", continent = "Eastern Kingdoms" })
+        t.eq(d.rep:IsShown(), false)
+        _G.FACTION_STANDING_LABEL5 = nil
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("zone reputation: standing updates redraw the ledger; shots cover the ledger and the page", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        local restore = repStub(ns)
+        slash("")
+        page(ns):Open(ELWYNN)
+        local d = page(ns).detail
+        local f = ns.Reputation.ForZone(1429)[1]
+        f.into = 5000
+        ns.Events.Send("AZF_REPUTATION_UPDATED")
+        t.eq(d.repRows[1].num:GetText(), "5,000 / 6,000")
+        local labels = {}
+        for _, s in ipairs(ns.UI.ShotSteps()) do labels[s.label] = true end
+        t.ok(labels["zone detail, reputation"] and labels["zone detail, faction page"], "the ledger and the page")
+        t.ok(labels["zones wide, reputation"] and labels["zones wide, faction page"], "and in the wide split")
+        local rep = {}
+        for _, s in ipairs(ns.UI.ShotSteps("reputation")) do if not s.skip then rep[#rep + 1] = s.label end end
+        t.eq(table.concat(rep, ", "), "zone detail, reputation, zone detail, faction page, zones wide, reputation, zones wide, faction page")
+        slash("shots reputation")
+        wow.runTimers()
+        t.eq(_G.screenshotsTaken, 4)
+        t.eq(page(ns).mode, "list", "the shots leave the catalogue as it was")
+        restore()
+        -- /azf debug reputation: traces the picks, the watched zones and the probed quests.
+        ns.db.debug = true
+        slash("debug reputation 1429 123")
+        local e = ns.db.trace[#ns.db.trace]
+        t.eq(e.kind, "reputation"); t.eq(e.report, true)
+        t.ok(e.probes["123"] and e.probes["7003"], "the asked-for quest and the default watch list")
+        t.eq(e.watched["1444"], "not in the index", "Feralas has no quests in this fixture")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
     t.test("zone detail: exploration page progress, and a note when the game's list differs", function()
         local ns = boot({ schemaVersion = 4, lastTab = "zones" })
         slash("")

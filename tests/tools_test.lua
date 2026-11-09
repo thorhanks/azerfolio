@@ -21,6 +21,12 @@ AzerfolioDB = { debug = true, trace = {
     here = 1429, hereList = { "7 Kobold Camp Cleanup L2/1 complete eligible completed" } },
   { t = 13, kind = "perf", memoryKB = 6270.2, gc = true, seconds = 20, profiler = { PeakTime = 3.5 }, sizes = { trace = 4 },
     top = { { name = "AZF_READY", count = 1, ms = 0.1, max = 0.1 } } },
+  { t = 14, kind = "reputation", status = "ready", zones = 1, factions = 1, list = { ["1434"] = "21:40 87:12 <>21/87" } },
+  { t = 15, kind = "reputation", refresh = "build", read = 2, missing = 0, metComplete = true, expanded = 1,
+    standing = { ["21"] = "4 0 0/3000 unmet" } },
+  { t = 16, kind = "reputation", report = true, zones = 1, picks = { ["1434"] = "21:40 [1:100 2:75]" },
+    watched = { ["1444"] = "12 quests; 169 dropped 2/40 [7003:75 7721:50]  |  609 kept 6/30 [1:25]" },
+    probes = { ["7003"] = "Zapped Giants lv48 exists=true zoneOrSort=440 -> zone 1446, index 1446, rep [169:75]" } },
 } }
 ]]
 
@@ -47,6 +53,15 @@ return function(t)
         local p = run(file, "perf")
         t.ok(p:find("memory 6270.20 KB %(after a full GC%)"), p)
         t.ok(p:find("AZF_READY"), p)
+    end)
+
+    t.test("trace-report reputation: build, standing, and the debug report's picks, tally and probes", function()
+        local out = run(file, "reputation")
+        t.ok(out:find("1 zones, 1 factions"), out)
+        t.ok(out:find("21:40 %[1:100 2:75%]"), out)
+        t.ok(out:find("169 dropped 2/40 %[7003:75 7721:50%]"), out)
+        t.ok(out:find("609 kept 6/30"), out)
+        t.ok(out:find("7003%s+Zapped Giants lv48 .- index 1446"), out)
     end)
 
     t.test("trace-report groups level reasons", function()

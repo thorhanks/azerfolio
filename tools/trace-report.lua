@@ -205,6 +205,19 @@ function R.reputation()
         p("latest standing (factionID: reaction standing into/span met):")
         for _, k in ipairs(keys(r.standing)) do p("  %-5s %s", k, tostring(r.standing[k])) end
     end
+    -- /azf debug reputation: picks with quest IDs, the watched zones' whole tally, the probes.
+    local d, di = latest(function(e) return e.kind == "reputation" and e.report end)
+    if not d then p("no /azf debug reputation report in the trace"); return end
+    if d.status then p("report #%d at %.1f: %s %s", di, d.t, tostring(d.status), tostring(d.reason or "")); return end
+    p("report #%d at %.1f: %s zones with factions (factionID:count [questID:amount ...])", di, d.t, num(d.zones))
+    for _, k in ipairs(keys(d.picks)) do p("  %-5s %s", k, tostring(d.picks[k])) end
+    p("watched zones, every faction the rule saw (factionID kept|dropped|home count/all zones [quests]):")
+    for _, k in ipairs(keys(d.watched)) do
+        p("  %s", k)
+        for part in tostring(d.watched[k]):gmatch("[^|]+") do p("      %s", (part:gsub("^%s+", ""):gsub("%s+$", ""))) end
+    end
+    p("watched quests in QuestieDB (corrections applied):")
+    for _, k in ipairs(keys(d.probes)) do p("  %-6s %s", k, tostring(d.probes[k])) end
 end
 
 local fn = R[section]

@@ -100,7 +100,7 @@ local function build(parent)
     page.toolbar, page.list = cat.toolbar, cat.list
     page.detail = ns.ZoneDetail.New(page)
     page.popup = buildPopup(page)
-    page.detailPage = nil      -- nil = the dashboard, else "explore" | "quests" | "flights"
+    page.detailPage = nil      -- nil = the dashboard, else "explore" | "quests" | "flights" | "rep:<factionID>"
     page.openStories = {}      -- finished storylines unfolded on the Quests page (this session)
 
     local function arrange()
@@ -188,6 +188,11 @@ local function build(parent)
         local first = self.detailRows[1] and self.detailRows[1].items[1]
         self.pendingFocusKey = first and first.key
         refresh()
+    end
+
+    -- A on a faction in the Reputation ledger: its page, focused on its first quest.
+    function page:OpenRep(factionID)
+        self:OpenPage(ns.ZoneDetail.RepKey(factionID))
     end
 
     -- Quests page: unfold or fold a finished storyline; show or hide quests you can't do.
@@ -295,7 +300,8 @@ local function build(parent)
             local key = self.detailPage
             self.detailPage = nil
             show(self.zone, true)
-            self.pendingFocusKey = "tile:" .. key
+            -- A faction page goes back to the same faction's line; a category page to its tile.
+            self.pendingFocusKey = ns.ZoneDetail.RepFaction(key) and key or ("tile:" .. key)
             refresh()
             return true
         end
@@ -469,6 +475,17 @@ local function build(parent)
             if ns.UI.CurrentTab() == "zones" then refresh() end
         end)
     end
+
+    -- Standing changed (a turn-in, a kill, the first read after login): only the detail shows
+    -- reputation, so only it redraws (the dashboard's ledger, or a faction page), keeping focus.
+    ns.Events.On("AZF_REPUTATION_UPDATED", function()
+        if not page.zone then return end
+        if not (page:IsShown() and page.detail:IsShown()) then page.detailRows = nil; page.dirty = true; return end
+        local current = ns.UI.CurrentTab() == "zones" and ns.Focus.Current()
+        show(page.zone, true)
+        if current and page.pendingFocusKey == nil then page.pendingFocusKey = current.key end
+        if ns.UI.CurrentTab() == "zones" then refresh() end
+    end)
 
     -- Level-ups change "Your level"; redraw next time the page shows.
     ns.Events.On("AZF_LEVEL_CHANGED", function() page.dirty = true end)

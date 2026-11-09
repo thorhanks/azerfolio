@@ -395,7 +395,7 @@
   // =====================================================================================
   // UI state
   // =====================================================================================
-  const ui = { tab: "overview", detail: null, view: "cards", faction: "relevant", status: "all", level: "all", sort: "recommended",
+  const ui = { repBar: "equal", tab: "overview", detail: null, view: "cards", faction: "relevant", status: "all", level: "all", sort: "recommended",
     search: "", zonesScroll: 0, lastZone: null, selected: null, flyout: null, wide: false, newCrit: null, celebrate: null,
     quests: "loaded", showUnavailable: false, openStories: new Set(), detailPage: null, look: "Alliance" };
   const OPTIONS = {
@@ -880,7 +880,30 @@
   }
   // The reaction ladder: eight equal steps, Hated to Exalted, in the client's reaction colours.
   // Past steps full, the current one filled by progress into it, later ones empty.
+  // Round 3 (owner, 2026-11-08: "not liking the pill boxes"): one gilded bar across the whole
+  // reaction range, notched where the reaction changes. The fill runs through each reaction's
+  // colour up to where you stand; a bright marker sits at your position, and the notch you're
+  // heading for is lit. Scale: "equal" (each reaction an eighth, like the ladder) or "true"
+  // (by standing, -42,000 to 42,999: Hated takes 42%, Hostile to Neutral 3.5% each).
+  function repSegments(scale) {
+    if (scale === "true") {
+      const lo = REP_BOUNDS[1][0], all = REP_BOUNDS[8][1] - lo;
+      return [1, 2, 3, 4, 5, 6, 7, 8].map(r => ({ r, x: (REP_BOUNDS[r][0] - lo) / all * 100, w: (REP_BOUNDS[r][1] - REP_BOUNDS[r][0]) / all * 100 }));
+    }
+    return [1, 2, 3, 4, 5, 6, 7, 8].map(r => ({ r, x: (r - 1) * 12.5, w: 12.5 }));
+  }
+  function repBar(f, scale) {
+    const segs = repSegments(scale), cur = segs[f.reaction - 1];
+    const into = f.reaction === 8 ? 1 : f.into / f.span;
+    const pos = cur.x + cur.w * into;
+    const fill = segs.filter(s => s.r <= f.reaction).map(s => {
+      const w = s.r < f.reaction ? s.w : s.w * into;
+      return `<i class="r${s.r}" style="left:${s.x.toFixed(2)}%;width:${w.toFixed(2)}%"></i>`; }).join("");
+    const notches = segs.slice(1).map(s => `<u class="${s.r === f.reaction + 1 ? "next" : s.r <= f.reaction ? "past" : ""}" style="left:${s.x.toFixed(2)}%"></u>`).join("");
+    return `<span class="repbar ${scale}"><span class="rtrack">${fill}${notches}<em class="r${f.reaction}" style="left:${pos.toFixed(2)}%"></em></span></span>`;
+  }
   function ladder(f) {
+    if (ui.repBar !== "ladder") return repBar(f, ui.repBar === "true" ? "true" : "equal");
     return `<span class="ladder">${[1, 2, 3, 4, 5, 6, 7, 8].map(r => {
       const fill = r < f.reaction ? 100 : r > f.reaction ? 0 : f.reaction === 8 ? 100 : f.into / f.span * 100;
       return `<i class="r${r} ${r === f.reaction ? "cur" : ""}"><b style="width:${fill.toFixed(1)}%"></b></i>`; }).join("")}</span>`;
@@ -1596,6 +1619,7 @@
     celebrate(z, kind);
   });
   $("#lookSel").addEventListener("change", (e) => { ui.look = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  $("#repBarSel").addEventListener("change", (e) => { ui.repBar = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#claimPreview").addEventListener("change", (e) => { ui.claimPreview = e.target.checked; rerenderKeepFocus(); e.target.blur(); });
   $("#wideToggle").addEventListener("change", (e) => {
     ui.wide = e.target.checked; ui.detail = null;

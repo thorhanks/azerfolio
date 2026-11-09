@@ -105,6 +105,14 @@ function Reputation.ReadMet(api)
     return met, complete, expanded
 end
 
+-- Pure: what the faction page shows for a repeatable quest (no completion: it can be done
+-- again): ready when you can take it, else locked, unknown or unavailable as the rules say.
+function Reputation.RepeatableKind(eligibility)
+    if eligibility == "eligible" then return "ready" end
+    if eligibility == "locked" or eligibility == "unavailable" then return eligibility end
+    return "unknown"
+end
+
 -- Pure: a zone's factions for this character.
 --   zone = ReputationRules.Build entry ({ factions, rivals }); read(factionID) -> data or nil;
 --   met, metComplete from ReadMet (a faction not seen counts as unknown unless complete);
@@ -114,7 +122,8 @@ end
 -- out, or nil when none are left:
 --   { factionID, name, reaction, standing, into, span, maxed, atWar, met = true|false|nil,
 --     count = raising quests here, rivals = { { factionID, name } }, quests = { { id, amount,
---     name, questLevel, reqLevel, completion, eligibility, reason, difficulty, repeatable } } }
+--     name, questLevel, reqLevel, completion, eligibility, reason, difficulty, kind (the
+--     Quests page's: ready, locked, unknown, done, unavailable, open), repeatable } } }
 function Reputation.Zone(zone, read, met, metComplete, questState)
     if not zone then return nil end
     local data, list = {}, {}
@@ -162,9 +171,9 @@ local function now() return type(GetTime) == "function" and GetTime() or 0 end
 function Reputation.State() return state end
 
 -- The rule's input from Quests' index: every zone's counted and repeatable quests.
-local function build()
+local function ruleInput()
     local index = ns.Quests.Index()
-    if not index then return false end
+    if not index then return nil end
     local input = {}
     for mapID, z in pairs(index.zones) do
         local ids = {}
@@ -172,10 +181,16 @@ local function build()
         for _, id in ipairs(z.repeats or {}) do ids[#ids + 1] = id end
         input[mapID] = ids
     end
-    local function rewardsOf(id)
-        local r = ns.Quests.Info(id)
-        return r and r.rep
-    end
+    return input
+end
+local function rewardsOf(id)
+    local r = ns.Quests.Info(id)
+    return r and r.rep
+end
+
+local function build()
+    local input = ruleInput()
+    if not input then return false end
     zones = ns.ReputationRules.Build(input, rewardsOf)
     factionIDs = {}
     local seen, n = {}, 0
@@ -245,7 +260,8 @@ local function questStateFor(mapID)
         local o = byID[id]
         if o then
             return { name = o.name, questLevel = o.questLevel, reqLevel = o.reqLevel, completion = o.completion,
-                eligibility = o.eligibility, reason = o.reason, difficulty = o.difficulty }
+                eligibility = o.eligibility, reason = o.reason, difficulty = o.difficulty, kind = o.kind,
+                prereqs = o.prereqs, prereqAny = o.prereqAny }
         end
         local r = ns.Quests.Info(id)
         if not r then return nil end
@@ -254,6 +270,7 @@ local function questStateFor(mapID)
             s.eligibility, s.reason = ns.QuestRules.Evaluate(ctx, id)
             s.difficulty = ns.Quests.Difficulty(r.level, ctx.char and ctx.char.level, ctx.greenRange)
         end
+        s.kind = Reputation.RepeatableKind(s.eligibility)
         return s
     end
 end
@@ -283,6 +300,100 @@ end
 
 -- The zone-faction table itself (debug and tests): [mapID] = { factions, rivals }, or nil.
 function Reputation.Zones() return zones end
+
+-- /azf debug reputation [mapID|questID ...]: the zone factions with their quest IDs, every
+-- faction the rule saw in the watched zones (kept or not, with the share), and where the
+-- watched quests stand in QuestieDB's composed view, so in-game corrections can be told apart
+-- from the offline base rows. Read with `luajit tools/trace-report.lua reputation`.
+-- Watched by default: Feralas 1444 and The Barrens 1413 (they differ from the base rows), the
+-- Steamwheedle Cartel quests Feralas has in the base rows, and every quest that raises
+-- Powderfuse 2827 anywhere.
+Reputation.DEBUG_ZONES = { 1444, 1413 }
+Reputation.DEBUG_QUESTS = { 7003, 7721, 7725, 7726 }
+Reputation.DEBUG_FACTIONS = { 2827 }
+
+local function ids(list)
+    local o = {}
+    for _, q in ipairs(list) do o[#o + 1] = q.id .. (q.amount and (":" .. q.amount) or "") end
+    return table.concat(o, " ")
+end
+
+function Reputation.DebugReport(args)
+    if state.status ~= "ready" then
+        ns.Printf("Reputation: %s%s", state.status, state.reason and (" (" .. state.reason .. ")") or "")
+        ns.Debug.Trace("reputation", { report = true, status = state.status, reason = state.reason })
+        return
+    end
+    local watchZones, watchQuests = {}, {}
+    for _, z in ipairs(Reputation.DEBUG_ZONES) do watchZones[#watchZones + 1] = z end
+    for _, q in ipairs(Reputation.DEBUG_QUESTS) do watchQuests[#watchQuests + 1] = q end
+    for _, a in ipairs(args or {}) do
+        local n = tonumber(a)
+        -- Map IDs are 4 digits here; quest IDs are any other number.
+        if n and n >= 1400 and n < 3000 and ns.Quests.Index() and ns.Quests.Index().zones[n] then
+            watchZones[#watchZones + 1] = n
+        elseif n then
+            watchQuests[#watchQuests + 1] = n
+        end
+    end
+    local input = ruleInput() or {}
+    local tally = ns.ReputationRules.Tally(input, rewardsOf)
+    -- Every quest raising a watched faction, wherever the index put it.
+    local seenQ = {}
+    for _, q in ipairs(watchQuests) do seenQ[q] = true end
+    for _, f in ipairs(Reputation.DEBUG_FACTIONS) do
+        for _, zt in pairs(tally.zones) do
+            for _, q in ipairs(zt[f] and zt[f].quests or {}) do
+                if not seenQ[q.id] then seenQ[q.id] = true; watchQuests[#watchQuests + 1] = q.id end
+            end
+        end
+    end
+    -- Picks per zone: "factionID:count [questID:amount ...]".
+    local picks, nz = {}, 0
+    for mapID, z in pairs(zones or {}) do
+        nz = nz + 1
+        local parts = {}
+        for _, p in ipairs(z.factions) do parts[#parts + 1] = string.format("%d:%d [%s]", p.factionID, p.count, ids(p.quests)) end
+        picks[tostring(mapID)] = table.concat(parts, "  ")
+    end
+    -- The watched zones' whole tally: every faction with raising quests, kept or not.
+    local seen = {}
+    for _, mapID in ipairs(watchZones) do
+        local zt = tally.zones[mapID]
+        local rows = {}
+        for f, e in pairs(zt or {}) do
+            local total = tally.totals[f] or 0
+            rows[#rows + 1] = string.format("%d %s %d/%d [%s]", f,
+                ns.ReputationRules.Keeps(f, e.count, total) and "kept" or (ns.ReputationRules.EXCLUDED[f] or "dropped"),
+                e.count, total, ids(e.quests))
+        end
+        table.sort(rows)
+        seen[tostring(mapID)] = zt and (#input[mapID] .. " quests; " .. table.concat(rows, "  |  ")) or "not in the index"
+    end
+    -- The watched quests in QuestieDB's composed view.
+    local probes = {}
+    for _, id in ipairs(watchQuests) do
+        local p = ns.Quests.Probe(id)
+        if p then
+            local rep = {}
+            for _, r in ipairs(type(p.rep) == "table" and p.rep or {}) do
+                if type(r) == "table" then rep[#rep + 1] = tostring(r[1]) .. ":" .. tostring(r[2]) end
+            end
+            probes[tostring(id)] = string.format("%s lv%s exists=%s zoneOrSort=%s -> %s%s%s, index %s, rep [%s]",
+                tostring(p.name), tostring(p.level), tostring(p.exists), tostring(p.zoneOrSort), p.place,
+                p.repeatable and " repeatable" or "", p.excluded and " excluded" or "", tostring(p.indexed or "none"),
+                table.concat(rep, " "))
+        else
+            probes[tostring(id)] = "QuestieDB not detected"
+        end
+    end
+    ns.Printf("Reputation: %d zones with factions; watched zones %s; %d quests probed.", nz,
+        table.concat(watchZones, ", "), #watchQuests)
+    for _, mapID in ipairs(watchZones) do ns.Printf("  %d: %s", mapID, seen[tostring(mapID)]) end
+    ns.Print(ns.Debug.IsEnabled() and "  Full list in the trace: /reload, then luajit tools/trace-report.lua reputation"
+        or "  Debug mode is off, so nothing was saved: type /azf debug, then run this again.")
+    ns.Debug.Trace("reputation", { report = true, zones = nz, picks = picks, watched = seen, probes = probes })
+end
 
 ns.Events.On("AZF_QUESTS_UPDATED", function()
     local qs = ns.Quests.State()

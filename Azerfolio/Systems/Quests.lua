@@ -559,6 +559,38 @@ end
 -- For other systems (Reputation): the built index (nil until ready), a quest's record (from
 -- the details pass, or read now), and the eligibility context for this character.
 function Quests.Index() return state.status == "ready" and state.index or nil end
+
+-- Debug (/azf debug reputation): where one quest stands in QuestieDB's composed view (in-game
+-- corrections applied) and in the index. Every read pcall'd; nil before QuestieDB is detected.
+--   { exists, zoneOrSort, specialFlags, questFlags, place = "zone 1444"|..., repeatable,
+--     indexed = mapID (counted) | "repeat mapID", rep = { {factionID, amount}... }, name, level }
+function Quests.Probe(id)
+    local Q = lib and lib.Quest
+    if type(Q) ~= "table" then return nil end
+    local function read(field)
+        local f = Q[field]
+        if type(f) ~= "function" then return nil end
+        local ok, v = pcall(f, id)
+        return ok and v or nil
+    end
+    local p = { zoneOrSort = read("zoneOrSort"), specialFlags = read("specialFlags"), questFlags = read("questFlags"),
+        rep = read("reputationReward"), name = read("name"), level = read("questLevel") }
+    if type(Q.Exists) == "function" then
+        local ok, v = pcall(Q.Exists, id)
+        p.exists = ok and v and true or false
+    end
+    local kind, key = Quests.Place(p.zoneOrSort, ns.QuestAreaData)
+    p.place = kind .. (key and (" " .. tostring(key)) or "")
+    p.repeatable = Quests.IsRepeatable(p.specialFlags, p.questFlags) and true or false
+    local areas = ns.QuestAreaData
+    p.excluded = areas and areas.excludedQuests and areas.excludedQuests[id] and true or nil
+    local index = state.index
+    for mapID, z in pairs(index and index.zones or {}) do
+        for _, q in ipairs(z.ids) do if q == id then p.indexed = mapID end end
+        for _, q in ipairs(z.repeats or {}) do if q == id then p.indexed = "repeat " .. mapID end end
+    end
+    return p
+end
 function Quests.Info(id) return info(id) end
 function Quests.Context() return state.status == "ready" and context() or nil end
 

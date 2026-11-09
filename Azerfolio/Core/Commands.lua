@@ -15,6 +15,7 @@ local HELP = {
     "/azf debug overview - show what the Overview picks and counts",
     "/azf debug quests [full] - show the quest catalogue from QuestieDB (full: every zone's checklist in the trace)",
     "/azf debug flights - show flight paths per zone and which flight masters you've visited",
+    "/azf debug reputation [mapID|questID ...] - zone factions with their quests, and where watched quests stand in QuestieDB",
     "/azf debug celebrate explore|quests|flights|claim [mapID] - preview a celebration (window closed: the alert)",
     "/azf debug perf - event counts, timings and memory since debug was turned on (reset: start over; gc: collect garbage first)",
     "/azf shot - take a test screenshot (development)",
@@ -202,6 +203,10 @@ function Commands.Handle(input)
             ns.Quests.DebugReport(words[3])
         elseif sub == "flights" then
             ns.FlightPaths.DebugReport()
+        elseif sub == "reputation" or sub == "rep" then
+            local rest = {}
+            for i = 3, #words do rest[#rest + 1] = words[i] end
+            ns.Reputation.DebugReport(rest)
         elseif sub == "perf" then
             debugPerf(words[3])
         elseif sub == "celebrate" then

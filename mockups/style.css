@@ -570,6 +570,28 @@ body.repfill .ladder i.r4 { --c: #ffd21e; } body.repfill .ladder i.r5, body.repf
 body.repfill .ladder i b { background: url(chrome-art/bar-fill-white.png) left center / auto 100% repeat-x, var(--c); background-blend-mode: multiply; }
 body.repdiv .rephead { position: relative; border-bottom-color: transparent; padding-bottom: 8px; }
 body.repdiv .rephead::after { content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 12px; background: url(chrome-art/divider.png) center / 100% 100% no-repeat; pointer-events: none; }
+/* Round 3: the notched reputation bar. A gilded housing (frame-bar) over a dark well; the fill
+   runs through each reaction's colour (bar-fill-white tinted) up to your standing; notches with
+   small gold diamond caps where the reaction changes, the next one lit; a bright marker at your
+   position. Not completion language: no gold fill, no %. */
+.repbar { --h: 22px; position: relative; display: block; height: var(--h); background: #0e0701; border: 1px solid #5a4128; border-radius: 3px; }
+body.chrome .repbar { border: solid transparent; border-width: 6px 14px; border-radius: 0;
+  border-image: url(chrome-art/frame-bar.png) var(--bar-slice) / 6px 14px stretch; background-clip: padding-box; }
+.repbar .rtrack { position: absolute; inset: 0; width: auto; height: auto; margin: 0; padding: 0; background: none; }
+.repbar i { --c: #ffd21e; position: absolute; top: 0; bottom: 0;
+  background: url(chrome-art/bar-fill-white.png) left center / auto 100% repeat-x, var(--c); background-blend-mode: multiply; }
+.repbar i.r1, .repbar i.r2, .repbar em.r1, .repbar em.r2 { --c: #f0644a; } .repbar i.r3, .repbar em.r3 { --c: #f07018; }
+.repbar i.r4, .repbar em.r4 { --c: #ffd21e; }
+.repbar i.r5, .repbar i.r6, .repbar i.r7, .repbar i.r8, .repbar em.r5, .repbar em.r6, .repbar em.r7, .repbar em.r8 { --c: #22d046; }
+.frep.unmet .repbar i { opacity: .55; }
+.repbar u { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: linear-gradient(180deg, #8a6a1c, #3a2a10 50%, #8a6a1c); box-shadow: 0 0 0 1px rgba(0,0,0,.55); z-index: 1; }
+.repbar u::before, .repbar u::after { content: ""; position: absolute; left: 50%; width: 5px; height: 5px; margin-left: -2.5px; transform: rotate(45deg); background: #8a6a1c; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.repbar u::before { top: -3px; } .repbar u::after { bottom: -3px; }
+.repbar u.past { background: linear-gradient(180deg, #c9a24a, #5a4120 50%, #c9a24a); } .repbar u.past::before, .repbar u.past::after { background: #c9a24a; }
+.repbar u.next { background: linear-gradient(180deg, #ffe08a, #b88a2a 50%, #ffe08a); } .repbar u.next::before, .repbar u.next::after { background: #ffe08a; box-shadow: 0 0 5px rgba(255,220,120,.9); }
+.repbar em { --c: #fff; position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; background: #fff; border-radius: 1px; z-index: 2;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.7), 0 0 7px 1px var(--c); }
+.repsum .repbar { --h: 24px; }
 #detailpane .repsec .frep { grid-template-columns: minmax(0, 1fr) 64px 148px 92px; column-gap: var(--s2); } /* wide split: narrower pane */
 /* A faction's page: the summary line, then the quests here that raise it. */
 .repsum.frep { cursor: default; margin-bottom: var(--s3); grid-template-columns: minmax(0, 1fr) 76px 260px 220px; padding: var(--s2) var(--s3); }
