@@ -1,12 +1,13 @@
 -- The celebration overlay and the on-screen alert (mockups/DESIGN.md "Celebrations").
 -- ns.Celebrations decides what to celebrate; this file only shows it.
---   Window open: a dark overlay over the window with still rays and rising motes, a card in
---   the painted frame: a category's icon in a gold ring with the faction's streamer beside
---   it, or the zone's war standard hoisted for a claim. A or B (or the button) continues;
---   the next waiting celebration follows.
---   Window closed: an alert at the top centre of the screen for a few seconds; the waiting
+--   Window open: a dark overlay over the window with rising motes,
+--   a card in the painted frame (round 2, owner 2026-11-08): the category's seal in the gold
+--   laurel, or the zone's war standard hoisted with the faction's claim seal; the title on the
+--   crimson ribbon. A or B (or the button) continues; the next waiting celebration follows.
+--   Window closed: an alert in the painted frame at the top centre of the screen for a few
+--   seconds (the seal, "Azerfolio", the title); the waiting
 --   celebrations play when the window opens.
--- Rays are still textures: Rotation animations misbehave in this client (ZoneBanner.lua).
+-- Without the art, simple shapes stand in (the category icon in a gold ring).
 local _, ns = ...
 
 local Celebration = {}
@@ -14,6 +15,8 @@ ns.Celebration = Celebration
 
 Celebration.ALERT_SECONDS = 5
 local CARD_W = 470
+local MEDAL = 176        -- the laurel and its seal
+local RIBBON_W = 460     -- the title ribbon (4:1)
 
 local TITLE = {
     explore = function(z) return z.name .. " Explored" end,
@@ -54,6 +57,34 @@ end
 
 local overlay
 
+-- A painted celebration piece (Media\Chrome\cel-*.blp, listed in Data/Art.lua), or nil.
+local function piece(name) return ns.Theme.Chrome(name) end
+
+-- The category's seal (flight paths: the faction's gryphon or wyvern).
+local function sealFor(kind)
+    if kind == "flights" then return piece("cel-seal-flights-" .. faction():lower()) end
+    return piece("cel-seal-" .. kind)
+end
+
+local function circleMask(tex, owner)
+    local mk = owner:CreateMaskTexture()
+    if mk then
+        mk:SetAllPoints(tex)
+        mk:SetTexture(ns.Theme.circleMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        pcall(tex.AddMaskTexture, tex, mk)
+    end
+end
+
+-- Fades a region in after `delay` seconds (frame and texture Alpha animations work here).
+local function fadeIn(region, delay, duration)
+    if not region.CreateAnimationGroup then return end
+    local ag = region:CreateAnimationGroup()
+    local a = ag:CreateAnimation("Alpha"); a:SetFromAlpha(0); a:SetToAlpha(1); a:SetDuration(duration or 0.4)
+    if a.SetStartDelay then a:SetStartDelay(delay or 0) end
+    if ag.SetToFinalAlpha then ag:SetToFinalAlpha(true) end
+    region.fade = ag
+end
+
 local function build(window)
     local T, S = ns.Theme, ns.Theme.space
     local o = CreateFrame("Frame", nil, window)
@@ -62,24 +93,9 @@ local function build(window)
     if o.EnableMouse then o:EnableMouse(true) end -- clicks don't reach the page underneath
     o.dark = o:CreateTexture(nil, "BACKGROUND")
     o.dark:SetAllPoints(); o.dark:SetColorTexture(0.02, 0.012, 0, 0.94)
-    o.warm = o:CreateTexture(nil, "BACKGROUND", nil, 1)
-    o.warm:SetPoint("CENTER", 0, 30); o.warm:SetSize(900, 700)
-    o.warm:SetColorTexture(0.35, 0.22, 0.04, 0.22)
-    local m = o:CreateMaskTexture()
-    if m then
-        m:SetAllPoints(o.warm)
-        m:SetTexture(T.circleMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-        pcall(o.warm.AddMaskTexture, o.warm, m)
-    end
-    o.rays = {}
-    for i = 1, 12 do
-        local r = o:CreateTexture(nil, "BACKGROUND", nil, 2)
-        r:SetSize(34, 1100)
-        r:SetPoint("CENTER", 0, 30)
-        r:SetColorTexture(1, 0.83, 0.35, 0.05)
-        if r.SetRotation then r:SetRotation((i - 1) * math.pi / 12) end
-        o.rays[i] = r
-    end
+    -- (A masked warm disc here showed as a hard yellow circle in game, WoWScrnShot_110826_201141;
+    -- the overlay stays plain dark.)
+
     -- Rising motes: small frames (a Translation on a texture only faded in place in game).
     o.motes = {}
     for i = 1, 16 do
@@ -109,41 +125,40 @@ local function build(window)
     local card = CreateFrame("Frame", nil, o)
     card:SetWidth(CARD_W)
     card:SetPoint("CENTER", 0, 10)
+    o.card = card
+    -- No burst behind the card: in game it looked odd (owner, 2026-11-08); the dark overlay and
+    -- the rising motes are enough.
     card.bg = T.Solid(card, "cardBg", "BACKGROUND", 0.97)
     card.bg:SetAllPoints()
     card.frame = T.CardFrame(card, 22, 5)
-    o.card = card
-    -- Category: a gold ring with the category's icon, the faction's streamer beside it.
+
+    -- Category: the seal inside the gold laurel (the category's icon in a ring without art).
     card.medal = CreateFrame("Frame", nil, card)
-    card.medal:SetSize(150, 150)
-    card.medal:SetPoint("TOP", 0, -26)
-    local function circle(size, r, g, b, a, sub)
-        local t = card.medal:CreateTexture(nil, "ARTWORK", nil, sub)
-        t:SetSize(size, size); t:SetPoint("CENTER", -10, 6)
-        t:SetColorTexture(r, g, b, a)
-        local mk = card.medal:CreateMaskTexture()
-        if mk then
-            mk:SetAllPoints(t)
-            mk:SetTexture(T.circleMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-            pcall(t.AddMaskTexture, t, mk)
-        end
-        return t
-    end
-    card.glow = circle(132, 1, 0.78, 0.31, 0.18, 0)
-    card.ringOuter = circle(108, 0.72, 0.54, 0.18, 1, 1)
-    card.ringInner = circle(98, 0.07, 0.04, 0.01, 1, 2)
-    card.icon = card.medal:CreateTexture(nil, "ARTWORK", nil, 3)
-    card.icon:SetSize(64, 64); card.icon:SetPoint("CENTER", -10, 6)
-    card.streamer = card.medal:CreateTexture(nil, "ARTWORK", nil, 0)
-    card.streamer:SetSize(26, 156)
-    card.streamer:SetPoint("TOPRIGHT", card.medal, "TOPRIGHT", -2, 8)
-    card.streamer:SetTexCoord(0, 1, 0.125, 0.875) -- the 1:6 painting inside its 1:8 canvas
-    -- Claim: the zone's standard.
+    card.medal:SetSize(MEDAL, MEDAL)
+    card.medal:SetPoint("TOP", 0, -18)
+    card.seal = card.medal:CreateTexture(nil, "ARTWORK", nil, 1)
+    card.seal:SetSize(MEDAL * 0.74, MEDAL * 0.74); card.seal:SetPoint("CENTER")
+    card.laurel = card.medal:CreateTexture(nil, "ARTWORK", nil, 3)
+    card.laurel:SetAllPoints()
+    card.ring = card.medal:CreateTexture(nil, "ARTWORK", nil, 0) -- fallback ring
+    card.ring:SetSize(MEDAL * 0.66, MEDAL * 0.66); card.ring:SetPoint("CENTER")
+    card.ring:SetColorTexture(0.72, 0.54, 0.18, 1)
+    circleMask(card.ring, card.medal)
+    fadeIn(card.medal, 0.15, 0.5)
+
+    -- Claim: the zone's standard (without its own claimed rays) and the faction's claim seal.
     card.banner = ns.ZoneBanner.New(card)
     card.banner:SetPoint("TOP", card, "TOP", 0, -14)
-    card.kicker = T.Text(card, "xs", "gold")
-    card.title = T.Text(card, "xxl", "gold")
-    card.title:SetWidth(CARD_W - 40); card.title:SetWordWrap(true)
+    card.banner.noRays = true
+    card.claimSeal = card:CreateTexture(nil, "OVERLAY", nil, 2)
+    card.claimSeal:SetSize(100, 100)
+    fadeIn(card.claimSeal, 1.2, 0.35)
+
+    -- The title on the crimson ribbon (kept 4:1: its centre crest mustn't stretch).
+    card.ribbon = card:CreateTexture(nil, "ARTWORK", nil, 1)
+    card.ribbon:SetSize(RIBBON_W, RIBBON_W / 4)
+    card.title = T.Text(card, "lg", "gold")
+    card.title:SetWordWrap(false)
     card.line = T.Text(card, "md", "text")
     card.line:SetWidth(CARD_W - 60); card.line:SetWordWrap(true)
     card.cats = T.Text(card, "sm", "dim")
@@ -155,20 +170,37 @@ local function build(window)
     return o
 end
 
+-- The title on the ribbon: the largest size that fits between its folded ends.
+local function setTitle(card, text)
+    local T = ns.Theme
+    local room = RIBBON_W - 150
+    for _, size in ipairs({ "lg", "md", "sm" }) do
+        T.SetFont(card.title, size)
+        card.title:SetText(text)
+        if (card.title:GetStringWidth() or 0) <= room then break end
+    end
+    -- Pale gold on the crimson ribbon; the plain gold without it.
+    if piece("cel-ribbon") then card.title:SetTextColor(1, 0.91, 0.66) else card.title:SetTextColor(T.RGB("gold")) end
+end
+
 local function place(o, top)
     local card, S = o.card, ns.Theme.space
-    card.kicker:ClearAllPoints(); card.kicker:SetPoint("TOP", card, "TOP", 0, -top)
-    card.title:ClearAllPoints(); card.title:SetPoint("TOP", card.kicker, "BOTTOM", 0, -S.s1)
-    card.line:ClearAllPoints(); card.line:SetPoint("TOP", card.title, "BOTTOM", 0, -S.s2)
+    local ribbonH = RIBBON_W / 4
+    card.ribbon:ClearAllPoints(); card.ribbon:SetPoint("TOP", card, "TOP", 0, -top)
+    -- Centred on the red band (rows 39-79 of the 128-tall art, about the image's middle). At +6
+    -- the capitals touched the band's top trim in game (WoWScrnShot_110826_201212: about 3 units
+    -- high), so +2.
+    card.title:ClearAllPoints(); card.title:SetPoint("CENTER", card.ribbon, "CENTER", 0, 2)
+    card.line:ClearAllPoints(); card.line:SetPoint("TOP", card.ribbon, "BOTTOM", 0, 2)
     local below = card.line
     if card.cats:IsShown() then
         card.cats:ClearAllPoints(); card.cats:SetPoint("TOP", card.line, "BOTTOM", 0, -S.s2)
         below = card.cats
     end
     card.button:ClearAllPoints(); card.button:SetPoint("TOP", below, "BOTTOM", 0, -S.s4)
-    local h = top + 14 + S.s1 + (card.title:GetStringHeight() or 30) + S.s2 + (card.line:GetStringHeight() or 16)
-        + (card.cats:IsShown() and (S.s2 + 16) or 0) + S.s4 + 26 + 26
-    card:SetHeight(math.max(240, math.floor(h + 0.5)))
+    local h = top + ribbonH - 2 + (card.line:GetStringHeight() or 16)
+        + (card.cats:IsShown() and (S.s2 + 16) or 0) + S.s4 + 26 + 24
+    card:SetHeight(math.max(260, math.floor(h + 0.5)))
 end
 
 local function fill(o, ev)
@@ -177,13 +209,23 @@ local function fill(o, ev)
     card.medal:SetShown(not claim)
     card.banner:SetShown(claim)
     card.cats:SetShown(claim)
+    local ribbonFile = piece("cel-ribbon")
+    card.ribbon:SetShown(ribbonFile ~= nil)
+    if ribbonFile then card.ribbon:SetTexture(ribbonFile) end
     if claim then
         local scale = 0.66
         card.banner:SetScale(scale)
         card.banner:Set(z, faction(), true, true)
-        card.kicker:SetText("ZONE CLAIMED")
-        card.title:SetText(z.name)
-        card.line:SetText("Claimed for the " .. faction() .. ".")
+        local sealFile = piece("cel-claim-" .. faction():lower())
+        card.claimSeal:SetShown(sealFile ~= nil)
+        if sealFile then
+            card.claimSeal:SetTexture(sealFile)
+            card.claimSeal:ClearAllPoints()
+            card.claimSeal:SetPoint("BOTTOMLEFT", card.banner, "BOTTOM", 18 / scale, 60 / scale)
+            if card.claimSeal.fade then card.claimSeal:SetAlpha(0); card.claimSeal.fade:Stop(); card.claimSeal.fade:Play() end
+        end
+        setTitle(card, TITLE.claim(z))
+        card.line:SetText("For the " .. faction() .. ": every area, quest and flight path you can do here is done.")
         local parts = {}
         for _, c in ipairs(z.cats or {}) do
             if not c.pending then
@@ -192,20 +234,21 @@ local function fill(o, ev)
             end
         end
         card.cats:SetText(table.concat(parts, "     "))
-        place(o, math.floor(14 + (card.banner:GetHeight() or 440) * scale + 6))
+        place(o, math.floor(14 + (card.banner:GetHeight() or 440) * scale + 2))
     else
-        card.icon:SetTexture(T.category[ev.kind].icon)
-        local key = faction() == "Horde" and "horde" or "alliance"
-        local art = ns.Art and ns.Art.banner and ns.Art.banner["streamer-" .. key]
-        card.streamer:SetShown(art ~= nil)
-        if art then card.streamer:SetTexture(ns.ZoneBanner.MEDIA .. "streamer-" .. key .. ".blp") end
-        card.kicker:SetText("STREAMER EARNED")
-        card.title:SetText(TITLE[ev.kind](z))
+        card.claimSeal:Hide()
+        local seal, laurel = sealFor(ev.kind), piece("cel-laurel")
+        card.seal:SetTexture(seal or T.category[ev.kind].icon)
+        card.laurel:SetShown(laurel ~= nil)
+        if laurel then card.laurel:SetTexture(laurel) end
+        card.ring:SetShown(laurel == nil)
+        card.seal:SetSize(MEDAL * (seal and 0.74 or 0.4), MEDAL * (seal and 0.74 or 0.4))
+        if card.medal.fade then card.medal:SetAlpha(0); card.medal.fade:Stop(); card.medal.fade:Play() end
+        setTitle(card, TITLE[ev.kind](z))
         card.line:SetText(catLine(z, ev.kind))
-        place(o, 26 + 150 + 4)
+        place(o, 18 + MEDAL - 6)
     end
 end
-
 -- What the gamepad does while a celebration shows: A or B continues; nothing else.
 local modal = {
     hints = { { "A", "Continue" } },
@@ -251,18 +294,25 @@ local alert
 
 local function buildAlert()
     local T, S = ns.Theme, ns.Theme.space
-    local a = T.Plate(UIParent, 52)
-    a:SetSize(440, 52)
+    -- In the painted card frame, everything inside it (owner: the header plate's thin band left
+    -- the text outside the border, WoWScrnShot_110826_201720).
+    local a = CreateFrame("Frame", nil, UIParent)
+    a:SetSize(400, 66)
     a:SetPoint("TOP", UIParent, "TOP", 0, -150)
     a:SetFrameStrata("HIGH")
-    a.title:ClearAllPoints()
+    a.bg = T.Solid(a, "cardBg", "BACKGROUND", 0.95)
+    a.bg:SetAllPoints()
+    a.frame = T.CardFrame(a, 18, 4)
     a.icon = a:CreateTexture(nil, "ARTWORK")
-    a.icon:SetSize(26, 26)
-    a.icon:SetPoint("LEFT", 74, 0)
+    a.icon:SetSize(46, 46)
+    a.icon:SetPoint("LEFT", 14, 0)
     a.small = T.Text(a, "xs", "dim")
-    a.small:SetPoint("TOPLEFT", a.icon, "TOPRIGHT", S.s2, 1)
+    a.small:SetPoint("TOPLEFT", a.icon, "TOPRIGHT", S.s3, -3)
     a.small:SetText("AZERFOLIO")
-    a.title:SetPoint("BOTTOMLEFT", a.icon, "BOTTOMRIGHT", S.s2, -1)
+    a.title = T.Text(a, "md", "gold")
+    a.title:SetPoint("BOTTOMLEFT", a.icon, "BOTTOMRIGHT", S.s3, 4)
+    a.title:SetPoint("RIGHT", a, "RIGHT", -16, 0)
+    a.title:SetJustifyH("LEFT"); a.title:SetWordWrap(false)
     if a.CreateAnimationGroup then
         local ag = a:CreateAnimationGroup()
         local fin = ag:CreateAnimation("Alpha"); fin:SetFromAlpha(0); fin:SetToAlpha(1); fin:SetDuration(0.4); fin:SetOrder(1)
@@ -275,11 +325,12 @@ local function buildAlert()
     a:Hide()
     return a
 end
-
 function Celebration.Alert(ev)
     alert = alert or buildAlert()
     local T = ns.Theme
-    alert.icon:SetTexture(T.category[ev.kind == "claim" and "explore" or ev.kind].icon)
+    -- The category's seal, or the claim seal (round 2); the category icon without the art.
+    local seal = ev.kind == "claim" and piece("cel-claim-" .. faction():lower()) or (ev.kind ~= "claim" and sealFor(ev.kind))
+    alert.icon:SetTexture(seal or T.category[ev.kind == "claim" and "explore" or ev.kind].icon)
     alert.title:SetText(TITLE[ev.kind](ev.zone))
     alert:Show()
     if alert.anim then

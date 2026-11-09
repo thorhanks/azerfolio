@@ -202,6 +202,29 @@ public static class AzfBlp
         return w + "x" + h + ", " + (100 * clear / (w * h)) + "% transparent, " + soft + " soft edge pixels";
     }
 
+    // Keys out a black background from glowing light (the celebration burst): alpha is the
+    // brightest channel, and the colour is un-mixed from the black (observed = a * light), so
+    // the light shows the same over any background with normal blending.
+    public static string KeyBlack(string inPath, string outPath)
+    {
+        int w, h;
+        var px = ReadRgba(inPath, out w, out h);
+        int clear = 0, soft = 0;
+        for (int i = 0; i < px.Length; i += 4)
+        {
+            float r = px[i], g = px[i + 1], b = px[i + 2];
+            float a = Math.Max(r, Math.Max(g, b)) / 255f;
+            if (a <= 0.02f) { px[i] = px[i + 1] = px[i + 2] = px[i + 3] = 0; clear++; continue; }
+            if (a < 0.996f) soft++;
+            px[i] = (byte)Clamp((int)Math.Round(r / a), 0, 255);
+            px[i + 1] = (byte)Clamp((int)Math.Round(g / a), 0, 255);
+            px[i + 2] = (byte)Clamp((int)Math.Round(b / a), 0, 255);
+            px[i + 3] = (byte)Clamp((int)Math.Round(a * 255f), 0, 255);
+        }
+        WriteRgba(outPath, px, w, h);
+        return w + "x" + h + ", " + (100 * clear / (w * h)) + "% transparent, " + soft + " glowing pixels";
+    }
+
     // Like Downsample, but colour is averaged weighted by alpha (no dark or magenta fringes).
     static byte[] DownsampleAlpha(byte[] px, int w, int h, out int nw, out int nh)
     {

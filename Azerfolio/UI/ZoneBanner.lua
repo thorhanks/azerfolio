@@ -251,7 +251,7 @@ function Banner.New(parent)
         end
         for _, ray in ipairs(f.rays) do
             ray:ClearAllPoints(); ray:SetPoint("CENTER", f, "TOP", 0, -(A.top + A.visible * 0.45))
-            ray:SetShown(on and claimed)
+            ray:SetShown(on and claimed and not f.noRays) -- the claim celebration has its own burst
         end
         f.glint:ClearAllPoints(); f.glint:SetPoint("CENTER", f, "TOP", 0, -14)
         f.glint:SetShown(on and claimed)

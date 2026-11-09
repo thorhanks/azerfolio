@@ -961,7 +961,7 @@
       const x = cx - 30 + ((i * 53) % (cw + 60)), d = 5 + (i % 4) * 1.3;
       return `<circle class="mote" style="animation-delay:-${(i * 1.7) % d}s;animation-duration:${d}s" cx="${x}" cy="${y + vis * .9}" r="${1.2 + (i % 3) * .5}" fill="#ffe7a0"/>`;
     }).join("");
-    const rays = done && !opts.mini ? `<g class="prays">${Array.from({ length: 10 }, (_, i) => { const a = i * Math.PI / 5;
+    const rays = done && !opts.mini && !opts.noRays ? `<g class="prays">${Array.from({ length: 10 }, (_, i) => { const a = i * Math.PI / 5;
       return `<path d="M${mx} ${top + vis * .45} L${mx + 260 * Math.cos(a - .09)} ${top + vis * .45 + 260 * Math.sin(a - .09)} L${mx + 260 * Math.cos(a + .09)} ${top + vis * .45 + 260 * Math.sin(a + .09)} Z" fill="#ffd35a" opacity=".09"/>`; }).join("")}</g>` : "";
     return `<svg class="warbanner painted ${done ? "claimed" : ""}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
       <defs><filter id="pglow"><feGaussianBlur stdDeviation="10"/></filter><filter id="${id}s"><feGaussianBlur stdDeviation="3"/></filter>
@@ -994,39 +994,55 @@
     flights: { title: (z) => `${z.name}: Every Flight Path`, line: (c) => `All ${c.total} flight ${c.total === 1 ? "path" : "paths"} discovered.` },
   };
   const finishCat = (c) => ({ ...c, done: c.total, pct: 1, unchecked: 0 });
+  // Round 2 (owner, 2026-11-08): painted pieces made for the moment, no streamer.
+  //   cel-burst          a soft golden light burst behind the card (drawn additively)
+  //   cel-laurel         the gold laurel seal frame; the category's seal sits inside it
+  //   cel-seal-explore / cel-seal-quests / cel-seal-flights-alliance / cel-seal-flights-horde
+  //   cel-ribbon         the title ribbon
+  //   cel-claim-alliance / cel-claim-horde   the seal stamped beside the hoisted standard
+  // Until a piece exists, a labelled stand-in shows where it goes.
+  function celPiece(name, cls, standin) {
+    return `<img class="${cls}" src="chrome-art/${name}.png" alt="" onerror="this.nextElementSibling.hidden=false;this.remove()">`
+      + `<span class="${cls} standin" hidden>${standin || ""}<small>${name}</small></span>`;
+  }
+  function celSeal(kind) {
+    const k = ui.look === "Horde" ? "horde" : "alliance";
+    return kind === "flights" ? `cel-seal-flights-${k}` : `cel-seal-${kind}`;
+  }
   function celebrate(z, kind) {
     closeCelebrate(true);
     ui.celebrate = z.name;
     const el = document.createElement("div");
     el.className = `celebrate ${kind === "claim" ? "claim" : "cat"}`; el.id = "celebrate";
+    const k = ui.look === "Horde" ? "horde" : "alliance";
     let body;
     if (kind === "claim") {
       const claimed = { ...z, pct: 1, state: "complete", unchecked: false, cats: z.cats.map(finishCat) };
-      body = `<div class="claimart">${progressArt(claimed, { animate: true, from: z.pct || 0 })}</div>
-        <div class="kicker">Zone claimed</div><h1>${esc(z.name)}</h1>
-        <p>Claimed for the ${ui.look}.</p>
+      body = `<div class="claimart">${progressArt(claimed, { animate: true, from: z.pct || 0, noRays: true })}
+          <div class="claimseal">${celPiece(`cel-claim-${k}`, "cseal", ui.look === "Horde" ? "⚔" : "🦁")}</div></div>
+        <div class="celribbon">${celPiece("cel-ribbon", "ribbonart")}<h1>${esc(z.name)} Claimed</h1></div>
+        <p>For the ${ui.look}: every area, quest and flight path you can do here is done.</p>
         <div class="celcats">${claimed.cats.map(c => `<span>${catIcon(c.key, "cimg sm")}<b>${c.total}</b> ${c.total === 1 ? c.unit.replace(/s$/, "").replace("flight paths", "flight path") : c.unit}</span>`).join("")}</div>`;
     } else {
       const c = catOf(z, kind) || { key: kind, total: 1, label: CATS[kind].label };
-      const k = ui.look === "Horde" ? "horde" : "alliance";
       const after = { ...z, cats: z.cats.map(x => x.key === kind ? finishCat(x) : x) };
       after.pct = after.cats.reduce((s, x) => s + x.done / x.total, 0) / after.cats.length;
-      body = `<div class="celmedal">${hasPiece("streamer-" + k) ? `<img class="celstreamer" src="banner-art/streamer-${k}.png" alt="">` : ""}
-          <div class="ring">${catIcon(kind, "cimg big")}</div></div>
-        <div class="kicker">Streamer earned</div><h1>${esc(CEL[kind].title(z))}</h1>
+      body = `<div class="celmedal">
+          ${celPiece(celSeal(kind), "seal", CATS[kind].icon)}
+          ${celPiece("cel-laurel", "laurel")}</div>
+        <div class="celribbon">${celPiece("cel-ribbon", "ribbonart")}<h1>${esc(CEL[kind].title(z))}</h1></div>
         <p>${CEL[kind].line(c)} ${esc(z.name)} is now <b>${pctText(after.pct)}</b>.</p>`;
     }
-    el.innerHTML = `<div class="rays"></div><div class="motes">${Array.from({ length: 18 }, (_, i) =>
+    el.innerHTML = `<div class="burst">${celPiece("cel-burst", "burstart")}</div><div class="motes">${Array.from({ length: 18 }, (_, i) =>
       `<i style="left:${(i * 37) % 100}%;animation-delay:-${(i * 0.7) % 6}s;animation-duration:${5 + (i % 4)}s"></i>`).join("")}</div>
       <div class="card">${body}<button class="btn focusable cel-ok">Continue <span class="glyph A">A</span></button></div>`;
     $("#window").appendChild(el);
     setFocus($(".cel-ok"));
-  }
-  // The on-screen alert while the window is closed (shown on the page, outside the window).
+  }  // The on-screen alert while the window is closed (shown on the page, outside the window).
   function gameAlert(z, kind) {
     const a = $("#gamealert");
     const title = kind === "claim" ? `${z.name} claimed` : CEL[kind].title(z);
-    a.innerHTML = `${catIcon(kind === "claim" ? "explore" : kind, "cimg")}<span><small>Azerfolio</small>${esc(title)}</span>`;
+    a.innerHTML = `<span class="aseal">${celPiece(kind === "claim" ? `cel-claim-${ui.look === "Horde" ? "horde" : "alliance"}` : celSeal(kind), "seal", CATS[kind === "claim" ? "explore" : kind].icon)}</span><span><small>Azerfolio</small>${esc(title)}</span>`;
     a.hidden = false; a.classList.remove("show"); void a.offsetWidth; a.classList.add("show");
     clearTimeout(gameAlert.t); gameAlert.t = setTimeout(() => { a.hidden = true; }, 5000);
   }

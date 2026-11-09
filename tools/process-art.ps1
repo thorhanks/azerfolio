@@ -63,6 +63,9 @@ function Convert-Image([string]$inPath, [string]$outPath, [double]$fx, [double]$
 #   fill      512x64    stretched, opaque DXT1                Media\Chrome
 #   icon      128x128   centre-cropped square, opaque DXT1    Media\Icons
 #   backdrop  1024x1024 stretched (4:3 source), opaque DXT1  Media\Chrome (atlas-*: the Atlas's sea map)
+#   celburst  512x512   stretched, black keyed to alpha (glow), DXT5  Media\Chrome (cel-burst)
+#   cel       256x256   fit, keyed, DXT5                      Media\Chrome (cel-laurel, cel-seal-*, cel-claim-*)
+#   ribbon    512x128   stretched, keyed, DXT5, not sliced (a centre crest)  Media\Chrome (cel-ribbon)
 # Nine-slice borders (frames, plates) are measured from the keyed image, or set in art/slices.json.
 $PieceKinds = @{
     banner = @{ size = @(256, 512); fit = 'fit'; key = $true; dir = 'Banner' }
@@ -76,6 +79,9 @@ $PieceKinds = @{
     fill = @{ size = @(512, 64); fit = 'stretch'; key = $false; dir = 'Chrome' }
     icon = @{ size = @(128, 128); fit = 'crop'; key = $false; dir = 'Icons' }
     backdrop = @{ size = @(1024, 1024); fit = 'stretch'; key = $false; dir = 'Chrome' }
+    celburst = @{ size = @(512, 512); fit = 'stretch'; key = $false; keyBlack = $true; dir = 'Chrome' }
+    cel = @{ size = @(256, 256); fit = 'fit'; key = $true; dir = 'Chrome' }
+    ribbon = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome' }
 }
 $MediaRoot = if ($env:AZF_MEDIA_ROOT) { $env:AZF_MEDIA_ROOT } else { Join-Path $PSScriptRoot '..\Azerfolio\Media' }
 $PieceMockRoot = if ($env:AZF_PIECE_MOCK_ROOT) { $env:AZF_PIECE_MOCK_ROOT } else { Join-Path $PSScriptRoot '..\mockups' }
@@ -100,6 +106,9 @@ function Get-PieceKind([string]$name) {
     if ($name -match '^bar-fill(-[a-z0-9-]+)?$') { return 'fill' }
     if ($name -match '^icon-[a-z0-9-]+$') { return 'icon' }
     if ($name -match '^atlas-[a-z0-9-]+$') { return 'backdrop' }
+    if ($name -eq 'cel-burst') { return 'celburst' }
+    if ($name -eq 'cel-ribbon') { return 'ribbon' }
+    if ($name -match '^cel-(laurel|seal-[a-z0-9-]+|claim-(alliance|horde))$') { return 'cel' }
     return $null
 }
 
@@ -110,20 +119,29 @@ function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
     try {
         $dst = New-Object System.Drawing.Bitmap $cw, $ch, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
         $g = [System.Drawing.Graphics]::FromImage($dst)
-        $g.Clear([System.Drawing.Color]::FromArgb(255, 255, 0, 255))
+        # The canvas behind the piece: black for a glow keyed from black, else magenta.
+        if ($k.keyBlack) { $g.Clear([System.Drawing.Color]::Black) }
+        else { $g.Clear([System.Drawing.Color]::FromArgb(255, 255, 0, 255)) }
         $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
         $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        # Mirror at the edges while resampling, so pixels past the image's edge (the canvas
+        # colour) don't bleed into its border (a faint magenta rim around the burst, owner).
+        $attrs = New-Object System.Drawing.Imaging.ImageAttributes
+        $attrs.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)
         if ($k.fit -eq 'fit') {
             $scale = [Math]::Min($cw / $src.Width, $ch / $src.Height)
             $dw = [int][Math]::Round($src.Width * $scale); $dh = [int][Math]::Round($src.Height * $scale)
-            $g.DrawImage($src, [int](($cw - $dw) / 2), [int](($ch - $dh) / 2), $dw, $dh)
+            $g.DrawImage($src, (New-Object System.Drawing.Rectangle ([int](($cw - $dw) / 2)), ([int](($ch - $dh) / 2)), $dw, $dh),
+                0, 0, $src.Width, $src.Height, [System.Drawing.GraphicsUnit]::Pixel, $attrs)
         } elseif ($k.fit -eq 'crop') {
             $side = [Math]::Min($src.Width, $src.Height)
             $g.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, $cw, $ch),
-                [int](($src.Width - $side) / 2), [int](($src.Height - $side) / 2), $side, $side, [System.Drawing.GraphicsUnit]::Pixel)
+                [int](($src.Width - $side) / 2), [int](($src.Height - $side) / 2), $side, $side, [System.Drawing.GraphicsUnit]::Pixel, $attrs)
         } else {
-            $g.DrawImage($src, 0, 0, $cw, $ch)
+            $g.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, $cw, $ch),
+                0, 0, $src.Width, $src.Height, [System.Drawing.GraphicsUnit]::Pixel, $attrs)
         }
+        $attrs.Dispose()
         $g.Dispose()
         $tmp = Join-Path ([IO.Path]::GetTempPath()) "azf-$name.png"
         $dst.Save($tmp, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -132,7 +150,10 @@ function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
     $png = Join-Path (Resolve-Path (Join-Path $PieceMockRoot $MockDirs[$k.dir])).Path "$name.png"
     $blp = Join-Path (Resolve-Path (Join-Path $MediaRoot $k.dir)).Path "$name.blp"
     $note = ''
-    if ($k.key) {
+    if ($k.keyBlack) {
+        $note = [AzfBlp]::KeyBlack($tmp, $png)
+        $null = [AzfBlp]::ConvertAlpha($png, $blp)
+    } elseif ($k.key) {
         $note = [AzfBlp]::KeyMagenta($tmp, $png)
         $null = [AzfBlp]::ConvertAlpha($png, $blp)
     } else {

@@ -811,3 +811,52 @@ body.chrome .atlasview { border-radius: 2px; }
 .atlasview.mini .atile.withart.here { outline: 2px solid #fff; outline-offset: 0; z-index: 4; }
 .atlasview.mini .atile.withart .abar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0,0,0,.65); }
 .atlasview.mini .atile.withart .abar b { display: block; height: 100%; background: var(--st-progress); }
+
+/* Celebrations round 2 (owner, 2026-11-08): painted burst, laurel seal, category seals, title
+   ribbon, claim seal; no streamer. Stand-ins (dashed, labelled) until the art exists. */
+.celebrate .rays { display: none; }
+.celebrate .burst { position: absolute; left: 50%; top: 44%; width: 900px; height: 900px; margin: -450px 0 0 -450px; pointer-events: none;
+  animation: burstPulse 4s ease-in-out infinite; }
+.celebrate .burst .burstart { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: screen; display: block; }
+.celebrate .burst .burstart.standin { border-radius: 50%; background: radial-gradient(circle, rgba(255,214,110,.42), rgba(255,170,40,.12) 35%, transparent 62%); }
+@keyframes burstPulse { 50% { opacity: .72; transform: scale(1.03); } }
+.standin { display: grid; place-items: center; position: relative; border: 1px dashed rgba(255,220,150,.45); color: rgba(255,220,150,.8); font-size: 22px; }
+.standin small { position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; font: 10px var(--font); color: rgba(255,220,150,.6); }
+.celebrate .card { padding-top: var(--s4); }
+.celebrate .celmedal { position: relative; width: 168px; height: 168px; margin: 0 auto var(--s1); animation: celPop .6s .1s cubic-bezier(.2,.9,.3,1.4) both; }
+.celebrate .celmedal .laurel { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; object-fit: contain; }
+.celebrate .celmedal .laurel.standin { border-radius: 50%; border: 6px double #c9a227; box-shadow: 0 0 18px rgba(255,200,80,.4); }
+.celebrate .celmedal .seal { position: absolute; left: 24px; top: 24px; width: 120px; height: 120px; z-index: 1; object-fit: contain; border-radius: 50%; }
+.celebrate .celmedal .seal.standin { background: radial-gradient(circle at 50% 40%, #3a2a12, #120a03); font-size: 44px; }
+.celebrate .celribbon { position: relative; display: grid; place-items: center; min-width: 380px; height: 64px; margin: 0 -24px; }
+.celebrate .celribbon .ribbonart { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+.celebrate .celribbon .ribbonart.standin { border-radius: 4px; background: linear-gradient(180deg, #7a1d14, #4a0f0a); }
+.celebrate .celribbon h1 { position: relative; z-index: 1; margin: 0 56px; font-size: var(--fs-xl); }
+.celebrate .claimart { position: relative; }
+.celebrate .claimseal { position: absolute; right: -6px; bottom: 28px; width: 92px; height: 92px; animation: sealStamp .45s 1.1s cubic-bezier(.3,1.6,.5,1) both; }
+.celebrate .claimseal .cseal { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; }
+.celebrate .claimseal .cseal.standin { background: radial-gradient(circle, #8a1a12, #4a0a06); font-size: 34px; }
+@keyframes sealStamp { from { transform: scale(2.2) rotate(-12deg); opacity: 0; } }
+.gamealert .aseal { width: 34px; height: 34px; flex: none; }
+.gamealert .aseal .seal { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; font-size: 16px; }
+/* Round 2 with the real pieces: the seal fills the laurel's opening (about 74% of it); the
+   ribbon keeps its 4:1 shape (its centre crest mustn't stretch) and the title shrinks to fit. */
+.celebrate .celmedal { width: 176px; height: 176px; }
+.celebrate .celmedal .seal { left: 13%; top: 13%; width: 74%; height: 74%; }
+.celebrate .celribbon { width: 460px; min-width: 0; height: 115px; margin: -6px auto -4px; }
+.celebrate .celribbon .ribbonart { object-fit: contain; }
+.celebrate .celribbon h1 { margin: 10px 70px 0; font-size: var(--fs-lg); color: #ffe9a8; text-shadow: 0 2px 3px #000, 0 0 8px rgba(0,0,0,.6); white-space: nowrap; }
+.celebrate .burst { width: 760px; height: 760px; margin: -380px 0 0 -380px; }
+.celebrate .claimseal { width: 100px; height: 100px; }
+
+.standin[hidden] { display: none !important; }
+.celebrate .burst { top: 36%; width: 1060px; height: 1060px; margin: -530px 0 0 -530px; }
+.celebrate .burst .burstart { mix-blend-mode: normal; } /* the burst is transparent now (black keyed to alpha) */
+.celebrate .burst { top: 46%; } /* lower: centred between the medal and the ribbon (owner) */
+/* Owner, 2026-11-08: no burst; the alert sits in the painted card frame with its text inside. */
+.celebrate .burst { display: none; }
+.gamealert { min-width: 360px; padding: 12px 22px 12px 14px; border: 0; border-image: none; gap: 12px;
+  background: linear-gradient(180deg, rgba(36,26,17,.96), rgba(16,10,5,.98)); }
+body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; pointer-events: none;
+  border: 18px solid transparent; border-image: url(chrome-art/frame-card.png) var(--card-slice) / 18px stretch; }
+.gamealert .aseal { width: 46px; height: 46px; }

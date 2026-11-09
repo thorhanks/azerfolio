@@ -198,6 +198,26 @@ dark and calm so other things can be placed on top. No text, no labels, no lette
 
 Negative prompt: the zone one, plus `bright, high contrast, labels, place names, grid lines, frame, border, modern map, satellite view, photograph`.
 
+## Celebration pieces (Phase 10 round 2; added 2026-11-08)
+
+Painted pieces for the celebration screens (mockups/DESIGN.md "Celebrations"): a light burst behind the card, a gold laurel frame holding a round **seal** per category, a title ribbon, and a seal stamped beside the war standard when a zone is claimed. Use the **chrome style block** above (flat magenta background, symmetrical, no text) for every piece **except the burst**. Save each as `art/source/<file>.png`; `tools/process-art.ps1` keys and converts them.
+
+The **seals** are round paintings that sit inside the laurel frame (and, small, on the on-screen alert): paint the emblem filling a circle edge to edge, with a thin plain dark rim, and only the corners outside the circle magenta. They should read at 40 px, so one bold subject each.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| cel-burst | 1:1 | **Not on magenta: on pure black (#000000).** A soft radiant burst of warm golden light from the exact centre: a bright glowing core, about twenty soft tapering rays of uneven length radiating outward, faint sparkles, everything fading smoothly to pure black well before the edges; no hard edges, no objects, no frame |
+| cel-laurel | 1:1 | A circular victory medallion frame: a ring of ornate gold laurel leaves on a thin dark bronze band, a small gold star at the top and a small looped ribbon knot at the bottom; the whole circular inside of the ring (about 70% of the width) is empty magenta |
+| cel-seal-explore | 1:1 | A round painted emblem: a golden compass rose lying on an old parchment map with a distant snowy mountain peak, warm light, a thin plain dark bronze rim around the circle |
+| cel-seal-quests | 1:1 | A round painted emblem: a rolled parchment scroll tied with a red ribbon and a red wax seal, a feather quill crossing it, a small golden exclamation mark shining above, a thin plain dark bronze rim around the circle |
+| cel-seal-flights-alliance | 1:1 | A round painted emblem: a majestic gryphon (eagle head and wings, lion body) soaring with wings spread across a bright blue sky with clouds, a thin plain dark bronze rim around the circle |
+| cel-seal-flights-horde | 1:1 | A round painted emblem: a fierce wyvern (bat-like leathery wings, lion-like body, scorpion tail) flying across a red-orange dusk sky over a desert mesa, a thin plain dark iron rim around the circle |
+| cel-ribbon | 6:1 | A long horizontal ceremonial ribbon banner: deep crimson cloth with a thin gold embroidered trim along the top and bottom edges, the left and right ends folded back with swallowtail notched tips; the long middle is plain flat crimson (room for text) |
+| cel-claim-alliance | 1:1 | A round wax seal stamp: deep royal blue wax with a polished gold rim, a proud lion's head crest embossed in the centre, regal and clean |
+| cel-claim-horde | 1:1 | A round wax seal stamp: dark blood-red wax with a rough black iron rim studded with small bone spikes, two crossed battle axes and a pair of tusks embossed in the centre, crude and battle-worn |
+
+Negative prompt: the chrome one, plus `text, letters, numbers, faces of people` (and for the burst: `magenta, objects, frame, hard edges`).
+
 ## Icons (tabs and categories; added 2026-11-08)
 
 Square icons in the style of the game's ability icons, one set, so new tabs only need a new line here. No frame: the game draws the border. Save as `art/source/icon-<name>.png`.
