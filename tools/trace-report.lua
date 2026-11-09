@@ -6,6 +6,7 @@
 --   quests              the latest quest build and report, compactly; changes since the report before
 --   zone <mapID>        one zone's quest line and checklist from the latest quest report
 --   perf                the latest /azf debug perf: memory, profiler peaks, busiest callbacks
+--   reputation          zone factions built (per zone, rivals) and the latest standing read
 --   kind <name> [n]     the latest n entries of one kind, one line each
 -- Set AZF_SV_FILE to read a different file.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/Azerfolio.lua"
@@ -185,9 +186,30 @@ function R.perf()
     end
 end
 
+-- Zone reputation (Systems/Reputation): the zone factions built, and the latest standing read.
+function R.reputation()
+    local u = latest(function(e) return e.kind == "reputation" and e.status == "unavailable" end)
+    if u then p("unavailable at %.1f: %s", u.t, tostring(u.reason)) end
+    local b, bi = latest(function(e) return e.kind == "reputation" and e.status == "ready" end)
+    if not b then p("no reputation build in the trace (debug on, then /reload)"); return end
+    p("build #%d at %.1f: %s zones, %s factions", bi, b.t, num(b.zones), num(b.factions))
+    for _, k in ipairs(keys(b.list)) do p("  %-5s %s", k, tostring(b.list[k])) end
+    for _, e in ipairs(trace) do
+        if e.kind == "reputation" and e.refresh then
+            p("refresh %s at %.1f: read %s, no data %s, met list %s, headers opened %s", tostring(e.refresh), e.t,
+                num(e.read), num(e.missing), e.metComplete and "complete" or "incomplete", num(e.expanded))
+        end
+    end
+    local r = latest(function(e) return e.kind == "reputation" and e.refresh end)
+    if r then
+        p("latest standing (factionID: reaction standing into/span met):")
+        for _, k in ipairs(keys(r.standing)) do p("  %-5s %s", k, tostring(r.standing[k])) end
+    end
+end
+
 local fn = R[section]
 if not fn then
-    p("unknown section %q; sections: summary, last [n], quests, zone <mapID>, perf, kind <name> [n]", section)
+    p("unknown section %q; sections: summary, last [n], quests, zone <mapID>, perf, reputation, kind <name> [n]", section)
     os.exit(1)
 end
 fn(arg2, arg3)

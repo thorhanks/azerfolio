@@ -55,7 +55,13 @@ Owner's choice: derive from quest rewards, with no hand-curated table. Draft rul
 - Result: 21 zones with factions. Mulgore → Earthen Ring; Barrens → Ratchet; Arathi → Booty Bay; Tirisfal and both Plaguelands → Argent Dawn; Hinterlands and Wetlands → 471; Searing Gorge → Thorium Brotherhood; Stranglethorn → Booty Bay, Bloodsail; Thousand Needles and Stonetalon → Ratchet; Desolace and Shen'dralas → Gelkis, Magram; Feralas → Steamwheedle Cartel; Tanaris → Gadgetzan, Brood of Nozdormu; Felwood → Timbermaw Hold; Moonglade and Silithus → Cenarion Circle (Silithus also Brood); Winterspring → Everlook, Wintersaber Trainers; Zephras Isle → Windshapers, High Order, Nightclaw Druids.
 - Dropped by the rule: Ratchet in Durotar and Desolace (4 quests, 8%), Brood of Nozdormu in Moonglade (3, 8%).
 - The other 30 zones (most leveling zones and the capitals) get no zone faction.
+- Repeatable quests count (the rule above includes them): without them Feralas (Steamwheedle 4 → 0) and Wintersaber Trainers (3 → 0) drop out, and Silithus' Cenarion Circle falls from 101 to 47. `luajit tools/qdb.lua reps check` runs Azerfolio's `Systems/ReputationRules.lua` on the same rows (0 mismatches, 21 zones) and on the runtime input (curated excluded quests left out: no change) [verified-files].
 - At runtime: read `reputationReward` from QuestieDB's composed view for the zone's quests, then keep only factions the game returns data for (`GetFactionDataByID`). That drops the other side's factions, such as Windshapers for Gideon [inferred from the probe].
+
+## In game (Systems/Reputation, Gideon, 2026-11-08) [verified-ingame]
+
+- With QuestieDB's corrections (composed view), the rule gives **20 zones** and 19 factions, not the base rows' 21: Feralas loses Steamwheedle Cartel (base rows: quests 7003, 7721, 7725, 7726), and The Barrens gains Powderfuse 2827 (3 quests; base rows: 1, quest 97253) with Ratchet at 27 (base 25). Which corrections cause this is [unverified]; task 4's `/azf debug reputation` should list the quests.
+- No data for 471, 910, 2778 and 2787, as in the probe; every zone faction is unmet for Gideon, with the probe's starting standings (Bloodsail Hated 35,500 / 36,000, Timbermaw Hostile 2,500 / 3,000 at war).
 
 ## Open questions
 

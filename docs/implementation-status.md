@@ -10,11 +10,13 @@ Keep this file short: one compact entry per step, with measurements. When a phas
 
 ## Next
 
-**Phase 11: zone reputation (v1.3)**, plan §6 Phase 11, spec §7.8 and §8.9. Next: task 3, systems (zone-faction rule, rivals, `Systems/Reputation`); the faction page also needs the zone's quests matched to the factions they raise.
+**Phase 11: zone reputation (v1.3)**, plan §6 Phase 11, spec §7.8 and §8.9. Next: task 4, UI (the ledger on Zone Detail, the faction page, `/azf debug reputation`).
 
 - 2026-11-08, task 1, reputation research (done): owner chose reputation next. Zone factions come from quest reputation rewards (`qdb.lua reps`). Forever has only `C_Reputation`: the met list holds 5 factions for Gideon, and by-ID reads also cover unmet factions (38 of 52 IDs). Findings and open questions in [research/reputation.md](research/reputation.md). Decided: zone factions derived from quests (`qdb.lua reps rule`, 21 zones), not a completion category, section hidden where there's none.
 
 - 2026-11-08, task 2, reputation mockup (approved): a Reputation ledger under Next up, one line per faction (name and tags, reaction, an eight-step reaction ladder, n / m). Painted ladder from new art (`frame-step`, `bar-fill-white` tinted; brighter tints because multiply darkens). Tags: Not met yet, At war, Rival (`qdb.lua reps rivals`: Booty Bay ⇄ Bloodsail, Gelkis ⇄ Magram). A opens a faction page with the zone's quests that raise it (`qdb.lua reps quests`). Fits the 740 px window (475 / 475 px); wide split 509 / 429. Round 1 (cards with a per-reaction bar) replaced: the bar misread at Hated. Spec in `mockups/DESIGN.md`.
+
+- 2026-11-08, task 3, reputation systems (in-game check pending): `Systems/ReputationRules` (pure rule, rivals, display order) and `Systems/Reputation` (`ForZone`, `Faction`: reaction, into / span, met true/false/unknown, at war, rivals with data, the zone's raising quests with Quests' state and base amount; nil without QuestieDB). Met list opens collapsed headers and closes them bottom-up; its own `UPDATE_FACTION` doesn't re-expand (2 s quiet). Repeatables count (without them Feralas and Wintersaber Trainers drop out), so Quests' index keeps their IDs and the details pass reads them plus `reputationReward`. `qdb.lua reps check`: 21 zones, 0 mismatches with `reps rule`; same with excluded quests left out. Tests 250 pass. In game (Gideon, `trace-report.lua reputation`): 20 zones, 19 factions, 15 with data (none: 471, 910, 2778, 2787, as the probe); QuestieDB's in-game corrections differ from the base rows: Feralas has no faction, The Barrens adds Powderfuse 2827 (3) and Ratchet 27. A collapsed header was opened once on `UPDATE_FACTION`; the follow-up refresh opened none (no loop).
 
 ## Tooling (2026-11-08)
 

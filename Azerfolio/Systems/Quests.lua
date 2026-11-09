@@ -75,8 +75,9 @@ function Quests.Place(zoneOrSort, areas)
 end
 
 -- Pure: an empty index.
---   zones[mapID] = { ids = {questID...}, repeatable = n }   counted quests, and the zone's
---                                                         repeatables left out (for its note)
+--   zones[mapID] = { ids = {questID...}, repeatable = n, repeats = {questID...} }
+--                  counted quests, and the zone's repeatables left out (count for its note,
+--                  IDs for Reputation: repeatables raise factions too)
 --   instances[areaID] = { kind = "dungeon"|"raid", ids }  kept for a Dungeons tab later
 --   left[reason] = n          quests left out of zone counts, by reason (Quests.REASONS)
 --   unmapped[areaID] = n      quests per unmapped area; sorts[sortID] = n
@@ -89,7 +90,7 @@ end
 
 local function zoneOf(index, mapID)
     local z = index.zones[mapID]
-    if not z then z = { ids = {}, repeatable = 0 }; index.zones[mapID] = z end
+    if not z then z = { ids = {}, repeatable = 0, repeats = {} }; index.zones[mapID] = z end
     return z
 end
 
@@ -112,6 +113,7 @@ function Quests.Add(index, id, zoneOrSort, specialFlags, areas, ok, questFlags)
         if kind == "zone" then
             local z = zoneOf(index, key)
             z.repeatable = z.repeatable + 1
+            z.repeats[#z.repeats + 1] = id
         end
         return "repeatable"
     end
@@ -141,6 +143,7 @@ Quests.DETAIL_FIELDS = {
     preSingle = "preQuestSingle", exclusive = "exclusiveTo", next = "nextQuestInChain",
     parent = "parentQuest", breadcrumbFor = "breadcrumbForQuestId",
     untilCompleted = "availableUntilCompleted", startingWith = "availableStartingWith",
+    rep = "reputationReward", -- {{factionID, amount}...}, base values (Systems/Reputation) [verified-files, Types/Quest.t.lua]
 }
 -- Requirements not checked yet: any of these makes the quest's eligibility unknown.
 Quests.NEEDS_FIELDS = {
@@ -181,7 +184,8 @@ function Quests.ReadDetails(Q, id)
 end
 
 -- Pure: a builder that reads `ids` through the reader table Q (QuestieDB's Quest API) in
--- steps: the index first, then details for every quest in a zone. builder.Step(n, d) reads up
+-- steps: the index first, then details for every quest in a zone (repeatables too, for their
+-- reputation rewards). builder.Step(n, d) reads up
 -- to n quests in the index pass or d in the details pass (defaults BATCH, DETAIL_BATCH) and
 -- returns true when both passes are done. Every read is pcall'd; a quest whose index read fails counts as "error".
 function Quests.Builder(Q, ids, areas)
@@ -207,6 +211,7 @@ function Quests.Builder(Q, ids, areas)
                 todo = {}
                 for _, z in pairs(index.zones) do
                     for _, id in ipairs(z.ids) do todo[#todo + 1] = id end
+                    for _, id in ipairs(z.repeats) do todo[#todo + 1] = id end
                 end
                 table.sort(todo)
                 b.phase = "details"
@@ -550,6 +555,12 @@ function Quests.ForZone(zone)
     results[mapID] = r
     return r
 end
+
+-- For other systems (Reputation): the built index (nil until ready), a quest's record (from
+-- the details pass, or read now), and the eligibility context for this character.
+function Quests.Index() return state.status == "ready" and state.index or nil end
+function Quests.Info(id) return info(id) end
+function Quests.Context() return state.status == "ready" and context() or nil end
 
 -- Every zone together: { status, progress, zones = zones with quests, left = index.left }.
 function Quests.Overall()

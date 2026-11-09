@@ -13,6 +13,7 @@
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
 --   reps [zone filter]     quest reputation rewards per Azerfolio zone (Data/QuestAreas.lua); run from repo root
 --   reps rule [min low share]  draft zone-faction rule (defaults 5 3 0.5)
+--   reps check             Azerfolio's Systems/ReputationRules.lua on the same rows must match `reps rule`
 --   reps rivals            per zone, faction pairs where a quest raises one and lowers the other
 --   reps quests <zone filter> <factionID>  the zone's quests that raise that faction
 -- Set AZF_QDB_TOC to read a different TOC.
@@ -376,7 +377,8 @@ elseif cmd == "reps" then
         end
     end
     local filter = arg[2]
-    local rule = filter == "rule"
+    local check = filter == "check"
+    local rule = filter == "rule" or check
     if rule then filter = nil end
     local rivals = filter == "rivals"
     local questsFor = filter == "quests" and { zone = (arg[3] or ""):lower(), faction = tonumber(arg[4]) }
@@ -459,8 +461,10 @@ elseif cmd == "reps" then
                 for f, e in pairs(fs) do perFaction[f] = (perFaction[f] or 0) + e.positive end
             end
         end
-        print(string.format("Draft rule: not a home/battleground faction; >= %d raising quests in the zone, or >= %d when the zone has >= %d%% of them", MIN, LOW, SHARE * 100))
-        local zs = {}
+        if not check then
+            print(string.format("Draft rule: not a home/battleground faction; >= %d raising quests in the zone, or >= %d when the zone has >= %d%% of them", MIN, LOW, SHARE * 100))
+        end
+        local zs, ref = {}, {}
         for k in pairs(byZone) do if type(k) == "number" then zs[#zs + 1] = k end end
         table.sort(zs)
         for _, z in ipairs(zs) do
@@ -472,12 +476,91 @@ elseif cmd == "reps" then
                 end
             end
             table.sort(picks, function(a, b) return a.n > b.n end)
+            if #picks > 0 then ref[z] = picks end
             local parts = {}
             for _, x in ipairs(picks) do
                 parts[#parts + 1] = string.format("%s(%d) %d, %d%%", names[x.f] or "?", x.f, x.n, math.floor(x.share * 100 + 0.5))
             end
-            print(string.format("%-5d %-24s %s", z, tostring(zoneName[z]), #parts > 0 and table.concat(parts, "; ") or "-"))
+            if not check then
+                print(string.format("%-5d %-24s %s", z, tostring(zoneName[z]), #parts > 0 and table.concat(parts, "; ") or "-"))
+            end
         end
+        if not check then return end
+        -- check: Azerfolio's ReputationRules on the same input must give the same zones and
+        -- factions (and counts). Then the runtime-like input (repeatables and the curated
+        -- excluded quests left out, as in Quests' zone counts) for comparison.
+        local fakeNs = {}
+        assert(loadfile("Azerfolio/Systems/ReputationRules.lua"))("Azerfolio", fakeNs)
+        local areaNs = {}
+        assert(loadfile("Azerfolio/Data/QuestAreas.lua"))("Azerfolio", areaNs)
+        local excluded = areaNs.QuestAreaData.excludedQuests or {}
+        local R = fakeNs.ReputationRules
+        local function zonesInput(runtimeLike)
+            local zones = {}
+            for id, row in pairs(rows) do
+                local z = row[17]
+                local zk = type(z) == "number" and z > 0 and zoneOf[z]
+                if type(zk) == "number" and not (runtimeLike and excluded[id]) then
+                    zones[zk] = zones[zk] or {}
+                    zones[zk][#zones[zk] + 1] = id
+                end
+            end
+            return zones
+        end
+        local function rewardsOf(id) return tabs[id] and tabs[id][26] end
+        local function describe(entry)
+            local parts = {}
+            for _, p in ipairs(entry or {}) do parts[#parts + 1] = (names[p.factionID] or p.factionID) .. " " .. p.count end
+            return table.concat(parts, "; ")
+        end
+        local got = R.Build(zonesInput(false), rewardsOf)
+        local zonesGot, mismatches = 0, 0
+        for _, z in ipairs(zs) do
+            local want, have = ref[z] or {}, got[z] and got[z].factions or {}
+            if got[z] then zonesGot = zonesGot + 1 end
+            local w, h = {}, {}
+            for _, p in ipairs(want) do w[p.f] = p.n end
+            for _, p in ipairs(have) do h[p.factionID] = p.count end
+            local same = #want == #have
+            for f, n in pairs(w) do if h[f] ~= n then same = false end end
+            if not same then
+                mismatches = mismatches + 1
+                print(string.format("MISMATCH %d %s: draft rule %d factions, module: %s", z, tostring(zoneName[z]), #want, describe(have)))
+            end
+        end
+        local nref = 0
+        for _ in pairs(ref) do nref = nref + 1 end
+        print(string.format("ReputationRules vs draft rule: %d zones vs %d, %d mismatches", zonesGot, nref, mismatches))
+        local zlist = {}
+        for z in pairs(got) do zlist[#zlist + 1] = z end
+        table.sort(zlist)
+        for _, z in ipairs(zlist) do
+            local rv = {}
+            for f, list in pairs(got[z].rivals) do
+                for _, g in ipairs(list) do if f < g then rv[#rv + 1] = (names[f] or f) .. " <> " .. (names[g] or g) end end
+            end
+            print(string.format("  %-5d %-22s %s%s", z, tostring(zoneName[z]), describe(got[z].factions),
+                #rv > 0 and ("  | rivals: " .. table.concat(rv, ", ")) or ""))
+        end
+        local rt = R.Build(zonesInput(true), rewardsOf)
+        -- Systems/Reputation's input: the zone's counted and repeatable quests, without the
+        -- curated excluded quests (corrections still apply only in game).
+        print("Runtime input (Data/QuestAreas.lua excluded quests left out), differences:")
+        local seen = {}
+        for z in pairs(got) do seen[z] = true end
+        for z in pairs(rt) do seen[z] = true end
+        local all = {}
+        for z in pairs(seen) do all[#all + 1] = z end
+        table.sort(all)
+        local diffs = 0
+        for _, z in ipairs(all) do
+            local a, b = describe(got[z] and got[z].factions), describe(rt[z] and rt[z].factions)
+            if a ~= b then
+                diffs = diffs + 1
+                print(string.format("  %-5d %-22s all: %s | runtime: %s", z, tostring(zoneName[z]), a, b))
+            end
+        end
+        if diffs == 0 then print("  none") end
         return
     end
     local keys = {}
