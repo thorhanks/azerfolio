@@ -11,6 +11,7 @@
 --   rares [areaID|all]     rare, rare elite and boss NPCs (rank 4, 2, 3; cmangos ranks), by spawn area
 --   objects <text|*> [areaID] game objects whose name contains text (* = all), spawn points per area
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
+--   reps [zone filter]     quest reputation rewards per Azerfolio zone (Data/QuestAreas.lua); run from repo root
 -- Set AZF_QDB_TOC to read a different TOC.
 local bit = require("bit")
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/QuestieDB/QuestieDB_Forever.toc"
@@ -118,7 +119,7 @@ local function load(wantTables, entity)
         local id, f, payload = line:match(pattern)
         if id then
             id = tonumber(id)
-            if f == "S" or (wantTables and wantTables(id)) then
+            if f == "S" or (wantTables and wantTables(id, tonumber(f))) then
                 local ok, v = pcall(decode, unbase64(payload), 1)
                 if not ok then errors = errors + 1
                 elseif f == "S" then rows[id] = v
@@ -350,7 +351,63 @@ elseif cmd == "recipes" then
             end
         end
     end
+elseif cmd == "reps" then
+    -- Faction names from QuestieDB's correction enum; zones from Azerfolio's own Data/QuestAreas.lua.
+    local dir = path:match("^(.*)[/\\]")
+    local names = {}
+    local ef = io.open(dir .. "/src/corrections/enum/factions.lua")
+    if ef then
+        for n, id in ef:read("*a"):gmatch("([%u_]+) = (%d+)") do names[tonumber(id)] = n end
+        ef:close()
+    end
+    local zoneOf, zoneName, kind = {}, {}, nil
+    for line in io.lines("Azerfolio/Data/QuestAreas.lua") do
+        local k = line:match("^%s*(%a+) = {")
+        if k then kind = k end
+        local a, v, label = line:match("^%s*%[(%d+)%] = (%w+),%s*%-%-%s*(.-)%s*$")
+        if a and kind == "zone" then
+            zoneOf[tonumber(a)] = tonumber(v)
+            zoneName[tonumber(v)] = zoneName[tonumber(v)] or label
+        elseif a and kind then
+            zoneOf[tonumber(a)] = kind .. ":" .. (label or a)
+        end
+    end
+    local filter = arg[2]
+    local rows, tabs = load(function(_, f) return f == 26 end)
+    local byZone = {}
+    for id, row in pairs(rows) do
+        local rewards = tabs[id] and tabs[id][26]
+        local z = row[17]
+        if type(rewards) == "table" and type(z) == "number" then
+            local key = z > 0 and (zoneOf[z] or ("unmapped area " .. z)) or ("sort " .. z)
+            byZone[key] = byZone[key] or {}
+            for _, r in ipairs(rewards) do
+                local f, amount = r[1], r[2] or 0
+                local e = byZone[key][f] or { quests = 0, total = 0 }
+                e.quests = e.quests + 1
+                if type(amount) == "number" and amount > 0 then e.total = e.total + amount end
+                byZone[key][f] = e
+            end
+        end
+    end
+    local keys = {}
+    for k in pairs(byZone) do keys[#keys + 1] = k end
+    table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+    print("Quest reputation rewards by zone (base rows; amounts are QuestieDB's raw values, positive only summed)")
+    for _, k in ipairs(keys) do
+        local label = type(k) == "number" and (k .. " " .. tostring(zoneName[k])) or k
+        if not filter or label:lower():find(filter:lower(), 1, true) then
+            local fs = {}
+            for f, e in pairs(byZone[k]) do fs[#fs + 1] = { f = f, e = e } end
+            table.sort(fs, function(a, b) return a.e.quests > b.e.quests end)
+            local parts = {}
+            for _, x in ipairs(fs) do
+                parts[#parts + 1] = string.format("%s(%d) %dq/%d", names[x.f] or "?", x.f, x.e.quests, x.e.total)
+            end
+            print(string.format("%-34s %s", label, table.concat(parts, ", ")))
+        end
+    end
 else
-    print("usage: luajit tools/qdb.lua quest <id>... | area <areaID> | name <text> | stats | npc <id>... | rares [areaID|all] | objects <text> [areaID] | recipes [areaID]")
+    print("usage: luajit tools/qdb.lua quest <id>... | area <areaID> | name <text> | stats | npc <id>... | rares [areaID|all] | objects <text> [areaID] | recipes [areaID] | reps [zone filter]")
     os.exit(cmd and 1 or 0)
 end

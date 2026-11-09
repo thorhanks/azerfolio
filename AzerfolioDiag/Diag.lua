@@ -147,6 +147,7 @@ local CANDIDATE_EVENTS = {
     "PLAYER_ENTERING_WORLD", "PLAYER_LEVEL_UP", "PLAYER_XP_UPDATE",
     "QUEST_TURNED_IN", "QUEST_REMOVED", "QUEST_ACCEPTED", "QUEST_LOG_UPDATE", "QUEST_DATA_LOAD_RESULT",
     "AREA_POIS_UPDATED", "ADDON_LOADED", "TAXIMAP_OPENED", "TAXIMAP_CLOSED", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
+    "UPDATE_FACTION", "CHAT_MSG_COMBAT_FACTION_CHANGE", "QUEST_LOG_CRITERIA_UPDATE",
 }
 
 local function dumpEnv()
@@ -875,6 +876,83 @@ local function dumpTaxi(reason)
 end
 
 ---------------------------------------------------------------------------
+-- Reputation probe (/azfdiag reps): which faction APIs exist, the full faction list
+-- (collapsed headers are expanded to read them, then collapsed again), lookups by ID for
+-- factions that quests in our zones reward (tools/qdb.lua reps), standing labels.
+---------------------------------------------------------------------------
+
+-- Faction IDs from quest reputation rewards [verified-files, offline QuestieDB survey 2026-11-08].
+local REP_PROBE_IDS = {
+    21, 47, 54, 59, 67, 68, 69, 72, 76, 81, 87, 92, 93, 169, 270, 349, 369, 469, 470, 471, 509, 510,
+    529, 530, 576, 577, 589, 609, 729, 730, 749, 809, 889, 890, 909, 910,
+    2586, 2587, 2719, 2740, 2747, 2758, 2765, 2778, 2779, 2782, 2787, 2798, 2799, 2819, 2826, 2827,
+}
+
+local function dumpReps()
+    local R = C_Reputation
+    local r = { t = time(), map = currentMapID(), has = {}, list = {}, cList = {}, byID = {}, cByID = {}, labels = {} }
+    for _, name in ipairs({ "GetNumFactions", "GetFactionInfo", "GetFactionInfoByID", "ExpandFactionHeader",
+        "CollapseFactionHeader", "ExpandAllFactionHeaders", "IsFactionInactive", "GetWatchedFactionInfo",
+        "SetWatchedFactionIndex", "GetFriendshipReputation" }) do
+        r.has[name] = type(_G[name])
+    end
+    if R then
+        for k, v in pairs(R) do r.has["C_Reputation." .. k] = type(v) end
+    else
+        r.has.C_Reputation = "nil"
+    end
+    r.has.C_GossipInfo_GetFriendshipReputation = C_GossipInfo and type(C_GossipInfo.GetFriendshipReputation) or "nil"
+    r.has.ReputationFrame = type(_G.ReputationFrame)
+    for i = 0, 9 do r.labels[i] = _G["FACTION_STANDING_LABEL" .. i] end
+
+    -- Expand collapsed headers bottom-up (indices above don't shift), remembering them by name.
+    local expanded = {}
+    if GetNumFactions and GetFactionInfo and ExpandFactionHeader then
+        r.countBefore = try("GetNumFactions", GetNumFactions)
+        for i = (r.countBefore or 0), 1, -1 do
+            local v = packArgs(try("GetFactionInfo", GetFactionInfo, i))
+            -- classic returns: name, description, standingID, barMin, barMax, barValue, atWarWith,
+            -- canToggleAtWar, isHeader, isCollapsed, hasRep, isWatched, isChild, factionID, ...
+            if v[9] and v[10] then
+                expanded[#expanded + 1] = v[1]
+                try("ExpandFactionHeader", ExpandFactionHeader, i)
+            end
+        end
+        r.expandedHeaders = expanded
+        r.count = try("GetNumFactions", GetNumFactions)
+        for i = 1, math.min(r.count or 0, 400) do
+            r.list[i] = packArgs(try("GetFactionInfo", GetFactionInfo, i))
+            if IsFactionInactive then r.list[i].inactive = try("IsFactionInactive", IsFactionInactive, i) end
+        end
+    end
+    if R and R.GetNumFactions and R.GetFactionDataByIndex then
+        r.cCount = try("C_Reputation.GetNumFactions", R.GetNumFactions)
+        for i = 1, math.min(r.cCount or 0, 400) do
+            r.cList[i] = safePlain(try("C_Reputation.GetFactionDataByIndex", R.GetFactionDataByIndex, i))
+        end
+    end
+    -- Collapse what we expanded, bottom-up again, matching by name.
+    if #expanded > 0 and CollapseFactionHeader then
+        local want = {}
+        for _, n in ipairs(expanded) do want[n] = true end
+        for i = (try("GetNumFactions", GetNumFactions) or 0), 1, -1 do
+            local v = packArgs(try("GetFactionInfo", GetFactionInfo, i))
+            if v[9] and want[v[1]] and not v[10] then try("CollapseFactionHeader", CollapseFactionHeader, i) end
+        end
+        r.countAfter = try("GetNumFactions", GetNumFactions)
+    end
+
+    for _, id in ipairs(REP_PROBE_IDS) do
+        if GetFactionInfoByID then r.byID[id] = packArgs(try("GetFactionInfoByID", GetFactionInfoByID, id)) end
+        if R and R.GetFactionDataByID then r.cByID[id] = safePlain(try("C_Reputation.GetFactionDataByID", R.GetFactionDataByID, id)) end
+    end
+    r.watched = packArgs(GetWatchedFactionInfo and try("GetWatchedFactionInfo", GetWatchedFactionInfo))
+    DB.reps = r
+    msg(string.format("reputation: %s factions listed (%d headers expanded and restored; %s before, %s after), %d IDs looked up. Type /reload to save.",
+        tostring(r.count), #expanded, tostring(r.countBefore), tostring(r.countAfter or r.count), #REP_PROBE_IDS))
+end
+
+---------------------------------------------------------------------------
 -- Image format / native texture test
 ---------------------------------------------------------------------------
 
@@ -1344,6 +1422,7 @@ local HELP = {
     "/azfdiag zones  - record each zone's level range, faction info and map position (raw)",
     "/azfdiag questdb - QuestieDB probe: API, read cost, corrections, race masks, quest areas",
     "/azfdiag taxi   - flight paths per zone (also recorded when a flight master's map opens)",
+    "/azfdiag reps   - reputation probe: faction APIs, the full faction list, lookups by ID",
     "/azfdiag sniff  - toggle logging of every event name",
     "/azfdiag art    - show the image-format test frame",
     "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
@@ -1366,6 +1445,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "zones" then dumpZoneMeta()
     elseif cmd == "questdb" then probeQuestDB()
     elseif cmd == "taxi" then dumpTaxi("command")
+    elseif cmd == "reps" then dumpReps()
     elseif cmd == "sniff" then setSniff(not DB.sniffOn)
     elseif cmd == "art" then showArt()
     elseif cmd == "pad" then togglePad()

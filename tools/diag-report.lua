@@ -1,7 +1,7 @@
 -- Summarizes the AzerfolioDiag SavedVariables dump.
 -- Usage: luajit tools/diag-report.lua [section] [param]
 -- Sections: summary (default), env, ach, explore, maps, quests, questdb [areas], taxi [nodes], zone, zones, events, art, errors,
---           criteria <achID>, ns <filter>, log [n], skin [tree [filter]]
+--           criteria <achID>, ns <filter>, log [n], skin [tree [filter]], reps
 -- Set AZF_DIAG_FILE to read a different dump.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
 
@@ -21,6 +21,50 @@ local function count(t) local n = 0 for _ in pairs(t or {}) do n = n + 1 end ret
 local function s(v) if type(v) == "table" then local o = {} for i, x in ipairs(v) do o[i] = tostring(x) end return "{" .. table.concat(o, ",") .. "}" end return tostring(v) end
 
 local R = {}
+
+-- /azfdiag reps. GetFactionInfo returns (classic order): name, description, standingID, barMin,
+-- barMax, barValue, atWarWith, canToggleAtWar, isHeader, isCollapsed, hasRep, isWatched, isChild, factionID.
+function R.reps()
+    local r = DB.reps
+    if not r then p("no reputation probe; run /azfdiag reps, then /reload"); return end
+    p("reputation probe at %s, map %s", os.date("%H:%M:%S", r.t), tostring(r.map))
+    p("APIs:")
+    for _, k in ipairs(keys(r.has)) do p("  %-48s %s", k, tostring(r.has[k])) end
+    local labels = {}
+    for i = 0, 9 do if r.labels[i] then labels[#labels + 1] = i .. "=" .. r.labels[i] end end
+    p("standing labels: %s", table.concat(labels, ", "))
+    p("factions: %s listed; before %s, after %s; expanded and restored: %s", tostring(r.count), tostring(r.countBefore),
+        tostring(r.countAfter), table.concat(r.expandedHeaders or {}, ", "))
+    for i, v in ipairs(r.list or {}) do
+        local indent = v[9] and "" or "  "
+        p("  %3d %s%-34s id %-5s st %-2s %s/%s..%s hdr %s rep %s child %s war %s%s", i, indent, tostring(v[1]), tostring(v[14]),
+            tostring(v[3]), tostring(v[6]), tostring(v[4]), tostring(v[5]), tostring(v[9]), tostring(v[11]), tostring(v[13]),
+            tostring(v[7]), v.inactive and " inactive" or "")
+    end
+    if r.cCount then p("C_Reputation list: %s entries (first: %s)", tostring(r.cCount), s(r.cList[1] and keys(r.cList[1]))) end
+    p("by ID (GetFactionInfoByID):")
+    for _, id in ipairs(keys(r.byID)) do
+        local v = r.byID[id]
+        p("  %-5s %-34s st %-2s %s/%s..%s  hasRep %s", tostring(id), tostring(v[1]), tostring(v[3]), tostring(v[6]),
+            tostring(v[4]), tostring(v[5]), tostring(v[11]))
+    end
+    local function fd(v)
+        return string.format("%-34s id %-5s reaction %-2s standing %s (%s..%s) hdr %s child %s collapsed %s acct %s war %s",
+            tostring(v.name), tostring(v.factionID), tostring(v.reaction), tostring(v.currentStanding),
+            tostring(v.currentReactionThreshold), tostring(v.nextReactionThreshold), tostring(v.isHeader),
+            tostring(v.isChild), tostring(v.isCollapsed), tostring(v.isAccountWide), tostring(v.atWarWith))
+    end
+    for i, v in ipairs(r.cList or {}) do if type(v) == "table" then p("  %3d %s", i, fd(v)) end end
+    if next(r.cByID or {}) then
+        local n, missing = 0, {}
+        for _, id in ipairs(keys(r.cByID)) do
+            local v = r.cByID[id]
+            if type(v) == "table" and next(v) then n = n + 1; p("  byID %s", fd(v)) else missing[#missing + 1] = tostring(id) end
+        end
+        p("C_Reputation.GetFactionDataByID: data for %d IDs; none for %s", n, table.concat(missing, ", "))
+    end
+    p("watched: %s", s(r.watched))
+end
 
 function R.errors()
     p("errors: %d", #(DB.errors or {}))

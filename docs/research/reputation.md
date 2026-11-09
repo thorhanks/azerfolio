@@ -1,0 +1,54 @@
+# Reputation (research, 2026-11-08)
+
+Research for a reputation feature: per zone, the factions that matter there, with the character's standing. Owner's direction (2026-11-08): work on reputation next. Evidence levels as in plan §2.2.
+
+## Zone → faction: from quest rewards
+
+QuestieDB quests carry `reputationReward` (field 26, `{{factionID, amount}, ...}`). `luajit tools/qdb.lua reps [zone filter]` adds them up per Azerfolio zone, through our own `Data/QuestAreas.lua` [verified-files, base rows without corrections]. Each zone's quests clearly point to its own factions:
+
+| Zone (uiMap) | Zone faction: quests |
+|---|---|
+| Felwood 1448 | Timbermaw Hold 576: 12 |
+| Silithus 1451 | Cenarion Circle 609: 101; Brood of Nozdormu 910: 8 |
+| Winterspring 1452 | Everlook 577: 18; Wintersaber Trainers 589: 3 |
+| Desolace 1443 | Gelkis Clan Centaur 92: 12; Magram Clan Centaur 93: 11 (rivals) |
+| Shen'dralas 2652 | Magram 93: 11; Gelkis 92: 8 |
+| Searing Gorge 1427 | Thorium Brotherhood 59: 12 |
+| Stranglethorn Vale 1434 | Booty Bay 21: 43; Bloodsail Buccaneers 87: 41 |
+| Tanaris 1446 | Gadgetzan 369: 28; Brood of Nozdormu 910: 26 |
+| The Barrens 1413 | Ratchet 470: 25 |
+| W/E Plaguelands 1422/1423 | Argent Dawn 529: 36 / 65 |
+| Moonglade 1450 | Cenarion Circle 609: 7 |
+| The Hinterlands 1425, Wetlands 1437 | 471 (no name in QuestieDB's enum, and the game returns nothing for it): 10 / 6 |
+| Zephras Isle 2521 | Windshapers 2778: 59; High Order 2779: 55; Nightclaw Druids 2758: 11 |
+| Mulgore 1412 | Earthen Ring (Forever) 2787: 4; Windshapers 2778: 2 |
+| Alterac Mountains 1416 | High Order 2779: 2; Kirin Tor (Forever) 2740: 2 |
+
+- Every zone also rewards the capital factions (Stormwind 72, Ironforge 47, Orgrimmar 76, ...), so "zone faction" needs a rule. For example: leave out the player's racial and capital factions (the Alliance/Horde group), and keep factions where most of their quests come from this zone.
+- Dungeons and raids have their own (Zul'Gurub → Zandalar Tribe 270: 81; Naxxramas → Argent Dawn: 77; Dire Maul → Shen'dralar 809: 14; Ahn'Qiraj → Brood 910 and Cenarion Circle).
+- Forever's "Crafting" area 16941 (unmapped): Azeroth Commerce Authority 2586: 150 and Durotar Supply and Logistics 2587: 149, so these look like Forever's profession factions, one per side [inferred].
+- Amounts are base values from QuestieDB. The game may add bonuses (Human diplomacy), so amounts must never be shown as exact.
+
+## Client API (probe `/azfdiag reps`, Gideon, Elwynn, 2026-11-08) [verified-ingame]
+
+Report: `luajit tools/diag-report.lua reps`. 0 errors.
+
+- **Only the modern `C_Reputation` API exists.** The classic globals (`GetNumFactions`, `GetFactionInfo`, `GetFactionInfoByID`, `ExpandFactionHeader`, `GetWatchedFactionInfo`, ...) are all `nil`.
+- `C_Reputation` has `GetNumFactions`, `GetFactionDataByIndex`, `GetFactionDataByID`, `Expand/CollapseFactionHeader`, `Expand/CollapseAllFactionHeaders`, `IsFactionActive`, `IsAccountWideReputation`, `GetWatchedFactionData`, plus retail paragon, major-faction and legacy functions. `C_GossipInfo.GetFriendshipReputation` exists.
+- Faction data is a table: `name, factionID, reaction, currentStanding, currentReactionThreshold, nextReactionThreshold, isHeader, isHeaderWithRep, isChild, isCollapsed, isWatched, atWarWith, canToggleAtWar, canSetInactive, isAccountWide, hasBonusRepGain, description`.
+- **Standing is absolute**: `currentStanding` runs from -42000 to 42000, and the thresholds bound the current reaction. Example: Stormwind reaction 5 (Friendly), standing 6600, thresholds 3000..9000, so 3,600 / 6,000 into Friendly. Progress = standing − currentThreshold, out of next − current.
+- Reaction labels: `FACTION_STANDING_LABEL1..8` = Hated, Hostile, Unfriendly, Neutral, Friendly, Honored, Revered, Exalted.
+- **The index list holds only the factions the character has met**: Gideon (level 9) has 5 entries, the Alliance header (with its own standing, 3312) plus Darnassus, Gnomeregan Exiles, Ironforge and Stormwind. Nothing was collapsed.
+- **`GetFactionDataByID` also reads factions the character hasn't met**, with their starting standing: Booty Bay, Ratchet, Gadgetzan and Everlook at Neutral 500; Timbermaw Hold at Hostile −3500 (at war); Bloodsail at −6500; Gelkis and Magram at Neutral 2000 (at war). Forever's: Barkskin Burrow Hostile −3400 (at war), Cenarion Scouts 500, Powderfuse 2827 at 500, High Order, Nightclaw Druids, The Watchers, Guardians of Hyjal and Kirin Tor at 0, Brotherhood of the Horse at 1. 2798 is Darkspear Raiders and 2799 Theramore Expeditionary Force (the Darkspear Islands battleground sides).
+- **No data for 14 IDs**: the Horde factions (67, 68, 76, 81, 530, 889), Forever factions likely on the Horde side (2587 Durotar Supply and Logistics, 2778 Windshapers, 2782 Bolderok Clan, 2787 Earthen Ring), and four neutral ones: 270 Zandalar Tribe, 471, 749 Hydraxian Waterlords, 910 Brood of Nozdormu. The Horde pattern suggests `GetFactionDataByID` returns nothing for the other side's factions [inferred]; why the four neutral ones are missing is [unverified] (check on Thragor, and on Gideon after meeting one).
+- So "met" = in the index list, and "standing" = by ID. An unmet faction's standing is the game's own value, so it can be shown, but it should be marked as not met yet.
+- Events: `UPDATE_FACTION` fires (5 times this session; 93 in the earlier sniffer run), as do `CHAT_MSG_COMBAT_FACTION_CHANGE` and `FACTION_STANDING_CHANGED` (sniffer, once each) [verified-ingame]. Reading every faction by ID on `UPDATE_FACTION`, debounced, is enough.
+- Probe gap: header expansion used the classic globals, so it did nothing. Nothing was collapsed this time; a feature must use `C_Reputation.ExpandFactionHeader` (or read by ID only) and restore the player's collapsed headers.
+
+## Open questions
+
+1. The zone-faction rule: derive it from quest rewards (above), or keep a short hand-curated table, owner-approved?
+2. Faction 471 (Wetlands, Hinterlands): which faction is it on Forever? The game returns nothing for it.
+3. Do Zandalar Tribe, Hydraxian Waterlords and Brood of Nozdormu read once met, or on a level-60 character?
+4. Thragor: does a Horde character see Windshapers and not High Order (that would make Zephras Isle's factions one per side)?
+5. Does reputation count toward combined zone completion? It has no "done" state below Exalted, so it probably shouldn't.
