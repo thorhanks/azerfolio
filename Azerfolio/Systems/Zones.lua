@@ -38,8 +38,9 @@ end
 
 -- Pure: the category list for Progression.Combine (spec §7.7) from the three providers'
 -- ForZone results (any may be nil). Pending: data that will come (achievements not loaded,
--- QuestieDB still reading, no flight master seen on the continent yet). A provider that can't
--- ever answer here (no Explore achievement, no QuestieDB, no flight path) is left out.
+-- QuestieDB still reading or not installed, no flight master seen on the continent yet). A
+-- category that doesn't exist here (no Explore achievement, no quests for you, no flight path)
+-- is left out.
 function Zones.Categories(ex, q, f)
     local list = {}
     if ex and ex.status == "tracked" then list[#list + 1] = { key = "explore", progress = ex.progress }
@@ -49,8 +50,15 @@ function Zones.Categories(ex, q, f)
     elseif q and (q.status == "building" or q.status == "idle") then
         list[#list + 1] = { key = "quests", pending = "building" }
     end
+    local quests = #list + 1
     if f and f.status == "ready" then list[#list + 1] = { key = "flights", progress = f.progress }
     elseif f and f.status == "pending" then list[#list + 1] = { key = "flights", progress = f.progress, pending = "flightmaster" } end
+    -- No QuestieDB: whether a tracked zone has quests for you is unknown, so it can't be
+    -- claimed on its other categories (Phase 9 step 7: Elwynn showed "Claimed" in game). A
+    -- zone with nothing else to track (a capital) stays untracked.
+    if q and q.status == "unavailable" and #list > 0 then
+        table.insert(list, quests, { key = "quests", pending = "questiedb" })
+    end
     return list
 end
 

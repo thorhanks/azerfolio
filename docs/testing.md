@@ -184,3 +184,28 @@ Status of every criterion (updated 2026-11-08; details in the results table belo
 | 2026-11-07 | Owner (Gideon, Thragor) | Owner's answers for the run above: **no Lua errors** during play (step 3); window position, size, tab and view **kept after the full restart** (step 7); Thragor's Zone Detail for The Barrens and Durotar **correct** (step 9). Step 5: no controller button is bound to Azerfolio yet, so opening from the controller is **deferred** (owner asked to be reminded); Escape not reported |
 | 2026-11-07 | Owner | Escape closes the window [verified-ingame, owner]. Owner approved hiding the empty "To discover" section on a fully explored zone: mockup updated and checked in the preview, then Lua (tests). Owner checked Elwynn Forest's Zone Detail in game after `/reload`: looks right [verified-ingame, owner] |
 | 2026-11-08 | Owner | Opening from a controller-bound key **didn't work**. The owner doesn't need a key binding, so it was removed (`Bindings.xml`, `Azerfolio_Toggle`, the binding labels and the help line) and the spec §12 Window criterion no longer asks for it. Not looked into why the controller binding failed. Every v1 criterion is now met |
+
+## Phase 9 - v1.1 Quests (spec §12 "v1.1 Quests")
+
+Automated: `luajit tests/run.lua` (227 tests): quest rules (race, class, level, chains, exclusive choices, breadcrumbs), the per-zone index and its exclusions, storylines, difficulty, combined zone completion, flight path catalogue and records, Next up, the Overview's tracked completion and suggestions.
+
+| Spec §12 criterion | Evidence so far | To check now |
+|---|---|---|
+| Reads quest completion; shows known quests per zone | Step 3: Elwynn 42/68 against the owner's own checklist; a turn-in updated the counts (2026-11-08) | Step 2 (a turn-in, before and after) |
+| Eligibility applied; repeatables and unavailable quests excluded from totals | Step 2: 739 repeatable, 278 dungeon, 123 raid, 125 battleground left out; Horde zones all unavailable on Gideon | Step 6 (Thragor: Durotar counted, Elwynn not for this character) |
+| Incomplete coverage clearly labeled; no unverifiable total presented as complete | "2 can't be checked yet" on Elwynn; "98 quests can't be checked yet" on the Overview (step 6 shot) | Step 5 (QuestieDB off: every quest number says why it's missing) |
+| Zone completion combines the applying categories; one that doesn't apply is left out | Elwynn 80% = exploration 100% and quests 61%, no flight path category | Step 4 shots (Westfall: three categories) |
+| Flight paths per zone, confirmed by the client, or unavailable with the reason | Stormwind's flight master list: known 2 of 18; Kalimdor "talk to a flight master there" | Steps 3-4 |
+
+**Steps (owner)**, on Gideon, out of combat:
+1. `/console scriptErrors 1`, `/reload`, `/azf debug`.
+2. Open Zones > Elwynn Forest > Quests, `/azf shot`. Turn in one Elwynn quest your tracker shows as (Complete). Open the same page again, `/azf shot`.
+3. `/azf debug quests full`, then `/azf debug flights`.
+4. Zone Detail dashboards, `/azf shot` on each: Westfall, Duskwood, Darkshore (Kalimdor).
+5. Log out to character select, AddOns: untick **QuestieDB** only. Log in on Gideon, `/azf`, `/azf shot` on the Overview and on Elwynn Forest's dashboard. Log out and tick QuestieDB again.
+6. On Thragor: `/azf`, `/azf shot` on the Overview, Durotar's Quests page and Elwynn Forest's dashboard; `/azf debug overview`; `/reload`.
+7. Tell me if any Lua error appeared.
+
+| Date | By | Result |
+|---|---|---|
+| 2026-11-08 | Owner (Gideon, Thragor) + agent | Partial. Shots `WoWScrnShot_110826_182015`-`183454`, trace written 18:35:43. **Completion:** turning in Further Concerns moved Elwynn from 42 to 43 of 68 (61% to 63%); it left Ready now, its storyline went to 2 of 8 and Find the Lost Guards became ready (trace: `QUEST_TURNED_IN`, completed 88, +1). **Eligibility:** build of 5,233 quests, 2,688 in zones (left out: sort 1,067, repeatable 739, dungeon 278, battleground 125, raid 123, unmapped 191); Thragor: Durotar 0 of 55 counted, Elwynn "None of the quests here are for this character". **Coverage:** Westfall "4 unchecked", Durotar "3 quests can't be checked yet", Overview "98 quests can't be checked yet" (Gideon) and "91" (Thragor). **Combined:** Westfall 21% + 0% + 100% = 40%; Darkshore's pending flight paths left out. **Flight paths:** Westfall 1 of 1 (Sentinel Hill), Duskwood 0 of 1 (Darkshire), Darkshore "?" with "talk to any flight master on this continent"; Durotar and Elwynn "No flight master for you". **Found:** with QuestieDB off, Elwynn showed "Claimed" on exploration alone (an unverifiable "complete"); fixed: without QuestieDB, quests are pending in every zone that has another category, so none can be claimed (tests). The Overview's Zones bar no longer runs into its count (shot `183125`). No Lua errors in the trace |

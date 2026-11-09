@@ -30,6 +30,7 @@ local CRITERIA = {
 }
 local achievementsReady = true
 local here = 1429 -- the player's map
+local noQuestieDB = false -- boot without QuestieDB (set in a test, reset after boot)
 
 local function boot(savedAccount, savedChar)
     wow.install({
@@ -57,9 +58,29 @@ local function boot(savedAccount, savedChar)
     local ns = wow.loadToc("Azerfolio", "Azerfolio")
     wow.fire("ADDON_LOADED", "Azerfolio")
     wow.fire("PLAYER_LOGIN")
-    -- Quest detection normally runs 5 s after AZF_READY; here, at once (no QuestieDB in these
-    -- tests: quests are "unavailable" and left out of zone progress).
-    if ns.Quests then ns.Quests.Start() end
+    -- Quest detection normally runs 5 s after AZF_READY; here, at once. These tests get an
+    -- empty QuestieDB (ready, no quests: the category is left out of zone progress) unless
+    -- noQuestieDB is set (quests unavailable: pending, so no zone can be claimed).
+    local none = noQuestieDB
+    noQuestieDB = false
+    _G.LibQuestieDB = (not none) and {
+        contractVersion = 4, RequireContract = function() return true end,
+        Quest = { GetAllIds = function() return {} end, Exists = function() return false end,
+            zoneOrSort = function() return nil end, specialFlags = function() return 0 end },
+    } or nil
+    -- Only the build's own steps run here; other timers (the login read of every zone) stay
+    -- queued for the tests that run them.
+    if ns.Quests then
+        local after, mine = _G.C_Timer.After, {}
+        _G.C_Timer.After = function(_, fn) mine[#mine + 1] = fn end
+        ns.Quests.Start()
+        local guard = 0
+        while #mine > 0 and ns.Quests.State().status == "building" and guard < 100 do
+            table.remove(mine, 1)(); guard = guard + 1
+        end
+        _G.C_Timer.After = after
+        for _, fn in ipairs(mine) do after(0, fn) end
+    end
     return ns
 end
 
@@ -1371,27 +1392,39 @@ return function(t)
         local picks = overview(ns).pools.picks
         t.eq(picks[1].name:GetText(), "Fargodeep Mine"); t.eq(picks[2].name:GetText(), "Crystal Lake")
         t.eq(picks[3], nil, "Next up: two areas; no quests or flight paths in the mock")
-        -- Most of the 43 catalogue zones have no achievement data in the mock, and QuestieDB
-        -- isn't there: no headline; each category says why.
+        -- Most of the 43 catalogue zones have no achievement data in the mock: no headline,
+        -- and the row says why.
         t.eq(p.track.pct:GetText(), "-")
         local track = overview(ns).pools.track
         t.eq(track[1].label:GetText(), "Exploration"); t.eq(track[1].note:GetText(), "Waiting for the game's data")
-        t.eq(track[2].label:GetText(), "Quests"); t.eq(track[2].note:GetText(), "Needs the QuestieDB addon")
-        t.eq(track[3], nil, "no flight path API in the mock: the category is left out")
+        t.eq(track[2], nil, "an empty QuestieDB counts no quests; no flight path API in the mock: both left out")
         t.ok(p.track.foot:GetText():find("those without data are left out"), p.track.foot:GetText())
         t.ok(p.zonesRow.count:GetText():find("1|r / 4 complete"), "Durotar left out: " .. p.zonesRow.count:GetText())
         t.ok(p.zonesRow.legend:GetText():find("1 in progress") and p.zonesRow.legend:GetText():find("0 untouched")
             and p.zonesRow.legend:GetText():find("2 no data"), p.zonesRow.legend:GetText())
         t.eq(p.recentEmpty:IsShown(), true, "only the current zone visited so far")
         local rows = overview(ns):GetFocusRows()
-        t.eq(#rows, 3)
+        t.eq(#rows, 2)
         t.eq(keys(rows[1]), "hero,track:explore")
-        t.eq(keys(rows[2]), "pick:explore:1148,pick:explore:1149,track:quests")
-        t.eq(keys(rows[3]), "zones")
+        t.eq(keys(rows[2]), "pick:explore:1148,pick:explore:1149,zones")
         t.eq(overview(ns).hasSections, true)
         t.eq(#ns.Debug.errors, 0)
     end)
 
+    t.test("overview: without QuestieDB, quests are pending everywhere and no zone is claimed", function()
+        padUI = true
+        noQuestieDB = true
+        local ns = boot()
+        slash("")
+        local track = overview(ns).pools.track
+        t.eq(track[2].label:GetText(), "Quests"); t.eq(track[2].note:GetText(), "Needs the QuestieDB addon")
+        local dun
+        for _, z in ipairs(ns.Zones.All()) do if z.mapID == 1426 then dun = z end end
+        t.ok(dun.state ~= "complete", "Dun Morogh's exploration is done, but its quests can't be checked: " .. dun.state)
+        t.eq(dun.cats[2].pending, "questiedb")
+        t.ok(overview(ns).parts.zonesRow.count:GetText():find("0|r / "), overview(ns).parts.zonesRow.count:GetText())
+        t.eq(#ns.Debug.errors, 0)
+    end)
     t.test("overview: A on an area opens Zone Detail on it; B comes back to the same chip", function()
         padUI = true
         local ns = boot()
