@@ -47,6 +47,7 @@
       done: { "Elwynn Forest": GIDEON_ELWYNN.slice() },
       flights: ["Stormwind", "Sentinel Hill"], questScale: 1, // flight paths: real, from the flight master (2026-11-08)
       flightsRead: ["Eastern Kingdoms"], // continents whose flight master list was read (Kalimdor not yet in game)
+      rep: REP_PROBE, // zone reputation: the in-game probe
       milestones: [
         { t: ago(0, 11, 26), kind: "area", area: "Forest's Edge", zone: "Elwynn Forest" },
         { t: ago(0, 11, 30), kind: "area", area: "Brackwell Pumpkin Patch", zone: "Elwynn Forest" },
@@ -65,7 +66,7 @@
         "Dun Morogh": firstN("Dun Morogh", 12), "Redridge Mountains": firstN("Redridge Mountains", 9),
         "Duskwood": firstN("Duskwood", 7), "Wetlands": firstN("Wetlands", 4), "Darkshore": firstN("Darkshore", 3) },
       flights: ["Stormwind", "Ironforge", "Sentinel Hill", "Lakeshire", "Darkshire", "Thelsamar", "Menethil Harbor", "Auberdine"],
-      questScale: "veteran", flightsRead: ["Eastern Kingdoms", "Kalimdor"],
+      questScale: "veteran", flightsRead: ["Eastern Kingdoms", "Kalimdor"], rep: REP_VETERAN,
       milestones: [
         { t: ago(12, 20, 10), kind: "zone", zone: "Elwynn Forest" }, { t: ago(9, 21, 40), kind: "zone", zone: "Westfall" },
         { t: ago(6, 19, 5), kind: "zone", zone: "Loch Modan" }, { t: ago(4, 22, 15), kind: "area", area: "Lakeridge Highway", zone: "Redridge Mountains" },
@@ -75,7 +76,7 @@
     }),
     fresh: () => ({
       char: { name: "Elowen", level: 1, race: "Human", className: "Paladin", faction: "Alliance", xp: 0, xpMax: 400, zone: "Elwynn Forest", subzone: "Northshire Abbey" },
-      done: {}, milestones: [], flights: [], questScale: 0, flightsRead: [],
+      done: {}, milestones: [], flights: [], questScale: 0, flightsRead: [], rep: REP_PROBE,
     }),
   };
   // Quests (Phase 9): Gideon's Elwynn Forest checklist as Quests.ForZone gave it in game
@@ -171,6 +172,69 @@
     "Desolace": ["Nijel's Point"], "Dustwallow Marsh": ["Theramore"], "Feralas": ["Feathermoon", "Thalanaar"],
     "Tanaris": ["Gadgetzan"], "Felwood": ["Talonbranch Glade"], "Winterspring": ["Everlook"], "Silithus": ["Cenarion Hold"],
     "Un'Goro Crater": ["Marshal's Refuge"], "Azshara": ["Talrendis Point"], "The Barrens": ["Ratchet"], "Moonglade": ["Nighthaven"],
+  };
+  // Zone reputation (Phase 11, spec §7.8, §8.9). Zone factions: the rule's offline result
+  // (`luajit tools/qdb.lua reps rule`, base rows): [factionID, raising quests in the zone].
+  // Faction 471 (no name, no game data) and Horde-side factions are left out further down, the
+  // way the addon drops factions GetFactionDataByID returns nothing for.
+  const REP_ZONES = {
+    "Mulgore": [[2787, 4]], "The Barrens": [[470, 25]], "Arathi Highlands": [[21, 9]], "Tirisfal Glades": [[529, 6]],
+    "Western Plaguelands": [[529, 36]], "Eastern Plaguelands": [[529, 65]], "The Hinterlands": [[471, 10]], "Wetlands": [[471, 6]],
+    "Searing Gorge": [[59, 12]], "Stranglethorn Vale": [[21, 40], [87, 3]], "Thousand Needles": [[470, 7]], "Stonetalon Mountains": [[470, 6]],
+    "Desolace": [[92, 10], [93, 9]], "Feralas": [[169, 4]], "Tanaris": [[369, 28], [910, 26]], "Felwood": [[576, 12]],
+    "Moonglade": [[609, 7]], "Silithus": [[609, 101], [910, 8]], "Winterspring": [[577, 18], [589, 3]],
+    "Zephras Isle": [[2778, 59], [2779, 55], [2758, 11]],
+  };
+  const REP_NAMES = { 21: "Booty Bay", 59: "Thorium Brotherhood", 87: "Bloodsail Buccaneers", 92: "Gelkis Clan Centaur", 93: "Magram Clan Centaur",
+    169: "Steamwheedle Cartel", 369: "Gadgetzan", 470: "Ratchet", 529: "Argent Dawn", 576: "Timbermaw Hold", 577: "Everlook",
+    589: "Wintersaber Trainers", 609: "Cenarion Circle", 910: "Brood of Nozdormu", 2758: "Nightclaw Druids", 2779: "High Order" };
+  const REACTIONS = ["", "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted"]; // FACTION_STANDING_LABEL1..8
+  const REP_BOUNDS = [null, [-42000, -6000], [-6000, -3000], [-3000, 0], [0, 3000], [3000, 9000], [9000, 21000], [21000, 42000], [42000, 42999]];
+  // Gideon's standing by faction ID: [standing, met, atWar]. "Gideon today" is the in-game
+  // probe (/azfdiag reps, Gideon level 9, 2026-11-08): every zone faction unmet, at the game's
+  // starting standing; no data for Brood of Nozdormu, 471 or the Horde side, so they're absent.
+  const REP_PROBE = { 21: [500, false, false], 59: [0, false, false], 87: [-6500, false, true], 92: [2000, false, true], 93: [2000, false, true],
+    169: [500, false, false], 369: [500, false, false], 470: [500, false, false], 529: [200, false, false], 576: [-3500, false, true],
+    577: [500, false, false], 589: [0, false, false], 609: [0, false, false], 2758: [0, false, false], 2779: [0, false, false] };
+  // The veteran's standing is invented for design review: Booty Bay met mid-Friendly, Ratchet
+  // Honored, Cenarion Circle met, Brood of Nozdormu readable (unmet, Hated, its classic start).
+  const REP_VETERAN = { ...REP_PROBE, 21: [7200, true, false], 470: [11350, true, false], 87: [-6500, false, true],
+    609: [1250, true, false], 910: [-42000, false, false], 369: [2150, true, false] };
+  // Rivals: pairs of the zone's factions where a quest here raises one and lowers the other
+  // (`qdb.lua reps rivals`, base rows). The addon derives these from negative reputationReward.
+  const REP_RIVALS = { "Stranglethorn Vale": [[21, 87]], "Desolace": [[92, 93]] };
+  // The zone's quests that raise a faction (`qdb.lua reps quests <zone> <factionID>`, base rows):
+  // [questID, name, questLevel, reqLevel, base amount]. SAMPLE: only these zone/faction pairs.
+  const REP_QUESTS = {
+    "Felwood|576": [[8460, "Timbermaw Ally", 48, 45, 150], [6031, "Runecloth", 55, 50, 100], [6032, "Sacred Cloth", 55, 50, 100],
+      [8461, "Deadwood of the North", 55, 45, 150], [8462, "Speak to Nafien", 55, 45, 25], [8465, "Speak to Salfa", 55, 45, 25],
+      [8466, "Feathers for Grazle", 55, 45, 50], [8467, "Feathers for Nafien", 55, 45, 50], [8470, "Deadwood Ritual Totem", 55, 45, 150],
+      [8469, "Beads for Salfa", 56, 50, 50], [8464, "Winterfall Activity", 58, 45, 150], [8481, "The Root of All Evil", 60, 45, 200]],
+    "Stranglethorn Vale|21": [[575, "Supply and Demand", 31, 26, 100], [201, "Investigate the Camp", 32, 28, 50], [189, "Bloodscalp Ears", 35, 30, 100],
+      [605, "Singing Blue Shards", 35, 30, 100], [213, "Hostile Takeover", 36, 31, 100], [577, "Some Assembly Required", 36, 31, 100],
+      [210, "Krazek's Cookery", 37, 32, 50], [578, "The Stone of the Tides", 37, 32, 100], [601, "Water Elementals", 37, 32, 100],
+      [603, "Ansirem's Key", 37, 32, 50], [627, "Favor for Krazek", 37, 32, 75], [628, "Excelsior", 38, 31, 100],
+      [610, "\"Pretty Boy\" Duncan", 39, 32, 100], [611, "The Curse of the Tides", 40, 32, 150], [95384, "Partial Mystical Notes", 40, 32, 50],
+      [587, "Up to Snuff", 41, 37, 100], [595, "The Bloodsail Buccaneers", 41, 37, 75], [597, "The Bloodsail Buccaneers", 41, 37, 75],
+      [599, "The Bloodsail Buccaneers", 41, 37, 25], [600, "Venture Company Mining", 41, 30, 100], [606, "Scaring Shaky", 41, 30, 25],
+      [607, "Return to MacKinley", 41, 30, 75], [209, "Skullsplitter Tusks", 42, 37, 100], [576, "Keep An Eye Out", 42, 37, 150],
+      [604, "The Bloodsail Buccaneers", 43, 37, 100], [617, "Akiris by the Bundle", 43, 38, 100], [623, "Akiris by the Bundle", 43, 38, 150],
+      [609, "Voodoo Dues", 44, 30, 100], [613, "Cracking Maury's Foot", 44, 30, 150], [621, "Zanzil's Secret", 44, 35, 100],
+      [348, "Stranglethorn Fever", 45, 40, 200], [608, "The Bloodsail Buccaneers", 45, 37, 150], [8551, "The Captain's Chest", 47, 35, 75],
+      [580, "Whiskey Slim's Lost Grog", 50, 40, 100], [618, "Facing Negolash", 50, 40, 200], [3721, "An OOX of Your Own", 50, 45, 200],
+      [8552, "The Monogrammed Sash", 50, 40, 50], [8554, "Facing Negolash", 50, 40, 200], [614, "The Captain's Chest", 51, 35, 75],
+      [9259, "Traitor to the Bloodsail", 60, 30, 499]],
+    "Stranglethorn Vale|87": [[9272, "Dressing the Part", 55, 49, 10], [1036, "Avast Ye, Scallywag", 60, 55, 25], [4621, "Avast Ye, Admiral!", 60, 55, 200]],
+    "Desolace|92": [[1368, "Gelkis Alliance", 33, 30, 100], [1382, "Strange Alliance", 35, 30, 100], [92755, "Mysterious Mysticism", 35, 30, 1000],
+      [92814, "I Need a Tailor", 35, 30, 1000], [92817, "Leather Technique", 35, 30, 1000], [93044, "A Cleansing Cry", 38, 30, 500],
+      [93128, "Khan Jehn", 42, 30, 6000], [93227, "Buying Friendship: Gelkis", 45, 30, 3000], [94873, "Buying Friendship: Gelkis", 45, 30, 3000],
+      [92812, "Economic Warfare", 60, 1, 750]],
+    "Desolace|93": [[1367, "Magram Alliance", 33, 30, 100], [1385, "Brutal Politics", 35, 30, 100], [92754, "A New Need for Shadow Protection", 35, 30, 1000],
+      [92818, "Big, No, MASSIVE Iron Axes", 35, 30, 1000], [92743, "A Conqueror's Crown", 40, 30, 1000], [93196, "Khan Jehn", 42, 30, 6000],
+      [93226, "Buying Friendship: Magram", 45, 30, 3000], [94872, "Buying Friendship: Magram", 45, 30, 3000], [92811, "Economic Warfare", 60, 1, 750]],
+    "Silithus|910": [[8286, "What Tomorrow Brings", 60, 60, 100], [8301, "The Path of the Righteous", 60, 60, 200], [8302, "The Hand of the Righteous", 60, 60, 200],
+      [8303, "Anachronos", 60, 60, 200], [8305, "Long Forgotten Memories", 60, 60, 50], [8519, "A Pawn on the Eternal Board", 60, 60, 100],
+      [8743, "Bang a Gong!", 60, 60, 200], [8745, "Treasure of the Timeless One", 60, 60, 200]],
   };
   const CATS = { explore: { label: "Exploration", icon: "◎", unit: "areas" }, quests: { label: "Quests", icon: "!", unit: "quests" },
     flights: { label: "Flight paths", icon: "✈", unit: "flight paths" } };
@@ -708,6 +772,8 @@
   function renderDetailInto(container, z, opts) {
     if (!z) { container.innerHTML = `<div class="empty"><b>Select a zone</b></div>`; return; }
     const page = ui.detailPage && (ui.detailPage !== "explore" || z.total) ? ui.detailPage : null;
+    const repId = page && page.startsWith("rep:") ? Number(page.slice(4)) : null; // a faction's page
+    const pageTitle = repId ? `${esc(REP_NAMES[repId])}<span class="crumb"> · ${esc(z.name)}</span>` : page ? `${CATS[page].label}<span class="crumb"> · ${esc(z.name)}</span>` : "";
     // Dev bar "Preview claimed": the same zone with every category done (design preview only).
     if (!page && ui.claimPreview && z.tracked) z = { ...z, pct: 1, state: "complete", unchecked: false,
       cats: z.cats.map(c => ({ ...c, done: c.total, pct: 1, unchecked: 0, nodes: c.nodes && c.nodes.map(n => ({ ...n, known: true })) })), criteria: z.criteria.map(c => ({ ...c, done: true })), done: z.total };
@@ -724,10 +790,10 @@
     const backTip = page ? `Back to the ${esc(z.name)} overview (B)` : "Back to all zones (B)";
     const hero = `<div class="detail-hero ${page ? "slim" : ""}">${art(z)}<div class="shade"></div>
         ${opts.back || page ? `<button class="btn dark back focusable" data-back data-tip="${backTip}">${backLabel}</button>` : ""}
-        <div class="info"><div><h1>${page ? `${CATS[page].label}<span class="crumb"> · ${esc(z.name)}</span>` : esc(z.name)}</h1>
+        <div class="info"><div><h1>${page ? pageTitle : esc(z.name)}</h1>
           <div class="sub"><span>${levels(z)}</span>${facBadge(z)}<span>${esc(z.continent)}</span>
           ${next && !page ? `<span class="next">· Next: ${esc(next.name)} (${shortLv(next)})</span>` : ""}</div></div>
-          ${page ? `<div class="pagescore">${catOf(z, page) ? `${catOf(z, page).done} of ${catOf(z, page).total}<b>${pctText(catOf(z, page).pct)}</b>` : ""}</div>` : zscore}</div></div>`;
+          ${repId ? `<div class="pagescore">${((repFor(z) || []).find(x => x.id === repId) || {}).label || ""}</div>` : page ? `<div class="pagescore">${catOf(z, page) ? `${catOf(z, page).done} of ${catOf(z, page).total}<b>${pctText(catOf(z, page).pct)}</b>` : ""}</div>` : zscore}</div></div>`;
     const scrollId = opts.back ? "scroll" : "detailscroll";
     let body;
     if (!page) body = `<div class="detail-body dash"><div class="scroll" id="${scrollId}">${dashboard(z)}</div></div>`;
@@ -739,7 +805,7 @@
             <button class="btn focusable" data-map data-tip="<b>World map</b>Open the world map at ${esc(z.name)}.">World map</button></div>
           <div class="focusinfo" id="focusinfo"></div>
         </aside></div>`;
-    else body = `<div class="detail-body full"><div class="scroll" id="${scrollId}">${page === "quests" ? questSection(z) : flightSection(z)}</div></div>`;
+    else body = `<div class="detail-body full"><div class="scroll" id="${scrollId}">${repId ? repPage(z, repId) : page === "quests" ? questSection(z) : flightSection(z)}</div></div>`;
     container.innerHTML = `<div class="detail ${page ? "paged" : ""}">${hero}${body}</div>`;
     if (page === "explore") showFocusInfo(z, z.criteria.find(c => !c.done) || z.criteria[0]);
   }
@@ -789,7 +855,76 @@
     const alive = `filter: saturate(${(0.12 + 0.88 * p).toFixed(2)}) brightness(${(0.3 + 0.22 * p).toFixed(2)}) blur(1.5px)`;
     return `<div class="dashgrid">
       <div class="standard ${z.state}" data-tip-none><div class="sbg" style="--alive:1"><div class="sbgi" style="${alive}">${art(z)}</div></div>${progressArt(z, { animate: true })}</div>
-      <div class="dashright"><div class="tiles row3">${exTile}${qTile}${fTile}</div>${nextUp(z, r)}</div></div>`;
+      <div class="dashright"><div class="tiles row3">${exTile}${qTile}${fTile}</div>${nextUp(z, r)}${repSection(z)}</div></div>`;
+  }
+
+  // ---- Zone reputation (Phase 11, spec §7.8) ----
+  // What Systems/Reputation will hand the page: the zone's factions this character gets game
+  // data for, each with its reaction, progress into it (standing - threshold, out of next -
+  // threshold), met and at war. Nil when there are none (or QuestieDB isn't there): no section.
+  function repFor(z) {
+    if (ui.quests === "missing" || ui.quests === "building") return null;
+    const list = (REP_ZONES[z.name] || []).filter(([id]) => S.rep && S.rep[id]).map(([id, quests]) => {
+      const [standing, met, atWar] = S.rep[id];
+      const reaction = REP_BOUNDS.findIndex(b => b && standing >= b[0] && standing < b[1]);
+      const [lo, hi] = REP_BOUNDS[reaction];
+      const rival = (REP_RIVALS[z.name] || []).map(p => p[0] === id ? p[1] : p[1] === id ? p[0] : null).find(x => x != null);
+      return { id, name: REP_NAMES[id], reaction, label: REACTIONS[reaction], next: REACTIONS[reaction + 1] || null,
+        into: standing - lo, span: hi - lo, met, atWar, quests, rival: rival != null && S.rep[rival] ? REP_NAMES[rival] : null };
+    });
+    // Order: the zone's main faction first (most raising quests here), rivals kept together.
+    list.sort((a, b) => b.quests - a.quests);
+    const out = [];
+    list.forEach(f => { if (out.includes(f)) return; out.push(f); const r = f.rival && list.find(x => x.name === f.rival); if (r && !out.includes(r)) out.push(r); });
+    return out.length ? out : null;
+  }
+  // The reaction ladder: eight equal steps, Hated to Exalted, in the client's reaction colours.
+  // Past steps full, the current one filled by progress into it, later ones empty.
+  function ladder(f) {
+    return `<span class="ladder">${[1, 2, 3, 4, 5, 6, 7, 8].map(r => {
+      const fill = r < f.reaction ? 100 : r > f.reaction ? 0 : f.reaction === 8 ? 100 : f.into / f.span * 100;
+      return `<i class="r${r} ${r === f.reaction ? "cur" : ""}"><b style="width:${fill.toFixed(1)}%"></b></i>`; }).join("")}</span>`;
+  }
+  const repTags = (f) => [f.met ? "" : `<span class="unmet">Not met yet</span>`, f.atWar ? `<span class="war">⚔ At war</span>` : "",
+    f.rival ? `<span class="rival">⇄ Rival of ${esc(f.rival)}</span>` : ""].filter(Boolean).join("");
+  const num = (n) => n.toLocaleString("en-US");
+  // Not a completion category: no %, no gold, no state colours. The bar uses the client's
+  // reaction colours (FACTION_BAR_COLORS), like the game's own Reputation window.
+  function repSection(z) {
+    const list = repFor(z);
+    if (!list) return ""; // hidden in zones without a zone faction
+    // Ledger (design round 2): one line per faction, a slim gold title instead of a plate.
+    const row = (f) => {
+      const exalted = f.reaction === 8;
+      // Info line (one line): reaction, what's left to the next one, what A shows. The tags
+      // already say met, at war and rival.
+      const tip = `<b>${esc(f.name)}</b>${f.label}${exalted ? "" : `, ${num(f.span - f.into)} to ${f.next}`}. A shows the ${f.quests} quests here that raise it.`;
+      return `<button class="frep focusable r${f.reaction} ${f.met ? "met" : "unmet"}" data-rep="${f.id}" data-page="rep:${f.id}" data-tip="${tip}">
+        <span class="fwho"><span class="fname">${esc(f.name)}</span><span class="ftags">${repTags(f)}</span></span>
+        <span class="freact">${f.label}</span>${ladder(f)}
+        <span class="fnum">${exalted ? "" : `${num(f.into)} / ${num(f.span)}`}</span></button>`;
+    };
+    return `<div class="repsec"><div class="rephead"><span>Reputation</span><small>Not part of the zone's progress</small></div>
+      <div class="flist">${list.map(row).join("")}</div></div>`;
+  }
+  // A faction's page: the zone's quests that raise it (the addon: Quests' objectives filtered
+  // by reputationReward, with their real state). Amounts are QuestieDB's base values.
+  function repPage(z, id) {
+    const f = (repFor(z) || []).find(x => x.id === id);
+    if (!f) return `<div class="qnote">No standing for this faction.</div>`;
+    const qs = REP_QUESTS[`${z.name}|${id}`];
+    let html = `<div class="repsum frep r${f.reaction} ${f.met ? "met" : "unmet"}"><span class="fwho"><span class="fname">${esc(f.name)}</span><span class="ftags">${repTags(f)}</span></span>
+      <span class="freact">${f.label}</span>${ladder(f)}<span class="fnum">${f.reaction === 8 ? "" : `${num(f.into)} / ${num(f.span)} · ${num(f.span - f.into)} to ${f.next}`}</span></div>`;
+    if (f.rival) html += `<div class="qnote rivalnote">⇄ Rivals: quests here that raise ${esc(f.name)} lower ${esc(f.rival)}, and the other way round.</div>`;
+    if (!qs) return html + `<div class="qnote">(Mockup: the quest list is sampled only for Felwood, Stranglethorn, Desolace and Brood of Nozdormu in Silithus.)</div>`;
+    const chip = (q) => { const [qid, name, ql, rl, amt] = q, d = difficulty(ql, CHAR.level), later = rl > CHAR.level;
+      return `<button class="qchip repq focusable d-${later ? "grey" : d} ${later ? "later" : ""}" data-rq="${qid}"
+        data-tip="<b>${esc(name)}</b>Level ${ql}${later ? `, from level ${rl}` : ""}. About +${num(amt)} ${esc(f.name)} (QuestieDB's base value; the game may give more).">
+        <span class="lvl">${ql}</span><span class="qn">${esc(name)}</span><span class="amt">~+${num(amt)}</span></button>`; };
+    const now = qs.filter(q => q[3] <= CHAR.level), later = qs.filter(q => q[3] > CHAR.level);
+    if (now.length) html += `<h2 class="section" data-group>Up to your level <small>${now.length}</small></h2><div class="readygrid">${now.map(chip).join("")}</div>`;
+    if (later.length) html += `<h2 class="section" data-group>Later <small>${later.length} · from level ${Math.min(...later.map(q => q[3]))}</small></h2><div class="readygrid">${later.map(chip).join("")}</div>`;
+    return html + `<div class="qfoot"><span class="qnote">From QuestieDB. Amounts are its base values, so approximate; done and locked states come from the Quests page in the addon.</span></div>`;
   }
 
   // "Next up in <zone>" (round 3): the few most useful things to do here now. The addon's
@@ -1170,7 +1305,7 @@
   function keyOf(el) {
     if (!el) return null;
     const d = el.dataset, parts = [];
-    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "tab", "cycle", "status", "view", "go"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
+    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "rep", "rq", "tab", "cycle", "status", "view", "go"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
     for (const a of ["search", "back", "map", "atlas", "qtoggle"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
     if (el.id) parts.push("#" + el.id);
     return parts.length ? "." + [...el.classList].filter(c => !["focused", "on", "new", "selected"].includes(c))[0] + parts.join("") : null;
@@ -1205,7 +1340,7 @@
     if (ui.celebrate) return closeCelebrate();
     if (ui.flyout) return closeFlyout();
     // A category page goes back to the zone's overview, focused on that category's tile.
-    if (ui.tab === "zones" && ui.detailPage && (ui.detail || ui.wide)) { const pg = ui.detailPage; ui.detailPage = null; render(); return setFocus($(`.ctile[data-page="${pg}"]`) || $(".ctile")); }
+    if (ui.tab === "zones" && ui.detailPage && (ui.detail || ui.wide)) { const pg = ui.detailPage; ui.detailPage = null; render(); return setFocus($(`[data-page="${pg}"]`) || $(".ctile")); }
     if (ui.tab === "zones" && ui.wide && focused && focused.closest("#detailpane")) return setFocus($(`.zrow[data-open="${CSS.escape(ui.selected)}"]`));
     if (ui.tab === "zones" && ui.detail) { ui.detail = null; render(); return restoreCatalog(); }
     closeWindow();
@@ -1267,7 +1402,7 @@
     if (d.map !== undefined) return toast(`Would open the world map at ${esc(ui.detail || ui.selected)}`);
     if (d.qtoggle !== undefined) { ui.showUnavailable = !ui.showUnavailable; return rerenderKeepFocus(); }
     if (d.page) { ui.detailPage = d.page; render(); return setFocus($("#content .detail .scroll .focusable") || $("#content .detail [data-back]")); }
-    if (d.na) return;
+    if (d.na || d.rq) return; // a quest on a faction's page: details in the info line
     if (d.next) { // Next up: open the category's page focused on that item
       const [kind, id] = d.next.split(/:(.*)/);
       ui.detailPage = { explore: "explore", quest: "quests", flight: "flights" }[kind]; render();
@@ -1321,8 +1456,7 @@
     if (!o.noScroll) el.scrollIntoView({ block: "nearest", inline: "nearest" });
     requestAnimationFrame(placePointer);
     showInfo(el); // gamepad focus describes itself in the footer, never in a floating tooltip
-    hideTooltip();
-    // Focus-driven updates: checklist info, and the wide split's detail pane.
+    hideTooltip();    // Focus-driven updates: checklist info, and the wide split's detail pane.
     if (el.dataset.quest || el.dataset.crit || el.dataset.flight) {
       const z = byName[ui.detail || ui.selected];
       if (z && el.dataset.quest) showQuestInfo(z, el);
@@ -1490,6 +1624,13 @@
     r.setProperty("--card-slice", `${Math.round(card.y * 100)}% ${Math.round(card.x * 100)}%`);
     r.setProperty("--bar-slice", `${Math.round(bar.y * 100)}% ${Math.round(bar.x * 100)}%`);
   }
+  // Reputation ladder pieces (art/prompts.md): painted step housings and the tinted pale fill
+  // once the art exists; the CSS ladder until then. The header rule uses the painted divider.
+  document.body.classList.toggle("repstep", hasChrome("frame-step"));
+  document.body.classList.toggle("repfill", hasChrome("bar-fill-white"));
+  document.body.classList.toggle("repdiv", hasChrome("divider"));
+  if (hasChrome("frame-step")) { const st = ART.chrome["frame-step"], s = st === true ? { x: .12, y: .2 } : st;
+    document.documentElement.style.setProperty("--step-slice", `${Math.round(s.y * 100)}% ${Math.round(s.x * 100)}%`); }
 
   loadScenario("today");
   render();

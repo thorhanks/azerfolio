@@ -175,6 +175,15 @@ Negative prompt: the banner one, plus `perspective, 3D render, glossy plastic, n
 | plate-header | 6:1 | A horizontal title plate: a long flat band of dark worn leather framed by thin gold rails top and bottom, with ornate gold filigree end pieces at the left and right; the centre band is plain dark leather (room for text) |
 | divider | 8:1 | A thin horizontal ornamental divider line of gold filigree, slender and tapering to points at both ends, with a small diamond-shaped gold ornament in the centre |
 
+Reputation ladder (Phase 11, added 2026-11-08). Reputation isn't completion, so these pieces carry **no gold fill**: the ladder is eight small step housings side by side, each filled with a pale, colourless metal that the addon tints in the client's reaction colours (red, orange, yellow, green), the way the client tints `common-stat-bar-white`.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| frame-step | 2:1 | A small rectangular gauge cell housing: a slim casing of dark aged bronze with a fine thin gold rim, plain flat ends with no end caps and no corner ornaments, the band even all the way round and about one eighth of the image height; the whole inside is empty magenta |
+| bar-fill-white | 8:1 | A long thin horizontal bar of glowing pale silver liquid metal, almost white, with soft bright highlights along the top and a slightly darker grey underside, completely colourless (no gold, no blue, no warm tint), filling the entire image edge to edge (no magenta, no border) |
+
+Tips for these two: `frame-step` is drawn at about 26×14 px, eight in a row, so keep it plain (no filigree, which turns to noise at that size). `bar-fill-white` must stay neutral grey-white: any colour in it shifts every reaction colour after tinting. Check both with `tools/art-contact-sheet.ps1`.
+
 Tips: frames must be symmetrical, with an even band between the corners (it is stretched). If the processing script reports a border it couldn't measure, set it by hand in `art/slices.json` (`{ "frame-card": { "x": 0.08, "y": 0.08 } }`, fractions of width and height).
 
 ## Atlas backdrop (Phase 10; added 2026-11-08)

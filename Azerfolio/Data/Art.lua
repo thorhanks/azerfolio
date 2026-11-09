@@ -68,6 +68,7 @@ ns.Art = {
     chrome = {
         ["atlas-backdrop"] = true,
         ["bar-fill"] = true,
+        ["bar-fill-white"] = true,
         ["cel-claim-alliance"] = true,
         ["cel-claim-horde"] = true,
         ["cel-laurel"] = true,
@@ -79,6 +80,7 @@ ns.Art = {
         ["divider"] = true,
         ["frame-bar"] = { x = 0.082, y = 0.3281 },
         ["frame-card"] = { x = 0.16, y = 0.16 },
+        ["frame-step"] = { x = 0.0547, y = 0.1094 },
         ["plate-header"] = { x = 0.19, y = 0 },
     },
     icons = {

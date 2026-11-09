@@ -529,6 +529,54 @@ h2.section small { font-size: var(--fs-xs); color: var(--dim); }
 .nextup .nname[class*="d-"] { color: var(--qd); }
 .nextup .nsub { font-size: var(--fs-xs); color: var(--dim); }
 .nextup .nempty { text-align: center; color: var(--dim); font-size: var(--fs-sm); padding: var(--s3); }
+/* Zone reputation (Phase 11, round 2): a ledger under Next up, one line per faction. Not a
+   completion category, so no state colours: the client's reaction colours (FACTION_BAR_COLORS). */
+.repsec { position: relative; padding: 0 var(--s2) var(--s2); }
+.rephead { display: flex; align-items: baseline; gap: var(--s3); padding: 0 var(--s1) 4px; margin-bottom: 6px; border-bottom: 1px solid rgba(255,209,0,.28); }
+.rephead span { font: var(--fs-md) var(--font); color: var(--wow-gold); text-shadow: 0 1px 2px #000; }
+.rephead small { margin-left: auto; font-size: var(--fs-xs); color: var(--faint); font-style: italic; }
+.repsec .flist { display: flex; flex-direction: column; gap: 4px; }
+.frep { --rt: #ffd24d; display: grid; grid-template-columns: minmax(0, 1fr) 76px 216px 120px; column-gap: var(--s3); align-items: center; text-align: left;
+  padding: 5px var(--s3); min-height: 32px; background: linear-gradient(180deg, rgba(36,26,17,.85), rgba(16,10,5,.9)); border: 1px solid #3a2e22; border-radius: var(--r-ctl);
+  color: var(--white); font: var(--fs-sm) var(--font); cursor: pointer; }
+.frep.r1, .frep.r2 { --rt: #ff7a5c; } .frep.r3 { --rt: #ff8a3d; } .frep.r4 { --rt: #ffd24d; } .frep.r5, .frep.r6, .frep.r7, .frep.r8 { --rt: #4cd964; }
+.frep .fwho { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s3); row-gap: 0; min-width: 0; }
+.frep .fname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frep .freact { color: var(--rt); text-shadow: 0 1px 1px #000; }
+.frep .ftags { display: inline-flex; flex-wrap: wrap; column-gap: var(--s3); font-size: var(--fs-xs); }
+.frep .ftags .unmet { color: var(--dim); font-style: italic; }
+.frep .ftags .war { color: #ff5a4a; }
+.frep .ftags .rival { color: #d9b77a; }
+.frep .fnum { font-size: var(--fs-xs); color: var(--text); text-align: right; white-space: nowrap; }
+.frep.unmet .fname { color: var(--text); }
+/* The reaction ladder: eight equal steps in the reaction colours; the current step is taller. */
+.ladder { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; align-items: center; }
+.ladder i { --c: #e6b300; position: relative; height: 8px; background: var(--bar-bg); border: 1px solid var(--bar-edge); border-radius: 2px; overflow: hidden; }
+.ladder i.r1, .ladder i.r2 { --c: #cc4d38; } .ladder i.r3 { --c: #bf4500; } .ladder i.r4 { --c: #e6b300; } .ladder i.r5, .ladder i.r6, .ladder i.r7, .ladder i.r8 { --c: #00991a; }
+.ladder i b { position: absolute; inset: 0 auto 0 0; background: linear-gradient(180deg, color-mix(in srgb, var(--c), #fff 25%), var(--c) 55%, color-mix(in srgb, var(--c) 70%, #000)); }
+.ladder i.cur { height: 14px; border-color: color-mix(in srgb, var(--c), #fff 30%); box-shadow: 0 0 6px color-mix(in srgb, var(--c) 60%, transparent); }
+.frep.unmet .ladder b { opacity: .55; }
+.focused.frep { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
+/* Painted ladder (art/prompts.md "Reputation ladder"), when process-art has produced the pieces:
+   a bronze step housing per step, filled with the pale metal tinted by the reaction colour. */
+body.repstep .ladder i { height: 14px; border: solid transparent; border-width: 2px 3px; border-radius: 0;
+  border-image: url(chrome-art/frame-step.png) var(--step-slice, 20% 12%) fill / 2px 3px stretch; background: var(--bar-bg); background-clip: padding-box; }
+body.repstep .ladder i.cur { height: 18px; box-shadow: none; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--c) 70%, transparent)); }
+body.repstep .ladder i b { inset: 0 auto 0 0; }
+/* Multiply darkens (the pale fill isn't pure white), so the painted fill takes brighter tints
+   of the same reaction colours; in Lua the same values go to SetVertexColor. */
+body.repfill .ladder i.r1, body.repfill .ladder i.r2 { --c: #f0644a; } body.repfill .ladder i.r3 { --c: #f07018; }
+body.repfill .ladder i.r4 { --c: #ffd21e; } body.repfill .ladder i.r5, body.repfill .ladder i.r6, body.repfill .ladder i.r7, body.repfill .ladder i.r8 { --c: #22d046; }
+body.repfill .ladder i b { background: url(chrome-art/bar-fill-white.png) left center / auto 100% repeat-x, var(--c); background-blend-mode: multiply; }
+body.repdiv .rephead { position: relative; border-bottom-color: transparent; padding-bottom: 8px; }
+body.repdiv .rephead::after { content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 12px; background: url(chrome-art/divider.png) center / 100% 100% no-repeat; pointer-events: none; }
+#detailpane .repsec .frep { grid-template-columns: minmax(0, 1fr) 64px 148px 92px; column-gap: var(--s2); } /* wide split: narrower pane */
+/* A faction's page: the summary line, then the quests here that raise it. */
+.repsum.frep { cursor: default; margin-bottom: var(--s3); grid-template-columns: minmax(0, 1fr) 76px 260px 220px; padding: var(--s2) var(--s3); }
+.repsum .fname { font-size: var(--fs-md); }
+.rivalnote { margin: 0 0 var(--s3); color: #d9b77a; font-style: normal; }
+.qchip.repq .amt { margin-left: auto; flex: none; font-size: var(--fs-xs); color: var(--dim); }
+.qchip.repq.later .qn { color: var(--dim); }
 .focused.nitem { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
 .warbanner.painted .streamer { transform-box: fill-box; transform-origin: 50% 0; animation: swing 3.2s ease-in-out infinite; }
 img.cimg { width: 20px; height: 20px; border-radius: 3px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #6b4c2a; flex: none; }

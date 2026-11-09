@@ -361,7 +361,7 @@ Owner's choice 2026-11-08. Spec §7.8, §8.9; research `docs/research/reputation
 
 **Tasks**
 1. Research and probe: zone factions from quest rewards (`qdb.lua reps rule`), `C_Reputation` on Forever (`/azfdiag reps`). Decisions recorded: derived zone factions, not a completion category, hidden where there's none. *(Done 2026-11-08.)*
-2. Mockup: the reputation section on the zone dashboard (reaction, bar, Not met yet, at war, gamepad focus), sample data from the survey. Owner review before Lua.
+2. Mockup: the reputation section on the zone dashboard (reaction, bar, Not met yet, at war, gamepad focus), sample data from the survey. Owner review before Lua. *(Done 2026-11-08: ledger, reaction ladder, rivals, faction page.)*
 3. Systems: a pure zone-faction rule (tested on fixtures) and `Systems/Reputation` (index from `Quests`' zone data, standing reader guarded with `pcall`, `UPDATE_FACTION` debounced, met list read without changing the player's headers).
 4. UI: the section on Zone Detail, following the approved mockup; `/azf debug reputation` trace.
 5. In-game check on Gideon and Thragor: standing matches the game's Reputation window, updates after a quest turn-in, the other side's factions hidden. Settle the open questions (faction 471; Zandalar, Hydraxian Waterlords and Brood of Nozdormu with no data).
@@ -468,6 +468,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-08 | Reputation stays out of combined zone completion; shown as progress beside it | No "done" state below Exalted. Owner approved |
 | 2026-11-08 | The reputation section is hidden in zones with no zone faction (no home-faction fallback) | A home-faction bar would repeat in every leveling zone. Owner's choice |
 | 2026-11-08 | Phase 11 (zone reputation, v1.3) planned; task 1 (research) done | Spec §7.8, §8.9 |
+| 2026-11-08 | Phase 11 task 2: reputation mockup approved. A ledger under Next up (one line per faction, a painted eight-step reaction ladder, Not met yet / At war / Rival tags); A opens a faction page with the zone's quests that raise it. Rivals derived from QuestieDB's negative rewards | `mockups/DESIGN.md` Zone reputation |
 
 ## 10. Definition of done (v1)
 

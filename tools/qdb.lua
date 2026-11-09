@@ -13,6 +13,8 @@
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
 --   reps [zone filter]     quest reputation rewards per Azerfolio zone (Data/QuestAreas.lua); run from repo root
 --   reps rule [min low share]  draft zone-faction rule (defaults 5 3 0.5)
+--   reps rivals            per zone, faction pairs where a quest raises one and lowers the other
+--   reps quests <zone filter> <factionID>  the zone's quests that raise that faction
 -- Set AZF_QDB_TOC to read a different TOC.
 local bit = require("bit")
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/QuestieDB/QuestieDB_Forever.toc"
@@ -376,6 +378,56 @@ elseif cmd == "reps" then
     local filter = arg[2]
     local rule = filter == "rule"
     if rule then filter = nil end
+    local rivals = filter == "rivals"
+    local questsFor = filter == "quests" and { zone = (arg[3] or ""):lower(), faction = tonumber(arg[4]) }
+    if rivals or questsFor then filter = nil end
+    if rivals or questsFor then
+        -- rivals: per zone, faction pairs where a quest here raises one and lowers the other.
+        -- quests <zone filter> <factionID>: the zone's quests that raise that faction.
+        local rows, tabs = load(function(_, f) return f == 26 end)
+        local pairsByZone, list = {}, {}
+        for id, row in pairs(rows) do
+            local rewards = tabs[id] and tabs[id][26]
+            local z = row[17]
+            local zk = type(z) == "number" and z > 0 and zoneOf[z]
+            if type(rewards) == "table" and type(zk) == "number" then
+                local up, down = {}, {}
+                for _, r in ipairs(rewards) do
+                    local a = r[2] or 0
+                    if a > 0 then up[#up + 1] = r[1] elseif a < 0 then down[#down + 1] = r[1] end
+                    if questsFor and r[1] == questsFor.faction and a > 0 and tostring(zoneName[zk]):lower():find(questsFor.zone, 1, true) then
+                        list[#list + 1] = { id = id, name = row[1], lvl = row[5], req = row[4], amount = a }
+                    end
+                end
+                for _, u in ipairs(up) do for _, d in ipairs(down) do
+                    local key = u .. ">" .. d
+                    pairsByZone[zk] = pairsByZone[zk] or {}
+                    pairsByZone[zk][key] = (pairsByZone[zk][key] or 0) + 1
+                end end
+            end
+        end
+        if questsFor then
+            table.sort(list, function(a, b) return (a.lvl or 0) < (b.lvl or 0) or ((a.lvl or 0) == (b.lvl or 0) and a.id < b.id) end)
+            print(string.format("%d quests raise %s (%s) in zones matching '%s' (base rows; amounts are raw values)", #list,
+                names[questsFor.faction] or "?", tostring(questsFor.faction), questsFor.zone))
+            for _, q in ipairs(list) do print(string.format("%6d %-44s lvl %-3s req %-3s +%d", q.id, tostring(q.name), tostring(q.lvl), tostring(q.req), q.amount)) end
+            return
+        end
+        print("Raises > lowers: quests in the zone that raise the first faction and lower the second (base rows)")
+        local zs = {}
+        for z in pairs(pairsByZone) do zs[#zs + 1] = z end
+        table.sort(zs)
+        for _, z in ipairs(zs) do
+            local parts = {}
+            for key, n in pairs(pairsByZone[z]) do
+                local u, d = key:match("(%d+)>(%d+)")
+                parts[#parts + 1] = string.format("%s>%s %d", names[tonumber(u)] or u, names[tonumber(d)] or d, n)
+            end
+            table.sort(parts)
+            print(string.format("%-5d %-22s %s", z, tostring(zoneName[z]), table.concat(parts, "; ")))
+        end
+        return
+    end
     local rows, tabs = load(function(_, f) return f == 26 end)
     local byZone = {}
     for id, row in pairs(rows) do
