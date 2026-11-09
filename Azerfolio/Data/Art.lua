@@ -68,7 +68,6 @@ ns.Art = {
     chrome = {
         ["atlas-backdrop"] = true,
         ["bar-fill"] = true,
-        ["cel-burst"] = true,
         ["cel-claim-alliance"] = true,
         ["cel-claim-horde"] = true,
         ["cel-laurel"] = true,

@@ -995,7 +995,6 @@
   };
   const finishCat = (c) => ({ ...c, done: c.total, pct: 1, unchecked: 0 });
   // Round 2 (owner, 2026-11-08): painted pieces made for the moment, no streamer.
-  //   cel-burst          a soft golden light burst behind the card (drawn additively)
   //   cel-laurel         the gold laurel seal frame; the category's seal sits inside it
   //   cel-seal-explore / cel-seal-quests / cel-seal-flights-alliance / cel-seal-flights-horde
   //   cel-ribbon         the title ribbon
@@ -1033,7 +1032,7 @@
         <div class="celribbon">${celPiece("cel-ribbon", "ribbonart")}<h1>${esc(CEL[kind].title(z))}</h1></div>
         <p>${CEL[kind].line(c)} ${esc(z.name)} is now <b>${pctText(after.pct)}</b>.</p>`;
     }
-    el.innerHTML = `<div class="burst">${celPiece("cel-burst", "burstart")}</div><div class="motes">${Array.from({ length: 18 }, (_, i) =>
+    el.innerHTML = `<div class="motes">${Array.from({ length: 18 }, (_, i) =>
       `<i style="left:${(i * 37) % 100}%;animation-delay:-${(i * 0.7) % 6}s;animation-duration:${5 + (i % 4)}s"></i>`).join("")}</div>
       <div class="card">${body}<button class="btn focusable cel-ok">Continue <span class="glyph A">A</span></button></div>`;
     $("#window").appendChild(el);

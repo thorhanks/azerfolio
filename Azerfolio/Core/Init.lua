@@ -2,7 +2,7 @@
 local ADDON_NAME, ns = ...
 
 ns.name = ADDON_NAME
-ns.version = "1.1.0"
+ns.version = "1.2.0"
 
 ns.db = nil       -- account-wide SavedVariables (AzerfolioDB), set on ADDON_LOADED
 ns.charDB = nil   -- per-character SavedVariables (AzerfolioCharDB), set on ADDON_LOADED
