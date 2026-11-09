@@ -7,6 +7,9 @@
 --   area <areaID>          quests whose zoneOrSort is that area (or a negative sort ID)
 --   name <text>            quests whose name contains text (case-insensitive)
 --   stats                  rows, areas and sorts, repeatables
+--   npc <id> [id...]       every field of the NPCs
+--   rares [areaID|all]     rare, rare elite and boss NPCs (rank 4, 2, 3; cmangos ranks), by spawn area
+--   objects <text|*> [areaID] game objects whose name contains text (* = all), spawn points per area
 -- Set AZF_QDB_TOC to read a different TOC.
 local bit = require("bit")
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/QuestieDB/QuestieDB_Forever.toc"
@@ -20,6 +23,10 @@ local FIELDS = { "name", "startedBy", "finishedBy", "requiredLevel", "questLevel
     "specialFlags", "parentQuest", "reputationReward", "breadcrumbForQuestId", "breadcrumbs",
     "extraObjectives", "requiredSpell", "requiredSpecialization", "requiredMaxLevel",
     "availableUntilCompleted", "availableStartingWith", "requiredRanks", "disabledByQuest" }
+
+-- NPC field names by index (QuestieDB src/meta/npcMeta.lua) [verified-files].
+local NPC_FIELDS = { "name", "minLevelHealth", "maxLevelHealth", "minLevel", "maxLevel", "rank", "spawns",
+    "waypoints", "zoneID", "questStarts", "questEnds", "factionID", "friendlyToFaction", "subName", "npcFlags" }
 
 local B64 = {}
 do
@@ -102,11 +109,12 @@ function decode(s, pos)
     error("unsupported major type " .. major)
 end
 
--- Reads quest rows. want(id) filters which table-field lines get decoded (nil = none).
-local function load(wantTables)
+-- Reads quest (or NPC) rows. want(id) filters which table-field lines get decoded (nil = none).
+local function load(wantTables, entity)
     local rows, tabs, errors = {}, {}, 0
+    local pattern = "^## X%-" .. (entity or "Quest") .. "%-(%d+)%-(%w+): (.+)$"
     for line in io.lines(path) do
-        local id, f, payload = line:match("^## X%-Quest%-(%d+)%-(%w+): (.+)$")
+        local id, f, payload = line:match(pattern)
         if id then
             id = tonumber(id)
             if f == "S" or (wantTables and wantTables(id)) then
@@ -196,7 +204,91 @@ elseif cmd == "stats" then
     for _ in pairs(seenS) do ns = ns + 1 end
     print(string.format("%d quests (%d decode errors): %d in %d areas, %d in %d sorts, %d without; %d repeatable (specialFlags)",
         n, errors, areas, na, sorts, ns, none, rep))
+elseif cmd == "npc" then
+    local ids = {}
+    for i = 2, #arg do ids[tonumber(arg[i])] = true end
+    local rows, tabs = load(function(id) return ids[id] end, "Npc")
+    for id in pairs(ids) do
+        local row, tab = rows[id], tabs[id]
+        if not row then
+            print(id .. ": not in QuestieDB")
+        else
+            print(id .. ":")
+            for i, name in ipairs(NPC_FIELDS) do
+                local v = field(row, tab, i)
+                if v ~= nil then print(string.format("  %2d %-18s %s", i, name, show(v))) end
+            end
+        end
+    end
+elseif cmd == "rares" then
+    local only = tonumber(arg[2])
+    local RANKS = { [2] = "rare elite", [3] = "boss", [4] = "rare" }
+    local rows, tabs, errors = load(nil, "Npc")
+    local want = {}
+    for id, row in pairs(rows) do if RANKS[row[6]] then want[id] = true end end
+    rows, tabs = load(function(id) return want[id] end, "Npc")
+    local byArea, counts, noSpawn, total = {}, {}, 0, 0
+    for id in pairs(want) do
+        local row, tab = rows[id], tabs[id] or {}
+        total = total + 1
+        counts[row[6]] = (counts[row[6]] or 0) + 1
+        local spawns = tab[7]
+        if type(spawns) ~= "table" or next(spawns) == nil then
+            noSpawn = noSpawn + 1
+            spawns = { [row[9] or 0] = {} }
+        end
+        for area, points in pairs(spawns) do
+            byArea[area] = byArea[area] or {}
+            table.insert(byArea[area], { id = id, row = row, points = #points, paths = tab[8] and tab[8][area] and #tab[8][area] or 0 })
+        end
+    end
+    print(string.format("%d NPCs ranked rare/rare elite/boss (rare %d, rare elite %d, boss %d), %d without spawns, %d decode errors (base rows)",
+        total, counts[4] or 0, counts[2] or 0, counts[3] or 0, noSpawn, errors))
+    local areas = {}
+    for a in pairs(byArea) do areas[#areas + 1] = a end
+    table.sort(areas, function(a, b) return #byArea[a] > #byArea[b] end)
+    for _, a in ipairs(areas) do
+        if not only or a == only then
+            print(string.format("area %-6s %d", tostring(a), #byArea[a]))
+            if only or arg[2] == "all" then
+                table.sort(byArea[a], function(x, y) return x.id < y.id end)
+                for _, e in ipairs(byArea[a]) do
+                    print(string.format("  %6d %-34s %-10s lvl %s-%s  spawn points %d  paths %d  friendly %s",
+                        e.id, tostring(e.row[1]), RANKS[e.row[6]], tostring(e.row[4]), tostring(e.row[5]),
+                        e.points, e.paths, tostring(e.row[13] or "-")))
+                end
+            end
+        end
+    end
+elseif cmd == "objects" then
+    local q = assert(arg[2], "objects <text|*> [areaID]"):lower()
+    if q == "*" then q = "" end
+    local only = tonumber(arg[3])
+    local rows = load(nil, "Object")
+    local want = {}
+    for id, row in pairs(rows) do
+        if type(row[1]) == "string" and row[1]:lower():find(q, 1, true) then want[id] = true end
+    end
+    local _, tabs = load(function(id) return want[id] end, "Object")
+    local ids = {}
+    for id in pairs(want) do ids[#ids + 1] = id end
+    table.sort(ids)
+    for _, id in ipairs(ids) do
+        local row, tab = rows[id], tabs[id] or {}
+        local spawns, parts, total = tab[4], {}, 0
+        if type(spawns) == "table" then
+            for area, points in pairs(spawns) do
+                if not only or area == only then parts[#parts + 1] = area .. ":" .. #points end
+                total = total + #points
+            end
+        end
+        table.sort(parts)
+        if not only or #parts > 0 then
+            print(string.format("%6d %-36s quests %s/%s  spawn points %d  %s", id, tostring(row[1]),
+                tab[2] and #tab[2] or 0, tab[3] and #tab[3] or 0, total, table.concat(parts, " ")))
+        end
+    end
 else
-    print("usage: luajit tools/qdb.lua quest <id>... | area <areaID> | name <text> | stats")
+    print("usage: luajit tools/qdb.lua quest <id>... | area <areaID> | name <text> | stats | npc <id>... | rares [areaID|all] | objects <text> [areaID]")
     os.exit(cmd and 1 or 0)
 end
