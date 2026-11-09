@@ -10,9 +10,9 @@ Read before working:
 - [mockups/DESIGN.md](mockups/DESIGN.md): **the approved UI design** (design system, screens, gamepad map). The Lua UI must follow it; the mockup at http://localhost:8765 is the visual reference.
 - [art/style-guide.md](art/style-guide.md): zone art rules and pipeline.
 
-## Current state (2026-11-08)
+## Current state (2026-11-08, v1.1.0)
 
-- v1 (1.0.0) closed 2026-11-08. **Phase 9** (Quests, v1.1): steps 1–6 done (QuestieDB, quest index and eligibility, Zone Detail dashboard and quest pages, flight paths, combined zone completion, the Overview). **Next: step 7**, the in-game check of spec §12 "v1.1 Quests". Details and measurements: `docs/implementation-status.md`.
+- v1 (1.0.0) and v1.1 (1.1.0, Phase 9: quests via QuestieDB, flight paths, combined zone completion, zone dashboard, Overview) closed 2026-11-08. **Next:** not planned; candidates in spec §3 "Later". History in `docs/history/`.
 - Level ranges and factions come from the hand-curated, unofficial `Data/Zones.lua`; quest areas from `Data/QuestAreas.lua`. Dungeon and raid quests are kept per instance for a later Dungeons tab.
 - Debug mode (`/azf debug`) writes a capped trace to `AzerfolioDB.trace`; read it after `/reload` with `luajit tools/trace-report.lua` (not ad hoc scripts). `/azf debug exploration` prints the current zone and the total. `RECEIVED_ACHIEVEMENT_LIST` doesn't fire on `/reload`.
 - Banner crop offsets: `Theme.bannerFocus`; check with `/azf shots banners`.
