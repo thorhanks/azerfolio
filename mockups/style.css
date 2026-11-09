@@ -500,8 +500,7 @@ h2.section small { font-size: var(--fs-xs); color: var(--dim); }
 /* No cloth sway: the game's Rotation animation misbehaved on these textures (2026-11-08); the
    cloth stays still and streamers drift sideways (a Translation, as in game). */
 .warbanner.painted .flutter2 { animation: none; }
-.warbanner.painted .streamer { animation: drift 1.9s ease-in-out infinite alternate !important; }
-@keyframes drift { from { transform: translateX(-2px); } to { transform: translateX(2px); } }
+.warbanner.painted .streamer { animation: none !important; } /* still, as in game (the drift misbehaved there) */
 @keyframes sway { 0%, 100% { transform: rotate(0deg); } 30% { transform: rotate(-1.4deg); } 70% { transform: rotate(1deg); } }
 .warbanner.painted .mote { animation: mote linear infinite; }
 @keyframes mote { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translateY(-150px); opacity: 0; } }

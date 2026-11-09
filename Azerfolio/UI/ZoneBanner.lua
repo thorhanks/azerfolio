@@ -115,25 +115,8 @@ function Banner.New(parent)
         c.streamers[i] = s
     end
 
-    -- Round 3 effects (painted standard only; mockups/DESIGN.md "Design round 3").
-    -- Light rising up the pole: behind the cloth, from the crossbar down to the pole's foot,
-    -- so the glowing length below the banner grows as it climbs. Moves with the hoist.
-    c.light = c:CreateTexture(nil, "BACKGROUND", nil, 1)
-    c.light:SetColorTexture(1, 1, 1, 1)
-    local lok = type(CreateColor) == "function" and pcall(c.light.SetGradient, c.light, "VERTICAL",
-        CreateColor(1, 0.83, 0.35, 0), CreateColor(1, 0.86, 0.45, 0.32)) -- softer: 0.6 washed the pole out in game
-    if not lok then c.light:SetColorTexture(1, 0.83, 0.35, 0.3) end
-    c.light:Hide()
-    -- Rings on the pole where the banner's bottom edge reaches at 25 / 50 / 75%: lit once passed.
-    f.mrings = {}
-    for i, m in ipairs({ 0.25, 0.5, 0.75 }) do
-        local halo = circle(f, "ARTWORK", 30, 2) -- round (a plain square looked crude in game)
-        halo:SetSize(30, 16)
-        halo:SetColorTexture(1, 0.83, 0.35, 0.28)
-        local r = circle(f, "ARTWORK", 18, 3)
-        r:SetSize(18, 7)
-        f.mrings[i] = { tex = r, halo = halo, at = m }
-    end
+    -- Round 3 effects (painted standard only; mockups/DESIGN.md "Design round 3"). The pole
+    -- glow and the 25/50/75% rings were removed (owner, 2026-11-08: didn't look right).
     -- Motes drifting up behind the banner, more as the zone fills.
     c.motes = {}
     for i = 1, 11 do
@@ -154,19 +137,9 @@ function Banner.New(parent)
         m:Hide()
         c.motes[i] = m
     end
-    -- Motion: streamers drift a little sideways, out of step. Not Rotation: in game it turned
-    -- the textures far past the degrees asked (a streamer lay almost flat, the cloth vanished;
-    -- WoWScrnShot_110826_171945, _172435), so the cloth stays still and streamers translate.
-    local function drift(tex, dx, dur)
-        if not tex.CreateAnimationGroup then return nil end
-        local ag = tex:CreateAnimationGroup()
-        ag:SetLooping("BOUNCE")
-        local t = ag:CreateAnimation("Translation")
-        t:SetOffset(dx, 0); t:SetDuration(dur)
-        if t.SetSmoothing then t:SetSmoothing("IN_OUT") end
-        return ag
-    end
-    for i, s in ipairs(c.streamers) do s.sway = drift(s, i % 2 == 0 and -2 or 2, 1.6 + i * 0.3) end
+    -- No motion on the cloth or the streamers: in game a Rotation turned the textures far past
+    -- the degrees asked (the cloth vanished, a streamer lay flat) and a looping Translation left
+    -- the streamer drifting away after the hoist (WoWScrnShot_110826_171945, _172435; owner).
     -- Claimed: soft rays behind the standard and a glint on the finial, both pulsing.
     f.rays = {}
     for i = 1, 10 do
@@ -241,20 +214,6 @@ function Banner.New(parent)
     -- Round 3 effects for the painted standard; off (and stopped) for the mini one or the stand-in.
     local function setEffects(on, pct, claimed)
         local A, c = Banner.ART, f.cloth
-        local cross = A.top + (1 - pct) * A.rise
-        c.light:ClearAllPoints()
-        c.light:SetPoint("TOP", c, "TOP", 0, -A.pad)
-        c.light:SetSize(8, math.max(1, A.size[2] - 8 - cross))
-        c.light:SetShown(on and pct > 0)
-        for _, r in ipairs(f.mrings) do
-            local y = -(A.top + (1 - r.at) * A.rise + A.visible + 6)
-            r.tex:ClearAllPoints(); r.tex:SetPoint("CENTER", f, "TOP", 0, y)
-            r.halo:ClearAllPoints(); r.halo:SetPoint("CENTER", r.tex, "CENTER")
-            local lit = pct >= r.at
-            r.tex:SetShown(on)
-            if lit then r.tex:SetColorTexture(1, 0.83, 0.35, 1) else r.tex:SetColorTexture(0.23, 0.18, 0.13, 1) end
-            r.halo:SetShown(on and lit)
-        end
         local n = on and math.floor(2 + pct * 9 + 0.5) or 0
         for i, m in ipairs(c.motes) do
             m:ClearAllPoints()
@@ -263,7 +222,6 @@ function Banner.New(parent)
             m:SetShown(show)
             if m.anim then if show then m.anim:Play() else m.anim:Stop() end end
         end
-        for _, s in ipairs(c.streamers) do if s.sway then if on and s:IsShown() then s.sway:Play() else s.sway:Stop() end end end
         for _, ray in ipairs(f.rays) do
             ray:ClearAllPoints(); ray:SetPoint("CENTER", f, "TOP", 0, -(A.top + A.visible * 0.45))
             ray:SetShown(on and claimed)

@@ -886,18 +886,8 @@
       `<image class="streamer" style="animation-delay:${i * .6}s" href="banner-art/streamer-${k}.png" x="${slots[i]}" y="${y - (sh - sw * 6) / 2 - 4}" width="${sw}" height="${sh}"/>`).join("") : "";
     const drop = opts.animate ? (opts.from != null ? (opts.from - p) * rise : p * rise) : 0;
     const id = "ps" + (++svgId), mx = W / 2;
-    // Round 3, progress you can read at a glance: (1) light rising up the pole from its foot to
-    // the crossbar, (2) brass rings at 25/50/75% that light once the banner has passed them,
-    // (3) motes drifting up behind the banner, more as the zone fills. The glow and the motes
-    // rise with the hoist (they're in its group); the rings stay on the pole.
-    // Rings mark where the banner's bottom edge passes, so a lit ring sits on the glowing pole
-    // below the banner (one marking the crossbar would be hidden behind the cloth once passed).
-    const ringY = (m) => top + (1 - m) * rise + vis + 6;
-    const rings = opts.mini ? "" : [.25, .5, .75].map(m => {
-      const lit = p >= m;
-      return `<ellipse cx="${mx}" cy="${ringY(m)}" rx="9" ry="3.2" fill="${lit ? "#ffd35a" : "#3a2e22"}" stroke="${lit ? "#fff3b0" : "#1a1208"}" stroke-width=".8"/>
-        ${lit ? `<ellipse cx="${mx}" cy="${ringY(m)}" rx="14" ry="7" fill="#ffd35a" opacity=".35" filter="url(#${id}s)"/>` : ""}`;
-    }).join("");
+    // Round 3: motes drift up behind the banner, more as the zone fills (in the hoist's group).
+    // The pole glow and the 25/50/75% rings were removed (owner, 2026-11-08).
     const motes = opts.mini ? "" : Array.from({ length: Math.round(2 + p * 9) }, (_, i) => {
       const x = cx + 12 + ((i * 53) % (cw - 24)), d = 5 + (i % 4) * 1.3;
       return `<circle class="mote" style="animation-delay:-${(i * 1.7) % d}s;animation-duration:${d}s" cx="${x}" cy="${y + vis * .9}" r="${1.2 + (i % 3) * .5}" fill="#ffe7a0"/>`;
@@ -910,10 +900,8 @@
       ${rays}
       ${done ? `<ellipse cx="${mx}" cy="${top + vis / 2}" rx="${cw * .62}" ry="${vis * .6}" fill="#ffd35a" opacity=".22" filter="url(#pglow)"/>` : ""}
       <image href="banner-art/pole-${k}.png" x="${(W - 110) / 2}" y="0" width="110" height="${H}"/>
-      ${rings}
       ${done && !opts.mini ? `<path class="glint" d="M${mx} 8 l3 9 l9 3 l-9 3 l-3 9 l-3 -9 l-9 -3 l9 -3 Z" fill="#fffbe0"/>` : ""}
       <g class="hoist" style="--drop:${drop.toFixed(1)}px">
-        ${p > 0 && !opts.mini ? `<rect x="${mx - 7}" y="${y}" width="14" height="${H - 8 - y}" rx="7" fill="url(#${id}l)" filter="url(#${id}s)"/>` : ""}
         ${motes}
         <g class="flutter2" style="transform-origin:${mx}px ${y}px"><image href="banner-art/banner-${k}.png" x="${cx}" y="${y - pad}" width="${cw}" height="${ch}"/></g>
         ${streamers}
