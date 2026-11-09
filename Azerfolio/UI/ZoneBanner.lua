@@ -30,10 +30,11 @@ Banner.ART.streamer = { 26, 208 }
 -- Hung from the crossbar's ends (left, right, outer left), x from the cloth canvas's left edge.
 -- Measured on the pieces (256px canvas = 150 units): the Alliance bar spans 8-142 with the cloth
 -- at 23-127; the Horde bar is the cloth's own top edge, 1-148, cloth 9-141. A streamer's painting
--- is 5-20 of its 26-wide canvas, its tie at 28 of 208. -22 hung it clear of the bar in game.
+-- is 5-20 of its 26-wide canvas, its tie at 28 of 208. -22 hung it clear of the bar in game;
+-- 2 touched the cloth's border (it draws about 4 further right there), hence -3.
 Banner.ART.streamerX = {
-    Alliance = { 2, Banner.ART.cloth[1] - 28, -14 },
-    Horde = { -14, Banner.ART.cloth[1] - 12, -30 },
+    Alliance = { -3, Banner.ART.cloth[1] - 23, -19 },
+    Horde = { -19, Banner.ART.cloth[1] - 7, -35 },
 }
 -- The streamer canvas's top below the cloth canvas's top: the tie on the bar's middle (88/512).
 Banner.ART.streamerY = Banner.ART.cloth[2] * 88 / 512 - 28

@@ -883,7 +883,7 @@
     const finished = z.cats.filter(c => catState(c) === "complete");
     // Hung from the crossbar's ends, measured on the pieces (as ZoneBanner.lua): x from the cloth
     // canvas's left edge; the tie (28 of 208) on the bar's middle (88/512 of the canvas).
-    const sw = 26, sh = sw * 8, xs = k === "horde" ? [-14, cw - 12, -30] : [2, cw - 28, -14];
+    const sw = 26, sh = sw * 8, xs = k === "horde" ? [-19, cw - 7, -35] : [-3, cw - 23, -19];
     const sy = y - pad + ch * 88 / 512 - 28;
     const streamers = hasPiece("streamer-" + k) ? finished.slice(0, 3).map((c, i) =>
       `<image class="streamer" href="banner-art/streamer-${k}.png" x="${cx + xs[i]}" y="${sy}" width="${sw}" height="${sh}"/>`).join("") : "";
