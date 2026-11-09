@@ -94,7 +94,14 @@ SV.ACCOUNT_MIGRATIONS = {
         elseif z.completion == "incomplete" then z.completion = "all" end
     end,
 }
-SV.CHAR_MIGRATIONS = {}
+SV.CHAR_MIGRATIONS = {
+    -- 2: the Overview's Activity panel and the milestone tracking behind it were removed
+    -- (Phase 9 step 6, owner 2026-11-08); their saved history goes with them.
+    [2] = function(char)
+        char.milestones = nil
+        char.baseline = nil
+    end,
+}
 
 -- Applies migrations up to `target`. Data from a newer, unknown schema is discarded
 -- (returns nil) because this code can't interpret it safely.
@@ -130,28 +137,9 @@ function SV.TrimList(list, limit)
 end
 
 -- Free-form per-character lists are checked entry by entry (a hand-edited or damaged file must
--- not break the Overview): a milestone needs a known kind, a category and a numeric mapID; a
--- name that isn't text and a time that isn't a plausible positive number are dropped (the time
--- then reads "time not seen", never a made-up one). Recent zones keep only map IDs.
+-- not break the Overview): recent zones keep only map IDs; a time that isn't a plausible
+-- positive number is dropped, never replaced.
 local function validTime(t) return type(t) == "number" and t == t and t > 0 and t < 4102444800 end -- before 2100
-
-function SV.CleanMilestones(list, fixes)
-    if type(list) ~= "table" then return {} end
-    local out, dropped = {}, 0
-    for i = 1, #list do
-        local m = list[i]
-        if type(m) == "table" and (m.kind == "area" or m.kind == "zone") and type(m.category) == "string"
-            and type(m.mapID) == "number" and m.id ~= nil then
-            if m.name ~= nil and type(m.name) ~= "string" then m.name = nil end
-            if m.time ~= nil and not validTime(m.time) then m.time = nil end
-            out[#out + 1] = m
-        else
-            dropped = dropped + 1
-        end
-    end
-    if dropped > 0 and fixes then fixes[#fixes + 1] = string.format("character milestones: %d invalid entries dropped", dropped) end
-    return out
-end
 
 function SV.CleanRecentZones(list, fixes)
     if type(list) ~= "table" then return {} end
@@ -199,11 +187,9 @@ function SV.Load(account, char)
     char, charFixes = SV.Normalize(char, Config.CHAR_DEFAULTS)
     for _, f in ipairs(charFixes) do fixes[#fixes + 1] = "character " .. f end
 
-    char.milestones = SV.CleanMilestones(char.milestones, fixes)
     char.recentZones = SV.CleanRecentZones(char.recentZones, fixes)
     char.flights = SV.CleanFlights(char.flights, fixes)
     SV.TrimList(account.trace, Config.LIMITS.trace)
-    SV.TrimList(char.milestones, Config.LIMITS.milestones)
     SV.TrimList(char.recentZones, Config.LIMITS.recentZones)
 
     return account, char, fixes

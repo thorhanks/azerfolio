@@ -12,9 +12,9 @@ Read before working:
 
 ## Current state (2026-11-08)
 
-- v1 (1.0.0) closed 2026-11-08. **Phase 9** (Quests, v1.1): steps 1–3 done (QuestieDB at runtime, quest index, completion and eligibility). **Next: step 4**, the Zone Detail quest section, mockup first. Details and measurements: `docs/implementation-status.md`.
+- v1 (1.0.0) closed 2026-11-08. **Phase 9** (Quests, v1.1): steps 1–6 done (QuestieDB, quest index and eligibility, Zone Detail dashboard and quest pages, flight paths, combined zone completion, the Overview). **Next: step 7**, the in-game check of spec §12 "v1.1 Quests". Details and measurements: `docs/implementation-status.md`.
 - Level ranges and factions come from the hand-curated, unofficial `Data/Zones.lua`; quest areas from `Data/QuestAreas.lua`. Dungeon and raid quests are kept per instance for a later Dungeons tab.
-- Debug mode (`/azf debug`) writes a capped trace to `AzerfolioDB.trace`; read it after `/reload` with `luajit tools/trace-report.lua` (not ad hoc scripts). `/azf debug exploration` prints the current zone, the total and milestones. `RECEIVED_ACHIEVEMENT_LIST` doesn't fire on `/reload`.
+- Debug mode (`/azf debug`) writes a capped trace to `AzerfolioDB.trace`; read it after `/reload` with `luajit tools/trace-report.lua` (not ad hoc scripts). `/azf debug exploration` prints the current zone and the total. `RECEIVED_ACHIEVEMENT_LIST` doesn't fire on `/reload`.
 - Banner crop offsets: `Theme.bannerFocus`; check with `/azf shots banners`.
 - In game, the owner may still have **Azerfolio Diagnostics** enabled with its event sniffer on. Ask them to turn it off (`/azfdiag sniff`, then untick the addon) when it's no longer needed.
 
@@ -74,7 +74,7 @@ Read before working:
 ## Code layout
 
 - `Azerfolio/Core/` — `Init` (namespace `ns`), `Config` (defaults/enums/ranges), `SavedVariables` (pure: validate/migrate), `Debug` (`Try`, error log), `Events` (dispatcher, `On`/`Send` messages, `Debounce`), `Character`, `Commands`, `Lifecycle` (loaded last).
-- `Azerfolio/Systems/` — `Maps` (zone list from the client's map tree), `Objectives`, `Progression`, `Exploration`, `Milestones`, `Zones` (catalogue entries, filters, sorts, sections), `Overview` (dashboard picks, visit tracker), `QuestRules` (pure quest eligibility), `Quests` (QuestieDB quest index per zone, completion, quest objectives).
+- `Azerfolio/Systems/` — `Maps` (zone list from the client's map tree), `Objectives`, `Progression`, `Exploration`, `FlightPaths`, `Zones` (catalogue entries, filters, sorts, sections), `Overview` (dashboard picks, tracked completion, visit tracker), `QuestRules` (pure quest eligibility), `Quests` (QuestieDB quest index per zone, completion, quest objectives).
 - `Azerfolio/UI/` — `Theme` (all style constants and native atlases), `FocusGrid` (pure focus logic), `MainWindow` (`ns.UI`: native frame, tabs via `UI.RegisterTab`, legend, geometry), `Gamepad` (addon-owned input layer), `Focus` (per-tab focus, chevron, scroll into view), `Widgets` (shared scroll, header, focus row, control, pips, level bar), `Pages/` (one file per tab, plus `ZonesCatalogue`; `page:GetFocusRows()` opts into focus, `page:OnButton` takes X/Y, `page:GetHints` adds hints), `Shots` (`/azf shots`).
 - New files go in the TOC in dependency order; `tests/addon_smoke_test.lua` loads the addon from the TOC, so a missing file fails the tests.
 - Internal messages are named `AZF_*`. Startup: `ADDON_LOADED` → `PLAYER_LOGIN` → `AZF_READY`.

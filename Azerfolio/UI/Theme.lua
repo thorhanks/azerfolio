@@ -112,19 +112,20 @@ Theme.layout = {
     heroArt = 190,
     heroScore = 180,           -- right part of the Continue card (big percentage and the mini standard)
     goalHeight = 40,
-    chipHeight = 28,
-    chipPad = 10,
-    chipDot = 8,
     groupHead = 24,            -- suggestion group's name line
-    counterHeight = 76,        -- Tracked completion panel
-    zonesCounterHeight = 84,
     statBar = 12,              -- stacked / progress bar height in the panels
     recentRow = 40,
     recentThumb = { 56, 28 },
-    sparkHeight = 36,
-    sparkGap = 3,
-    milestoneRow = 26,
-    milestoneIcon = 18,
+    -- Phase 9 step 6 (mockups/DESIGN.md "Step 6"): plates, Tracked completion rows, suggestions.
+    plate = 34,                -- section header plate
+    trackHead = 44,            -- Tracked completion: title and headline
+    trackRow = 30,             -- one category row
+    trackLabel = 104,          -- the category name's column
+    trackCount = 92,           -- "done / counted"
+    trackBar = 16,             -- gilded bar height in a row
+    sugItem = 30,              -- one suggestion pick
+    sugCols = 2,
+    panelPad = 12,             -- inside a framed panel
 }
 
 -- Painted art from tools/process-art.ps1 (Data/Art.lua lists what exists; the client can't
@@ -185,6 +186,31 @@ function Theme.CardFrame(frame, corner, out, layer)
     function h:SetShown(on) for _, p in ipairs(pieces) do p:SetShown(on) end end
     function h:SetVertexColor(r, g, b) for _, p in ipairs(pieces) do p:SetVertexColor(r, g, b) end end
     return h
+end
+
+-- The painted header plate (plate-header, three-slice) with a centred gold title: Zone
+-- Detail's "Next up" and the Overview's section headers. Without the art, a dark band.
+-- Returns the frame; f.title is its FontString.
+function Theme.Plate(parent, height)
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetHeight(height)
+    local file, slice = Theme.Chrome("plate-header")
+    if file and type(slice) == "table" then
+        local sx = slice.x
+        local l, m, r = f:CreateTexture(nil, "BORDER"), f:CreateTexture(nil, "BORDER"), f:CreateTexture(nil, "BORDER")
+        for _, t in ipairs({ l, m, r }) do t:SetTexture(file) end
+        l:SetTexCoord(0, sx, 0, 1); m:SetTexCoord(sx, 1 - sx, 0, 1); r:SetTexCoord(1 - sx, 1, 0, 1)
+        local endW = math.floor(height * 512 / 128 * sx + 0.5) -- the piece is 512x128
+        l:SetPoint("TOPLEFT"); l:SetPoint("BOTTOMLEFT"); l:SetWidth(endW)
+        r:SetPoint("TOPRIGHT"); r:SetPoint("BOTTOMRIGHT"); r:SetWidth(endW)
+        m:SetPoint("TOPLEFT", l, "TOPRIGHT"); m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
+    else
+        local band = f:CreateTexture(nil, "BORDER")
+        band:SetAllPoints(); band:SetColorTexture(0.12, 0.06, 0.02, 1)
+    end
+    f.title = Theme.Text(f, "md", "gold")
+    f.title:SetPoint("CENTER", 0, 0)
+    return f
 end
 
 -- A gilded progress bar (frame-bar housing, three-slice, over a dark well, with the bar-fill

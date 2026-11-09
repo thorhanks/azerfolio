@@ -1,31 +1,29 @@
--- The Overview dashboard's model (spec §5, plan Phase 7): tracked completion, the Zones stat,
--- the Continue card, the next goal, suggested objectives, recently visited zones, the activity
--- strip and recent milestones. Overview.Build is pure: it takes the Zones catalogue entries
--- (ns.Zones), the zones' objectives, the overall Progression result and the saved history, and
--- only picks and orders them. Every count it hands on comes from ns.Progression, so the
--- Overview and the Zones tab show the same numbers for a zone.
+-- The Overview dashboard's model (spec §5, plan Phase 7, Phase 9 step 6): tracked completion
+-- per category, the Zones stat, the Continue card, the next goal, suggested objectives and the
+-- recently visited zones. Overview.Build is pure: it takes the Zones catalogue entries
+-- (ns.Zones), each zone's Next up picks (ns.Zones.NextUp), the providers' overall results and
+-- the saved visits, and only picks and orders them. Every count it hands on comes from
+-- ns.Progression, so the Overview and the Zones tab show the same numbers for a zone.
 -- Overview.Gather() collects that input from the client; the visit tracker records the zones
 -- the player enters (AzerfolioCharDB.recentZones, newest last).
+-- The Activity panel (discoveries per day, latest milestones) was removed in Phase 9 step 6
+-- (owner, 2026-11-08), with the milestone tracking behind it.
 local _, ns = ...
 
 local Overview = {}
 ns.Overview = Overview
 
 Overview.GROUPS = 3          -- suggestion groups (zones)
-Overview.CHIPS = 6           -- area chips per group
-Overview.RECENT_ZONES = 3    -- recently visited zones shown
-Overview.RECENT_MILESTONES = 3
-Overview.ACTIVITY_DAYS = 14
+Overview.RECENT_ZONES = 5    -- recently visited zones shown
 Overview.LEVEL_BEHIND = 2    -- "next for your level" looks from this many levels below yours
-
-local DAY = 24 * 60 * 60
 
 ---------------------------------------------------------------------------------------------
 -- Pure helpers
 ---------------------------------------------------------------------------------------------
 
+-- A zone with something confirmed left to do (all categories, spec §7.7).
 local function unfinished(z)
-    return z.tracked and (z.state == "progress" or z.state == "untouched") and z.progress ~= nil
+    return z.tracked and (z.state == "progress" or z.state == "untouched") and (z.left or 0) > 0
 end
 
 local function byName(a, b)
@@ -34,15 +32,15 @@ local function byName(a, b)
     return a.mapID < b.mapID
 end
 
--- Pure: in-progress zones, fewest areas left first (then highest %, then name).
+-- Pure: in-progress zones, fewest objectives left first (all categories; then highest %,
+-- then name).
 function Overview.Closest(zones)
     local out = {}
     for _, z in ipairs(zones) do
-        if z.state == "progress" and z.progress and z.progress.remaining > 0 then out[#out + 1] = z end
+        if z.state == "progress" and (z.left or 0) > 0 then out[#out + 1] = z end
     end
     table.sort(out, function(a, b)
-        local ra, rb = a.progress.remaining, b.progress.remaining
-        if ra ~= rb then return ra < rb end
+        if a.left ~= b.left then return a.left < b.left end
         local pa, pb = a.percent or -1, b.percent or -1
         if pa ~= pb then return pa > pb end
         return byName(a, b)
@@ -66,7 +64,7 @@ function Overview.ForLevel(zones, level, continent)
     end
     local out = {}
     for _, z in ipairs(zones) do
-        if unfinished(z) and z.progress.remaining > 0 then out[#out + 1] = z end
+        if unfinished(z) then out[#out + 1] = z end
     end
     table.sort(out, function(a, b)
         local pa, pb = a.state == "progress", b.state == "progress"
@@ -79,15 +77,6 @@ function Overview.ForLevel(zones, level, continent)
         if ca ~= cb then return ca end
         return byName(a, b)
     end)
-    return out
-end
-
--- Pure: the objectives worth suggesting: confirmed not done and eligible (never unknown).
-function Overview.Suggestable(objectives)
-    local out = {}
-    for _, o in ipairs(objectives or {}) do
-        if o.completion == "incomplete" and o.eligibility == "eligible" then out[#out + 1] = o end
-    end
     return out
 end
 
@@ -104,39 +93,35 @@ function Overview.PushRecent(list, mapID, limit)
     return true
 end
 
--- Pure: discoveries per day for the last `days` days, oldest first, today last. Only area
--- milestones with a time count (one found later has no time, so no day). dayOf(t) names a day.
-function Overview.Activity(milestones, now, dayOf, days)
-    days = days or Overview.ACTIVITY_DAYS
-    local index, counts = {}, {}
-    for i = 1, days do
-        counts[i] = 0
-        if now and dayOf then index[dayOf(now - (days - i) * DAY)] = i end
+-- Pure: tracked completion (spec §5.2, v1.1) from the providers' overall results (any may be
+-- nil): ex = Exploration.Overall(), q = Quests.Overall(), f = FlightPaths.Overall().
+-- The headline is Progression.Combine over the categories: the equal-weight average of those
+-- with counted objectives; a category whose data isn't readable yet is listed with its reason
+-- and left out of the average, never shown as 0%.
+--   { combined (Combine result; its cats carry key, progress, completed, denominator,
+--     percent, unchecked, pending), zones = ex.zones, exploreUnread = zones whose exploration
+--     can't be read, flightsUnread = continent mapIDs without a flight master's list }
+function Overview.Tracked(ex, q, f)
+    local list = {}
+    if ex and ex.progress and (ex.progress.denominator or 0) > 0 and ex.progress.percent then
+        list[#list + 1] = { key = "explore", progress = ex.progress }
+    elseif ex and (ex.unavailable or 0) > 0 then
+        list[#list + 1] = { key = "explore", pending = "achievements" }
     end
-    if now and dayOf then
-        for _, m in ipairs(milestones or {}) do
-            if type(m) == "table" and m.kind == "area" and type(m.time) == "number" and m.time <= now then
-                local i = index[dayOf(m.time)]
-                if i then counts[i] = counts[i] + 1 end
-            end
-        end
+    if q and q.status == "ready" then
+        if q.progress and (q.progress.denominator or 0) > 0 then list[#list + 1] = { key = "quests", progress = q.progress } end
+    elseif q and (q.status == "building" or q.status == "idle") then
+        list[#list + 1] = { key = "quests", pending = "building" }
+    elseif q and q.status == "unavailable" then
+        list[#list + 1] = { key = "quests", pending = "questiedb" }
     end
-    local max = 0
-    for _, c in ipairs(counts) do if c > max then max = c end end
-    return { counts = counts, today = counts[days], max = max }
-end
-
--- Pure: when a milestone happened, in words. nil time = it wasn't seen when it happened.
-function Overview.TimeText(t, now, dayOf, clock)
-    if type(t) ~= "number" then return "time not seen" end
-    if not (now and dayOf) then return "" end
-    local hm = clock and clock(t) or ""
-    if dayOf(t) == dayOf(now) then return "Today, " .. hm end
-    if dayOf(t) == dayOf(now - DAY) then return "Yesterday, " .. hm end
-    for d = 2, 13 do
-        if dayOf(t) == dayOf(now - d * DAY) then return d .. " days ago" end
+    if f and f.status == "ready" and f.progress then
+        list[#list + 1] = { key = "flights", progress = f.progress }
+    elseif f and f.status == "pending" then
+        list[#list + 1] = { key = "flights", pending = "flightmaster" }
     end
-    return dayOf(t)
+    return { combined = ns.Progression.Combine(list), zones = ex and ex.zones or 0,
+        exploreUnread = ex and ex.unavailable or 0, flightsUnread = f and f.unread or {} }
 end
 
 ---------------------------------------------------------------------------------------------
@@ -156,24 +141,20 @@ end
 
 -- Pure. input:
 --   zones        ns.Zones entries (Zones.All())
---   objectivesFor(mapID) -> the zone's objectives (Exploration.ForZone(...).objectives) or nil
---   overall      Exploration.Overall() result: { progress, zones, unavailable }
+--   nextUpFor(mapID) -> the zone's Zones.NextUp picks (or nil)
+--   overall      { explore = Exploration.Overall(), quests = Quests.Overall(),
+--                  flights = FlightPaths.Overall() } (any may be nil)
 --   current      the player's zone mapID (nil if unknown)
 --   recent       visited zone mapIDs, newest last
---   milestones   AzerfolioCharDB.milestones (newest last)
 --   char         { faction, level }
---   now, dayOf, clock   time() and day/clock formatters (activity, milestone times)
 -- Returns:
---   completion   { progress (overall Progression result or nil), zones, unavailable,
---                  categories = { { name, completed, denominator } } }
+--   completion   Overview.Tracked result
 --   zones        { applicable, complete, progress, untouched, unknown }   (relevant tracked zones)
 --   current      the current zone's entry (any state) or nil
 --   hero         { zone, why = "current"|"closest"|"level" } or nil
 --   goal         the in-progress zone with the fewest left, other than the hero's, or nil
---   suggestions  { { zone, why, rule, objectives (<= CHIPS), more } } (<= GROUPS)
+--   suggestions  { { zone, rule, items (Zones.NextUp picks, >= 1) } } (<= GROUPS)
 --   recent       recently visited zone entries, newest first, without the current zone
---   activity     Overview.Activity result
---   milestones   newest first: { kind, name, zoneName, mapID, time, when }
 function Overview.Build(input)
     input = input or {}
     local zones, char = input.zones or {}, input.char or {}
@@ -184,21 +165,12 @@ function Overview.Build(input)
         if ns.Zones.IsRelevant(z, char.faction) then relevant[#relevant + 1] = z end
     end
 
-    local model = { zones = counts(zones, char.faction) }
-
-    -- Tracked completion: exploration is the only category so far.
     local overall = input.overall or {}
-    local op = overall.progress
-    model.completion = { progress = op, zones = overall.zones or 0, unavailable = overall.unavailable or 0,
-        categories = { { name = "Exploration", completed = op and op.completed or 0,
-            denominator = op and op.denominator or 0 } } }
+    local model = { zones = counts(zones, char.faction),
+        completion = Overview.Tracked(overall.explore, overall.quests, overall.flights) }
 
     local current = input.current and byMap[input.current]
     model.current = current
-
-    local function objectives(z)
-        return Overview.Suggestable(input.objectivesFor and input.objectivesFor(z.mapID))
-    end
 
     -- The Continue card: the zone you're in whenever it's tracked, finished or not (owner,
     -- 2026-11-08); else the closest zone to finish, else the next one for your level.
@@ -218,16 +190,15 @@ function Overview.Build(input)
 
     -- Suggestions (spec §5.5), grouped by zone: 1. the current zone; 2. the zone closest to
     -- completion; 3. the next zones for your level; then more close zones if room is left.
+    -- Each group lists the zone's Next up picks (areas, ready quests, a flight path), which
+    -- only hold objectives confirmed not done and eligible.
     local groups, used = {}, {}
-    local function add(z, rule, why)
+    local function add(z, rule)
         if #groups >= Overview.GROUPS or used[z.mapID] then return end
-        local list = objectives(z)
-        if #list == 0 then return end
+        local items = input.nextUpFor and input.nextUpFor(z.mapID) or {}
+        if #items == 0 then return end
         used[z.mapID] = true
-        local shown = {}
-        for i = 1, math.min(#list, Overview.CHIPS) do shown[i] = list[i] end
-        groups[#groups + 1] = { zone = z, rule = rule, why = why, objectives = shown,
-            more = #list - #shown, left = #list }
+        groups[#groups + 1] = { zone = z, rule = rule, items = items }
     end
     if current and unfinished(current) then add(current, "current") end
     local closeTaken = 0
@@ -250,29 +221,12 @@ function Overview.Build(input)
         end
     end
     model.recent = recent
-
-    model.activity = Overview.Activity(input.milestones, input.now, input.dayOf)
-    local ms, all = {}, input.milestones or {}
-    for i = #all, 1, -1 do
-        local m = all[i]
-        if type(m) == "table" and (m.kind == "area" or m.kind == "zone") then
-            local z = byMap[m.mapID]
-            ms[#ms + 1] = { kind = m.kind, name = m.name, mapID = m.mapID, time = m.time,
-                zoneName = z and z.name or ("Zone " .. tostring(m.mapID)),
-                when = Overview.TimeText(m.time, input.now, input.dayOf, input.clock) }
-            if #ms >= Overview.RECENT_MILESTONES then break end
-        end
-    end
-    model.milestones = ms
     return model
 end
 
 ---------------------------------------------------------------------------------------------
 -- Live: input from the client, and the visit tracker
 ---------------------------------------------------------------------------------------------
-
-local function dayOf(t) return date("%Y-%m-%d", t) end
-local function clock(t) return date("%H:%M", t) end
 
 -- The player's zone: the tracked zone they're in, else the map itself (a capital such as
 -- Stormwind City is a listed zone without exploration; its continent still orders the
@@ -285,25 +239,30 @@ local function currentMap()
 end
 
 function Overview.Gather()
-    local hasDate = type(date) == "function"
     return {
         zones = ns.Zones.All(),
-        objectivesFor = function(mapID)
-            local ex = ns.Exploration.ForZone(mapID)
-            return ex.status == "tracked" and ex.objectives or nil
+        nextUpFor = function(mapID)
+            return ns.Zones.NextUp(ns.Exploration.ForZone(mapID), ns.Quests and ns.Quests.ForZone(mapID),
+                ns.FlightPaths and ns.FlightPaths.ForZone(mapID))
         end,
-        overall = ns.Exploration.Overall(),
+        overall = {
+            explore = ns.Exploration.Overall(),
+            quests = ns.Quests and ns.Quests.Overall() or nil,
+            flights = ns.FlightPaths and ns.FlightPaths.Overall() or nil,
+        },
         current = currentMap(),
         recent = ns.charDB and ns.charDB.recentZones or {},
-        milestones = ns.charDB and ns.charDB.milestones or {},
         char = ns.character or {},
-        now = type(time) == "function" and time() or nil,
-        dayOf = hasDate and dayOf or nil,
-        clock = hasDate and clock or nil,
     }
 end
 
 function Overview.Model() return Overview.Build(Overview.Gather()) end
+
+-- A continent's name for the coverage note (live), or nil.
+function Overview.ContinentName(mapID)
+    local info = C_Map and type(C_Map.GetMapInfo) == "function" and ns.Debug.Try("GetMapInfo", C_Map.GetMapInfo, mapID)
+    return type(info) == "table" and info.name or nil
+end
 
 -- Records the tracked zone the player is in as the newest visit.
 function Overview.NoteVisit()
@@ -327,21 +286,25 @@ end
 -- /azf debug overview: what the dashboard shows, in chat and (debug mode) in the trace.
 function Overview.DebugReport()
     local m = Overview.Model()
-    local p = m.completion.progress
-    ns.Printf("Overview: tracked completion %s (%s), zones %d of %d complete (%d in progress, %d untouched, %d unknown)",
-        p and p.percent and ns.Progression.PercentText(p) or "unavailable",
-        p and string.format("%d/%d", p.completed, p.denominator) or "-",
+    local c = m.completion.combined
+    local cats = {}
+    for _, cat in ipairs(c.cats) do
+        cats[#cats + 1] = cat.pending and (cat.key .. " pending (" .. cat.pending .. ")")
+            or string.format("%s %d/%d", cat.key, cat.completed, cat.denominator)
+    end
+    ns.Printf("Overview: tracked completion %s [%s], zones %d of %d complete (%d in progress, %d untouched, %d unknown)",
+        ns.Progression.PercentText(c) or "unavailable", table.concat(cats, ", "),
         m.zones.complete, m.zones.applicable, m.zones.progress, m.zones.untouched, m.zones.unknown)
     ns.Printf("  continue: %s (%s); next goal: %s", m.hero and m.hero.zone.name or "none",
         m.hero and m.hero.why or "-", m.goal and m.goal.name or "none")
     local s = {}
-    for _, g in ipairs(m.suggestions) do s[#s + 1] = string.format("%s (%s, %d left)", g.zone.name, g.rule, g.left) end
+    for _, g in ipairs(m.suggestions) do s[#s + 1] = string.format("%s (%s, %d picks)", g.zone.name, g.rule, #g.items) end
     ns.Printf("  suggestions: %s", #s > 0 and table.concat(s, ", ") or "none")
     local r = {}
     for _, z in ipairs(m.recent) do r[#r + 1] = z.name end
-    ns.Printf("  recent zones: %s; discoveries today: %d", #r > 0 and table.concat(r, ", ") or "none", m.activity.today)
-    ns.Debug.Trace("overview", { percent = p and p.percent, completed = p and p.completed,
-        denominator = p and p.denominator, zones = m.zones, hero = m.hero and m.hero.zone.mapID,
-        heroWhy = m.hero and m.hero.why, goal = m.goal and m.goal.mapID, suggestions = s, recent = r,
-        today = m.activity.today, milestones = #m.milestones })
+    ns.Printf("  recent zones: %s", #r > 0 and table.concat(r, ", ") or "none")
+    ns.Debug.Trace("overview", { percent = c.percent, cats = cats, zones = m.zones,
+        hero = m.hero and m.hero.zone.mapID, heroWhy = m.hero and m.hero.why, goal = m.goal and m.goal.mapID,
+        suggestions = s, recent = r, flightsUnread = #m.completion.flightsUnread,
+        exploreUnread = m.completion.exploreUnread })
 end

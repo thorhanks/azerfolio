@@ -65,6 +65,7 @@
       char: { name: "Gideon", level: 10, race: "Human", className: "Paladin", faction: "Alliance", xp: 273, xpMax: 7600, zone: "Elwynn Forest", subzone: "Goldshire" },
       done: { "Elwynn Forest": GIDEON_ELWYNN.slice() },
       flights: ["Stormwind", "Sentinel Hill"], questScale: 1, // flight paths: real, from the flight master (2026-11-08)
+      flightsRead: ["Eastern Kingdoms"], // continents whose flight master list was read (Kalimdor not yet in game)
       milestones: [
         { t: ago(0, 11, 26), kind: "area", area: "Forest's Edge", zone: "Elwynn Forest" },
         { t: ago(0, 11, 30), kind: "area", area: "Brackwell Pumpkin Patch", zone: "Elwynn Forest" },
@@ -83,7 +84,7 @@
         "Dun Morogh": firstN("Dun Morogh", 12), "Redridge Mountains": firstN("Redridge Mountains", 9),
         "Duskwood": firstN("Duskwood", 7), "Wetlands": firstN("Wetlands", 4), "Darkshore": firstN("Darkshore", 3) },
       flights: ["Stormwind", "Ironforge", "Sentinel Hill", "Lakeshire", "Darkshire", "Thelsamar", "Menethil Harbor", "Auberdine"],
-      questScale: "veteran",
+      questScale: "veteran", flightsRead: ["Eastern Kingdoms", "Kalimdor"],
       milestones: [
         { t: ago(12, 20, 10), kind: "zone", zone: "Elwynn Forest" }, { t: ago(9, 21, 40), kind: "zone", zone: "Westfall" },
         { t: ago(6, 19, 5), kind: "zone", zone: "Loch Modan" }, { t: ago(4, 22, 15), kind: "area", area: "Lakeridge Highway", zone: "Redridge Mountains" },
@@ -93,7 +94,7 @@
     }),
     fresh: () => ({
       char: { name: "Elowen", level: 1, race: "Human", className: "Paladin", faction: "Alliance", xp: 0, xpMax: 400, zone: "Elwynn Forest", subzone: "Northshire Abbey" },
-      done: {}, milestones: [], flights: [], questScale: 0,
+      done: {}, milestones: [], flights: [], questScale: 0, flightsRead: [],
     }),
   };
   // Quests (Phase 9): Gideon's Elwynn Forest checklist as Quests.ForZone gave it in game
@@ -193,8 +194,6 @@
   const CATS = { explore: { label: "Exploration", icon: "◎", unit: "areas" }, quests: { label: "Quests", icon: "!", unit: "quests" },
     flights: { label: "Flight paths", icon: "✈", unit: "flight paths" } };
 
-  // Veteran activity: pad extra area discoveries so the activity strip has a realistic shape.
-  const VETERAN_DAILY = [3, 0, 5, 2, 0, 0, 4, 6, 1, 0, 2, 3, 1, 2];
 
   // =====================================================================================
   // Model (in the addon this is the Progression service)
@@ -220,6 +219,35 @@
       complete: tracked.filter(z => z.state === "complete").length, progress: tracked.filter(z => z.state === "progress").length,
       untouched: tracked.filter(z => z.state === "untouched").length,
     };
+    totals.cats = trackedCompletion();
+  }
+  // Tracked completion (spec §5.2, v1.1; in the addon: ns.Progression over every relevant
+  // zone): each category's confirmed done / counted across the zones you can do, and the
+  // headline as the equal-weight average of the categories that have data. A category without
+  // data is listed with its reason and left out of the average, never shown as 0%.
+  function trackedCompletion() {
+    const mine = tracked.filter(relevant);
+    const sum = (key, f) => mine.reduce((acc, z) => {
+      const c = catOf(z, key); if (c && f(z)) { acc.done += c.done; acc.total += c.total; acc.unchecked += c.unchecked || 0; acc.zones++; } return acc;
+    }, { done: 0, total: 0, unchecked: 0, zones: 0 });
+    const read = new Set(S.flightsRead || []);
+    const cats = [
+      { key: "explore", ...(sum("explore", () => true) || {}) },
+      ui.quests === "building" ? { key: "quests", pending: "Reading quests..." }
+        : ui.quests === "missing" ? { key: "quests", pending: "Needs the QuestieDB addon" }
+        : { key: "quests", ...(sum("quests", () => true) || {}) },
+      { key: "flights", ...(sum("flights", z => read.has(z.continent)) || {}) },
+    ];
+    const unreadFlights = ["Eastern Kingdoms", "Kalimdor"].filter(c => !read.has(c));
+    cats.forEach(c => {
+      Object.assign(c, { label: CATS[c.key].label, unit: CATS[c.key].unit });
+      if (!c.pending && !c.total) c.pending = c.key === "flights" ? "Talk to a flight master" : "No data yet";
+      c.pct = c.pending ? null : c.done / c.total;
+      if (c.key === "flights" && !c.pending && unreadFlights.length) c.note = `${unreadFlights.join(" and ")}: talk to a flight master there`;
+      if (c.key === "quests" && c.unchecked) c.note = `${c.unchecked} can't be checked yet`;
+    });
+    const counted = cats.filter(c => c.pct != null);
+    return { list: cats, pct: counted.length ? counted.reduce((s, c) => s + c.pct, 0) / counted.length : null };
   }
   // Zone completion (spec §7.7; in the addon: ns.Progression). Each category that applies to
   // the zone (at least one counted objective) gets completed / counted / %; the zone's % is the
@@ -455,18 +483,18 @@
     const p = totals.done / totals.areas;
     const W = (n) => (n / tracked.length * 100).toFixed(2);
 
-    // Suggestions grouped by zone.
+    // Suggestions grouped by zone (step 6): each zone's picks mix areas, ready quests and
+    // flight paths, the same picks as its Next up (Zones.NextUp).
+    const leftText = (z) => z.cats.filter(c => c.done < c.total).map(c => `${c.total - c.done} ${c.unit}`).join(" · ");
     const groups = [];
-    if (hero && hero.state !== "complete") groups.push({ z: hero, why: hero === cur ? `Current zone · ${hero.total - hero.done} left` : `${hero.total - hero.done} left` });
-    inProgress.filter(z => z !== hero && z.total > z.done).slice(0, 1).forEach(z => groups.push({ z, why: `Closest to complete · ${z.total - z.done} left` }));
-    if (next && !groups.some(g => g.z === next)) groups.push({ z: next, why: `Next for your level · ${next.total - next.done} areas` });
+    const addGroup = (z, why) => { if (!z || groups.some(g => g.z === z)) return; const items = nextItems(z, questsFor(z));
+      if (items.length) groups.push({ z, why: `${why} · ${leftText(z)} left`, items }); };
+    if (hero && hero.state !== "complete") addGroup(hero, hero === cur ? "Current zone" : "Continue");
+    inProgress.filter(z => z !== hero).slice(0, 1).forEach(z => addGroup(z, "Closest to complete"));
+    if (next) addGroup(next, "Next for your level");
+    const tc = totals.cats;
+    const pct1 = (p) => p == null ? "—" : `${(p * 100).toFixed(p > 0 && p < 0.1 ? 1 : 0)}%`;
 
-    // Activity: last 14 days.
-    const days = Array.from({ length: 14 }, (_, i) => { const d = new Date(now); d.setDate(d.getDate() - (13 - i)); d.setHours(0, 0, 0, 0); return d; });
-    const counts = days.map((d, i) => S.milestones.filter(m => m.kind === "area" && new Date(m.t).setHours(0, 0, 0, 0) === d.getTime()).length
-      + (ui.scenarioName === "veteran" ? VETERAN_DAILY[i] : 0));
-    const max = Math.max(1, ...counts);
-    const recent = S.milestones.slice().sort((a, b) => b.t - a.t).slice(0, 3);
     const CHIPS = 6;
 
     content.innerHTML = `<div class="scroll" id="scroll"><div class="overview">
@@ -478,33 +506,32 @@
             <div class="left">${hero.cats.filter(c => c.done < c.total).map(c => `<b>${c.total - c.done}</b> ${c.unit}`).join(" · ")} to go</div>
             </div>
           <div class="score mini">${progressArt(hero, { mini: true })}<b>${pctText(hero.pct)}</b></div></button>` : ""}
-        ${goal ? `<button class="goal focusable" data-open="${esc(goal.name)}" data-tip="<b>Next goal</b>The in-progress zone closest to complete.">
-          <span class="flag">Next goal</span><span>Finish <b>${esc(goal.name)}</b> — ${goal.left} to go</span>${catbars(goal, "sm")}</button>` : ""}
-        <h2 class="section" data-group>Suggested next</h2>
-        ${groups.length ? groups.map(g => `<div class="zonegroup"><header><b>${esc(g.z.name)}</b><span class="why">${g.why}</span></header>
-          <div class="chips">${g.z.criteria.filter(c => !c.done).slice(0, CHIPS).map(c => `<button class="areachip focusable" data-open="${esc(g.z.name)}" data-crit="${c.id}" data-tip="<b>${esc(c.name)}</b>Undiscovered area in ${esc(g.z.name)}.">${esc(c.name)}</button>`).join("")}
-          ${g.z.total - g.z.done > CHIPS ? `<span class="note">+${g.z.total - g.z.done - CHIPS} more</span>` : ""}</div></div>`).join("")
-          : `<div class="note">Nothing to suggest: every relevant zone is explored.</div>`}
+        ${goal ? `<button class="goal framed focusable" data-open="${esc(goal.name)}" data-tip="<b>Next goal</b>The in-progress zone closest to complete.">
+          <span class="flag">Next goal</span>
+<span>Finish <b>${esc(goal.name)}</b> — ${goal.left} to go</span>${catbars(goal, "sm")}</button>` : ""}
+        <div class="plate ovplate" data-group><span>Suggested next</span></div>
+        ${groups.length ? groups.map(g => `<div class="zonegroup framed"><header><b>${esc(g.z.name)}</b><span class="why">${g.why}</span></header>
+          <div class="sitems">${g.items.slice(0, CHIPS).map(it => `<button class="sitem focusable" data-open="${esc(g.z.name)}" data-next="${esc(it.key)}"
+            data-tip="<b>${esc(it.name)}</b>${esc(it.sub)} in ${esc(g.z.name)}. A opens it.">${catIcon(it.cat, "cimg sm")}<span class="sname ${it.diff ? `d-${it.diff}` : ""}">${esc(it.name)}</span>${it.cat === "quests" ? `<span class="slv">${esc(it.sub.replace("Quest · level ", "Lv "))}</span>` : ""}</button>`).join("")}</div></div>`).join("")
+          : `<div class="note">Nothing to suggest: every area, quest and flight path you can do in your zones is done.</div>`}
       </div>
       <div class="col">
-        <button class="counter focusable" data-go="zones" data-tip="<b>Areas discovered</b>Every exploration objective across ${tracked.length} tracked zones, from the game's Explore achievements.">
-          <h4>Areas discovered <b>${totals.done} <small>/ ${totals.areas} · ${(p * 100).toFixed(1)}%</small></b></h4>${bar(p)}</button>
-        <button class="counter focusable" data-go="zones" data-tip="<b>Zones</b>Complete: exploration, quests and flight paths all done. In progress: some done. Untouched: none yet.">
-          <h4>Zones <b>${totals.complete} <small>complete</small></b></h4>
-          <div class="stack">${totals.complete ? `<i class="c" style="flex:${totals.complete}"></i>` : ""}${totals.progress ? `<i class="p" style="flex:${totals.progress}"></i>` : ""}${totals.untouched ? `<i class="u" style="flex:${totals.untouched}"></i>` : ""}</div>
-          <div class="legend"><span><i class="c"></i>${totals.complete} complete</span><span><i class="p"></i>${totals.progress} in progress</span><span><i class="u"></i>${totals.untouched} untouched</span></div></button>
-        <h2 class="section" data-group>Atlas</h2>
-        ${miniAtlas()}
-        <h2 class="section" data-group>Activity</h2>
-        <div class="activity">
-          <div class="sparklabels"><span>Areas discovered per day</span><span><b>${counts[13]}</b> today</span></div>
-          <div class="spark">${counts.map(c => `<i class="${c ? "" : "zero"}" style="height:${c ? Math.max(8, c / max * 100) : 4}%"></i>`).join("")}</div>
-          <div class="sparklabels"><span>2 weeks ago</span><span>Today</span></div>
-          ${recent.length ? recent.map(m => m.kind === "zone"
-            ? `<div class="milestone big"><span class="icon">★</span><span class="txt"><b>${esc(m.zone)}</b> fully explored</span><time>${fmtTime(m.t)}</time></div>`
-            : `<div class="milestone"><span class="icon">✓</span><span class="txt">Discovered <b>${esc(m.area)}</b> <span class="note">· ${esc(m.zone)}</span></span><time>${fmtTime(m.t)}</time></div>`).join("")
-            : `<div class="note" style="margin-top:8px">Your discoveries will appear here.</div>`}
+        <div class="tracked framed" data-tip-none>
+          <div class="thead"><span>Tracked completion</span><b>${pct1(tc.pct)}</b></div>
+          ${tc.list.map(c => `<button class="trow focusable ${c.pending ? "pending" : ""}" data-go="zones" data-tip="<b>${c.label}</b>${c.pending ? esc(c.pending) : `${c.done} of ${c.total} ${c.unit} the game confirms done, across ${c.zones} zones you can do.`}${c.note ? " " + esc(c.note) + "." : ""}">
+            ${catIcon(c.key, "cimg sm")}<span class="tl">${c.label}</span>
+            ${c.pending ? `<span class="tpend">${esc(c.pending)}</span>` : `<div class="gbar ${c.pct >= 1 ? "complete" : "progress"}"><i style="width:${(c.pct * 100).toFixed(1)}%"></i></div>
+            <span class="tn"><b>${c.done.toLocaleString()}</b> / ${c.total.toLocaleString()}</span><span class="tp">${pct1(c.pct)}</span>`}</button>`).join("")}
+          <button class="trow zrowstat focusable" data-go="zones" data-tip="<b>Zones</b>Complete: exploration, quests and flight paths all done. In progress: some done. Untouched: none yet.">
+            <span class="cicon zicon">⚑</span><span class="tl">Zones</span>
+            <div class="stack">${totals.complete ? `<i class="c" style="flex:${totals.complete}"></i>` : ""}${totals.progress ? `<i class="p" style="flex:${totals.progress}"></i>` : ""}${totals.untouched ? `<i class="u" style="flex:${totals.untouched}"></i>` : ""}</div>
+            <span class="tn"><b>${totals.complete}</b> / ${totals.complete + totals.progress + totals.untouched}</span><span class="tp">done</span>
+            <span class="zlegend"><i class="p"></i>${totals.progress} in progress · <i class="u"></i>${totals.untouched} untouched</span></button>
+          <div class="tfoot">${["Each category counts equally" + (tc.list.some(c => c.pending) ? "; those without data are left out" : ""),
+            ...tc.list.filter(c => c.note).map(c => c.key === "quests" ? `${c.unchecked} quests can't be checked yet` : esc(c.note))].join(" · ")}.</div>
         </div>
+        <div class="plate ovplate" data-group><span>Atlas</span></div>
+        ${miniAtlas()}
       </div>
     </div></div>`;
   }
@@ -736,6 +763,17 @@
   // version comes from the systems (next areas in catalogue order, ready quests nearest your
   // level, flight paths not discovered); the page only draws it. Each opens its page on it.
   function nextUp(z, r) {
+    const items = nextItems(z, r);
+    if (!items.length) return z.state === "complete" ? `<div class="nextup done"><div class="plate"><span>${esc(z.name)} is claimed</span></div>
+      <div class="nempty">Every area, quest and flight path you can do here is done.</div></div>` : "";
+    return `<div class="nextup"><div class="plate"><span>Next up in ${esc(z.name)}</span></div>
+      <div class="nlist">${items.slice(0, 5).map(it => `<button class="nitem focusable" data-next="${esc(it.key)}"
+        data-tip="<b>${esc(it.name)}</b>${esc(it.sub)}. A opens it.">${catIcon(it.cat)}
+        <span class="nname ${it.diff ? `d-${it.diff}` : ""}">${esc(it.name)}</span><span class="nsub">${esc(it.sub)}</span></button>`).join("")}</div></div>`;
+  }
+  // The picks behind Next up and the Overview's suggestions (Zones.NextUp in the addon): two
+  // areas to discover, three ready quests nearest your level, one flight path to discover.
+  function nextItems(z, r) {
     const items = [];
     z.criteria.filter(c => !c.done).slice(0, 2).forEach(c =>
       items.push({ key: `explore:${c.id}`, cat: "explore", name: c.name, sub: "Area to discover" }));
@@ -747,12 +785,7 @@
     const f = catOf(z, "flights");
     if (f) f.nodes.filter(n => !n.known).slice(0, 1).forEach(n =>
       items.push({ key: `flight:${n.name}`, cat: "flights", name: n.name, sub: "Flight path to discover" }));
-    if (!items.length) return z.state === "complete" ? `<div class="nextup done"><div class="plate"><span>${esc(z.name)} is claimed</span></div>
-      <div class="nempty">Every area, quest and flight path you can do here is done.</div></div>` : "";
-    return `<div class="nextup"><div class="plate"><span>Next up in ${esc(z.name)}</span></div>
-      <div class="nlist">${items.slice(0, 5).map(it => `<button class="nitem focusable" data-next="${esc(it.key)}"
-        data-tip="<b>${esc(it.name)}</b>${esc(it.sub)}. A opens it.">${catIcon(it.cat)}
-        <span class="nname ${it.diff ? `d-${it.diff}` : ""}">${esc(it.name)}</span><span class="nsub">${esc(it.sub)}</span></button>`).join("")}</div></div>`;
+    return items;
   }
 
   // ---- The zone's war banner (approved direction 2026-11-08) ----
@@ -1135,6 +1168,10 @@
     if (d.tab) return setTab(d.tab);
     if (el.id === "closeBtn") return closeWindow();
     if (d.back !== undefined) return back();
+    if (d.open && d.next) { // an Overview suggestion: open the zone, then its page on that item
+      openZone(d.open);
+      return activate({ dataset: { next: d.next }, classList: { contains: () => false } });
+    }
     if (d.open && !(ui.wide && el.classList.contains("zrow"))) return openZone(d.open, d.crit);
     if (d.open && ui.wide) { // wide: A on a row moves into its checklist
       return setFocus($("#detailpane .ctile[data-page]") || $("#detailpane .ctile"));
@@ -1151,9 +1188,8 @@
     if (d.na) return;
     if (d.next) { // Next up: open the category's page focused on that item
       const [kind, id] = d.next.split(/:(.*)/);
-      ui.detailPage = kind; render();
+      ui.detailPage = { explore: "explore", quest: "quests", flight: "flights" }[kind]; render();
       const sel = kind === "explore" ? `[data-crit="${id}"]` : kind === "quest" ? `[data-quest="${id}"]` : `[data-flight="${CSS.escape(id)}"]`;
-      if (kind === "quest") { ui.detailPage = "quests"; render(); }
       return setFocus($(`#content .detail ${sel}`) || $("#content .detail .scroll .focusable"));
     }
     if (d.story) { const id = Number(d.story); ui.openStories.has(id) ? ui.openStories.delete(id) : ui.openStories.add(id); return rerenderKeepFocus(); }

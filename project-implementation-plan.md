@@ -87,7 +87,7 @@ azerfolio/                  (repo root)
 │   ├── Core/               Init, Events, Config, SavedVariables, Debug, Character
 │   ├── Data/               Zones.lua, Exploration.lua (generated), later Quests
 │   ├── Systems/            ObjectiveModel, Eligibility, Progression,
-│   │                       ExplorationTracker, Milestones, Recommendations
+│   │                       ExplorationTracker, Recommendations
 │   ├── UI/                 Theme, MainWindow, Navigation, Launcher
 │   │   ├── Components/     ProgressBar, StatCard, ZoneCard, ObjectiveRow, ...
 │   │   └── Pages/          Overview, Zones, ZoneDetail
@@ -339,7 +339,7 @@ Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue for
 3. Quest catalogue per zone: ID, name, zone, faction, class, profession, prerequisites, type, repeatable, exclusive groups.
 4. Eligibility: completed / available / locked / unavailable / unknown. Never infer "unavailable" just because a quest isn't in the log.
 5. Counts exclude repeatables and unavailable alternatives; unknown eligibility lowers coverage.
-6. Zone Detail quest section, quest stat card, quest suggestions.
+6. Zone Detail quest section, quest stat card, quest suggestions. *(Done 2026-11-08: Zone Detail in steps 4-5; the Overview's Tracked completion rows and Next up suggestions in step 6.)*
 7. Zone completion across categories (spec §7.7): zone medallion, per-category bars in the catalogue, combined state for filters and sorts. *(Added 2026-11-08.)*
 8. Flight paths per zone (spec §8.5), after a probe shows the client can confirm them. *(Added 2026-11-08.)*
 
@@ -430,6 +430,9 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-08 | Flight path knowledge comes from the flight master's list (`TaxiNodeGetType` while the map is open: CURRENT/REACHABLE = known), remembered per character; a continent not yet seen at a flight master has unknown flight paths | Probe: `C_TaxiMap.GetTaxiNodesForMap` lists the whole continent and its `isUndiscovered` is false everywhere, so it can't tell what the character knows (`docs/research/client-capabilities.md` § Flight paths) |
 | 2026-11-08 | Flight paths per zone added to v1.1 (spec §8.5), pending a probe (`/azfdiag taxi`) | Owner request. The client must confirm which nodes the character knows; otherwise the category is unavailable |
 | 2026-11-08 | Phase 8 accepted; v1 closed as version 1.0.0 | Every spec §12 v1 criterion met in game (`docs/testing.md` § Phase 8); the unattributed 39.5 ms peak frame is left as a known item, not a blocker (session average 0.0016 ms per frame). Owner approved |
+| 2026-11-08 | Overview (Phase 9 step 6): Tracked completion is one panel with a row per category plus Zones; the headline is `Progression.Combine` over the providers' overall results (`Exploration.Overall`, `Quests.Overall`, new `FlightPaths.Overall`); suggestions list each zone's `Zones.NextUp` picks; Next goal and the closest-zone picks use the combined counts | Spec §5.2 (v1.1 equal-weight headline), §5.3, §5.5; one source of picks for Zone Detail and the Overview. Mockup approved by the owner |
+| 2026-11-08 | Activity panel and milestone tracking removed (`Systems/Milestones.lua`, the baseline, `AZF_MILESTONE`); character schema 2 deletes the saved history | Owner: not interesting enough; frees the Overview's room (spec §5.6) |
+| 2026-11-08 | Focus grid: left/right from a row with nothing on that side goes to the nearest row with an item of the column on that side | The Overview's columns now differ in length; left from Zones did nothing |
 
 ## 10. Definition of done (v1)
 

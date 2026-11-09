@@ -5,7 +5,7 @@ local Config = {}
 ns.Config = Config
 
 Config.ACCOUNT_SCHEMA = 4
-Config.CHAR_SCHEMA = 1
+Config.CHAR_SCHEMA = 2
 
 -- Account-wide settings (AzerfolioDB).
 -- Window size is in UIParent units. 1160x740 is the size the approved design is laid out at
@@ -34,8 +34,6 @@ Config.ACCOUNT_DEFAULTS = {
 -- Empty tables in defaults are free-form containers: their contents are kept as-is.
 Config.CHAR_DEFAULTS = {
     schemaVersion = Config.CHAR_SCHEMA,
-    baseline = { taken = false, exploration = {} },
-    milestones = {},
     recentZones = {},
     -- Flight masters' lists, by continent mapID: { time, nodes = { [name] = "known"|"distant" } }
     -- (Systems/FlightPaths.lua). Free-form; checked by SavedVariables.CleanFlights.
@@ -68,7 +66,6 @@ Config.RANGES = {
 }
 
 Config.LIMITS = {
-    milestones = 100,  -- newest kept
     recentZones = 10,
     errors = 50,       -- in-memory error log
     trace = 100,       -- debug trace in AzerfolioDB

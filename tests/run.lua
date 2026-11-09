@@ -14,7 +14,6 @@ local FILES = {
     "tests/focusgrid_test.lua",
     "tests/catalogue_test.lua",
     "tests/progression_test.lua",
-    "tests/milestones_test.lua",
     "tests/zones_test.lua",
     "tests/overview_test.lua",
     "tests/quests_test.lua",

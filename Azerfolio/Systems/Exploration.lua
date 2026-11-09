@@ -96,8 +96,6 @@ end
 local function load(mapID, live)
     local r = read(mapID)
     if r.status ~= "unavailable" then cache[mapID] = r end
-    -- Every fresh read updates the baseline and records confirmed transitions.
-    if r.status == "tracked" and ns.Milestones then ns.Milestones.Observe(r, live) end
     return r
 end
 
@@ -143,7 +141,7 @@ local function changed(old, new)
 end
 
 -- Re-reads one zone. Announces AZF_EXPLORATION_UPDATED({ mapID }) if anything changed.
--- `live`: caused by a discovery event (milestones found get a time).
+-- `live`: caused by a discovery event (kept for callers; milestones were removed in Phase 9).
 -- Returns the new result and whether it changed.
 function Exploration.RefreshZone(mapID, live)
     local old = cache[mapID]
@@ -209,8 +207,8 @@ function Exploration.CacheSize()
     return n
 end
 
--- Reads every zone once, so each one has a baseline before the player discovers anything in
--- it (a zone first read by a discovery would otherwise take that discovery as its baseline).
+-- Reads every zone once, so each one is cached before the player discovers anything in it
+-- (RefreshZone then sees the discovery as a change and announces it).
 Exploration.BASELINE_DELAY = 3 -- achievement data was readable 3 s after login [verified-ingame]
 local function readAll()
     local all = Exploration.Overall()
@@ -268,14 +266,6 @@ function Exploration.DebugReport()
         ns.Progression.PercentText(ap)) or "no total yet"
     ns.Printf("All zones: %s, coverage %s (%d zones, %d unreadable)", count, ap.coverage,
         all.zones, all.unavailable)
-    local ms = ns.Milestones.Summary(3)
-    if ms then
-        ns.Printf("Baseline: %d zones; milestones: %d", ms.zones, ms.count)
-        for _, m in ipairs(ms.recent) do
-            ns.Printf("  %s %s (zone %s)%s", m.kind, tostring(m.name or m.id), tostring(m.mapID),
-                m.time and "" or ", time not seen")
-        end
-    end
     ns.Debug.Trace("report", { mapID = mapID, completed = p.completed, denominator = p.denominator,
         unknown = p.completionUnknown, coverage = p.coverage, catalogueMatch = r.catalogueMatch,
         allCompleted = ap.completed, allDenominator = ap.denominator, allCoverage = ap.coverage,

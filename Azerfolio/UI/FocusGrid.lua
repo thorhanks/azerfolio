@@ -113,7 +113,44 @@ function FocusGrid:Move(dir)
         local step = dir == "left" and -1 or 1
         local n = #self.rows[self.row].items
         local col = self.col + step
-        if col < 1 or col > n then return false end
+        if col < 1 or col > n then
+            -- Two columns with different lengths (the Overview): from an item whose row has
+            -- nothing on that side, go to the nearest row (up first) that has an item of
+            -- another group, its last one going left, its first going right.
+            local cur = self.rows[self.row].items[self.col]
+            if not (cur and cur.group) then return false end
+            -- Which groups lie on that side: seen before (left) or after (right) cur's group
+            -- in a row that has both.
+            local side = {}
+            for _, r in ipairs(self.rows) do
+                local mine
+                for ci, item in ipairs(r.items) do if item.group == cur.group then mine = mine or ci end end
+                if mine then
+                    for ci, item in ipairs(r.items) do
+                        if item.group and item.group ~= cur.group and ((dir == "left") == (ci < mine)) then
+                            side[item.group] = true
+                        end
+                    end
+                end
+            end
+            for d = 1, #self.rows do
+                for _, ri in ipairs({ self.row - d, self.row + d }) do
+                    local r = self.rows[ri]
+                    if r then
+                        local pick
+                        for ci, item in ipairs(r.items) do
+                            if side[item.group] and (dir == "left" or not pick) then pick = ci end
+                        end
+                        if pick then
+                            self.row, self.col = ri, pick
+                            self.wantCol = self:GroupIndex(ri, pick)
+                            return true
+                        end
+                    end
+                end
+            end
+            return false
+        end
         self.col = col
         self.wantCol = self:GroupIndex(self.row, col)
         return true

@@ -68,6 +68,13 @@ function frameMethods:SetFont() return true end
 function frameMethods:SetText(text) self.text = text end
 function frameMethods:GetText() return self.text end
 function frameMethods:GetStringWidth() return #tostring(self.text or "") * 7 end
+-- Wrapped height: 14 per line at the set width (7 per character, as GetStringWidth).
+function frameMethods:GetStringHeight()
+    local w = self.width or 0
+    local tw = #tostring(self.text or "") * 7
+    if tw == 0 then return 0 end
+    return 14 * (w > 0 and math.ceil(tw / w) or 1)
+end
 function frameMethods:SetSize(w, h) self.width, self.height = w, h end
 function frameMethods:SetWidth(w) self.width = w end
 function frameMethods:SetHeight(h) self.height = h end

@@ -76,17 +76,11 @@ local function count(t)
     return n
 end
 
--- What the addon keeps: SavedVariables list sizes, baseline size, tracker cache.
+-- What the addon keeps: SavedVariables list sizes, tracker cache.
 function Commands.Sizes()
     local db, char = ns.db or {}, ns.charDB or {}
-    local base = type(char.baseline) == "table" and char.baseline.exploration or {}
-    local areas = 0
-    for _, z in pairs(base) do
-        if type(z) == "table" then areas = areas + count(z.states) end
-    end
     return {
-        trace = count(db.trace), milestones = count(char.milestones), recentZones = count(char.recentZones),
-        baselineZones = count(base), baselineAreas = areas,
+        trace = count(db.trace), recentZones = count(char.recentZones), flights = count(char.flights),
         cachedZones = ns.Exploration and ns.Exploration.CacheSize and ns.Exploration.CacheSize() or 0,
         errors = #ns.Debug.errors,
     }
@@ -147,9 +141,9 @@ local function debugPerf(sub)
     end
     local m = clientMetrics()
     local sizes = Commands.Sizes()
-    ns.Printf("  memory %s KB; trace %d, milestones %d, recent zones %d, baseline %d zones / %d areas, cache %d zones",
-        m.memoryKB and string.format("%.0f", m.memoryKB) or "unknown", sizes.trace, sizes.milestones,
-        sizes.recentZones, sizes.baselineZones, sizes.baselineAreas, sizes.cachedZones)
+    ns.Printf("  memory %s KB; trace %d, recent zones %d, flight masters %d, cache %d zones",
+        m.memoryKB and string.format("%.0f", m.memoryKB) or "unknown", sizes.trace,
+        sizes.recentZones, sizes.flights, sizes.cachedZones)
     if gcBefore then
         ns.Printf("  after a full garbage collection (Lua heap %.0f -> %.0f KB)", gcBefore, collectgarbage("count"))
     end

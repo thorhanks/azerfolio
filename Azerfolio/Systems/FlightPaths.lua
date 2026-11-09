@@ -181,6 +181,30 @@ end
 
 function FlightPaths.Invalidate() results = {} end
 
+-- Every zone together (the Overview's tracked completion). Only zones whose continent's flight
+-- master list is known count; the others are listed by continent so the UI can say why.
+--   { status = "ready"|"pending"|"none"|"unavailable", progress (ready zones' Aggregate or nil),
+--     zones = zones counted, unread = { continent mapID, ... } (sorted) }
+function FlightPaths.Overall()
+    if not (C_TaxiMap and type(C_TaxiMap.GetTaxiNodesForMap) == "function") then
+        return { status = "unavailable", zones = 0, unread = {} }
+    end
+    local sets, zones, unread, seen = {}, 0, {}, {}
+    for mapID, nodes in pairs(readCatalogue()) do
+        local r = FlightPaths.ForZone(mapID)
+        if r.status == "ready" then
+            zones = zones + 1
+            sets[#sets + 1] = { category = FlightPaths.CATEGORY, coverage = "complete", objectives = r.objectives }
+        elseif r.status == "pending" then
+            local c = nodes[1] and nodes[1].continent
+            if c and not seen[c] then seen[c] = true; unread[#unread + 1] = c end
+        end
+    end
+    table.sort(unread)
+    local status = zones > 0 and "ready" or (#unread > 0 and "pending" or "none")
+    return { status = status, progress = zones > 0 and ns.Progression.Aggregate(sets) or nil, zones = zones, unread = unread }
+end
+
 -- Reads the open flight map's list and saves it for the player's continent.
 function FlightPaths.ReadMaster(reason)
     local n = try("NumTaxiNodes", NumTaxiNodes)

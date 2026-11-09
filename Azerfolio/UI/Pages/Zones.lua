@@ -309,16 +309,18 @@ local function build(parent)
         return true
     end
 
-    -- Opens a zone's detail from another tab, focused on one of its areas if given. B returns
+    -- Opens a zone's detail from another tab, focused on one of its objectives if given: a
+    -- criteria ID (an area) or a Next up pick { kind, id } (Overview suggestions). B returns
     -- to `returnTo`. The caller selects the Zones tab first.
-    function page:ShowZone(zone, criteriaID, returnTo)
+    function page:ShowZone(zone, target, returnTo)
         if self.popup:IsShown() then self.popup:Close() end
         self:Open(zone)
         if self.mode ~= "detail" then return end
-        -- An area (Overview suggestion) opens the Exploration page on it.
-        if criteriaID ~= nil then
-            self:OpenPage("explore")
-            self.pendingFocusKey = "c" .. tostring(criteriaID)
+        local kind, id = "explore", target
+        if type(target) == "table" then kind, id = target.kind, target.id end
+        if id ~= nil and ns.ZoneDetail.FocusKey(kind, id) then
+            self:OpenPage(kind)
+            self.pendingFocusKey = ns.ZoneDetail.FocusKey(kind, id)
             refresh()
         end
         self.returnTo = returnTo

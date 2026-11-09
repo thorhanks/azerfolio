@@ -28,6 +28,15 @@ local KIND_LABEL = { ready = "Ready now", locked = "Locked", unknown = "Not coun
 
 local function cap(s) s = tostring(s or ""); return (s:gsub("^%l", string.upper)) end
 
+-- The focus key of a Next up pick on its category's page (an area's check, a Ready now
+-- quest, a flight path): Next up and the Overview's suggestions open the page on it.
+local FOCUS_KEY = { explore = function(id) return "c" .. tostring(id) end, quests = function(id) return "r:" .. tostring(id) end,
+    flights = function(id) return "f" .. tostring(id) end }
+function Detail.FocusKey(kind, id) return FOCUS_KEY[kind] and FOCUS_KEY[kind](id) end
+
+-- The difficulty colour of a quest ({ r, g, b }), or nil.
+function Detail.DifficultyColor(d) return DIFF_COLOR[d] end
+
 -- "Level 10 (from 7) · Locked: needs Find the Lost Guards"
 function Detail.QuestLine(q)
     local lv = q.questLevel and ("Level " .. q.questLevel) or "Level ?"
@@ -296,25 +305,7 @@ function Detail.New(page)
         d.tiles[i] = tile
     end
     -- "Next up in <zone>": the painted header plate (three-slice), then up to five items.
-    local nu = CreateFrame("Frame", nil, dash)
-    nu:SetHeight(NEXT_PLATE)
-    local plate, slice = T.Chrome("plate-header")
-    nu.plate = {}
-    if plate and type(slice) == "table" then
-        local sx = slice.x
-        local l, m, r = nu:CreateTexture(nil, "BORDER"), nu:CreateTexture(nil, "BORDER"), nu:CreateTexture(nil, "BORDER")
-        for _, t in ipairs({ l, m, r }) do t:SetTexture(plate) end
-        l:SetTexCoord(0, sx, 0, 1); m:SetTexCoord(sx, 1 - sx, 0, 1); r:SetTexCoord(1 - sx, 1, 0, 1)
-        local endW = math.floor(NEXT_PLATE * 512 / 128 * sx + 0.5)
-        l:SetPoint("TOPLEFT"); l:SetPoint("BOTTOMLEFT"); l:SetWidth(endW)
-        r:SetPoint("TOPRIGHT"); r:SetPoint("BOTTOMRIGHT"); r:SetWidth(endW)
-        m:SetPoint("TOPLEFT", l, "TOPRIGHT"); m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
-    else
-        local h = T.Solid(nu, "row", "BORDER", 1)
-        h:SetAllPoints(); h:SetColorTexture(0.12, 0.06, 0.02, 1)
-    end
-    nu.title = T.Text(nu, "md", "gold")
-    nu.title:SetPoint("CENTER", 0, 0)
+    local nu = T.Plate(dash, NEXT_PLATE)
     nu.empty = T.Text(dash, "sm", "dim")
     nu.empty:SetPoint("TOP", nu, "BOTTOM", 0, -S.s3)
     d.nextup = nu
@@ -601,8 +592,6 @@ local function fillDashboard(d, zone, entry, page)
         or "Nothing to suggest here right now.") or "")
     nu.empty:SetShown(#picks == 0)
     local SUB = { explore = "Area to discover", flights = "Flight path to discover" }
-    local PAGE_KEY = { explore = function(id) return "c" .. tostring(id) end, quests = function(id) return "r:" .. id end,
-        flights = function(id) return "f" .. tostring(id) end }
     for _, b in ipairs(d.nextItems) do b:Hide() end
     local row
     for i, it in ipairs(picks) do
@@ -628,7 +617,7 @@ local function fillDashboard(d, zone, entry, page)
         b.item = { key = "next:" .. kind .. ":" .. tostring(id), frame = b, title = it.name, detail = sub .. ". A opens it.",
             actionLabel = "Open", onActivate = function()
                 page:OpenPage(kind)
-                page.pendingFocusKey = PAGE_KEY[kind](id)
+                page.pendingFocusKey = Detail.FocusKey(kind, id)
                 page.Redraw()
             end }
         b:Show()

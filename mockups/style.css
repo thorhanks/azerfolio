@@ -632,3 +632,58 @@ body.chrome .catbar.progress .ctrack i { filter: hue-rotate(-16deg) saturate(1.2
 .celebrate .emblem { width: 110px; height: 110px; font-size: 56px; margin: 0 auto var(--s4); border-width: 4px; }
 .celebrate h1 { margin: 0; font: var(--fs-xxl) var(--font); color: var(--wow-gold); text-shadow: 0 3px 6px #000; font-weight: 400; }
 .celebrate p { margin: var(--s2) 0 var(--s4); font-size: var(--fs-md); color: var(--text); }
+
+/* Step 6, the Overview: painted plates for its section headers, the frame kit on every panel,
+   tracked completion per category, and suggestions that mix areas, quests and flight paths. */
+.ovplate { height: 36px; display: flex; align-items: center; justify-content: center; margin: var(--s4) -6px var(--s2);
+  border: solid transparent; border-width: 0 58px; border-image: url(chrome-art/plate-header.png) 0 19% fill / 0 58px stretch; }
+.ovplate span { font: var(--fs-md) var(--font); color: var(--wow-gold); text-shadow: 0 1px 2px #000; }
+.overview .col > .ovplate:first-child { margin-top: 0; }
+body.chrome :is(.framed, .minimap) { position: relative; border-color: transparent; border-radius: 2px;
+  background: linear-gradient(180deg, rgba(36,26,17,.92), rgba(16,10,5,.95)); box-shadow: none; }
+body.chrome :is(.framed, .minimap)::before { content: ""; position: absolute; inset: -5px; pointer-events: none; z-index: 4;
+  border: 22px solid transparent; border-image: url(chrome-art/frame-card.png) var(--card-slice) / 22px stretch; }
+.framed { padding: var(--s3) var(--s4) !important; }
+.framed + .framed, .tracked + .counter { margin-top: var(--s3); }
+.zonegroup.framed + .zonegroup.framed { margin-top: var(--s3); }
+.goal.framed { margin-top: var(--s3); }
+
+.tracked { display: flex; flex-direction: column; gap: 2px; }
+.tracked .thead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--s1); }
+.tracked .thead span { font: var(--fs-sm) var(--font); color: var(--wow-gold); }
+.tracked .thead b { font: var(--fs-xxl) var(--font); color: var(--white); font-weight: 400; line-height: 1; }
+.trow { display: grid; grid-template-columns: 18px 92px 1fr auto 44px; column-gap: var(--s2); align-items: center;
+  width: 100%; padding: 4px var(--s2); border-radius: var(--r-ctl); text-align: left; color: var(--text); cursor: pointer;
+  background: none; border: 0; font: inherit; }
+.trow .tl { font: var(--fs-sm) var(--font); color: var(--white); white-space: nowrap; }
+.trow .tn { font-size: var(--fs-xs); color: var(--dim); white-space: nowrap; text-align: right; }
+.trow .tn b { color: var(--white); font-weight: 400; }
+.trow .tp { font: var(--fs-sm) var(--font); color: var(--white); text-align: right; }
+.trow .tpend { grid-column: 3 / 6; font-size: var(--fs-xs); color: var(--dim); font-style: italic; }
+.trow.pending .tl { color: var(--dim); }
+.tracked .tfoot { font-size: var(--fs-xs); color: var(--dim); margin-top: var(--s1); padding: 0 var(--s2); }
+.gbar { height: 8px; background: var(--bar-bg); border: 1px solid var(--bar-edge); border-radius: 2px; overflow: hidden; }
+.gbar i { display: block; height: 100%; background: var(--grad-progress); }
+.gbar.complete i { background: var(--grad-complete); }
+body.chrome .gbar { height: 18px; border: solid transparent; border-width: 6px 14px; border-image: url(chrome-art/frame-bar.png) var(--bar-slice) / 6px 14px stretch;
+  background: #0e0701; background-clip: padding-box; border-radius: 0; }
+body.chrome .gbar i { background: url(chrome-art/bar-fill.png) left center / auto 100% repeat-x; }
+body.chrome .gbar.progress i { filter: hue-rotate(-16deg) saturate(1.25) brightness(.92); }
+
+.sitems { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px var(--s2); }
+.sitem { display: flex; align-items: center; gap: var(--s2); padding: 4px var(--s2); border-radius: var(--r-ctl); text-align: left; cursor: pointer;
+  background: rgba(0,0,0,.3); border: 1px solid #3d3226; color: var(--text); font: var(--fs-sm) var(--font); min-width: 0; }
+.sitem .sname { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sitem .sname[class*="d-"] { color: var(--qd); }
+.sitem .slv { font-size: var(--fs-xs); color: var(--dim); white-space: nowrap; }
+.focused:is(.trow, .sitem) { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
+.trow.zrowstat { border-top: 1px solid rgba(138,109,59,.3); margin-top: 2px; padding-top: 6px; border-radius: 0; }
+.trow .zicon { font-size: 14px; color: var(--wow-gold); text-align: center; }
+.trow .stack { height: 10px; margin: 0; }
+.trow .zlegend { grid-column: 3 / 6; font-size: var(--fs-xs); color: var(--dim); }
+.trow .zlegend i { display: inline-block; width: 8px; height: 8px; margin: 0 3px 0 6px; vertical-align: baseline; }
+.trow .zlegend i:first-child { margin-left: 0; }
+.ovplate { height: 32px; margin: var(--s3) -6px var(--s2); }
+.trow .zlegend .p { background: var(--st-progress); } .trow .zlegend .u { background: var(--st-untouched); }
+.overview .minimap .mg { grid-auto-rows: 8px; } .ovplate { height: 30px; margin: var(--s2) -6px var(--s2); } .overview .col > .ovplate:first-of-type { margin-top: var(--s3); }
+.trow .stack { height: 12px; } .trow .stack .u { background: #5c4d3b; }

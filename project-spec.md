@@ -37,7 +37,7 @@ These are hard rules. When a requirement elsewhere conflicts with one of these, 
 
 - Main window with bottom tabs: **Overview** and **Zones**. Zone Detail is a subview of Zones.
 - Character header.
-- Overview dashboard: tracked completion, stat cards, zone highlights, suggestions, recent milestones.
+- Overview dashboard: tracked completion, stat cards, zone highlights, suggestions, recent milestones (removed in v1.1, §5.6).
 - Zone catalogue: illustrated card view (default) and compact list view, filters, sorting, search.
 - Zone Detail with an exploration checklist.
 - Exploration tracking implemented by Azerfolio itself.
@@ -142,6 +142,8 @@ If no meaningful percentage can be produced, show a labeled unavailable state.
 
 A card without a meaningful value shows an explanatory empty state, never a bare `0%`.
 
+From v1.1 the Exploration, Quests and Flight paths cards are rows of the Tracked completion panel (one row per category: done / counted, %, a gilded bar; a category without data says why), and Zones is its last row (mockups/DESIGN.md, Overview step 6).
+
 ### 5.4 Zone highlights
 
 Current zone, recently visited zones, zones closest to completion, recently completed zones. Each entry shows name and a compact progress indicator, and opens Zone Detail.
@@ -154,9 +156,13 @@ A few unfinished objectives chosen by fixed rules, in this order:
 3. Other eligible unfinished exploration objectives.
 4. (v1.1) Eligible unfinished quests.
 
+From v1.1 each suggested zone lists its Next up picks (§7.1: areas to discover, ready quests nearest your level, a flight path to discover), and the reason names what's left per category ("Current zone · 5 areas · 26 quests left").
+
 Each suggestion shows objective name, zone, category, a short reason ("2 left in Westfall"), and opens its detail. Never suggest objectives that are unavailable or of unknown eligibility. Show an empty state if nothing qualifies.
 
-### 5.6 Recent milestones
+### 5.6 Recent milestones (removed in v1.1)
+
+Removed on 2026-11-08 (owner: not interesting enough), with the Overview's Activity panel and the milestone history and baseline behind it; existing saved history is deleted on load (character schema 2). The original requirement, for reference:
 
 Recently detected accomplishments: a new area discovered, a zone's exploration completed, (v1.1) a quest completed, a zone fully completed.
 
@@ -295,7 +301,7 @@ Listen for zone changes, exploration changes, quest changes, and login. Invalida
 
 ### 8.8 Persistence (SavedVariables)
 
-Window position/size, last tab, Zones display mode, filters and sort, milestone history, recently visited zones, preferences. Versioned schema with migrations. Completion state is read from the game, not stored.
+Window position/size, last tab, Zones display mode, filters and sort, recently visited zones, flight masters' lists, preferences. Versioned schema with migrations. Completion state is read from the game, not stored.
 
 ## 9. Technical requirements
 
@@ -309,7 +315,7 @@ Window position/size, last tab, Zones display mode, filters and sort, milestone 
 ## 10. UX requirements
 
 - Clear progress indicators, high-contrast text, consistent spacing, tooltips for non-obvious numbers.
-- On completing a tracked objective: refresh affected indicators and summaries, record a milestone, optionally show a subtle notification (configurable).
+- On completing a tracked objective: refresh affected indicators and summaries, optionally show a subtle notification (configurable).
 - Satisfying completion visuals (gold accent, emblem, full bar) when justified; no celebration when coverage is incomplete.
 - Distinct visible states for: no matching zones, no tracked objectives, loading, data unavailable, partial coverage, fully complete.
 
@@ -333,7 +339,7 @@ All v1 criteria met 2026-11-08 (evidence: `docs/testing.md` § Phase 8).
 - [x] Tracked completion with listed categories; unavailable data clearly marked.
 - [x] Current-zone progress with link to Zone Detail.
 - [x] Suggestions only from eligible, known objectives.
-- [x] Milestones recorded only for progress observed after baseline.
+- [x] Milestones recorded only for progress observed after baseline. (v1; removed in v1.1, §5.6.)
 
 ### Zones
 - [x] Applicable zones listed; illustrated cards by default; compact mode; mode persists.

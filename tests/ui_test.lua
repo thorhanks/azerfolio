@@ -570,11 +570,11 @@ return function(t)
         t.eq(ns.UI.CurrentTab(), "overview")
         t.eq(ns.Focus.Current().key, "hero", "the Overview starts on the Continue card")
         press(ns, "PADDRIGHT")
-        t.eq(ns.Focus.Current().key, "completion")
+        t.eq(ns.Focus.Current().key, "track:explore")
         press(ns, "PADRSHOULDER")
         t.eq(ns.Focus.Current().title, "Westfall", "back where it was")
         press(ns, "PADLSHOULDER")
-        t.eq(ns.Focus.Current().key, "completion", "and the Overview's focus too")
+        t.eq(ns.Focus.Current().key, "track:explore", "and the Overview's focus too")
     end)
 
     t.test("no chevron when the controller isn't driving the window", function()
@@ -1088,8 +1088,6 @@ return function(t)
         CRITERIA[776][4][2] = false
         here = 1429
         t.eq(#got, 1); t.same(got[1], { 1429 })
-        local m = ns.charDB.milestones[#ns.charDB.milestones]
-        t.eq(m.id, 1149); t.ok(m.time ~= nil, "seen live, so it has a time")
         t.eq(#ns.Debug.errors, 0)
     end)
 
@@ -1223,7 +1221,7 @@ return function(t)
         t.eq(ns.db.window.width, 1000); t.eq(ns.db.window.height, 1100); t.eq(ns.db.window.x, 0)
         t.eq(ns.db.zones.displayMode, "cards"); t.eq(ns.db.zones.sort, "recommended")
         t.eq(ns.db.launcher.minimapAngle, 360)
-        t.same(ns.charDB.milestones, {}); t.same(ns.charDB.recentZones, { 1429 })
+        t.eq(ns.charDB.milestones, nil); t.eq(ns.charDB.baseline, nil); t.same(ns.charDB.recentZones, { 1429 })
         wow.runTimers()
         slash("")
         t.ok(ns.UI.IsShown())
@@ -1235,7 +1233,6 @@ return function(t)
         wow.fire("CRITERIA_UPDATE"); wow.fire("MAP_EXPLORATION_UPDATED")
         wow.runTimers()
         CRITERIA[776][4][2] = false
-        t.eq(#ns.charDB.milestones, 1, "a discovery after the rebuilt baseline is a milestone")
         t.eq(#ns.Debug.errors, 0)
     end)
 
@@ -1311,94 +1308,6 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
-    -- Baseline and milestones (end to end) ------------------------------------------------
-
-    local function discover(achID, index)
-        CRITERIA[achID][index][2] = true
-        wow.fire("CRITERIA_UPDATE"); wow.fire("MAP_EXPLORATION_UPDATED")
-        wow.runTimers()
-    end
-
-    t.test("milestones: first login takes the baseline and records nothing", function()
-        local ns = boot()
-        wow.runTimers() -- the login read of every zone
-        local b = ns.charDB.baseline
-        t.eq(b.taken, true)
-        t.same(b.exploration[1429].states, { [1146] = true, [1147] = true, [1148] = false, [1149] = false, [1150] = false })
-        t.eq(b.exploration[1429].complete, false)
-        t.ok(b.exploration[1426], "Dun Morogh baselined too, without being opened")
-        t.eq(b.exploration[1436], nil, "no data for Westfall: no baseline yet")
-        t.eq(#ns.charDB.milestones, 0)
-    end)
-
-    t.test("milestones: a live discovery is recorded once with a time, and survives a reload", function()
-        local ns = boot()
-        wow.runTimers()
-        local got = {}
-        ns.Events.On("AZF_MILESTONE", function(m) got[#got + 1] = m end)
-        discover(776, 3) -- Fargodeep Mine
-        local list = ns.charDB.milestones
-        t.eq(#list, 1); t.eq(#got, 1)
-        t.eq(list[1].kind, "area"); t.eq(list[1].category, "exploration")
-        t.eq(list[1].id, 1148); t.eq(list[1].mapID, 1429); t.eq(list[1].name, "Fargodeep Mine")
-        t.eq(type(list[1].time), "number", "seen live")
-        t.eq(ns.charDB.baseline.exploration[1429].states[1148], true)
-        local ns2 = boot(_G.AzerfolioDB, _G.AzerfolioCharDB)
-        wow.runTimers()
-        slash("refresh"); wow.runTimers()
-        CRITERIA[776][3][2] = false
-        t.eq(#ns2.charDB.milestones, 1, "no repeat after reload or refresh")
-    end)
-
-    t.test("milestones: progress made while Azerfolio wasn't watching has no time", function()
-        local ns = boot()
-        wow.runTimers()
-        local savedAccount, savedChar = _G.AzerfolioDB, _G.AzerfolioCharDB
-        CRITERIA[776][4][2] = true -- Crystal Lake, explored with the addon off
-        local ns2 = boot(savedAccount, savedChar)
-        wow.runTimers()
-        CRITERIA[776][4][2] = false
-        local list = ns2.charDB.milestones
-        t.eq(#list, 1); t.eq(list[1].id, 1149); t.eq(list[1].time, nil, "nobody saw when")
-    end)
-
-    t.test("milestones: finishing a zone records the area and the zone", function()
-        here = 1411
-        local ns = boot()
-        wow.runTimers()
-        discover(728, 1) -- Valley of Trials, Durotar's only area in the fixture
-        CRITERIA[728][1][2] = false
-        here = 1429
-        local list = ns.charDB.milestones
-        t.eq(#list, 2)
-        t.eq(list[1].kind, "area"); t.eq(list[2].kind, "zone"); t.eq(list[2].id, 1411)
-        t.eq(ns.charDB.baseline.exploration[1411].complete, true)
-    end)
-
-    t.test("milestones: a damaged baseline is rebuilt without milestones or errors", function()
-        local ns = boot(nil, { schemaVersion = 1, baseline = { taken = true, exploration = { [1429] = "junk" } },
-            milestones = { "junk" } })
-        wow.runTimers()
-        t.eq(type(ns.charDB.baseline.exploration[1429]), "table")
-        discover(776, 5)
-        CRITERIA[776][5][2] = false
-        t.eq(#ns.charDB.milestones, 1, "the junk entry is dropped on load; one real milestone")
-        t.eq(ns.charDB.milestones[1].id, 1150)
-        t.eq(#ns.Debug.errors, 0)
-    end)
-
-    t.test("milestones: the list is capped at the newest 100", function()
-        local old = {}
-        for i = 1, 100 do old[i] = { kind = "area", category = "exploration", mapID = 1429, id = 90000 + i } end
-        local ns = boot(nil, { schemaVersion = 1, milestones = old })
-        wow.runTimers()
-        discover(776, 3)
-        CRITERIA[776][3][2] = false
-        local list = ns.charDB.milestones
-        t.eq(#list, 100)
-        t.eq(list[100].id, 1148); t.eq(list[1].id, 90002)
-    end)
-
     t.test("/azf debug zones reports the catalogue in chat and in the trace", function()
         _G.UnitFactionGroup = function() return "Alliance", "Alliance" end
         local ns = boot({ schemaVersion = 4, debug = true })
@@ -1457,22 +1366,28 @@ return function(t)
         t.ok(p.hero.left:GetText():find("3|r areas to go"), p.hero.left:GetText())
         t.eq(p.goal:IsShown(), false, "no other zone in progress: no next goal")
         local groups = overview(ns).pools.groups
-        t.eq(groups[1].name:GetText(), "Elwynn Forest"); t.eq(groups[1].why:GetText(), "Current zone · 3 left")
+        t.eq(groups[1].name:GetText(), "Elwynn Forest"); t.eq(groups[1].why:GetText(), "Current zone · 3 areas left")
         t.eq(groups[2], nil, "Durotar is Horde territory; Westfall and Teldrassil have no data")
-        t.eq(overview(ns).pools.chips[1].text:GetText(), "Fargodeep Mine")
-        -- Most of the 43 catalogue zones have no achievement data in the mock: no percentage.
-        t.eq(p.completion.pct:GetText(), "-")
-        t.ok(p.completion.line:GetText():find("Waiting for the game's data %(40 of 43 zones unreadable%)"),
-            p.completion.line:GetText())
-        t.ok(p.zones.count:GetText():find("1|r of 4 complete"), "Durotar left out: " .. p.zones.count:GetText())
-        t.ok(p.zones.legend:GetText():find("1 in progress") and p.zones.legend:GetText():find("0 untouched")
-            and p.zones.legend:GetText():find("2 no data"), p.zones.legend:GetText())
+        local picks = overview(ns).pools.picks
+        t.eq(picks[1].name:GetText(), "Fargodeep Mine"); t.eq(picks[2].name:GetText(), "Crystal Lake")
+        t.eq(picks[3], nil, "Next up: two areas; no quests or flight paths in the mock")
+        -- Most of the 43 catalogue zones have no achievement data in the mock, and QuestieDB
+        -- isn't there: no headline; each category says why.
+        t.eq(p.track.pct:GetText(), "-")
+        local track = overview(ns).pools.track
+        t.eq(track[1].label:GetText(), "Exploration"); t.eq(track[1].note:GetText(), "Waiting for the game's data")
+        t.eq(track[2].label:GetText(), "Quests"); t.eq(track[2].note:GetText(), "Needs the QuestieDB addon")
+        t.eq(track[3], nil, "no flight path API in the mock: the category is left out")
+        t.ok(p.track.foot:GetText():find("those without data are left out"), p.track.foot:GetText())
+        t.ok(p.zonesRow.count:GetText():find("1|r / 4 complete"), "Durotar left out: " .. p.zonesRow.count:GetText())
+        t.ok(p.zonesRow.legend:GetText():find("1 in progress") and p.zonesRow.legend:GetText():find("0 untouched")
+            and p.zonesRow.legend:GetText():find("2 no data"), p.zonesRow.legend:GetText())
         t.eq(p.recentEmpty:IsShown(), true, "only the current zone visited so far")
-        t.eq(p.activity.empty:IsShown(), true)
         local rows = overview(ns):GetFocusRows()
-        t.eq(#rows, 2)
-        t.eq(keys(rows[1]), "hero,completion")
-        t.eq(keys(rows[2]), "chip:1148,chip:1149,chip:1150,zones")
+        t.eq(#rows, 3)
+        t.eq(keys(rows[1]), "hero,track:explore")
+        t.eq(keys(rows[2]), "pick:explore:1148,pick:explore:1149,track:quests")
+        t.eq(keys(rows[3]), "zones")
         t.eq(overview(ns).hasSections, true)
         t.eq(#ns.Debug.errors, 0)
     end)
@@ -1490,7 +1405,7 @@ return function(t)
         t.eq(ns.Focus.Current().key, "c1149", "focused on the area")
         press(ns, "PAD2")
         t.eq(ns.UI.CurrentTab(), "overview", "B returns to the Overview")
-        t.eq(ns.Focus.Current().key, "chip:1149")
+        t.eq(ns.Focus.Current().key, "pick:explore:1149")
         t.eq(ns.UI.IsShown(), true)
         -- Opened from the catalogue, B stays on Zones.
         press(ns, "PADRSHOULDER")
@@ -1503,15 +1418,15 @@ return function(t)
         local ns = boot()
         slash("")
         press(ns, "PADRTRIGGER")
-        t.eq(ns.Focus.Current().key, "chip:1148", "RT: the first suggestion group")
+        t.eq(ns.Focus.Current().key, "pick:explore:1148", "RT: the first suggestion group")
         press(ns, "PADLTRIGGER")
         t.eq(ns.Focus.Current().key, "hero", "LT: back to Continue")
         press(ns, "PADDRIGHT")
-        t.eq(ns.Focus.Current().key, "completion")
-        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().key, "track:explore")
+        press(ns, "PADDDOWN"); press(ns, "PADDDOWN")
         t.eq(ns.Focus.Current().key, "zones", "down stays in the right column")
         press(ns, "PADDLEFT")
-        t.eq(ns.Focus.Current().key, "chip:1150", "left: the nearest chip")
+        t.eq(ns.Focus.Current().key, "pick:explore:1149", "left: the nearest pick")
         press(ns, "PADDUP")
         t.eq(ns.Focus.Current().key, "hero", "up stays in the left column")
     end)
@@ -1551,7 +1466,7 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
-    t.test("overview: a discovery redraws the card and lists the milestone with its time", function()
+    t.test("overview: a discovery redraws the card and its suggestions", function()
         padUI = true
         local ns = boot()
         slash("")
@@ -1561,11 +1476,7 @@ return function(t)
         CRITERIA[776][3][2] = false
         local o = overview(ns)
         t.eq(o.parts.hero.pct:GetText(), "60%")
-        t.eq(o.pools.chips[1].text:GetText(), "Crystal Lake", "the discovered area is no longer suggested")
-        local m = o.pools.milestones[1]
-        t.ok(m and m.text:GetText():find("Fargodeep Mine"), m and m.text:GetText())
-        t.ok(m.time:GetText():find("^Today, %d%d:%d%d$"), m.time:GetText())
-        t.ok(o.parts.activity.today:GetText():find("1|r today"), o.parts.activity.today:GetText())
+        t.eq(o.pools.picks[1].name:GetText(), "Crystal Lake", "the discovered area is no longer suggested")
         t.eq(#ns.Debug.errors, 0)
     end)
 
@@ -1574,7 +1485,7 @@ return function(t)
         slash("")
         local o = overview(ns)
         ns.UI.SelectTab("zones")
-        ns.Events.Send("AZF_MILESTONE", {})
+        ns.Events.Send("AZF_QUESTS_UPDATED")
         t.eq(o.dirty, true)
         local before = wow.frameCount()
         ns.UI.SelectTab("overview")
@@ -1588,7 +1499,7 @@ return function(t)
         slash("debug overview")
         local text = table.concat(wow.chat, "\n")
         t.ok(text:find("continue: Elwynn Forest %(current%)"), text)
-        t.ok(text:find("suggestions: Elwynn Forest %(current, 3 left%)\n"), text)
+        t.ok(text:find("suggestions: Elwynn Forest %(current, 2 picks%)\n"), text)
         t.ok(text:find("zones 1 of 4 complete %(1 in progress, 0 untouched, 2 unknown%)"), text)
         local e = ns.db.trace[#ns.db.trace]
         t.eq(e.kind, "overview"); t.eq(e.hero, 1429)

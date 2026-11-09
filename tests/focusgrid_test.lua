@@ -123,4 +123,27 @@ return function(t)
         g:FocusKey("p3")
         t.ok(g:Move("up")); t.eq(g:CurrentKey(), "p2")
     end)
+
+    t.test("groups: left/right from a row with nothing on that side go to the nearest row that has", function()
+        local G = load()
+        local g = G.New()
+        local function it(key, group) return { key = key, group = group } end
+        g:SetRows({
+            { items = { it("hero", "L"), it("p1", "R") } },
+            { items = { it("c1", "L"), it("c2", "L"), it("p2", "R") } },
+            { items = { it("p3", "R") } },
+            { items = { it("p4", "R") } },
+            { items = { it("c3", "L") } },
+        })
+        g:FocusKey("p3")
+        t.ok(g:Move("left")); t.eq(g:CurrentKey(), "c2", "the nearest row up, its last left item")
+        g:FocusKey("p4")
+        t.ok(g:Move("left")); t.eq(g:CurrentKey(), "c3", "the row above has no left item; the one below has")
+        g:FocusKey("p4")
+        t.eq(g:Move("right"), false, "nothing to the right of the right column")
+        g:FocusKey("c3")
+        t.ok(g:Move("right")); t.eq(g:CurrentKey(), "p4")
+        g:FocusKey("hero")
+        t.eq(g:Move("left"), false, "nothing to the left of the left column")
+    end)
 end
