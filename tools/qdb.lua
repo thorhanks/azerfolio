@@ -10,6 +10,7 @@
 --   npc <id> [id...]       every field of the NPCs
 --   rares [areaID|all]     rare, rare elite and boss NPCs (rank 4, 2, 3; cmangos ranks), by spawn area
 --   objects <text|*> [areaID] game objects whose name contains text (* = all), spawn points per area
+--   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
 -- Set AZF_QDB_TOC to read a different TOC.
 local bit = require("bit")
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/QuestieDB/QuestieDB_Forever.toc"
@@ -288,7 +289,68 @@ elseif cmd == "objects" then
                 tab[2] and #tab[2] or 0, tab[3] and #tab[3] or 0, total, table.concat(parts, " ")))
         end
     end
+elseif cmd == "recipes" then
+    -- Item class 9 (Recipe); subclasses per the classic ItemSubClass table [unverified on Forever].
+    local SUB = { [0] = "book", "leatherworking", "tailoring", "engineering", "blacksmithing", "cooking",
+        "alchemy", "first aid", "enchanting", "fishing", "jewelcrafting" }
+    local only = tonumber(arg[2])
+    local rows = load(nil, "Item")
+    local want = {}
+    for id, row in pairs(rows) do if row[12] == 9 then want[id] = true end end
+    local _, tabs = load(function(id) return want[id] end, "Item")
+    local vendorIds = {}
+    for id in pairs(want) do
+        local t = tabs[id] or {}
+        if t[14] then for _, v in ipairs(t[14]) do vendorIds[v] = true end end
+    end
+    local npcRows, npcTabs = load(function(id) return vendorIds[id] end, "Npc")
+    local total, bySource, bySub, byArea = 0, { vendor = 0, drop = 0, object = 0, quest = 0, none = 0, teaches = 0 }, {}, {}
+    for id in pairs(want) do
+        local row, t = rows[id], tabs[id] or {}
+        total = total + 1
+        local sub = SUB[row[13] or 0] or tostring(row[13])
+        bySub[sub] = (bySub[sub] or 0) + 1
+        if row[16] or t[16] then bySource.teaches = bySource.teaches + 1 end
+        local any = false
+        if t[14] then
+            any = true; bySource.vendor = bySource.vendor + 1
+            local areas = {}
+            for _, v in ipairs(t[14]) do
+                local spawns = npcTabs[v] and npcTabs[v][7]
+                if type(spawns) == "table" then for a in pairs(spawns) do areas[a] = v end
+                elseif npcRows[v] and npcRows[v][9] then areas[npcRows[v][9]] = v end
+            end
+            for a, v in pairs(areas) do
+                byArea[a] = byArea[a] or {}
+                table.insert(byArea[a], { id = id, name = row[1], sub = sub, vendor = (npcRows[v] and npcRows[v][1] or "?") .. " (" .. v .. ")" })
+            end
+        end
+        if t[2] then any = true; bySource.drop = bySource.drop + 1 end
+        if t[3] then any = true; bySource.object = bySource.object + 1 end
+        if t[6] then any = true; bySource.quest = bySource.quest + 1 end
+        if not any then bySource.none = bySource.none + 1 end
+    end
+    print(string.format("%d recipe items (base rows): sold by vendors %d, NPC drops %d, object drops %d, quest rewards %d, no source %d; teachesSpell set on %d",
+        total, bySource.vendor, bySource.drop, bySource.object, bySource.quest, bySource.none, bySource.teaches))
+    local subs = {}
+    for s, n in pairs(bySub) do subs[#subs + 1] = s .. " " .. n end
+    table.sort(subs)
+    print("by profession: " .. table.concat(subs, ", "))
+    local areas = {}
+    for a in pairs(byArea) do areas[#areas + 1] = a end
+    table.sort(areas, function(a, b) return #byArea[a] > #byArea[b] end)
+    for _, a in ipairs(areas) do
+        if not only or a == only then
+            print(string.format("area %-6s %d vendor recipes", tostring(a), #byArea[a]))
+            if only then
+                table.sort(byArea[a], function(x, y) return x.id < y.id end)
+                for _, e in ipairs(byArea[a]) do
+                    print(string.format("  %6d %-44s %-15s %s", e.id, tostring(e.name), e.sub, tostring(e.vendor)))
+                end
+            end
+        end
+    end
 else
-    print("usage: luajit tools/qdb.lua quest <id>... | area <areaID> | name <text> | stats | npc <id>... | rares [areaID|all] | objects <text> [areaID]")
+    print("usage: luajit tools/qdb.lua quest <id>... | area <areaID> | name <text> | stats | npc <id>... | rares [areaID|all] | objects <text> [areaID] | recipes [areaID]")
     os.exit(cmd and 1 or 0)
 end
