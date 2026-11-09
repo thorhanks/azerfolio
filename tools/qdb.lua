@@ -12,6 +12,7 @@
 --   objects <text|*> [areaID] game objects whose name contains text (* = all), spawn points per area
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
 --   reps [zone filter]     quest reputation rewards per Azerfolio zone (Data/QuestAreas.lua); run from repo root
+--   reps rule [min low share]  draft zone-faction rule (defaults 5 3 0.5)
 -- Set AZF_QDB_TOC to read a different TOC.
 local bit = require("bit")
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/QuestieDB/QuestieDB_Forever.toc"
@@ -373,6 +374,8 @@ elseif cmd == "reps" then
         end
     end
     local filter = arg[2]
+    local rule = filter == "rule"
+    if rule then filter = nil end
     local rows, tabs = load(function(_, f) return f == 26 end)
     local byZone = {}
     for id, row in pairs(rows) do
@@ -383,12 +386,47 @@ elseif cmd == "reps" then
             byZone[key] = byZone[key] or {}
             for _, r in ipairs(rewards) do
                 local f, amount = r[1], r[2] or 0
-                local e = byZone[key][f] or { quests = 0, total = 0 }
+                local e = byZone[key][f] or { quests = 0, total = 0, positive = 0 }
                 e.quests = e.quests + 1
-                if type(amount) == "number" and amount > 0 then e.total = e.total + amount end
+                if type(amount) == "number" and amount > 0 then e.total = e.total + amount; e.positive = e.positive + 1 end
                 byZone[key][f] = e
             end
         end
+    end
+    if rule then
+        -- Draft zone-faction rule: per zone (numeric keys only), factions that aren't home
+        -- factions (capitals, races, Alliance/Horde) or battleground factions, with at least
+        -- MIN quests here that raise them, or at least LOW quests when this zone has at least
+        -- SHARE of the faction's raising quests in all zones.
+        local MIN, LOW, SHARE = tonumber(arg[3]) or 5, tonumber(arg[4]) or 3, tonumber(arg[5]) or 0.5
+        local HOME = { [47] = 1, [54] = 1, [69] = 1, [72] = 1, [469] = 1, [67] = 1, [68] = 1, [76] = 1, [81] = 1,
+            [530] = 1, [509] = 1, [510] = 1, [729] = 1, [730] = 1, [889] = 1, [890] = 1 }
+        local perFaction = {}
+        for k, fs in pairs(byZone) do
+            if type(k) == "number" then
+                for f, e in pairs(fs) do perFaction[f] = (perFaction[f] or 0) + e.positive end
+            end
+        end
+        print(string.format("Draft rule: not a home/battleground faction; >= %d raising quests in the zone, or >= %d when the zone has >= %d%% of them", MIN, LOW, SHARE * 100))
+        local zs = {}
+        for k in pairs(byZone) do if type(k) == "number" then zs[#zs + 1] = k end end
+        table.sort(zs)
+        for _, z in ipairs(zs) do
+            local picks = {}
+            for f, e in pairs(byZone[z]) do
+                local share = perFaction[f] > 0 and e.positive / perFaction[f] or 0
+                if not HOME[f] and (e.positive >= MIN or (e.positive >= LOW and share >= SHARE)) then
+                    picks[#picks + 1] = { f = f, n = e.positive, share = share }
+                end
+            end
+            table.sort(picks, function(a, b) return a.n > b.n end)
+            local parts = {}
+            for _, x in ipairs(picks) do
+                parts[#parts + 1] = string.format("%s(%d) %d, %d%%", names[x.f] or "?", x.f, x.n, math.floor(x.share * 100 + 0.5))
+            end
+            print(string.format("%-5d %-24s %s", z, tostring(zoneName[z]), #parts > 0 and table.concat(parts, "; ") or "-"))
+        end
+        return
     end
     local keys = {}
     for k in pairs(byZone) do keys[#keys + 1] = k end

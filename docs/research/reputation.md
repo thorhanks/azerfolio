@@ -45,9 +45,21 @@ Report: `luajit tools/diag-report.lua reps`. 0 errors.
 - Events: `UPDATE_FACTION` fires (5 times this session; 93 in the earlier sniffer run), as do `CHAT_MSG_COMBAT_FACTION_CHANGE` and `FACTION_STANDING_CHANGED` (sniffer, once each) [verified-ingame]. Reading every faction by ID on `UPDATE_FACTION`, debounced, is enough.
 - Probe gap: header expansion used the classic globals, so it did nothing. Nothing was collapsed this time; a feature must use `C_Reputation.ExpandFactionHeader` (or read by ID only) and restore the player's collapsed headers.
 
+## Zone-faction rule (decided 2026-11-08: derive from quests)
+
+Owner's choice: derive from quest rewards, with no hand-curated table. Draft rule, checked offline with `luajit tools/qdb.lua reps rule` (base rows) [verified-files]:
+
+- Count, per zone and faction, the quests that **raise** the faction (amount > 0). Bloodsail's 41 Stranglethorn quests are mostly losses, and only 3 raise it.
+- Leave out **home factions** (capitals and races, the Alliance/Horde groups: 47, 54, 69, 72, 469, 67, 68, 76, 81, 530) and **battleground factions** (509, 510, 729, 730, 889, 890).
+- Keep a faction when the zone has **≥ 5 raising quests**, or **≥ 3 when the zone holds ≥ 50%** of the faction's raising quests across all zones.
+- Result: 21 zones with factions. Mulgore → Earthen Ring; Barrens → Ratchet; Arathi → Booty Bay; Tirisfal and both Plaguelands → Argent Dawn; Hinterlands and Wetlands → 471; Searing Gorge → Thorium Brotherhood; Stranglethorn → Booty Bay, Bloodsail; Thousand Needles and Stonetalon → Ratchet; Desolace and Shen'dralas → Gelkis, Magram; Feralas → Steamwheedle Cartel; Tanaris → Gadgetzan, Brood of Nozdormu; Felwood → Timbermaw Hold; Moonglade and Silithus → Cenarion Circle (Silithus also Brood); Winterspring → Everlook, Wintersaber Trainers; Zephras Isle → Windshapers, High Order, Nightclaw Druids.
+- Dropped by the rule: Ratchet in Durotar and Desolace (4 quests, 8%), Brood of Nozdormu in Moonglade (3, 8%).
+- The other 30 zones (most leveling zones and the capitals) get no zone faction.
+- At runtime: read `reputationReward` from QuestieDB's composed view for the zone's quests, then keep only factions the game returns data for (`GetFactionDataByID`). That drops the other side's factions, such as Windshapers for Gideon [inferred from the probe].
+
 ## Open questions
 
-1. The zone-faction rule: derive it from quest rewards (above), or keep a short hand-curated table, owner-approved?
+1. *(Decided: derive from quest rewards, rule above.)*
 2. Faction 471 (Wetlands, Hinterlands): which faction is it on Forever? The game returns nothing for it.
 3. Do Zandalar Tribe, Hydraxian Waterlords and Brood of Nozdormu read once met, or on a level-60 character?
 4. Thragor: does a Horde character see Windshapers and not High Order (that would make Zephras Isle's factions one per side)?

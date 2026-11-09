@@ -449,6 +449,8 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-08 | Atlas places: the client's zone rectangles (`GetMapRectOnMap`) read live, laid out as equal tiles at each true centre and pushed apart until none overlap; zones with no rectangle anywhere go in the sea as "Uncharted waters"; cities are full cards; Kalimdor left | Spec: positions from verified map data; the real rectangles overlap too much to draw as they are. Owner approved the mockup |
 | 2026-11-08 | Celebrations round 2: painted seals in a laurel, a title ribbon and claim seals; no streamer, no light burst (tried, dropped, art deleted) | Owner's review of the in-game screens |
 | 2026-11-08 | Phase 10 accepted; v1.2 closed as version 1.2.0 | Celebrations and the Atlas checked in game on Gideon. Owner approved |
+| 2026-11-08 | Not tracked per zone: rares, treasures, fishing, quest storylines, bounties. Recipes wait for a Professions tab; a dungeon tile in the zone detail (art + quest progress, opens the Dungeons tab) waits for the Dungeons tab | Owner's review of the offline surveys (`qdb.lua rares/objects/recipes`): gaps in the data, no kill or loot history, little reward |
+| 2026-11-08 | Reputation next. A zone's factions are derived from the reputation rewards of its quests (QuestieDB), not a hand-curated table | Owner's choice; the survey shows clear zone factions ([research/reputation.md](docs/research/reputation.md)) |
 
 ## 10. Definition of done (v1)
 
