@@ -79,6 +79,12 @@ The owner chose the **full native Forever look**: Azerfolio looks like the clien
 - **Tabs** use the painted icons (journal for Overview, map and compass for Zones).
 - **Continue card** always shows your zone ("Continue · your zone", "Your zone · claimed"), the mini standard beside the zone's %.
 
+**Design round 3 (owner feedback 2026-11-08; approved, with no A hints on the tiles or the Continue card: "already obvious"; the legend still shows A).**
+- **Dashboard layout:** the standard centred in its panel; three **square tiles side by side**, then **"Next up in <zone>"** under them: a painted header plate and up to five items (the next two areas to discover, up to three ready quests nearest your level in their difficulty colours, a flight path not yet discovered), each a focus stop that opens its page on that item. A claimed zone says so there instead.
+- **Streamers:** one per finished category, flight paths included (so a zone with no flight master can earn two).
+- **Reading the standard's progress at a glance:** (1) the zone art behind it comes alive with progress, grey and dim at 0% to full colour at 100%; (2) light rises up the pole from its foot to the crossbar, so the glowing length below the banner grows as it climbs; (3) brass rings on the pole at the heights the banner's bottom edge reaches at 25 / 50 / 75%, lit once passed.
+- **Motion:** the hoist on opening; the cloth stays still and streamers drift a little sideways (the game's Rotation animation turned these textures far past the degrees asked and made the cloth vanish, so no rotation); motes drift up behind the banner, more as the zone fills (2 at 0% to 11 at 100%); claimed: slow light rays and a glint on the finial.
+
 **Wide window (ultrawide, about 1640 px):** Zones becomes a split view: compact list on the left, Zone Detail on the right, updating as focus moves. The Atlas view is available too; choosing a tile switches to the split view with that zone selected. A moves into the checklist; B returns to the list.
 
 **Completion moment:** a toast, pip pop and row flash, then a full-window celebration (emblem, "<Zone> Explored", soft rays masked to the centre, A to continue), and a highlighted milestone.

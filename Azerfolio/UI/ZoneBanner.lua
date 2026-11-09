@@ -27,7 +27,8 @@ Banner.ART.rise = Banner.ART.size[2] - 8 - Banner.ART.visible - Banner.ART.top
 -- Battle streamers: one per finished category, tied at the crossbar's ends (left, right,
 -- outer left). Canvas 1:8 with the 1:6 painting centred.
 Banner.ART.streamer = { 26, 208 }
-Banner.ART.streamerX = { -6, Banner.ART.cloth[1] - 26 + 6, -22 }
+-- Just outside the cloth's edges (-6 laid the first over the banner's border in game).
+Banner.ART.streamerX = { -22, Banner.ART.cloth[1] - 4, -40 }
 
 Banner.LOOK = {
     Alliance = { cloth = { 0.14, 0.32, 0.72 }, dark = { 0.06, 0.15, 0.34 }, trim = { 0.89, 0.73, 0.31 },
@@ -113,6 +114,78 @@ function Banner.New(parent)
         s:Hide()
         c.streamers[i] = s
     end
+
+    -- Round 3 effects (painted standard only; mockups/DESIGN.md "Design round 3").
+    -- Light rising up the pole: behind the cloth, from the crossbar down to the pole's foot,
+    -- so the glowing length below the banner grows as it climbs. Moves with the hoist.
+    c.light = c:CreateTexture(nil, "BACKGROUND", nil, 1)
+    c.light:SetColorTexture(1, 1, 1, 1)
+    local lok = type(CreateColor) == "function" and pcall(c.light.SetGradient, c.light, "VERTICAL",
+        CreateColor(1, 0.83, 0.35, 0), CreateColor(1, 0.86, 0.45, 0.32)) -- softer: 0.6 washed the pole out in game
+    if not lok then c.light:SetColorTexture(1, 0.83, 0.35, 0.3) end
+    c.light:Hide()
+    -- Rings on the pole where the banner's bottom edge reaches at 25 / 50 / 75%: lit once passed.
+    f.mrings = {}
+    for i, m in ipairs({ 0.25, 0.5, 0.75 }) do
+        local halo = circle(f, "ARTWORK", 30, 2) -- round (a plain square looked crude in game)
+        halo:SetSize(30, 16)
+        halo:SetColorTexture(1, 0.83, 0.35, 0.28)
+        local r = circle(f, "ARTWORK", 18, 3)
+        r:SetSize(18, 7)
+        f.mrings[i] = { tex = r, halo = halo, at = m }
+    end
+    -- Motes drifting up behind the banner, more as the zone fills.
+    c.motes = {}
+    for i = 1, 11 do
+        local m = circle(c, "BACKGROUND", 3 + (i % 3), 2)
+        m:SetColorTexture(1, 0.91, 0.63, 1)
+        m:SetAlpha(0)
+        if m.CreateAnimationGroup then
+            local ag = m:CreateAnimationGroup()
+            ag:SetLooping("REPEAT")
+            local d = 5 + (i % 4) * 1.3
+            local up = ag:CreateAnimation("Translation"); up:SetOffset(0, 150); up:SetDuration(d)
+            local fin = ag:CreateAnimation("Alpha"); fin:SetFromAlpha(0); fin:SetToAlpha(0.9); fin:SetDuration(d * 0.15)
+            local fout = ag:CreateAnimation("Alpha"); fout:SetFromAlpha(0.9); fout:SetToAlpha(0)
+            fout:SetDuration(d * 0.85); fout:SetStartDelay(d * 0.15)
+            if up.SetStartDelay then up:SetStartDelay((i * 1.7) % d); fin:SetStartDelay((i * 1.7) % d) end
+            m.anim = ag
+        end
+        m:Hide()
+        c.motes[i] = m
+    end
+    -- Motion: streamers drift a little sideways, out of step. Not Rotation: in game it turned
+    -- the textures far past the degrees asked (a streamer lay almost flat, the cloth vanished;
+    -- WoWScrnShot_110826_171945, _172435), so the cloth stays still and streamers translate.
+    local function drift(tex, dx, dur)
+        if not tex.CreateAnimationGroup then return nil end
+        local ag = tex:CreateAnimationGroup()
+        ag:SetLooping("BOUNCE")
+        local t = ag:CreateAnimation("Translation")
+        t:SetOffset(dx, 0); t:SetDuration(dur)
+        if t.SetSmoothing then t:SetSmoothing("IN_OUT") end
+        return ag
+    end
+    for i, s in ipairs(c.streamers) do s.sway = drift(s, i % 2 == 0 and -2 or 2, 1.6 + i * 0.3) end
+    -- Claimed: soft rays behind the standard and a glint on the finial, both pulsing.
+    f.rays = {}
+    for i = 1, 10 do
+        local ray = f:CreateTexture(nil, "BACKGROUND", nil, -2)
+        ray:SetSize(26, 520)
+        ray:SetColorTexture(1, 0.83, 0.35, 0.09)
+        if ray.SetRotation then ray:SetRotation((i - 1) * math.pi / 10) end
+        ray:Hide()
+        f.rays[i] = ray
+    end
+    f.glint = circle(f, "OVERLAY", 12, 4)
+    f.glint:SetColorTexture(1, 0.98, 0.88, 1)
+    f.glint:Hide()
+    if f.glint.CreateAnimationGroup then
+        local ag = f.glint:CreateAnimationGroup()
+        ag:SetLooping("BOUNCE")
+        local a = ag:CreateAnimation("Alpha"); a:SetFromAlpha(0.15); a:SetToAlpha(1); a:SetDuration(1.3)
+        f.glint.anim = ag
+    end
     -- Hoist: rise from the ground to the banner's height.
     if c.CreateAnimationGroup then
         local ag = c:CreateAnimationGroup()
@@ -165,9 +238,45 @@ function Banner.New(parent)
         return cloth ~= nil, pole ~= nil, streamer
     end
 
+    -- Round 3 effects for the painted standard; off (and stopped) for the mini one or the stand-in.
+    local function setEffects(on, pct, claimed)
+        local A, c = Banner.ART, f.cloth
+        local cross = A.top + (1 - pct) * A.rise
+        c.light:ClearAllPoints()
+        c.light:SetPoint("TOP", c, "TOP", 0, -A.pad)
+        c.light:SetSize(8, math.max(1, A.size[2] - 8 - cross))
+        c.light:SetShown(on and pct > 0)
+        for _, r in ipairs(f.mrings) do
+            local y = -(A.top + (1 - r.at) * A.rise + A.visible + 6)
+            r.tex:ClearAllPoints(); r.tex:SetPoint("CENTER", f, "TOP", 0, y)
+            r.halo:ClearAllPoints(); r.halo:SetPoint("CENTER", r.tex, "CENTER")
+            local lit = pct >= r.at
+            r.tex:SetShown(on)
+            if lit then r.tex:SetColorTexture(1, 0.83, 0.35, 1) else r.tex:SetColorTexture(0.23, 0.18, 0.13, 1) end
+            r.halo:SetShown(on and lit)
+        end
+        local n = on and math.floor(2 + pct * 9 + 0.5) or 0
+        for i, m in ipairs(c.motes) do
+            m:ClearAllPoints()
+            m:SetPoint("CENTER", c, "TOPLEFT", 12 + ((i * 53) % (A.cloth[1] - 24)), -(A.pad + A.visible * 0.9))
+            local show = i <= n
+            m:SetShown(show)
+            if m.anim then if show then m.anim:Play() else m.anim:Stop() end end
+        end
+        for _, s in ipairs(c.streamers) do if s.sway then if on and s:IsShown() then s.sway:Play() else s.sway:Stop() end end end
+        for _, ray in ipairs(f.rays) do
+            ray:ClearAllPoints(); ray:SetPoint("CENTER", f, "TOP", 0, -(A.top + A.visible * 0.45))
+            ray:SetShown(on and claimed)
+        end
+        f.glint:ClearAllPoints(); f.glint:SetPoint("CENTER", f, "TOP", 0, -14)
+        f.glint:SetShown(on and claimed)
+        if f.glint.anim then if on and claimed then f.glint.anim:Play() else f.glint.anim:Stop() end end
+    end
+
     -- entry: a ns.Zones entry (state, percent, cats); faction: "Alliance" | "Horde".
-    -- animate: rise from the ground now.
-    function f:Set(entry, faction, animate)
+    -- animate: rise from the ground now. effects: the round-3 progress cues and motion
+    -- (default on; the Overview's mini standard turns them off).
+    function f:Set(entry, faction, animate, effects)
         local look = Banner.LOOK[faction] or Banner.LOOK.Alliance
         local hasCloth, hasPole, streamer = applyArt(faction)
         local pct = math.max(0, math.min(100, entry.percent or 0)) / 100
@@ -229,6 +338,7 @@ function Banner.New(parent)
                 end
             end
         end
+        setEffects(hasCloth and effects ~= false, pct, claimed)
         -- Painted: no text under the banner (round 2); the header says "Claimed".
         self.claimText:SetText((claimed and not hasCloth) and ("Claimed for the " .. (faction or "Alliance")) or "")
         if self.hoist then

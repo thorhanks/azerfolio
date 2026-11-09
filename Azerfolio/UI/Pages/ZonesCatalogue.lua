@@ -25,6 +25,7 @@ local VIEWS = { { "cards", "Cards" }, { "list", "List" } }
 Catalogue.OPTIONS, Catalogue.STATUS, Catalogue.VIEWS = OPTIONS, STATUS, VIEWS
 
 local STATE_EDGE = { complete = "complete", progress = "todo" }
+local CARD_FRAME_OUT = 4 -- the painted frame's reach past each card's edge
 local STATE_PCT = { complete = "complete", progress = "todo", untouched = "dim", unknown = "dim", untracked = "dim" }
 
 local function label(option, value)
@@ -129,7 +130,7 @@ local function newCard(parent)
         self:Paint()
     end
     -- The painted card frame (round 2); the plain edge then only shows focus.
-    c.frame = T.CardFrame(c, 22, 4)
+    c.frame = T.CardFrame(c, 22, CARD_FRAME_OUT)
     function c:Paint()
         local z = self.zone
         if self.focused then
@@ -535,12 +536,16 @@ function Catalogue.New(page)
         local cols = self:Columns()
         self.columns = cols
         local cardW = math.floor((inner - (cols - 1) * L.cardGap) / cols)
+        -- The grid's rounding remainder goes into the gaps, so the last column ends at the edge.
+        local gap = cols > 1 and (inner - cols * cardW) / (cols - 1) or L.cardGap
+        -- Painted card frames reach CARD_FRAME_OUT past each card: headers match that edge.
+        local out = (self.view == "cards" and ns.Theme.Chrome("frame-card")) and CARD_FRAME_OUT or 0
         for gi, g in ipairs(q.groups) do
             if g.title then
                 if gi > 1 then y = y + S.s3 end
                 local h = take("headers", W.Header)
-                h:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
-                h:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
+                h:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset - out, -y)
+                h:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6 + out, -y)
                 h.text:SetText(g.title)
                 h.count:SetText(g.tracked == 0 and "not tracked" or string.format("%d of %d complete", g.complete, g.tracked))
                 y = y + L.listHeader + S.s2
@@ -553,7 +558,7 @@ function Catalogue.New(page)
                         if z then
                             local c = take("cards", newCard)
                             fillCard(c, z, cardW)
-                            c:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset + col * (cardW + L.cardGap), -y)
+                            c:SetPoint("TOPLEFT", child, "TOPLEFT", math.floor(L.listInset + col * (cardW + gap) + 0.5), -y)
                             items[#items + 1] = zoneItem(c, z)
                             byMap[z.mapID] = c
                             rowH = c:GetHeight()

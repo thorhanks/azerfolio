@@ -179,6 +179,24 @@ return function(t)
         t.eq(s.ready[1].id, 35, "by level, then name")
     end)
 
+    t.test("next up: two areas, ready quests nearest your level, one flight path; at most five", function()
+        local ns = load()
+        local ex = { status = "tracked", objectives = { { id = 1, name = "A", completion = "complete" },
+            { id = 2, name = "B", completion = "incomplete" }, { id = 3, name = "C", completion = "unknown" },
+            { id = 4, name = "D", completion = "incomplete" }, { id = 5, name = "E", completion = "incomplete" } } }
+        local q = { status = "ready", ready = { { id = 10, name = "Grey", questLevel = 1, difficulty = "grey" },
+            { id = 11, name = "Hogger", questLevel = 11, difficulty = "yellow" }, { id = 12, name = "Apple", questLevel = 10, difficulty = "yellow" },
+            { id = 13, name = "Easy", questLevel = 7, difficulty = "green" }, { id = 14, name = "Hard", questLevel = 13, difficulty = "orange" } } }
+        local f = { status = "ready", objectives = { { id = 4, name = "Sentinel Hill", completion = "incomplete" } } }
+        local n = ns.Zones.NextUp(ex, q, f)
+        t.eq(#n, 5, "capped")
+        t.eq(n[1].name, "B"); t.eq(n[2].name, "D", "unknown areas aren't suggested")
+        t.eq(n[3].name, "Apple"); t.eq(n[4].name, "Hogger"); t.eq(n[5].name, "Hard", "yellow first, then orange")
+        local n2 = ns.Zones.NextUp(nil, { status = "ready", ready = {} }, f)
+        t.eq(#n2, 1); t.eq(n2[1].kind, "flights")
+        t.eq(#ns.Zones.NextUp({ status = "untracked" }, { status = "building" }, { status = "pending" }), 0)
+    end)
+
     t.test("saved flight masters' lists: bad entries are dropped", function()
         local ns = load()
         local fixes = {}

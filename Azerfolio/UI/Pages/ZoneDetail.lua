@@ -12,7 +12,10 @@ ns.ZoneDetail = Detail
 Detail.PAGES = { "explore", "quests", "flights" }
 local NODE_W, NODE_H, NODE_DOT = 88, 58, 22
 local CHIP_H, CHIP_COLS = 30, 3
-local TILE_H = 104
+local TILE_SQ = 168      -- round 3: square tiles side by side
+local NEXT_PLATE = 40    -- the "Next up" header plate's height
+local NEXT_ITEM_H = 40
+local NEXT_COLS = 3
 local STANDARD_W = 236   -- design round 2: narrower, the standard fills it
 local DASH_HEADER = 196  -- design round 2: the dashboard's taller header (pages keep bannerHeight)
 
@@ -237,46 +240,42 @@ function Detail.New(page)
     std.edge[3]:SetShown(std.frame == nil); std.edge[4]:SetShown(std.frame == nil)
     -- The standard stands on the panel's floor; no text under it (round 2).
     std.banner = ns.ZoneBanner.New(std)
-    std.banner:SetPoint("BOTTOM", std, "BOTTOM", 0, 2)
+    std.banner:SetPoint("CENTER", std, "CENTER", 0, 0) -- centred in the panel (owner, 2026-11-08)
     d.standard = std
+    -- Round 3: three square tiles side by side (sized in fillDashboard), no A hints (the owner:
+    -- "already obvious"), then "Next up" under them.
     d.tiles = {}
     for i, key in ipairs(T.categoryOrder) do
         local tile = CreateFrame("Button", nil, dash)
-        tile:SetHeight(TILE_H)
-        tile:SetPoint("TOPLEFT", std, "TOPRIGHT", S.s6, -(i - 1) * (TILE_H + S.s3))
-        tile:SetPoint("RIGHT", dash, "RIGHT", 0, 0)
+        tile:SetSize(200, TILE_SQ)
         tile.bg = T.Solid(tile, "cardBg", "BACKGROUND")
         tile.bg:SetAllPoints()
         tile.edge = W.Edge(tile, "BORDER")
         tile.icon = tile:CreateTexture(nil, "ARTWORK")
         tile.icon:SetSize(20, 20)
-        tile.icon:SetPoint("TOPLEFT", S.s4, -S.s3)
+        tile.icon:SetPoint("TOPLEFT", S.s3, -S.s3)
         tile.icon:SetTexture(T.category[key].icon)
         tile.title = T.Text(tile, "md", "gold")
         tile.title:SetPoint("LEFT", tile.icon, "RIGHT", S.s2, 0)
         tile.title:SetText(T.category[key].label)
         tile.pct = T.Text(tile, "lg", "todo")
-        tile.pct:SetPoint("TOPRIGHT", -S.s4, -S.s3)
-        tile.count = T.Text(tile, "md", "white")
-        tile.count:SetPoint("RIGHT", tile.pct, "LEFT", -S.s3, 0)
+        tile.pct:SetPoint("TOPRIGHT", -S.s3, -S.s3)
+        tile.count = T.Text(tile, "xl", "white")
+        tile.count:SetPoint("TOPLEFT", tile.icon, "BOTTOMLEFT", 0, -S.s2)
         -- A gilded bar (painted housing and gold), or the gold pips on Exploration (round 2).
         tile.bar = T.GildedBar(tile, 18)
-        tile.bar:SetPoint("TOPLEFT", tile.icon, "BOTTOMLEFT", -4, -S.s1)
-        tile.bar:SetPoint("RIGHT", tile, "RIGHT", -S.s3, 0)
+        tile.bar:SetPoint("TOPLEFT", tile.count, "BOTTOMLEFT", -4, -S.s1)
+        tile.bar:SetPoint("RIGHT", tile, "RIGHT", -S.s2, 0)
         tile.pips = W.Pips(tile)
         tile.pips:SetPoint("LEFT", tile.bar, "LEFT", 4, 0)
-        tile.line1 = T.Text(tile, "sm", "text")
+        tile.line1 = T.Text(tile, "xs", "text")
         tile.line1:SetPoint("TOPLEFT", tile.bar, "BOTTOMLEFT", 4, -S.s1)
-        tile.line1:SetPoint("RIGHT", tile, "RIGHT", -S.s4, 0)
-        tile.line1:SetJustifyH("LEFT"); tile.line1:SetWordWrap(false)
-        tile.line2 = T.Text(tile, "sm", "dim")
-        tile.line2:SetPoint("TOPLEFT", tile.line1, "BOTTOMLEFT", 0, -S.s1)
-        tile.line2:SetPoint("RIGHT", tile, "RIGHT", -120, 0)
-        tile.line2:SetJustifyH("LEFT"); tile.line2:SetWordWrap(false)
-        tile.hint = T.Text(tile, "xs", "dim")
-        tile.hint:SetPoint("BOTTOMRIGHT", -S.s4, S.s3)
-        tile.glyph = T.Glyph(tile, "A")
-        tile.glyph:SetPoint("RIGHT", tile.hint, "LEFT", -2, 0)
+        tile.line1:SetPoint("RIGHT", tile, "RIGHT", -S.s3, 0)
+        tile.line1:SetJustifyH("LEFT"); tile.line1:SetJustifyV("TOP"); tile.line1:SetWordWrap(true)
+        tile.line2 = T.Text(tile, "xs", "dim")
+        tile.line2:SetPoint("TOPLEFT", tile.line1, "BOTTOMLEFT", 0, -2)
+        tile.line2:SetPoint("RIGHT", tile, "RIGHT", -S.s3, 0)
+        tile.line2:SetJustifyH("LEFT"); tile.line2:SetJustifyV("TOP"); tile.line2:SetWordWrap(true)
         T.RowHighlight(tile, "HIGHLIGHT")
         tile.frame = T.CardFrame(tile, 24, 4)
         function tile:SetFocused(on) self.focused = on; self:Paint() end
@@ -296,6 +295,31 @@ function Detail.New(page)
         tile:SetScript("OnClick", function(self) if self.item and self.item.onActivate then self.item.onActivate(self.item) end end)
         d.tiles[i] = tile
     end
+    -- "Next up in <zone>": the painted header plate (three-slice), then up to five items.
+    local nu = CreateFrame("Frame", nil, dash)
+    nu:SetHeight(NEXT_PLATE)
+    local plate, slice = T.Chrome("plate-header")
+    nu.plate = {}
+    if plate and type(slice) == "table" then
+        local sx = slice.x
+        local l, m, r = nu:CreateTexture(nil, "BORDER"), nu:CreateTexture(nil, "BORDER"), nu:CreateTexture(nil, "BORDER")
+        for _, t in ipairs({ l, m, r }) do t:SetTexture(plate) end
+        l:SetTexCoord(0, sx, 0, 1); m:SetTexCoord(sx, 1 - sx, 0, 1); r:SetTexCoord(1 - sx, 1, 0, 1)
+        local endW = math.floor(NEXT_PLATE * 512 / 128 * sx + 0.5)
+        l:SetPoint("TOPLEFT"); l:SetPoint("BOTTOMLEFT"); l:SetWidth(endW)
+        r:SetPoint("TOPRIGHT"); r:SetPoint("BOTTOMRIGHT"); r:SetWidth(endW)
+        m:SetPoint("TOPLEFT", l, "TOPRIGHT"); m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
+    else
+        local h = T.Solid(nu, "row", "BORDER", 1)
+        h:SetAllPoints(); h:SetColorTexture(0.12, 0.06, 0.02, 1)
+    end
+    nu.title = T.Text(nu, "md", "gold")
+    nu.title:SetPoint("CENTER", 0, 0)
+    nu.empty = T.Text(dash, "sm", "dim")
+    nu.empty:SetPoint("TOP", nu, "BOTTOM", 0, -S.s3)
+    d.nextup = nu
+    d.nextItems = {}
+    dash:SetScript("OnSizeChanged", function() Detail.LayoutDash(d) end)
 
     -- Pages (a scroll area) ---------------------------------------------------------------------
     local scroll = W.Scroll(d)
@@ -442,7 +466,7 @@ local PENDING_TEXT = {
 }
 
 local function fillDashboard(d, zone, entry, page)
-    local T, S = ns.Theme, ns.Theme.space
+    local T, S, W = ns.Theme, ns.Theme.space, ns.Widgets
     local rows = {}
     local std = d.standard
     local art = T.ZoneArt(zone.mapID)
@@ -454,8 +478,12 @@ local function fillDashboard(d, zone, entry, page)
         local f = math.min(1, (pw / ph) / 2)
         std.art:SetTexCoord(0.5 - f / 2, 0.5 + f / 2, 0, 1)
     end
-    if std.art.SetDesaturated then std.art:SetDesaturated(entry.state == "untouched") end
-    std.art:SetVertexColor(0.38, 0.36, 0.34)
+    -- Round 3: the zone comes alive as it fills, grey and dim at 0% to full colour at 100%.
+    local p = math.max(0, math.min(100, entry.percent or 0)) / 100
+    if std.art.SetDesaturation then std.art:SetDesaturation(1 - (0.12 + 0.88 * p))
+    elseif std.art.SetDesaturated then std.art:SetDesaturated(p < 0.5) end
+    local v = 0.30 + 0.30 * p
+    std.art:SetVertexColor(v, v * 0.96, v * 0.92)
     local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"
     std.banner:Set(entry, faction, page.animateBanner)
     -- The standard fills the panel (no text under it, round 2), as large as its height and
@@ -468,8 +496,11 @@ local function fillDashboard(d, zone, entry, page)
     page.animateBanner = false
 
     local ex, q, f = ns.Exploration.ForZone(zone), ns.Quests.ForZone(zone.mapID), ns.FlightPaths.ForZone(zone.mapID)
+    -- Three square tiles in a row, right of the standard (placed by layoutDash).
+    local tileItems, canOpen = {}, false
     for i, key in ipairs(T.categoryOrder) do
         local tile = d.tiles[i]
+        tile.pipsData = nil
         local c = catOf(entry, key)
         local line1, line2, open = "", "", nil
         if key == "explore" then
@@ -488,7 +519,7 @@ local function fillDashboard(d, zone, entry, page)
             end
         elseif key == "quests" then
             if q.status == "ready" and c then
-                line1 = string.format("|cffe08a3c%d|r ready now   |cffffffff%d|r storylines going   |cffffffff%d|r finished",
+                line1 = string.format("|cffe08a3c%d|r ready · |cffffffff%d|r stories · |cffffffff%d|r done",
                     #(q.ready or {}), #(q.stories or {}), #(q.finished or {}))
                 local first = q.ready and q.ready[1]
                 line2 = first and ("Next: " .. first.name) or ""
@@ -529,7 +560,7 @@ local function fillDashboard(d, zone, entry, page)
             tile.pips:SetShown(p ~= nil and p ~= false)
             tile.bar:SetShown(not p)
             if p then
-                tile.pips:Set(p.complete, p.incomplete, p.completionUnknown, (tile:GetWidth() or 400) - 2 * S.s4)
+                tile.pipsData = { p.complete, p.incomplete, p.completionUnknown }
             else
                 tile.bar:Set(frac, c.state)
             end
@@ -541,8 +572,6 @@ local function fillDashboard(d, zone, entry, page)
         end
         tile.line1:SetText(line1)
         tile.line2:SetText(line2)
-        tile.hint:SetText(open or "")
-        tile.glyph:SetShown(open ~= nil)
         tile.icon:SetAlpha(c and 1 or 0.45)
         tile.title:SetTextColor(T.RGB(c and "gold" or "dim"))
         local detail = c and not c.pending and string.format("%d of %d  ·  %s", c.completed, c.denominator, line1:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
@@ -551,14 +580,88 @@ local function fillDashboard(d, zone, entry, page)
             actionLabel = open and "Open" or nil,
             onActivate = open and function() page:OpenPage(key) end or nil }
         tile:Paint()
-        rows[#rows + 1] = { items = { tile.item } }
-        if open then rows.canOpen = true end
+        tileItems[#tileItems + 1] = tile.item
+        if open then canOpen = true end
     end
     -- Nothing to open (a zone with nothing tracked): no focus stops, so the split view's A
     -- stays in the list; the tiles say why.
-    if not rows.canOpen then return {} end
-    rows.canOpen = nil
+    if not canOpen then d.nextup:Hide(); d.nextup.empty:Hide(); for _, b in ipairs(d.nextItems) do b:Hide() end; return {} end
+    rows[#rows + 1] = { items = tileItems }
+
+    -- Next up in <zone> (round 3): Zones.NextUp picks, each opens its page on that item.
+    local nu = d.nextup
+    nu:ClearAllPoints()
+    nu:SetPoint("TOPLEFT", std, "TOPRIGHT", S.s6 - 8, -(TILE_SQ + S.s6))
+    nu:SetPoint("RIGHT", d.dash, "RIGHT", 8, 0)
+    nu:Show()
+    local picks = ns.Zones.NextUp(ex, q, f)
+    local claimed = entry.state == "complete"
+    nu.title:SetText(claimed and (zone.name .. " is claimed") or ("Next up in " .. zone.name))
+    nu.empty:SetText(#picks == 0 and (claimed and "Every area, quest and flight path you can do here is done."
+        or "Nothing to suggest here right now.") or "")
+    nu.empty:SetShown(#picks == 0)
+    local SUB = { explore = "Area to discover", flights = "Flight path to discover" }
+    local PAGE_KEY = { explore = function(id) return "c" .. tostring(id) end, quests = function(id) return "r:" .. id end,
+        flights = function(id) return "f" .. tostring(id) end }
+    for _, b in ipairs(d.nextItems) do b:Hide() end
+    local row
+    for i, it in ipairs(picks) do
+        local b = d.nextItems[i]
+        if not b then
+            b = W.FocusRow(d.dash, NEXT_ITEM_H)
+            b.bg = T.Solid(b, "ctlBg", "BACKGROUND", 0.9); b.bg:SetAllPoints()
+            b.icon = b:CreateTexture(nil, "ARTWORK"); b.icon:SetSize(22, 22); b.icon:SetPoint("LEFT", S.s2, 0)
+            b.name = T.Text(b, "sm", "white"); b.name:SetPoint("TOPLEFT", b.icon, "TOPRIGHT", S.s2, 2)
+            b.name:SetPoint("RIGHT", b, "RIGHT", -S.s2, 0); b.name:SetJustifyH("LEFT"); b.name:SetWordWrap(false)
+            b.sub = T.Text(b, "xs", "dim"); b.sub:SetPoint("BOTTOMLEFT", b.icon, "BOTTOMRIGHT", S.s2, -2)
+            b:SetScript("OnClick", function(self) if self.item then self.item.onActivate(self.item) end end)
+            d.nextItems[i] = b
+        end
+        local col = (i - 1) % NEXT_COLS
+        b.icon:SetTexture(T.category[it.kind].icon)
+        b.name:SetText(it.name or "?")
+        local dc = it.difficulty and DIFF_COLOR[it.difficulty]
+        if dc then b.name:SetTextColor(dc[1], dc[2], dc[3]) else b.name:SetTextColor(T.RGB("white")) end
+        local sub = SUB[it.kind] or ("Quest  ·  level " .. tostring(it.level or "?"))
+        b.sub:SetText(sub)
+        local kind, id = it.kind, it.id
+        b.item = { key = "next:" .. kind .. ":" .. tostring(id), frame = b, title = it.name, detail = sub .. ". A opens it.",
+            actionLabel = "Open", onActivate = function()
+                page:OpenPage(kind)
+                page.pendingFocusKey = PAGE_KEY[kind](id)
+                page.Redraw()
+            end }
+        b:Show()
+        if col == 0 then row = { items = {} }; rows[#rows + 1] = row end
+        table.insert(row.items, b.item)
+    end
+    Detail.LayoutDash(d)
     return rows
+end
+
+-- Places the dashboard's tiles and Next up items for its current width. Runs after every fill
+-- and whenever the dashboard changes size (the split view's pane settles after the first
+-- fill; computing once left the third tile past the edge in game, WoWScrnShot_110826_172435).
+function Detail.LayoutDash(d)
+    local S = ns.Theme.space
+    local dashW = d.dash:GetWidth() or 0
+    if dashW <= 0 then dashW = 900 end
+    local std = d.standard
+    local tileW = math.floor((dashW - STANDARD_W - S.s6 - 2 * S.s4) / 3)
+    for i, tile in ipairs(d.tiles) do
+        tile:ClearAllPoints()
+        tile:SetSize(tileW, TILE_SQ)
+        tile:SetPoint("TOPLEFT", std, "TOPRIGHT", S.s6 + (i - 1) * (tileW + S.s4), 0)
+        if tile.pipsData then tile.pips:Set(tile.pipsData[1], tile.pipsData[2], tile.pipsData[3], tileW - 2 * S.s3) end
+    end
+    local width = dashW - STANDARD_W - S.s6
+    local colW = math.floor((width - (NEXT_COLS - 1) * S.s3) / NEXT_COLS)
+    for i, b in ipairs(d.nextItems) do
+        local col, r = (i - 1) % NEXT_COLS, math.floor((i - 1) / NEXT_COLS)
+        b:ClearAllPoints()
+        b:SetPoint("TOPLEFT", d.nextup, "BOTTOMLEFT", 8 + col * (colW + S.s3), -(S.s2 + r * (NEXT_ITEM_H + S.s2)))
+        b:SetWidth(colW)
+    end
 end
 
 ---------------------------------------------------------------------------------------------

@@ -43,7 +43,7 @@ for _, name in ipairs({ "SetFrameStrata", "SetBackdrop", "SetBackdropColor",
     "SetResizeBounds", "SetClipsChildren", "SetColorTexture", "SetGradient", "SetTextColor",
     "SetShadowColor", "SetShadowOffset", "SetFontObject", "SetWordWrap", "SetStatusBarTexture",
     "SetStatusBarColor", "SetMinMaxValues", "SetValue", "SetNormalTexture", "SetHighlightTexture",
-    "SetPushedTexture", "SetAlpha", "SetVertexColor", "SetAtlas", "SetDesaturated", "SetTitle", "SetHorizTile", "SetVertTile", "SetFrameLevel", "StartSizing", "AddMaskTexture", "SetJustifyH",
+    "SetPushedTexture", "SetAlpha", "SetVertexColor", "SetAtlas", "SetDesaturated", "SetTitle", "SetHorizTile", "SetVertTile", "SetFrameLevel", "StartSizing", "AddMaskTexture", "SetJustifyH", "SetJustifyV",
     "ClearAllPoints" }) do
     frameMethods[name] = function() end
 end

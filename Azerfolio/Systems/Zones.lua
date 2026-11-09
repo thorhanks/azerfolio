@@ -54,6 +54,54 @@ function Zones.Categories(ex, q, f)
     return list
 end
 
+-- Pure: "Next up in <zone>" (Zone Detail dashboard, design round 3): the few most useful
+-- things to do there now, from the providers' ForZone results (any may be nil):
+--   the next AREAS areas still to discover (catalogue order), up to QUESTS ready quests
+--   nearest your level (difficulty yellow, orange, green, red, grey; then level, name), and
+--   one flight path not yet discovered. At most LIMIT, in that order.
+--   { { kind = "explore"|"quests"|"flights", id, name, level, difficulty } }
+Zones.NEXT = { AREAS = 2, QUESTS = 3, FLIGHTS = 1, LIMIT = 5 }
+local DIFF_RANK = { yellow = 1, orange = 2, green = 3, red = 4, grey = 5 }
+function Zones.NextUp(ex, q, f)
+    local out = {}
+    if ex and ex.status == "tracked" then
+        local n = 0
+        for _, o in ipairs(ex.objectives or {}) do
+            if n < Zones.NEXT.AREAS and o.completion == "incomplete" then
+                n = n + 1
+                out[#out + 1] = { kind = "explore", id = o.id, name = o.name }
+            end
+        end
+    end
+    if q and q.status == "ready" then
+        local list = {}
+        for _, o in ipairs(q.ready or {}) do list[#list + 1] = o end
+        table.sort(list, function(a, b)
+            local ra, rb = DIFF_RANK[a.difficulty] or 9, DIFF_RANK[b.difficulty] or 9
+            if ra ~= rb then return ra < rb end
+            local la, lb = a.questLevel or 0, b.questLevel or 0
+            if la ~= lb then return la < lb end
+            if tostring(a.name) ~= tostring(b.name) then return tostring(a.name) < tostring(b.name) end
+            return a.id < b.id
+        end)
+        for i = 1, math.min(Zones.NEXT.QUESTS, #list) do
+            local o = list[i]
+            out[#out + 1] = { kind = "quests", id = o.id, name = o.name, level = o.questLevel, difficulty = o.difficulty }
+        end
+    end
+    if f and f.status == "ready" then
+        local n = 0
+        for _, o in ipairs(f.objectives or {}) do
+            if n < Zones.NEXT.FLIGHTS and o.completion == "incomplete" then
+                n = n + 1
+                out[#out + 1] = { kind = "flights", id = o.id, name = o.name }
+            end
+        end
+    end
+    while #out > Zones.NEXT.LIMIT do table.remove(out) end
+    return out
+end
+
 -- Pure: one catalogue entry. zone = { mapID, name, continent, rank }; ex, q, f = the
 -- exploration, quest and flight path ForZone results (q and f may be nil).
 --   { mapID, name, continent, rank, tracked, state (combined, spec §7.7), percent (combined, nil

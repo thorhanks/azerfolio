@@ -493,9 +493,47 @@ h2.section small { font-size: var(--fs-xs); color: var(--dim); }
 .detail-hero .znote { font-size: var(--fs-xs); color: var(--dim); text-shadow: 0 1px 2px #000; }
 .dashgrid { grid-template-columns: 236px 1fr; }
 .standard { padding: 0; justify-content: flex-end; }
-.standard svg.painted { width: 100%; height: 100%; max-width: none; max-height: none; position: relative; z-index: 1; }
-.warbanner.painted .flutter2 { transform-box: view-box; transform-origin: 110px 60px; animation: flutter2 4.5s ease-in-out infinite; }
-@keyframes flutter2 { 0%, 100% { transform: skewX(0deg); } 40% { transform: skewX(-1.2deg); } 75% { transform: skewX(.7deg); } }
+.standard svg.painted { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); max-width: none; max-height: none; z-index: 1; }
+.hero .score.mini svg.painted { position: static; inset: auto; }
+/* Round 3 motion: the cloth sways, pivoting at the crossbar (an in-game Rotation animation);
+   motes drift up and fade; claimed: slow rays and a glint on the finial. */
+/* No cloth sway: the game's Rotation animation misbehaved on these textures (2026-11-08); the
+   cloth stays still and streamers drift sideways (a Translation, as in game). */
+.warbanner.painted .flutter2 { animation: none; }
+.warbanner.painted .streamer { animation: drift 1.9s ease-in-out infinite alternate !important; }
+@keyframes drift { from { transform: translateX(-2px); } to { transform: translateX(2px); } }
+@keyframes sway { 0%, 100% { transform: rotate(0deg); } 30% { transform: rotate(-1.4deg); } 70% { transform: rotate(1deg); } }
+.warbanner.painted .mote { animation: mote linear infinite; }
+@keyframes mote { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translateY(-150px); opacity: 0; } }
+.warbanner.painted .prays { transform-box: view-box; transform-origin: 110px 150px; animation: spin 40s linear infinite; }
+.warbanner.painted .glint { transform-box: fill-box; transform-origin: center; animation: twinkle 2.6s ease-in-out infinite; }
+.standard .sbg .sbgi { position: absolute; inset: 0; transition: filter 1.2s ease-out; }
+.standard .sbg .sbgi > :is(img, svg) { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.06); filter: none; }
+/* Round 3 layout: three square tiles in a row, Next up below. */
+.dashright { display: flex; flex-direction: column; gap: var(--s4); min-width: 0; }
+.tiles.row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s4); }
+.tiles.row3 .ctile { min-height: 168px; padding: var(--s3); gap: 6px; }
+.tiles.row3 .ctile .thead { flex-wrap: wrap; row-gap: 2px; }
+.tiles.row3 .ctile .tcount { margin-left: 0; order: 3; flex-basis: 100%; font-size: var(--fs-xl); }
+.tiles.row3 .ctile .tpct { order: 2; margin-left: auto; width: auto; }
+.tiles.row3 .ctile .tstats { flex-direction: column; gap: 0; }
+.tiles.row3 .ctile .tline { font-size: var(--fs-xs); }
+.tiles.row3 .ctile .topen { right: var(--s3); bottom: var(--s2); }
+.tiles.row3 .ctile .pips { flex-wrap: wrap; }
+.nextup { position: relative; padding: 0 var(--s2) var(--s2); }
+.nextup .plate { height: 40px; display: flex; align-items: center; justify-content: center; margin: 0 -8px var(--s2);
+  border: solid transparent; border-width: 0 64px; border-image: url(chrome-art/plate-header.png) 0 19% fill / 0 64px stretch; }
+.nextup .plate span { font: var(--fs-md) var(--font); color: var(--wow-gold); text-shadow: 0 1px 2px #000; }
+.nextup .nlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px var(--s3); }
+.nextup .nitem { display: grid; grid-template-columns: 22px 1fr; grid-template-rows: auto auto; column-gap: var(--s2); align-items: center; text-align: left;
+  padding: 6px var(--s2); background: linear-gradient(180deg, rgba(36,26,17,.85), rgba(16,10,5,.9)); border: 1px solid #3a2e22; border-radius: var(--r-ctl);
+  color: var(--white); font: var(--fs-sm) var(--font); cursor: pointer; }
+.nextup .nitem img.cimg { grid-row: span 2; }
+.nextup .nname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nextup .nname[class*="d-"] { color: var(--qd); }
+.nextup .nsub { font-size: var(--fs-xs); color: var(--dim); }
+.nextup .nempty { text-align: center; color: var(--dim); font-size: var(--fs-sm); padding: var(--s3); }
+.focused.nitem { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
 .warbanner.painted .streamer { transform-box: fill-box; transform-origin: 50% 0; animation: swing 3.2s ease-in-out infinite; }
 img.cimg { width: 20px; height: 20px; border-radius: 3px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #6b4c2a; flex: none; }
 img.cimg.sm { width: 16px; height: 16px; }

@@ -404,7 +404,7 @@ local function build(parent)
             hero.left:SetText(z.state == "complete" and "Every category complete"
                 or (#left > 0 and (table.concat(left, "  ·  ") .. " to go") or ""))
             local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"
-            hero.banner:Set(z, faction, false)
+            hero.banner:Set(z, faction, false, false) -- the mini standard: no effects
             hero.banner:SetScale((L.heroHeight - 12) / math.max(1, hero.banner:GetHeight() or 1))
             local cp = z.combined
             hero.pct:SetText(z.state == "complete" and "Claimed" or (cp and ns.Progression.PercentText(cp) or "-"))
@@ -414,16 +414,9 @@ local function build(parent)
             local reading = false
             for _, c in ipairs(z.cats or {}) do if c.pending == "building" then reading = true end end
             hero.count:SetText(reading and "Reading quests..." or (p and string.format("%d of %d areas", p.completed, p.denominator) or ""))
-            local pad = ns.Gamepad and ns.Gamepad.IsActive()
-            hero.glyph:SetShown(pad)
-            hero.go:ClearAllPoints()
-            if pad then
-                hero.go:SetPoint("LEFT", hero.glyph, "RIGHT", S.s1, 0)
-            else
-                hero.go:SetPoint("BOTTOMLEFT", hero, "BOTTOMLEFT", L.heroArt + S.s4, S.s3)
-            end
+            -- No "A Continue" on the card (owner, 2026-11-08: obvious); the legend still says it.
+            hero.glyph:Hide(); hero.go:Hide()
             local go = z.state == "complete" and "Open" or (z.state == "untouched" and "Start" or "Continue")
-            hero.go:SetText(go)
             local detail = ns.ZonesCatalogue.ZoneDetail(z) .. "  ·  Open the zone to see what's left."
             rows[#rows + 1] = { items = { item(hero, "hero", z.name, detail, function() openZone(z) end, "L",
                 go) }, section = section }

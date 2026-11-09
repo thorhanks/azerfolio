@@ -476,7 +476,7 @@
           <div class="body"><div class="kicker">${heroKicker}</div><div class="zname">${esc(hero.name)}</div>
             ${catbars(hero)}
             <div class="left">${hero.cats.filter(c => c.done < c.total).map(c => `<b>${c.total - c.done}</b> ${c.unit}`).join(" · ")} to go</div>
-            <div class="go"><span class="glyph A">A</span>${hero.state === "untouched" ? "Start" : "Continue"}</div></div>
+            </div>
           <div class="score mini">${progressArt(hero, { mini: true })}<b>${pctText(hero.pct)}</b></div></button>` : ""}
         ${goal ? `<button class="goal focusable" data-open="${esc(goal.name)}" data-tip="<b>Next goal</b>The in-progress zone closest to complete.">
           <span class="flag">Next goal</span><span>Finish <b>${esc(goal.name)}</b> — ${goal.left} to go</span>${catbars(goal, "sm")}</button>` : ""}
@@ -704,7 +704,7 @@
           ${c ? `<span class="tcount">${c.done} <small>of ${c.total}</small></span><span class="tpct">${pctText(c.pct)}</span>` : ""}</div>
         ${c && !opts.noBar ? `<div class="tbar ${st}"><i style="width:${(c.pct * 100).toFixed(1)}%"></i></div>` : ""}
         <div class="tbody">${inner}</div>
-        ${opts.open ? `<span class="topen"><span class="glyph A">A</span>${opts.open}</span>` : ""}</button>`;
+      </button>`; // no A hint (owner, round 3: obvious)
     };
     const ex = catOf(z, "explore");
     const exTile = ex ? tile("explore", (() => {
@@ -723,9 +723,36 @@
     const fTile = f ? tile("flights", `<div class="tline">${f.nodes.map(n => `<span class="fnode ${n.known ? "on" : ""}">${n.known ? "✓" : "✈"} ${esc(n.name)}</span>`).join("")}</div>`,
         { open: "Flight paths", tip: `${f.done} of ${f.total} flight paths known.` })
       : tile("flights", `<div class="tline dim">No flight master for you in ${esc(z.name)}.</div>`, { tip: "Left out of the zone's progress." });
+    // Round 3: the zone comes alive as it fills (the art behind the standard goes from grey and
+    // dim to full colour), three square tiles in a row, and "Next up" under them.
+    const p = z.pct || 0;
+    const alive = `filter: saturate(${(0.12 + 0.88 * p).toFixed(2)}) brightness(${(0.3 + 0.22 * p).toFixed(2)}) blur(1.5px)`;
     return `<div class="dashgrid">
-      <div class="standard ${z.state}" data-tip-none><div class="sbg">${art(z)}</div>${progressArt(z, { animate: true })}</div>
-      <div class="tiles">${exTile}${qTile}${fTile}</div></div>`;
+      <div class="standard ${z.state}" data-tip-none><div class="sbg" style="--alive:1"><div class="sbgi" style="${alive}">${art(z)}</div></div>${progressArt(z, { animate: true })}</div>
+      <div class="dashright"><div class="tiles row3">${exTile}${qTile}${fTile}</div>${nextUp(z, r)}</div></div>`;
+  }
+
+  // "Next up in <zone>" (round 3): the few most useful things to do here now. The addon's
+  // version comes from the systems (next areas in catalogue order, ready quests nearest your
+  // level, flight paths not discovered); the page only draws it. Each opens its page on it.
+  function nextUp(z, r) {
+    const items = [];
+    z.criteria.filter(c => !c.done).slice(0, 2).forEach(c =>
+      items.push({ key: `explore:${c.id}`, cat: "explore", name: c.name, sub: "Area to discover" }));
+    if (r && r.status === "ready") {
+      const rank = { yellow: 0, orange: 1, green: 2, red: 3, grey: 4 };
+      r.ready.slice().sort((a, b) => rank[a.diff] - rank[b.diff] || a.questLevel - b.questLevel).slice(0, 3).forEach(q =>
+        items.push({ key: `quest:${q.id}`, cat: "quests", name: q.name, sub: `Quest · level ${q.questLevel}`, diff: q.diff }));
+    }
+    const f = catOf(z, "flights");
+    if (f) f.nodes.filter(n => !n.known).slice(0, 1).forEach(n =>
+      items.push({ key: `flight:${n.name}`, cat: "flights", name: n.name, sub: "Flight path to discover" }));
+    if (!items.length) return z.state === "complete" ? `<div class="nextup done"><div class="plate"><span>${esc(z.name)} is claimed</span></div>
+      <div class="nempty">Every area, quest and flight path you can do here is done.</div></div>` : "";
+    return `<div class="nextup"><div class="plate"><span>Next up in ${esc(z.name)}</span></div>
+      <div class="nlist">${items.slice(0, 5).map(it => `<button class="nitem focusable" data-next="${esc(it.key)}"
+        data-tip="<b>${esc(it.name)}</b>${esc(it.sub)}. A opens it.">${catIcon(it.cat)}
+        <span class="nname ${it.diff ? `d-${it.diff}` : ""}">${esc(it.name)}</span><span class="nsub">${esc(it.sub)}</span></button>`).join("")}</div></div>`;
   }
 
   // ---- The zone's war banner (approved direction 2026-11-08) ----
@@ -854,16 +881,41 @@
     const top = 58, rise = H - 8 - vis - top;
     const y = top + (1 - p) * rise, cx = (W - cw) / 2;
     const finished = z.cats.filter(c => catState(c) === "complete");
-    const sw = 26, sh = sw * 8, slots = [cx - 6, cx + cw - sw + 6, cx - 22];
+    const sw = 26, sh = sw * 8, slots = [cx - 22, cx + cw - 4, cx - 40];
     const streamers = hasPiece("streamer-" + k) ? finished.slice(0, 3).map((c, i) =>
       `<image class="streamer" style="animation-delay:${i * .6}s" href="banner-art/streamer-${k}.png" x="${slots[i]}" y="${y - (sh - sw * 6) / 2 - 4}" width="${sw}" height="${sh}"/>`).join("") : "";
     const drop = opts.animate ? (opts.from != null ? (opts.from - p) * rise : p * rise) : 0;
-    return `<svg class="warbanner painted ${done ? "claimed" : ""}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMax meet">
-      <defs><filter id="pglow"><feGaussianBlur stdDeviation="10"/></filter></defs>
-      ${done ? `<ellipse cx="${W / 2}" cy="${top + vis / 2}" rx="${cw * .62}" ry="${vis * .6}" fill="#ffd35a" opacity=".22" filter="url(#pglow)"/>` : ""}
+    const id = "ps" + (++svgId), mx = W / 2;
+    // Round 3, progress you can read at a glance: (1) light rising up the pole from its foot to
+    // the crossbar, (2) brass rings at 25/50/75% that light once the banner has passed them,
+    // (3) motes drifting up behind the banner, more as the zone fills. The glow and the motes
+    // rise with the hoist (they're in its group); the rings stay on the pole.
+    // Rings mark where the banner's bottom edge passes, so a lit ring sits on the glowing pole
+    // below the banner (one marking the crossbar would be hidden behind the cloth once passed).
+    const ringY = (m) => top + (1 - m) * rise + vis + 6;
+    const rings = opts.mini ? "" : [.25, .5, .75].map(m => {
+      const lit = p >= m;
+      return `<ellipse cx="${mx}" cy="${ringY(m)}" rx="9" ry="3.2" fill="${lit ? "#ffd35a" : "#3a2e22"}" stroke="${lit ? "#fff3b0" : "#1a1208"}" stroke-width=".8"/>
+        ${lit ? `<ellipse cx="${mx}" cy="${ringY(m)}" rx="14" ry="7" fill="#ffd35a" opacity=".35" filter="url(#${id}s)"/>` : ""}`;
+    }).join("");
+    const motes = opts.mini ? "" : Array.from({ length: Math.round(2 + p * 9) }, (_, i) => {
+      const x = cx + 12 + ((i * 53) % (cw - 24)), d = 5 + (i % 4) * 1.3;
+      return `<circle class="mote" style="animation-delay:-${(i * 1.7) % d}s;animation-duration:${d}s" cx="${x}" cy="${y + vis * .9}" r="${1.2 + (i % 3) * .5}" fill="#ffe7a0"/>`;
+    }).join("");
+    const rays = done && !opts.mini ? `<g class="prays">${Array.from({ length: 10 }, (_, i) => { const a = i * Math.PI / 5;
+      return `<path d="M${mx} ${top + vis * .45} L${mx + 260 * Math.cos(a - .09)} ${top + vis * .45 + 260 * Math.sin(a - .09)} L${mx + 260 * Math.cos(a + .09)} ${top + vis * .45 + 260 * Math.sin(a + .09)} Z" fill="#ffd35a" opacity=".09"/>`; }).join("")}</g>` : "";
+    return `<svg class="warbanner painted ${done ? "claimed" : ""}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+      <defs><filter id="pglow"><feGaussianBlur stdDeviation="10"/></filter><filter id="${id}s"><feGaussianBlur stdDeviation="3"/></filter>
+        <linearGradient id="${id}l" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffd35a" stop-opacity=".05"/><stop offset=".8" stop-color="#ffd35a" stop-opacity=".55"/><stop offset="1" stop-color="#fff3b0" stop-opacity=".85"/></linearGradient></defs>
+      ${rays}
+      ${done ? `<ellipse cx="${mx}" cy="${top + vis / 2}" rx="${cw * .62}" ry="${vis * .6}" fill="#ffd35a" opacity=".22" filter="url(#pglow)"/>` : ""}
       <image href="banner-art/pole-${k}.png" x="${(W - 110) / 2}" y="0" width="110" height="${H}"/>
+      ${rings}
+      ${done && !opts.mini ? `<path class="glint" d="M${mx} 8 l3 9 l9 3 l-9 3 l-3 9 l-3 -9 l-9 -3 l9 -3 Z" fill="#fffbe0"/>` : ""}
       <g class="hoist" style="--drop:${drop.toFixed(1)}px">
-        <g class="flutter2"><image href="banner-art/banner-${k}.png" x="${cx}" y="${y - pad}" width="${cw}" height="${ch}"/></g>
+        ${p > 0 && !opts.mini ? `<rect x="${mx - 7}" y="${y}" width="14" height="${H - 8 - y}" rx="7" fill="url(#${id}l)" filter="url(#${id}s)"/>` : ""}
+        ${motes}
+        <g class="flutter2" style="transform-origin:${mx}px ${y}px"><image href="banner-art/banner-${k}.png" x="${cx}" y="${y - pad}" width="${cw}" height="${ch}"/></g>
         ${streamers}
       </g></svg>`;
   }
@@ -1012,7 +1064,7 @@
   function keyOf(el) {
     if (!el) return null;
     const d = el.dataset, parts = [];
-    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "tab", "cycle", "status", "view", "go"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
+    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "tab", "cycle", "status", "view", "go"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
     for (const a of ["search", "back", "map", "atlas", "qtoggle"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
     if (el.id) parts.push("#" + el.id);
     return parts.length ? "." + [...el.classList].filter(c => !["focused", "on", "new", "selected"].includes(c))[0] + parts.join("") : null;
@@ -1106,6 +1158,13 @@
     if (d.qtoggle !== undefined) { ui.showUnavailable = !ui.showUnavailable; return rerenderKeepFocus(); }
     if (d.page) { ui.detailPage = d.page; render(); return setFocus($("#content .detail .scroll .focusable") || $("#content .detail [data-back]")); }
     if (d.na) return;
+    if (d.next) { // Next up: open the category's page focused on that item
+      const [kind, id] = d.next.split(/:(.*)/);
+      ui.detailPage = kind; render();
+      const sel = kind === "explore" ? `[data-crit="${id}"]` : kind === "quest" ? `[data-quest="${id}"]` : `[data-flight="${CSS.escape(id)}"]`;
+      if (kind === "quest") { ui.detailPage = "quests"; render(); }
+      return setFocus($(`#content .detail ${sel}`) || $("#content .detail .scroll .focusable"));
+    }
     if (d.story) { const id = Number(d.story); ui.openStories.has(id) ? ui.openStories.delete(id) : ui.openStories.add(id); return rerenderKeepFocus(); }
     if (d.quest || d.flight) return; // A on a quest or flight path: nothing yet (details show in the info line)
     if (d.crit) return setFocus($("[data-map]"));
