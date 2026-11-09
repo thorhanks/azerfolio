@@ -18,6 +18,7 @@ local TILE_SQ = 168      -- round 3: square tiles side by side
 local NEXT_PLATE = 40    -- the "Next up" header plate's height
 local NEXT_ITEM_H = 40
 local NEXT_COLS = 3
+local DASH_OVER = 8      -- the right column's scroll frame reaches this far past it (plate ends, card frames)
 local STANDARD_W = 236   -- design round 2: narrower, the standard fills it
 local DASH_HEADER = 196  -- design round 2: the dashboard's taller header (pages keep bannerHeight)
 
@@ -267,7 +268,6 @@ local function paintRepRow(row, f, width, cols, summary)
     local tagW = tags ~= "" and math.ceil(row.tags:GetStringWidth() or 0) + 1 or 0
     local oneLine = tags == "" or nameW + gap + tagW <= avail
     local h = oneLine and (cols.row or R.row) or R.rowTall
-    row:SetHeight(h)
     row.name:ClearAllPoints(); row.tags:ClearAllPoints()
     if oneLine then
         row.name:SetPoint("LEFT", row, "LEFT", pad, 0)
@@ -277,7 +277,13 @@ local function paintRepRow(row, f, width, cols, summary)
         row.name:SetPoint("TOPLEFT", row, "TOPLEFT", pad, -6)
         row.tags:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -3)
         row.tags:SetWidth(avail)
+        -- Tall enough for the tags however many lines they wrap to (they spilled out of a
+        -- fixed-height row at the minimum window).
+        local nameH = math.max(ns.Theme.size.sm, row.name:GetStringHeight() or 0)
+        local tagsH = math.max(ns.Theme.size.xs, row.tags:GetStringHeight() or 0)
+        h = math.max(h, math.ceil(6 + nameH + 3 + tagsH + 6))
     end
+    row:SetHeight(h)
     row.tags:SetShown(tags ~= "")
     return h
 end
@@ -398,11 +404,23 @@ function Detail.New(page)
     std.banner = ns.ZoneBanner.New(std)
     std.banner:SetPoint("CENTER", std, "CENTER", 0, 0) -- centred in the panel (owner, 2026-11-08)
     d.standard = std
+    -- Refit when the panel itself settles (after a resize the dashboard's own size event alone
+    -- left the pole poking out once, WoWScrnShot_110826_225122).
+    std:SetScript("OnSizeChanged", function() Detail.FitStandard(d) end)
+    -- The right column (tiles, Next up, Reputation) scrolls when the window is too short for it
+    -- (minimum size, WoWScrnShot_110826_224414); the standard stays. The scroll frame starts
+    -- DASH_OVER left of and above the column so the plate's ends and the tiles' frames aren't
+    -- clipped: inside it, the column's origin is (DASH_OVER, -DASH_OVER).
+    local right = W.Scroll(dash)
+    right:SetPoint("TOPLEFT", std, "TOPRIGHT", S.s6 - DASH_OVER, DASH_OVER)
+    right:SetPoint("BOTTOMRIGHT", dash, "BOTTOMRIGHT", DASH_OVER, 0)
+    d.dashScroll = right
+    local col = right.child
     -- Round 3: three square tiles side by side (sized in fillDashboard), no A hints (the owner:
     -- "already obvious"), then "Next up" under them.
     d.tiles = {}
     for i, key in ipairs(T.categoryOrder) do
-        local tile = CreateFrame("Button", nil, dash)
+        local tile = CreateFrame("Button", nil, col)
         tile:SetSize(200, TILE_SQ)
         tile.bg = T.Solid(tile, "cardBg", "BACKGROUND")
         tile.bg:SetAllPoints()
@@ -452,15 +470,15 @@ function Detail.New(page)
         d.tiles[i] = tile
     end
     -- "Next up in <zone>": the painted header plate (three-slice), then up to five items.
-    local nu = T.Plate(dash, NEXT_PLATE)
-    nu.empty = T.Text(dash, "sm", "dim")
+    local nu = T.Plate(col, NEXT_PLATE)
+    nu.empty = T.Text(col, "sm", "dim")
     nu.empty:SetPoint("TOP", nu, "BOTTOM", 0, -S.s3)
     d.nextup = nu
     d.nextItems = {}
     -- The Reputation ledger under Next up (Phase 11): a slim gold title over the painted
     -- divider, the note on the right, one line per faction (placed by LayoutDash).
     local R = L.rep
-    local rep = CreateFrame("Frame", nil, dash)
+    local rep = CreateFrame("Frame", nil, col)
     rep:SetHeight(R.head)
     rep.title = T.Text(rep, "md", "gold")
     rep.title:SetPoint("TOPLEFT", rep, "TOPLEFT", S.s1, 0)
@@ -642,19 +660,31 @@ local PENDING_TEXT = {
     flightmaster = "Talk to any flight master on this continent to check which you know.",
 }
 
+-- Fits the standard to its panel: the art cropped to the panel's shape (cover, don't squash:
+-- the owner found it squished in game), the banner as large as the panel allows. Runs on
+-- every fill and resize (resizing to the minimum left the pole poking out of the panel,
+-- WoWScrnShot_110826_224414).
+local function fitStandard(d)
+    local std = d.standard
+    local pw, ph = std:GetWidth() or 0, std:GetHeight() or 0
+    if std.hasArt and pw > 0 and ph > 0 then
+        local f = math.min(1, (pw / ph) / 2)
+        std.art:SetTexCoord(0.5 - f / 2, 0.5 + f / 2, 0, 1)
+    end
+    local bannerW, bannerH = std.banner:GetWidth() or 0, std.banner:GetHeight() or 0
+    if ph > 0 and bannerH > 0 and bannerW > 0 then
+        std.banner:SetScale(math.max(0.2, math.min(1.4, (ph - 6) / bannerH, (pw - 4) / bannerW)))
+    end
+end
+Detail.FitStandard = fitStandard
+
 local function fillDashboard(d, zone, entry, page)
     local T, S, W = ns.Theme, ns.Theme.space, ns.Widgets
     local rows = {}
     local std = d.standard
     local art = T.ZoneArt(zone.mapID)
     if art then std.art:SetTexture(art) else std.art:SetColorTexture(0.05, 0.03, 0.02, 1) end
-    -- Cover, don't squash: the 2:1 art cropped to the tall panel's shape, centred (owner: it
-    -- looked squished in game).
-    local pw, ph = std:GetWidth() or 0, std:GetHeight() or 0
-    if art and pw > 0 and ph > 0 then
-        local f = math.min(1, (pw / ph) / 2)
-        std.art:SetTexCoord(0.5 - f / 2, 0.5 + f / 2, 0, 1)
-    end
+    std.hasArt = art ~= nil
     -- Round 3: the zone comes alive as it fills, grey and dim at 0% to full colour at 100%.
     local p = math.max(0, math.min(100, entry.percent or 0)) / 100
     if std.art.SetDesaturation then std.art:SetDesaturation(1 - (0.12 + 0.88 * p))
@@ -663,13 +693,7 @@ local function fillDashboard(d, zone, entry, page)
     std.art:SetVertexColor(v, v * 0.96, v * 0.92)
     local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"
     std.banner:Set(entry, faction, page.animateBanner)
-    -- The standard fills the panel (no text under it, round 2), as large as its height and
-    -- width allow.
-    local panelW, panelH = std:GetWidth() or 0, std:GetHeight() or 0
-    local bannerW, bannerH = std.banner:GetWidth() or 0, std.banner:GetHeight() or 0
-    if panelH > 0 and bannerH > 0 and bannerW > 0 then
-        std.banner:SetScale(math.max(0.5, math.min(1.4, (panelH - 6) / bannerH, (panelW - 4) / bannerW)))
-    end
+    fitStandard(d)
     page.animateBanner = false
 
     local ex, q, f = ns.Exploration.ForZone(zone), ns.Quests.ForZone(zone.mapID), ns.FlightPaths.ForZone(zone.mapID)
@@ -754,6 +778,7 @@ local function fillDashboard(d, zone, entry, page)
         local detail = c and not c.pending and string.format("%d of %d  ·  %s", c.completed, c.denominator, line1:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""))
             or line1:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
         tile.item = { key = "tile:" .. key, frame = tile, title = T.category[key].label, detail = detail,
+            scroll = d.dashScroll, topGap = DASH_OVER,
             actionLabel = open and "Open" or nil,
             onActivate = open and function() page:OpenPage(key) end or nil }
         tile:Paint()
@@ -772,8 +797,10 @@ local function fillDashboard(d, zone, entry, page)
     -- Next up in <zone> (round 3): Zones.NextUp picks, each opens its page on that item.
     local nu = d.nextup
     nu:ClearAllPoints()
-    nu:SetPoint("TOPLEFT", std, "TOPRIGHT", S.s6 - 8, -(TILE_SQ + S.s6))
-    nu:SetPoint("RIGHT", d.dash, "RIGHT", 8, 0)
+    local column = d.dashScroll.child
+    d.dashScroll:SetVerticalScroll(0)
+    nu:SetPoint("TOPLEFT", column, "TOPLEFT", 0, -(DASH_OVER + TILE_SQ + S.s6))
+    nu:SetPoint("RIGHT", column, "RIGHT", 0, 0)
     nu:Show()
     local picks = ns.Zones.NextUp(ex, q, f)
     local claimed = entry.state == "complete"
@@ -787,7 +814,7 @@ local function fillDashboard(d, zone, entry, page)
     for i, it in ipairs(picks) do
         local b = d.nextItems[i]
         if not b then
-            b = W.FocusRow(d.dash, NEXT_ITEM_H)
+            b = W.FocusRow(column, NEXT_ITEM_H)
             b.bg = T.Solid(b, "ctlBg", "BACKGROUND", 0.9); b.bg:SetAllPoints()
             b.icon = b:CreateTexture(nil, "ARTWORK"); b.icon:SetSize(22, 22); b.icon:SetPoint("LEFT", S.s2, 0)
             b.name = T.Text(b, "sm", "white"); b.name:SetPoint("TOPLEFT", b.icon, "TOPRIGHT", S.s2, 2)
@@ -805,6 +832,7 @@ local function fillDashboard(d, zone, entry, page)
         b.sub:SetText(sub)
         local kind, id = it.kind, it.id
         b.item = { key = "next:" .. kind .. ":" .. tostring(id), frame = b, title = it.name, detail = sub .. ". A opens it.",
+            scroll = d.dashScroll, topGap = NEXT_PLATE + S.s2,
             actionLabel = "Open", onActivate = function()
                 page:OpenPage(kind)
                 page.pendingFocusKey = Detail.FocusKey(kind, id)
@@ -824,9 +852,10 @@ local function fillDashboard(d, zone, entry, page)
     d.rep:SetShown(factions ~= nil)
     for i, fac in ipairs(factions or {}) do
         local r = d.repRows[i]
-        if not r then r = newRepRow(d.dash); d.repRows[i] = r end
+        if not r then r = newRepRow(column); d.repRows[i] = r end
         local id = fac.factionID
         r.item = { key = Detail.RepKey(id), frame = r, title = fac.name, detail = Detail.RepInfo(fac),
+            scroll = d.dashScroll, topGap = ns.Theme.layout.rep.head + S.s2,
             actionLabel = "Open", onActivate = function() page:OpenRep(id) end }
         r.fac = fac
         r:Show()
@@ -843,12 +872,12 @@ function Detail.LayoutDash(d)
     local S = ns.Theme.space
     local dashW = d.dash:GetWidth() or 0
     if dashW <= 0 then dashW = 900 end
-    local std = d.standard
+    fitStandard(d)
     local tileW = math.floor((dashW - STANDARD_W - S.s6 - 2 * S.s4) / 3)
     for i, tile in ipairs(d.tiles) do
         tile:ClearAllPoints()
         tile:SetSize(tileW, TILE_SQ)
-        tile:SetPoint("TOPLEFT", std, "TOPRIGHT", S.s6 + (i - 1) * (tileW + S.s4), 0)
+        tile:SetPoint("TOPLEFT", d.dashScroll.child, "TOPLEFT", DASH_OVER + (i - 1) * (tileW + S.s4), -DASH_OVER)
         if tile.pipsData then tile.pips:Set(tile.pipsData[1], tile.pipsData[2], tile.pipsData[3], tileW - 2 * S.s3) end
     end
     local width = dashW - STANDARD_W - S.s6
@@ -859,17 +888,22 @@ function Detail.LayoutDash(d)
         b:SetPoint("TOPLEFT", d.nextup, "BOTTOMLEFT", 8 + col * (colW + S.s3), -(S.s2 + r * (NEXT_ITEM_H + S.s2)))
         b:SetWidth(colW)
     end
+    -- The column's height for its scroll frame: the tiles, Next up and its items (or its
+    -- "nothing to suggest" line), then the ledger.
+    local n = d.nextCount or 0
+    local below = n > 0 and (S.s2 + math.ceil(n / NEXT_COLS) * (NEXT_ITEM_H + S.s2))
+        or (S.s3 + (d.nextup.empty:GetStringHeight() or 14))
+    local height = DASH_OVER + TILE_SQ + S.s6 + NEXT_PLATE + below
     -- The Reputation ledger: under Next up's items (or its "nothing to suggest" line).
     if d.repList then
         local R = ns.Theme.layout.rep
-        local n = d.nextCount or 0
-        local below = n > 0 and (S.s2 + math.ceil(n / NEXT_COLS) * (NEXT_ITEM_H + S.s2))
-            or (S.s3 + (d.nextup.empty:GetStringHeight() or 14))
         local rep = d.rep
         rep:ClearAllPoints()
         rep:SetPoint("TOPLEFT", d.nextup, "BOTTOMLEFT", 8, -(below + S.s2))
         rep:SetWidth(width)
-        local cols = d.wide and R.wide or R
+        -- The compact columns in the wide split, and wherever the ledger is narrow (the minimum
+        -- window left the name about 70 px, WoWScrnShot_110826_224828).
+        local cols = (d.wide or width < R.compactBelow) and R.wide or R
         local y = R.head + S.s1
         for i, fac in ipairs(d.repList) do
             local row = d.repRows[i]
@@ -878,7 +912,9 @@ function Detail.LayoutDash(d)
             row:SetWidth(width)
             y = y + paintRepRow(row, fac, width, cols) + R.gap
         end
+        height = height + S.s2 + y
     end
+    d.dashScroll.child:SetHeight(math.max(1, height + S.s2))
 end
 
 ---------------------------------------------------------------------------------------------

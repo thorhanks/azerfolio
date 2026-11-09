@@ -287,6 +287,7 @@ Theme.layout.rep = {
     pad = 12,                  -- inside a row, left and right
     react = 76, ladder = 216, num = 120, colGap = 12,                 -- 740 px window
     wide = { react = 64, ladder = 148, num = 92, colGap = 8 },       -- the wide split's pane
+    compactBelow = 640,        -- a narrower ledger (the minimum window) uses the wide split's columns
     sum = { react = 76, ladder = 260, num = 220, colGap = 12, row = 40 }, -- the faction page's summary
     -- The notched bar (round 3, style.css .repbar): frame-bar housing drawn 14 px at the ends
     -- and 6 px top and bottom; notches and the marker stick out past the well.

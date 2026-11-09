@@ -502,8 +502,11 @@ return function(t)
         t.eq(bar.notches[4].state, "past"); t.eq(bar.notches[5].state, "next"); t.eq(bar.notches[6].state, "ahead")
         t.eq(r2.bar.segs[1].alpha, 0.55, "not met: the fill at half strength")
         t.eq(r3.bar.pos, 188, "Exalted: the marker at the end")
+        -- The right column scrolls (short windows): the ledger is inside it, counted in its height.
+        t.ok(d.dashScroll.child:GetHeight() > 8 + 168 + 24 + 40 + 30 + 3 * 32, d.dashScroll.child:GetHeight())
         -- Each faction is its own focus stop, after the tiles and Next up.
         local rows = page(ns):GetFocusRows()
+        t.eq(rows[#rows].items[1].scroll, d.dashScroll, "focus scrolls the column")
         t.eq(rows[#rows].items[1].key, "rep:609"); t.eq(rows[#rows - 2].items[1].key, "rep:21")
         t.eq(rows[#rows - 2].items[1].detail, "Friendly, 1,800 to Honored. A shows the 4 quests here that raise it.")
         ns.Focus.FocusKey("rep:21")
@@ -555,10 +558,11 @@ return function(t)
         t.ok(labels["zones wide, reputation"] and labels["zones wide, faction page"], "and in the wide split")
         local rep = {}
         for _, s in ipairs(ns.UI.ShotSteps("reputation")) do if not s.skip then rep[#rep + 1] = s.label end end
-        t.eq(table.concat(rep, ", "), "zone detail, reputation, zone detail, faction page, zones wide, reputation, zones wide, faction page")
+        t.eq(table.concat(rep, ", "), "zone detail, reputation, zone detail, faction page, zone detail, reputation at minimum size, "
+            .. "zones wide, reputation, zones wide, faction page")
         slash("shots reputation")
         wow.runTimers()
-        t.eq(_G.screenshotsTaken, 4)
+        t.eq(_G.screenshotsTaken, 5)
         t.eq(page(ns).mode, "list", "the shots leave the catalogue as it was")
         restore()
         -- /azf debug reputation: traces the picks, the watched zones and the probed quests.

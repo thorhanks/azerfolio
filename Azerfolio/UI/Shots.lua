@@ -82,9 +82,20 @@ local function repSteps(zones, here, wide)
             { label = "zones wide, faction page", fn = openPage },
         }
     end
+    local minW, minH = ns.Config.RANGES["window.width"][1], ns.Config.RANGES["window.height"][1]
     return {
         { label = "zone detail, reputation", fn = function() openDetail(z); focusFirst() end },
         { label = "zone detail, faction page", fn = openPage },
+        -- The smallest window: the dashboard's right column scrolls to the last faction.
+        { label = "zone detail, reputation at minimum size", fn = function()
+            openDetail(z); UI.FitSize(minW, minH)
+            -- Focus once the layout has settled (the column's scroll range is only known after
+            -- the resize's size events), as when a player resizes and then moves.
+            C_Timer.After(0.2, function()
+                local list = ns.Reputation.ForZone(z)
+                if list then ns.Focus.FocusKey(ns.ZoneDetail.RepKey(list[#list].factionID)); UI.RefreshHints() end
+            end)
+        end },
     }
 end
 
