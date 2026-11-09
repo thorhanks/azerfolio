@@ -54,6 +54,7 @@ end
 
 local AREAS = {
     zone = { [12] = 1429, [9] = 1429, [16732] = 1437, [1519] = 1453 },
+    excludedQuests = { [5805] = true },
     dungeon = { [133] = true }, raid = { [3456] = true }, battleground = { [2597] = true },
 }
 
@@ -107,13 +108,14 @@ return function(t)
         Q.Add(i, 9, 25, 0, AREAS)       -- unmapped
         Q.Add(i, 10, nil, nil, AREAS, false) -- read error
         Q.Add(i, 11, 1519, 0, AREAS)    -- Stormwind City: capitals count
-        t.eq(i.total, 11)
+        Q.Add(i, 5805, 12, 0, AREAS)    -- Welcome!: excluded by the curated list
+        t.eq(i.total, 12)
         t.eq(i.counted, 3)
         t.same(i.zones[1429].ids, { 1, 2 })
         t.eq(i.zones[1429].repeatable, 1)
         t.same(i.zones[1453].ids, { 11 })
         t.same(i.left, { repeatable = 1, sort = 1, nozone = 1, dungeon = 1, raid = 1, battleground = 1,
-            unmapped = 1, error = 1 })
+            unmapped = 1, excluded = 1, error = 1 })
         t.same(i.instances[133], { kind = "dungeon", ids = { 4 } })
         t.same(i.instances[3456], { kind = "raid", ids = { 5 } })
         t.eq(i.unmapped[25], 1)

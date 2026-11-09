@@ -28,7 +28,7 @@ Quests.START_DELAY = 5   -- seconds after AZF_READY: after the exploration basel
 Quests.REFRESH_DELAY = 1 -- after QUEST_TURNED_IN, so the completed list has the quest [unverified]
 
 -- Reasons a quest isn't in a zone count. "dungeon" and "raid" are kept per instance.
-Quests.REASONS = { "repeatable", "sort", "nozone", "dungeon", "raid", "battleground", "unmapped", "error" }
+Quests.REASONS = { "repeatable", "sort", "nozone", "dungeon", "raid", "battleground", "unmapped", "excluded", "error" }
 
 local function rules() return ns.QuestRules end
 
@@ -100,6 +100,11 @@ function Quests.Add(index, id, zoneOrSort, specialFlags, areas, ok, questFlags)
     if ok == false then
         left.error = left.error + 1
         return "error"
+    end
+    -- Quests the curated data rules out (can't be obtained in this client): left out.
+    if areas and areas.excludedQuests and areas.excludedQuests[id] then
+        left.excluded = left.excluded + 1
+        return "excluded"
     end
     local kind, key = Quests.Place(zoneOrSort, areas)
     if Quests.IsRepeatable(specialFlags, questFlags) then
@@ -634,8 +639,8 @@ function Quests.DebugReport(option)
     local t0 = clock()
     ns.Printf("Quests: %d in QuestieDB, %d in zone counts (built in %d frames, %s ms work, %s ms max frame)",
         i.total, i.counted, state.steps, tostring(state.workMs), tostring(state.maxStepMs))
-    ns.Printf("  left out: repeatable %d, quest sorts %d, no zone %d, dungeon %d, raid %d, battleground %d, unmapped %d, errors %d",
-        L.repeatable, L.sort, L.nozone, L.dungeon, L.raid, L.battleground, L.unmapped, L.error)
+    ns.Printf("  left out: repeatable %d, quest sorts %d, no zone %d, dungeon %d, raid %d, battleground %d, unmapped %d, excluded %d, errors %d",
+        L.repeatable, L.sort, L.nozone, L.dungeon, L.raid, L.battleground, L.unmapped, L.excluded, L.error)
 
     -- Our zone list against the index: zones with no quests, and indexed maps we don't list.
     local listed, zones, empty, notListed = {}, {}, {}, {}

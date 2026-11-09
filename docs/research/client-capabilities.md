@@ -163,7 +163,7 @@ The owner uses the client's gamepad UI (button prompts, "Focus/Unfocus Interface
   | `GAMEPAD_STICK_LEFT/RIGHT_PRESS` | `PADLSTICK`, `PADRSTICK` | stick clicks |
   | `GAMEPAD_MENU_LEFT/RIGHT` | `PADBACK`, `PADFORWARD` | View, Menu |
 
-- `EnableGamePadStick(true)` delivered `OnGamePadStick` for the **left** stick (`"Left"`, x/y in −1…1). No right-stick samples were recorded. Either the owner didn't move it during the probe, or the camera keeps it. **Open:** confirm in Phase 4. Fallback: scroll with LT/RT (page) and the D-pad (move focus, auto-scroll).
+- `EnableGamePadStick(true)` delivered `OnGamePadStick` for the **left** stick (`"Left"`, x/y in −1…1). No right-stick samples were recorded. Either the owner didn't move it during the probe, or the camera keeps it. **Settled (owner, 2026-11-08) [verified-ingame]:** the right stick stays locked to the camera; Azerfolio scrolls with LT/RT (page) and the D-pad (move focus, auto-scroll).
 - `FocusGamepad`/`UnfocusGamepad` don't exist as frame methods (GatherLite's are its own). `SetPropagateKeyboardInput` exists; `SetPropagateGamepadInput` doesn't.
 - `GAMEPAD_SMARTNAV_CURSOR_COLOR_CODE` = `|cffffe600` (Blizzard's focus cursor yellow). Worth matching for a native feel.
 - The modifiers `GAMEPAD_MOD_LEFT` = SHIFT and `GAMEPAD_MOD_RIGHT` = CTRL mean the owner's bindings can be combos (for the open/close key binding).

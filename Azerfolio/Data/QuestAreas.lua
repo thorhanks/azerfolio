@@ -120,4 +120,15 @@ ns.QuestAreaData = {
         [16606] = true, -- Darkspear Islands: a PvP battleground (map type 6, level-bracket PvP
                         -- quests per faction); left out, owner 2026-11-08
     },
+    -- Quests that can't be obtained in this client: left out of every count (reason
+    -- "excluded"). The "Welcome!" quests are started by a starting zone's gift voucher (the
+    -- old Collector's Edition item); the owner found no voucher in game (2026-11-08).
+    excludedQuests = {
+        [5805] = true,  -- Welcome! (Northshire Gift Voucher, item 14646)
+        [5841] = true,  -- Welcome! (Coldridge Valley)
+        [5842] = true,  -- Welcome! (Shadowglen)
+        [5843] = true,  -- Welcome! (Valley of Trials)
+        [5844] = true,  -- Welcome! (Camp Narache)
+        [5847] = true,  -- Welcome! (Deathknell)
+    },
 }
