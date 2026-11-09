@@ -8,6 +8,8 @@ v1.2 (Phase 10, celebrations and the Atlas) is done: version 1.2.0, closed 2026-
 
 Keep this file short: one compact entry per step, with measurements. When a phase closes, move it to `docs/history/`.
 
+In-game checks that wait on real play (a first-time faction, a level-60 character, a real zone completion) are listed in [open-checks.md](open-checks.md). Phase 11 closes when its R1 and R2 are done.
+
 ## Next
 
 **Phase 11: zone reputation (v1.3)**, plan §6 Phase 11, spec §7.8 and §8.9. Next: task 5, checking on both characters and settling the open questions.

@@ -6,6 +6,7 @@ Read before working:
 - [project-spec.md](project-spec.md): what we're building.
 - [project-implementation-plan.md](project-implementation-plan.md): how, the phases, and the decision log.
 - [docs/implementation-status.md](docs/implementation-status.md): where we are and what's next.
+- [docs/open-checks.md](docs/open-checks.md): in-game checks that wait on real play. Add one whenever a check can't be done now; move it to Done when confirmed.
 - [docs/research/client-capabilities.md](docs/research/client-capabilities.md) and [docs/research/exploration-validation.md](docs/research/exploration-validation.md): verified client facts (APIs, exploration, gamepad, art formats).
 - [mockups/DESIGN.md](mockups/DESIGN.md): **the approved UI design** (design system, screens, gamepad map). The Lua UI must follow it; the mockup at http://localhost:8765 is the visual reference.
 - [art/style-guide.md](art/style-guide.md): zone art rules and pipeline.
