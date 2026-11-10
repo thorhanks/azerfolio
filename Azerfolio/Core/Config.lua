@@ -23,6 +23,7 @@ Config.ACCOUNT_DEFAULTS = {
         sort = "recommended",
         showUnavailable = false, -- Zone Detail, Quests page: show quests you can't do
     },
+    reputation = { filter = "all", sort = "group" }, -- Reputation tab toolbar (Phase 12)
     -- 140 = top-left of the minimap; other addons' buttons sat at about 206 and 228 on the
     -- owner's client (WoWScrnShot_110726_181323).
     launcher = { minimapAngle = 140, minimapHidden = false },
@@ -42,7 +43,9 @@ Config.CHAR_DEFAULTS = {
 
 -- Allowed values, by dotted path. Anything else resets to the default.
 Config.ENUMS = {
-    ["lastTab"] = { overview = true, zones = true },
+    ["lastTab"] = { overview = true, zones = true, reputation = true },
+    ["reputation.filter"] = { all = true, met = true, unmet = true },
+    ["reputation.sort"] = { group = true, closest = true, name = true },
     ["window.point"] = {
         CENTER = true, TOP = true, BOTTOM = true, LEFT = true, RIGHT = true,
         TOPLEFT = true, TOPRIGHT = true, BOTTOMLEFT = true, BOTTOMRIGHT = true,

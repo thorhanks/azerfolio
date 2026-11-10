@@ -48,6 +48,7 @@ UI\Pages\Overview.lua
 UI\Pages\ZonesCatalogue.lua
 UI\Pages\ZoneDetail.lua
 UI\Pages\Zones.lua
+UI\Pages\Reputation.lua
 UI\Celebration.lua
 UI\Shots.lua
 UI\Launcher.lua

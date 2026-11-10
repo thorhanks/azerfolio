@@ -363,8 +363,9 @@ end
 -- a quest whose state isn't known is counted as unknown.
 -- Returns sources = { { kind, key, classFile, forYou, count, oneTime, repeats, done, left,
 --   unknown, amount (base, one-time), amountLeft, quests } } (empty sources dropped, SourceList
---   order) and reach = { gain, count, repeats, unknown, done, target, reaction, capped,
---   lowersRival } (target nil without a standing).
+--   order) and reach = { gain, count, repeats, unknown, done, target, reaction, into, span,
+--   capped, lowersRival } (target nil without a standing; into / span place the target in its
+--   reaction).
 function Rules.Evaluate(fc, stateOf, opts)
     opts = opts or {}
     local isRival = {}
@@ -414,6 +415,10 @@ function Rules.Evaluate(fc, stateOf, opts)
         reach.capped = raw > Rules.MAX_STANDING
         reach.target = math.min(raw, Rules.MAX_STANDING)
         reach.reaction = Rules.ReactionAt(reach.target)
+        -- Where the target sits in its reaction (the bar's reach mark).
+        local lo = Rules.THRESHOLDS[reach.reaction]
+        local hi = Rules.THRESHOLDS[reach.reaction + 1] or Rules.MAX_STANDING
+        reach.into, reach.span = reach.target - lo, hi - lo
     end
     return out, reach
 end

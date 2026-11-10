@@ -252,8 +252,9 @@ end
 -- reaction range, each reaction an equal eighth. The fill runs through each reaction's colour
 -- (bar-fill-white tinted) up to your standing; a notch with gold diamond caps marks each
 -- reaction change (passed gold, the next one lit, later ones bronze); a bright marker with a
--- glow in the current colour sits at your position. :Set(f, width, height) with f a
--- ns.Reputation faction.
+-- glow in the current colour sits at your position. :Set(f, width, height, reach) with f a
+-- ns.Reputation faction; reach (Reputation tab) adds the hatched ghost to where the quests left
+-- would take you. Exalted's eighth is gold (owner, 2026-11-09).
 function W.RepBar(parent)
     local T = ns.Theme
     local B = T.layout.rep.bar
@@ -287,10 +288,28 @@ function W.RepBar(parent)
         f.edge = W.Edge(f, "ARTWORK")
         f.edge:SetColor("cardEdge")
     end
+    -- The reach (Reputation tab, Phase 12): a hatched ghost from your marker to where the quests
+    -- left would take you, ended by a dashed mark. Its own frame clips the stripes to the well.
+    local ghost = CreateFrame("Frame", nil, f)
+    ghost:SetFrameLevel(f:GetFrameLevel() + 1)
+    if ghost.SetClipsChildren then ghost:SetClipsChildren(true) end
+    ghost.tint = ghost:CreateTexture(nil, "BACKGROUND")
+    ghost.tint:SetAllPoints()
+    ghost.stripes = {}
+    ghost:Hide()
+    f.ghost = ghost
     -- Notches above the housing: a dark outline, the gold line, a diamond cap at each end.
     -- Diamonds are squares turned 45° (Texture:SetRotation, pcall'd); without it, squares.
     local over = CreateFrame("Frame", nil, f)
     over:SetAllPoints()
+    over:SetFrameLevel(f:GetFrameLevel() + 2)
+    f.dashes = {}
+    for i = 1, 4 do
+        local d = over:CreateTexture(nil, "ARTWORK", nil, 7)
+        d:SetColorTexture(1, 1, 1, 0.85)
+        d:Hide()
+        f.dashes[i] = d
+    end
     f.notches = {}
     for i = 1, 7 do
         local n = {}
@@ -316,7 +335,7 @@ function W.RepBar(parent)
     f.mark = over:CreateTexture(nil, "ARTWORK", nil, 6)
     f.mark:SetColorTexture(1, 1, 1, 1)
 
-    function f:Set(fac, width, height)
+    function f:Set(fac, width, height, reach)
         width, height = width or T.layout.rep.ladder, height or B.height
         self:SetSize(width, height)
         local innerW = width - 2 * B.edgeX
@@ -375,6 +394,55 @@ function W.RepBar(parent)
         if not okR then right:SetColorTexture(c[1], c[2], c[3], a * 0.4) end
         for _, t in ipairs({ self.mark, self.markShade, left, right }) do t:SetShown(shown) end
         self.pos = pos
+        self:SetReach(reach, seg, innerH, pos, shown)
+    end
+
+    -- The reach ghost and its dashed end (reach = ReputationRules.Evaluate's reach, or nil).
+    function f:SetReach(reach, seg, innerH, pos, shown)
+        local g = self.ghost
+        local on = shown and reach and reach.target and (reach.gain or 0) > 0 and reach.reaction and reach.span
+            and reach.span > 0
+        if not on then
+            g:Hide()
+            for _, d in ipairs(self.dashes) do d:Hide() end
+            return
+        end
+        local to = ((reach.reaction - 1) + math.min(1, (reach.into or 0) / reach.span)) * seg
+        local w = math.max(1, to - pos)
+        g:ClearAllPoints()
+        g:SetPoint("TOPLEFT", self.inner, "TOPLEFT", pos, 0)
+        g:SetSize(w, innerH)
+        local c = T.reaction.fill[reach.reaction] or T.color.white
+        g.tint:SetColorTexture(c[1], c[2], c[3], 0.22)
+        local step = T.layout.repTab.hatch
+        local n = math.ceil((w + innerH) / step) + 1
+        for i = 1, n do
+            local s = g.stripes[i]
+            if not s then
+                s = g:CreateTexture(nil, "ARTWORK")
+                s:SetTexture(T.files.white)
+                if s.SetRotation then pcall(s.SetRotation, s, math.pi / 4) end
+                g.stripes[i] = s
+            end
+            s:ClearAllPoints()
+            s:SetSize(2, innerH * 1.6)
+            s:SetPoint("CENTER", g, "LEFT", (i - 1) * step - innerH / 2, 0)
+            s:SetVertexColor(c[1], c[2], c[3])
+            s:SetAlpha(0.55)
+            s:Show()
+        end
+        for i = n + 1, #g.stripes do g.stripes[i]:Hide() end
+        g:Show()
+        -- Dashed end mark: short pieces from above the well to below it.
+        local B = T.layout.rep.bar
+        local total = innerH + 2 * (B.markOut + 2)
+        local dash = total / (2 * #self.dashes - 1)
+        for i, d in ipairs(self.dashes) do
+            d:ClearAllPoints()
+            d:SetSize(2, dash)
+            d:SetPoint("TOP", self.inner, "TOPLEFT", to, B.markOut + 2 - (i - 1) * 2 * dash)
+            d:Show()
+        end
     end
     return f
 end

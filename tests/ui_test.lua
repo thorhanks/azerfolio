@@ -541,6 +541,131 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
+    -- The Reputation tab over fixed ns.Reputation.AllFactions results (shaped like Reputation.All).
+    local function tabStub(ns)
+        local function src(kind, key, name, o)
+            local s = { kind = kind, key = key, name = name, count = 3, oneTime = 3, repeats = 0, done = 1, left = 2,
+                unknown = 0, amount = 225, amountLeft = 150, quests = {} }
+            for k, v in pairs(o or {}) do s[k] = v end
+            return s
+        end
+        local list = {
+            { factionID = 72, name = "Stormwind", reaction = 5, standing = 6600, into = 3600, span = 6000, left = 2400,
+                met = true, watched = true, group = "home", raising = 60, sourcesStatus = "ready", rivals = {},
+                sources = { src("zone", 1429, "Elwynn Forest", { zoneFaction = false }) }, artMap = 1429,
+                reach = { gain = 150, count = 2, repeats = 0, unknown = 0, done = 1, lowersRival = 0, target = 6750,
+                    reaction = 5, into = 3750, span = 6000 } },
+            { factionID = 21, name = "Booty Bay", reaction = 4, standing = 500, into = 500, span = 3000, left = 2500,
+                met = false, gain = 350, group = "zones", raising = 40, sourcesStatus = "ready", description = "The goblin port.",
+                rivals = { { factionID = 87, name = "Bloodsail Buccaneers" } }, artMap = 1429,
+                sources = { src("zone", 1429, "Elwynn Forest", { zoneFaction = true }) },
+                reach = { gain = 3000, count = 20, repeats = 2, unknown = 1, done = 0, lowersRival = 15, target = 3500,
+                    reaction = 5, into = 500, span = 6000 } },
+            { factionID = 87, name = "Bloodsail Buccaneers", reaction = 1, standing = -6500, into = 35500, span = 36000,
+                left = 500, met = false, atWar = true, group = "zones", raising = 3, sourcesStatus = "ready",
+                rivals = { { factionID = 21, name = "Booty Bay" } }, sources = {}, reach = { gain = 0, count = 0, repeats = 0, unknown = 0 } },
+            { factionID = 349, name = "Ravenholdt", reaction = 4, standing = 0, into = 0, span = 3000, left = 3000, met = false,
+                group = "other", raising = 11, sourcesStatus = "ready", rivals = {},
+                sources = { src("class", -162, "Rogue", { forYou = false }) }, reach = { gain = 0, count = 0, repeats = 0, unknown = 0 } },
+            { factionID = 609, name = "Cenarion Circle", reaction = 8, standing = 42999, maxed = true, met = true,
+                group = "zones", raising = 100, sourcesStatus = "ready", rivals = {}, sources = {}, reach = { gain = 0, count = 0 } },
+            { factionID = 2747, name = "Barkskin Burrow", reaction = 2, standing = -3400, into = 2600, span = 3000, left = 400,
+                met = true, atWar = true, group = "none", raising = 0, sourcesStatus = "ready", rivals = {}, sources = {} },
+        }
+        for _, f in ipairs(list) do
+            f.main = f.sources[1]
+        end
+        local real = ns.Reputation.AllFactions
+        ns.Reputation.AllFactions = function() return list end
+        local calls = {}
+        _G.C_Reputation = { SetWatchedFactionByID = function(id) calls[#calls + 1] = id end }
+        return list, calls, function() ns.Reputation.AllFactions = real; _G.C_Reputation = nil end
+    end
+
+    t.test("reputation tab: strip, groups, tags, sort, page, zone link, watch, split view", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local restoreZone = repStub(ns)
+        local _, calls, restore = tabStub(ns)
+        slash("")
+        ns.UI.SelectTab("reputation")
+        local rp = ns.UI.GetFrame().pages.reputation
+        t.ok(rp and rp:IsShown(), "the third tab")
+        t.eq(rp.cells[1].count:GetText(), "1", "Hated: Bloodsail")
+        t.eq(rp.cells[4].count:GetText(), "2", "Neutral: Booty Bay, Ravenholdt")
+        t.eq(rp.cells[8].count:GetText(), "1", "Exalted")
+        t.eq(rp.sumMet:GetText(), "Met |cffffd1003|r of 6")
+        t.eq(rp.sumEx:GetText(), "Exalted |cffffd1001|r of 6")
+        t.eq(rp.headers[1].text:GetText(), "Home")
+        t.eq(rp.headers[1].count:GetText(), "1 of 1 met")
+        local bb = rp.byID[21]
+        local tg = bb.tags:GetText()
+        t.ok(tg:find("Not met yet") and tg:find("+350 today") and tg:find("Rival of Bloodsail"), tg)
+        t.ok(rp.byID[72].tags:GetText():find("Watched"), "Stormwind is watched")
+        t.eq(rp.byID[609].num:GetText(), "", "Exalted: no numbers")
+        local gold = ns.Theme.reaction.text[8]
+        t.ok(gold[1] == 1 and gold[3] < 0.4, "Exalted text is gold (#ffd24d)")
+        t.ok(ns.Theme.reaction.fill[8][3] < 0.3, "and its eighth of the bar (#ffc933)")
+        t.eq(rp.byID[21].num:GetText(), "500 / 3,000")
+        -- Y cycles the sort; Closest shows what's left to the next reaction.
+        press(ns, "PAD4")
+        t.eq(ns.db.reputation.sort, "closest")
+        t.eq(rp.headers[1].text:GetText(), "Closest to the next reaction")
+        t.eq(rp.byID[21].num:GetText(), "2,500 to Friendly")
+        press(ns, "PAD4"); press(ns, "PAD4")
+        t.eq(ns.db.reputation.sort, "group")
+        -- A on Booty Bay: its page with the reach, the description, the seesaw, the places.
+        ns.Focus.FocusKey("f:21")
+        press(ns, "PAD1")
+        t.eq(rp.mode, "detail")
+        local d = rp.detail
+        t.eq(d.banner.name:GetText(), "Booty Bay")
+        local reach = d.reach:GetText()
+        t.ok(reach:find("about") and reach:find("+3,000") and reach:find("from 20 quests") and reach:find("Friendly")
+            and reach:find("2 repeatable") and reach:find("Most of them lower Bloodsail"), reach)
+        t.eq(d.desc:GetText(), "The goblin port.")
+        t.eq(d.seesaw:IsShown(), true)
+        t.eq(ns.Focus.Current().key, "s:zone:1429")
+        t.eq(d.sum.bar.ghost:IsShown(), true, "the reach ghost")
+        -- A on the zone: its faction page on the Zones tab; B comes back here.
+        press(ns, "PAD1")
+        t.eq(ns.UI.CurrentTab(), "zones")
+        t.eq(page(ns).detailPage, "rep:21")
+        press(ns, "PAD2")
+        t.eq(ns.UI.CurrentTab(), "reputation")
+        press(ns, "PAD2")
+        t.eq(rp.mode, "list")
+        t.eq(ns.Focus.Current().key, "f:21", "back on the same faction")
+        -- X: only met factions; Stormwind is watched, so X stops watching (0).
+        ns.Focus.FocusKey("f:21")
+        press(ns, "PAD3")
+        t.eq(#calls, 0, "not met yet: no watch")
+        ns.Focus.FocusKey("f:72")
+        press(ns, "PAD3")
+        t.same(calls, { 0 })
+        -- A class source for another class: listed, not for you, no A.
+        ns.Focus.FocusKey("f:349")
+        press(ns, "PAD1")
+        t.ok(d.reach:GetText():find("Not for you"), d.reach:GetText())
+        t.eq(ns.Focus.Current().onActivate, nil)
+        press(ns, "PAD2")
+        -- The Met filter.
+        ns.db.reputation.filter = "met"
+        rp:Redraw()
+        t.eq(#rp.data.factions, 3)
+        t.eq(rp.count:GetText(), "3 of 6 factions")
+        ns.db.reputation.filter = "all"
+        -- Wide: the split view, the page beside the list following focus.
+        ns.UI.FitSize(1640, 740)
+        t.eq(rp.wide, true)
+        t.eq(rp.detail:IsShown(), true)
+        ns.Focus.FocusKey("f:87")
+        t.eq(rp.selID, 87)
+        t.eq(rp.detail.banner.name:GetText(), "Bloodsail Buccaneers")
+        t.eq(#ns.Debug.errors, 0)
+        restore(); restoreZone()
+    end)
+
     t.test("zone reputation: standing updates redraw the ledger; shots cover the ledger and the page", function()
         padUI = true
         local ns = boot({ schemaVersion = 4, lastTab = "zones" })
@@ -558,11 +683,14 @@ return function(t)
         t.ok(labels["zones wide, reputation"] and labels["zones wide, faction page"], "and in the wide split")
         local rep = {}
         for _, s in ipairs(ns.UI.ShotSteps("reputation")) do if not s.skip then rep[#rep + 1] = s.label end end
-        t.eq(table.concat(rep, ", "), "zone detail, reputation, zone detail, faction page, zone detail, reputation at minimum size, "
-            .. "zones wide, reputation, zones wide, faction page")
+        t.eq(table.concat(rep, ", "), "reputation, reputation, next section, reputation, closest sort, reputation, faction page, "
+            .. "reputation at minimum size, reputation page at minimum size, "
+            .. "zone detail, reputation, zone detail, faction page, zone detail, reputation at minimum size, "
+            .. "reputation wide, reputation wide, in the page, zones wide, reputation, zones wide, faction page")
         slash("shots reputation")
         wow.runTimers()
-        t.eq(_G.screenshotsTaken, 5)
+        t.eq(_G.screenshotsTaken, 13, "the tab's 8 and the zone ledger's 5")
+        t.eq(ns.db.reputation.sort, "group", "the tab's sort restored")
         t.eq(page(ns).mode, "list", "the shots leave the catalogue as it was")
         restore()
         -- /azf debug reputation: traces the picks, the watched zones and the probed quests.
@@ -1014,12 +1142,14 @@ return function(t)
 
     t.test("tabs are registered in order and wrap around", function()
         local ns = boot()
-        t.eq(#ns.UI.tabs, 2)
+        t.eq(#ns.UI.tabs, 3)
         t.eq(ns.UI.tabs[1].id, "overview")
         t.eq(ns.UI.tabs[2].id, "zones")
+        t.eq(ns.UI.tabs[3].id, "reputation")
         t.eq(ns.UI.TabAfter("overview", 1), "zones")
-        t.eq(ns.UI.TabAfter("zones", 1), "overview")
-        t.eq(ns.UI.TabAfter("overview", -1), "zones")
+        t.eq(ns.UI.TabAfter("zones", 1), "reputation")
+        t.eq(ns.UI.TabAfter("reputation", 1), "overview")
+        t.eq(ns.UI.TabAfter("overview", -1), "reputation")
     end)
 
     t.test("/azf opens and closes the window; Escape is registered", function()
@@ -1145,7 +1275,7 @@ return function(t)
         local pictures = 0
         for _, s in ipairs(ns.UI.ShotSteps()) do if not s.skip then pictures = pictures + 1 end end
         t.eq(_G.screenshotsTaken, pictures)
-        t.eq(_G.screenshotsTaken, 16, "12 before, the zone's three category pages and the Atlas")
+        t.eq(_G.screenshotsTaken, 20, "12 before, the zone's three category pages, the Atlas, the Reputation tab (2) and its split (2)")
         t.eq(ns.db.zones.displayMode, "cards", "view restored")
         t.eq(ns.UI.GetFrame().pages.zones.popup:IsShown(), false, "popup closed")
         local labels = {}

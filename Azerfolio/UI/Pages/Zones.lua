@@ -332,6 +332,28 @@ local function build(parent)
         self.returnTo = returnTo
     end
 
+    -- Opens a zone from the Reputation tab: its faction page when the faction is one of the
+    -- zone's own (spec §7.8), else its dashboard. B returns to `returnTo`. The caller selects
+    -- the Zones tab first. Returns false when the zone isn't in the zone list.
+    function page:ShowZoneRep(mapID, factionID, returnTo)
+        local zone = cat:ZoneFor(mapID)
+        if not zone then
+            for _, e in ipairs(ns.Zones.All() or {}) do
+                if e.mapID == mapID then
+                    zone = { mapID = e.mapID, name = e.name, continent = e.continent, minLevel = e.minLevel,
+                        maxLevel = e.maxLevel, entry = e }
+                end
+            end
+        end
+        if not zone then return false end
+        if self.popup:IsShown() then self.popup:Close() end
+        self:Open(zone)
+        if ns.Reputation.Faction(zone, factionID) then self:OpenRep(factionID) end
+        if self.mode ~= "detail" then self.mode = "detail"; refresh() end
+        self.returnTo = returnTo
+        return true
+    end
+
     -- Shows the catalogue with one status filter (the Overview's Zones card).
     function page:ShowStatus(value)
         if self.popup:IsShown() then self.popup:Close() end

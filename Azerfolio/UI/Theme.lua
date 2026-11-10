@@ -264,10 +264,14 @@ Theme.layout.catCount = 58       -- "125/125" right of a bar (44 wrapped "42/68"
 -- Zone reputation (Phase 11, mockups/DESIGN.md "Zone reputation", style.css .repsec/.frep/
 -- .repbar). Not a completion category: no state colours, the client's reaction colours.
 Theme.reaction = {
-    -- Reaction label text, 1..8 (Hated/Hostile red, Unfriendly orange, Neutral yellow, Friendly up green).
-    text = { hex("ff7a5c"), hex("ff7a5c"), hex("ff8a3d"), hex("ffd24d"), hex("4cd964"), hex("4cd964"), hex("4cd964"), hex("4cd964") },
+    -- Reaction label text, 1..8 (Hated/Hostile red, Unfriendly orange, Neutral yellow, Friendly
+    -- to Revered green, Exalted gold: owner 2026-11-09, mockups/DESIGN.md "Gold beyond completion").
+    text = { hex("ff7a5c"), hex("ff7a5c"), hex("ff8a3d"), hex("ffd24d"), hex("4cd964"), hex("4cd964"), hex("4cd964"), hex("ffd24d") },
     -- The painted fill's tints (brighter than FACTION_BAR_COLORS: the pale fill isn't pure white).
-    fill = { hex("f0644a"), hex("f0644a"), hex("f07018"), hex("ffd21e"), hex("22d046"), hex("22d046"), hex("22d046"), hex("22d046") },
+    fill = { hex("f0644a"), hex("f0644a"), hex("f07018"), hex("ffd21e"), hex("22d046"), hex("22d046"), hex("22d046"), hex("ffc933") },
+    -- The standing strip's plaque tints (style.css .repdist .dcell --c), and the emblem names.
+    strip = { hex("f0644a"), hex("f0644a"), hex("f07018"), hex("ffd21e"), hex("22d046"), hex("22d046"), hex("22d046"), hex("ffc933") },
+    emblem = { "rep-hated", "rep-hostile", "rep-unfriendly", "rep-neutral", "rep-friendly", "rep-honored", "rep-revered", "rep-exalted" },
     -- Fallback labels when the client's FACTION_STANDING_LABEL1..8 are missing.
     labels = { "Hated", "Hostile", "Unfriendly", "Neutral", "Friendly", "Honored", "Revered", "Exalted" },
     unmetFill = 0.55,          -- the bar's fill alpha for a faction not met yet
@@ -298,6 +302,80 @@ Theme.layout.rep = {
         notchPast = hex("c9a24a"), notchNext = hex("ffe08a"), notchAhead = hex("8a6a1c"),
     },
 }
+
+-- Reputation tab (Phase 12, mockups/DESIGN.md "Reputation tab", style.css .repdist/.tabrow/
+-- .srow/.reach/.seesaw).
+Theme.color.repGain = hex("7ee08a")   -- "+n today"
+Theme.color.repWatch = { 1, 0.82, 0 } -- "Watched"
+Theme.color.repFaint = hex("7a6e5c")  -- a "not for you" source
+Theme.layout.repTab = {
+    strip = 56,                -- the standing strip's height (cells 44 + padding)
+    cellGap = 4, emblem = 32, emblemSmall = 24,
+    cellLabelMin = 96,         -- narrower cells drop the reaction label (the info line names it)
+    sum = 170,                 -- "Met n of m · Exalted n of m" column
+    plaqueCorner = 10,         -- frame-plaque's drawn corner (12 px of its 256x128)
+    clothTint = 0.62, clothEmpty = 0.18, -- the cloth fill's tint strength, full and empty cells
+    row = 40, rowGap = 3,
+    thumb = { 56, 30 }, thumbWide = { 44, 26 },
+    cols = { react = 76, ladder = 260, num = 128, colGap = 12, row = 40 },
+    wideCols = { react = 64, ladder = 148, num = 96, colGap = 8, row = 40 },
+    splitList = 640,           -- the wide split's list column (style.css .repsplit)
+    pageSum = { react = 76, ladder = 260, num = 220, colGap = 12, row = 40 },
+    pageSumWide = { react = 70, ladder = 220, num = 170, colGap = 10, row = 40 },
+    srcRow = 40, srcCount = 90, srcAmt = 80,
+    seesawRow = 32,
+    hatch = 6,                 -- the reach ghost's stripe spacing
+    -- Glyphs for places that have no zone art [unverified: classic icon paths, checked by shots].
+    kindIcon = {
+        dungeon = "Interface\\Icons\\INV_Misc_Key_03", raid = "Interface\\Icons\\INV_Misc_Head_Dragon_01",
+        battleground = "Interface\\Icons\\INV_BannerPVP_02", profession = "Interface\\Icons\\Trade_BlackSmithing",
+        class = "Interface\\Icons\\INV_Misc_Book_09", event = "Interface\\Icons\\INV_Misc_Ticket_Darkmoon_01",
+        other = "Interface\\Icons\\INV_Misc_Note_01", none = "Interface\\Icons\\INV_Misc_QuestionMark",
+    },
+}
+Theme.repGroups = { home = "Home", zones = "Zones", instances = "Dungeons & raids", bgs = "Battlegrounds",
+    profs = "Professions", other = "Class and events", none = "No known quests", unknown = "Sources not known" }
+Theme.repKinds = { zone = "Zone", dungeon = "Dungeon", raid = "Raid", battleground = "Battleground",
+    profession = "Profession", class = "Class quests", event = "Event", other = "Other quests" }
+
+-- A painted nine-slice (a chrome piece with { x, y } border fractions) around `frame`, corners
+-- `corner` units, `out` units outside it. Returns a handle with SetShown / SetVertexColor /
+-- SetAlpha, or nil without the art.
+function Theme.NineSlice(frame, name, corner, out, layer, sub)
+    local file, slice = Theme.Chrome(name)
+    if not file or type(slice) ~= "table" then return nil end
+    out = out or 0
+    local sx, sy = slice.x, slice.y
+    local pieces = {}
+    local function piece(l, r, t, b)
+        local tex = frame:CreateTexture(nil, layer or "BORDER", nil, sub or 0)
+        tex:SetTexture(file); tex:SetTexCoord(l, r, t, b)
+        pieces[#pieces + 1] = tex
+        return tex
+    end
+    local tl, tr = piece(0, sx, 0, sy), piece(1 - sx, 1, 0, sy)
+    local bl, br = piece(0, sx, 1 - sy, 1), piece(1 - sx, 1, 1 - sy, 1)
+    for _, c in ipairs({ tl, tr, bl, br }) do c:SetSize(corner, corner) end
+    tl:SetPoint("TOPLEFT", frame, "TOPLEFT", -out, out); tr:SetPoint("TOPRIGHT", frame, "TOPRIGHT", out, out)
+    bl:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", -out, -out); br:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", out, -out)
+    local top, bottom = piece(sx, 1 - sx, 0, sy), piece(sx, 1 - sx, 1 - sy, 1)
+    top:SetPoint("TOPLEFT", tl, "TOPRIGHT"); top:SetPoint("BOTTOMRIGHT", tr, "BOTTOMLEFT")
+    bottom:SetPoint("TOPLEFT", bl, "TOPRIGHT"); bottom:SetPoint("BOTTOMRIGHT", br, "BOTTOMLEFT")
+    local left, right = piece(0, sx, sy, 1 - sy), piece(1 - sx, 1, sy, 1 - sy)
+    left:SetPoint("TOPLEFT", tl, "BOTTOMLEFT"); left:SetPoint("BOTTOMRIGHT", bl, "TOPRIGHT")
+    right:SetPoint("TOPLEFT", tr, "BOTTOMLEFT"); right:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT")
+    local h = { pieces = pieces }
+    function h:SetShown(on) for _, p in ipairs(pieces) do p:SetShown(on) end end
+    function h:SetVertexColor(r, g, b) for _, p in ipairs(pieces) do p:SetVertexColor(r, g, b) end end
+    function h:SetAlpha(a) for _, p in ipairs(pieces) do p:SetAlpha(a) end end
+    return h
+end
+
+-- A colour as a |c escape for FontString text.
+function Theme.Hex(name, s)
+    local c = type(name) == "table" and name or Theme.color[name] or Theme.color.text
+    return string.format("|cff%02x%02x%02x%s|r", c[1] * 255, c[2] * 255, c[3] * 255, s)
+end
 
 -- The client's reaction label (FACTION_STANDING_LABEL1..8), or the English fallback.
 function Theme.ReactionLabel(r)

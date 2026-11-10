@@ -99,10 +99,63 @@ local function repSteps(zones, here, wide)
     }
 end
 
--- /azf shots reputation: the ledger and the faction page, normal size then wide.
+local function repPage() return UI.GetFrame().pages.reputation end
+
+-- The Reputation tab (Phase 12): the list, the Closest sort, the next section, a faction page
+-- (a rival faction with sources if there is one: seesaw and reach), the minimum size; with
+-- `wide`, the split view with focus in the list, then in the page. The sort is restored at
+-- the end.
+local function repTabSteps(wide)
+    local function pick()
+        local best
+        for _, f in ipairs(ns.Reputation.AllFactions() or {}) do
+            local score = #(f.sources or {}) + (#(f.rivals or {}) > 0 and 100 or 0) + ((f.reach and f.reach.count or 0) > 0 and 50 or 0)
+            if not best or score > best.score then best = { id = f.factionID, score = score } end
+        end
+        return best and best.id
+    end
+    local function list()
+        UI.SelectTab("reputation")
+        local p = repPage()
+        if p and p.mode == "detail" then p:Back() end
+        if UI.shotsRepSort == nil then UI.shotsRepSort = ns.db.reputation.sort end
+        if ns.db.reputation.sort ~= "group" then ns.db.reputation.sort = "group"; p:Redraw() end
+        return p
+    end
+    local function openPick()
+        local p, id = repPage(), pick()
+        if p and id then p:OpenFaction(id) end
+    end
+    if wide then
+        return {
+            { label = "reputation wide", fn = function()
+                local p = list()
+                local id = pick()
+                if p and id then p:ClickFaction(id) end
+            end },
+            { label = "reputation wide, in the page", fn = openPick },
+        }
+    end
+    local minW, minH = ns.Config.RANGES["window.width"][1], ns.Config.RANGES["window.height"][1]
+    return {
+        { label = "reputation", fn = function() UI.ApplyGeometry(); UI.Relayout(); list() end },
+        { label = "reputation, next section", fn = function() ns.Focus.Jump(1); UI.RefreshHints() end },
+        { label = "reputation, closest sort", fn = function() local p = repPage(); if p then p:CycleSort() end end },
+        { label = "reputation, faction page", fn = function() list(); openPick() end },
+        { label = "reputation at minimum size", fn = function() list(); UI.FitSize(minW, minH) end },
+        { label = "reputation page at minimum size", fn = openPick },
+        { label = "normal size", fn = function() UI.ApplyGeometry(); UI.Relayout() end, skip = true },
+    }
+end
+
+-- /azf shots reputation: the Reputation tab, then the zone ledger and the faction page,
+-- normal size then wide.
 local function reputationSteps(zones, here)
-    local list = repSteps(zones, here, false)
-    if #list == 0 then return list end
+    local list = repTabSteps(false)
+    for _, s in ipairs(repSteps(zones, here, false)) do list[#list + 1] = s end
+    list[#list + 1] = { label = "reputation tab wide", fn = function() UI.FitSize(wideSize()) end, skip = true }
+    for _, s in ipairs(repTabSteps(true)) do list[#list + 1] = s end
+    if #repSteps(zones, here, false) == 0 then return list end
     list[#list + 1] = { label = "zones wide", fn = function()
         local page = zonesPage()
         if page and page.mode == "detail" then page:Back() end
@@ -219,6 +272,7 @@ local function steps(which)
         if page and item and item.zone then page:Open(item.zone); UI.shotsOpenedDetail = true end
     end }
     for _, s in ipairs(repSteps(zones, here, true)) do list[#list + 1] = s end
+    for _, s in ipairs(repTabSteps(true)) do list[#list + 1] = s end
     return list
 end
 UI.ShotSteps = steps
@@ -250,6 +304,14 @@ function UI.RunShots(which)
             ns.db.zones.displayMode = UI.shotsView; page.catalogue:Refresh()
         end
         UI.shotsView = nil
+        local rp = UI.GetFrame().pages.reputation
+        if rp then
+            if rp.mode == "detail" then rp:Back() end
+            if UI.shotsRepSort and ns.db.reputation.sort ~= UI.shotsRepSort then
+                ns.db.reputation.sort = UI.shotsRepSort; rp:Redraw()
+            end
+        end
+        UI.shotsRepSort = nil
         if UI.shotsOpenedDetail then
             UI.SelectTab("zones")
             local zp = UI.GetFrame().pages.zones
