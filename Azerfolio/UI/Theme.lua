@@ -312,7 +312,8 @@ Theme.layout.repTab = {
     strip = 72,                -- the standing strip's height (cells 56 + padding; 56 and 68 put the text on the frame, owner 2026-11-09)
     cellText = 1,              -- gap between the count and the reaction label
     cellGap = 4, emblem = 32, emblemSmall = 24,
-    cellLabelMin = 96,         -- narrower cells drop the reaction label (the info line names it)
+    cellPad = 4,               -- room between the plaque's frame and the cell's content; cells too narrow
+                               -- for the emblem, the widest label and this drop the labels
     sum = 170,                 -- "Met n of m · Exalted n of m" column
     plaqueCorner = 10,         -- frame-plaque's drawn corner (12 px of its 256x128)
     clothTint = 0.62, clothEmpty = 0.18, -- the cloth fill's tint strength, full and empty cells

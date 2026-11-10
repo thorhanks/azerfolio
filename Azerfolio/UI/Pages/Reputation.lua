@@ -316,7 +316,16 @@ local function newCell(parent, r)
     return c
 end
 
-local function paintCell(c, n, width, height)
+-- The narrowest cell that still holds the emblem and the widest label inside the plaque's
+-- frame (a fixed 96 px let "Unfriendly" run onto it while resizing, owner 2026-11-09).
+local function labelCellWidth(cells)
+    local RT = ns.Theme.layout.repTab
+    local widest = 0
+    for _, c in ipairs(cells) do widest = math.max(widest, math.ceil(c.label:GetStringWidth() or 0)) end
+    return RT.emblem + 6 + widest + 2 * (RT.plaqueCorner + RT.cellPad)
+end
+
+local function paintCell(c, n, width, height, showLabel)
     local T = ns.Theme
     local RT = T.layout.repTab
     c:SetSize(width, height)
@@ -324,7 +333,6 @@ local function paintCell(c, n, width, height)
     local k = n > 0 and RT.clothTint or RT.clothEmpty
     local base = 0.09
     c.cloth:SetVertexColor(col[1] * k + base * (1 - k), col[2] * k + base * (1 - k), col[3] * k + base * (1 - k))
-    local showLabel = width >= RT.cellLabelMin
     local em = showLabel and RT.emblem or RT.emblemSmall
     c.emblem:SetSize(em, em)
     c.emblem:SetShown(c.emblem:GetTexture() ~= nil)
@@ -571,9 +579,10 @@ local function build(parent)
         local w = width(strip) - 2 * S.s6 - RT.sum
         local cw = math.floor((w - 7 * RT.cellGap) / 8)
         local ch = RT.strip - 2 * S.s2
+        local showLabel = cw >= labelCellWidth(page.cells)
         for r = 1, 8 do
             local c = page.cells[r]
-            paintCell(c, sum and sum.byReaction[r] or 0, cw, ch)
+            paintCell(c, sum and sum.byReaction[r] or 0, cw, ch, showLabel)
             c:ClearAllPoints()
             c:SetPoint("LEFT", strip, "LEFT", S.s6 + (r - 1) * (cw + RT.cellGap), 0)
         end
