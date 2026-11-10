@@ -127,22 +127,45 @@ end
 -- Pieces
 ---------------------------------------------------------------------------------------------
 
--- A thumbnail: the zone's art (greyed while not met), or an icon for other kinds of place.
+-- A thumbnail: the zone's art (greyed while not met), or a dark box with a square icon for
+-- other kinds of place (a cropped strip of the icon read as a smudge, WoWScrnShot_110926_201956).
+-- tex = the thumbnail texture; its .icon is the square icon texture over it.
 local function paintThumb(tex, mapID, kind, grey)
     local T = ns.Theme
     local art = mapID and T.ZoneArt(mapID)
+    local icon = tex.icon
     if art then
         tex:SetTexture(art)
         local w, h = tex:GetWidth(), tex:GetHeight()
         local top, bottom = T.BannerCrop(mapID, w, h)
         tex:SetTexCoord(0, 1, top, bottom)
+        if icon then icon:Hide() end
     else
-        tex:SetTexture(T.layout.repTab.kindIcon[kind or "none"] or T.layout.repTab.kindIcon.none)
-        tex:SetTexCoord(0.08, 0.92, 0.3, 0.7)
+        tex:SetTexture(T.files.white)
+        tex:SetTexCoord(0, 1, 0, 1)
+        if icon then
+            local s = math.max(1, (tex:GetHeight() or 26) - 4)
+            icon:SetSize(s, s)
+            icon:SetTexture(T.layout.repTab.kindIcon[kind or "none"] or T.layout.repTab.kindIcon.none)
+            icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            if icon.SetDesaturated then icon:SetDesaturated(grey and true or false) end
+            icon:Show()
+        end
     end
-    if tex.SetDesaturated then tex:SetDesaturated(grey and true or false) end
-    local v = grey and 0.7 or 1
-    tex:SetVertexColor(v, v, v)
+    if tex.SetDesaturated then tex:SetDesaturated(art and grey and true or false) end
+    if art then
+        local v = grey and 0.7 or 1
+        tex:SetVertexColor(v, v, v)
+    else
+        tex:SetVertexColor(0.12, 0.08, 0.04) -- style.css .glyph-k: a dark brown box
+    end
+end
+
+-- The square icon over a thumbnail (for places without zone art).
+local function thumbIcon(row, tex)
+    tex.icon = row:CreateTexture(nil, "ARTWORK", nil, 2)
+    tex.icon:SetPoint("CENTER", tex, "CENTER")
+    tex.icon:Hide()
 end
 
 -- The ledger's row background (gradient, edge).
@@ -171,6 +194,7 @@ local function newFactionRow(parent, plain, withThumb)
         row.thumbEdge:SetColorTexture(0, 0, 0, 1)
         row.thumbEdge:SetPoint("TOPLEFT", row.thumb, "TOPLEFT", -1, 1)
         row.thumbEdge:SetPoint("BOTTOMRIGHT", row.thumb, "BOTTOMRIGHT", 1, -1)
+        thumbIcon(row, row.thumb)
     end
     row.name = T.Text(row, "sm", "white")
     row.name:SetJustifyH("LEFT"); row.name:SetWordWrap(false)
@@ -198,6 +222,7 @@ local function paintFactionRow(row, f, width, cols, opts)
     if row.thumb then
         local th = opts.thumb
         row.thumb:SetShown(th ~= nil); row.thumbEdge:SetShown(th ~= nil)
+        if not th then row.thumb.icon:Hide() end
         if th then
             row.thumb:ClearAllPoints()
             row.thumb:SetSize(th[1], th[2])
@@ -331,16 +356,18 @@ local function newSourceRow(parent)
     row.thumb = row:CreateTexture(nil, "ARTWORK")
     row.thumb:SetSize(RT.thumb[1], RT.thumb[2])
     row.thumb:SetPoint("LEFT", 4, 0)
+    thumbIcon(row, row.thumb)
     row.amt = T.Text(row, "xs", "text")
     row.amt:SetPoint("RIGHT", -S.s3, 0); row.amt:SetWidth(RT.srcAmt); row.amt:SetJustifyH("RIGHT")
     row.q = T.Text(row, "xs", "text")
     row.q:SetPoint("RIGHT", row.amt, "LEFT", -S.s3, 0); row.q:SetWidth(RT.srcCount); row.q:SetJustifyH("RIGHT")
     row.name = T.Text(row, "sm", "white")
-    row.name:SetPoint("TOPLEFT", row.thumb, "TOPRIGHT", S.s3, 1)
+    -- Name and kind as one block centred on the row (they sat low, WoWScrnShot_110926_201958).
+    row.name:SetPoint("BOTTOMLEFT", row.thumb, "RIGHT", S.s3, 1)
     row.name:SetPoint("RIGHT", row.q, "LEFT", -S.s3, 0)
     row.name:SetJustifyH("LEFT"); row.name:SetWordWrap(false)
     row.kind = T.Text(row, "xs", "dim")
-    row.kind:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -2)
+    row.kind:SetPoint("TOPLEFT", row.thumb, "RIGHT", S.s3, -1)
     row.kind:SetPoint("RIGHT", row.q, "LEFT", -S.s3, 0)
     row.kind:SetJustifyH("LEFT"); row.kind:SetWordWrap(false)
     row:SetScript("OnClick", function(self) if self.item and self.item.onActivate then self.item.onActivate(self.item) end end)
@@ -417,13 +444,22 @@ local function build(parent)
     page.sticky = sticky
     local function updateSticky()
         local off = scroll:GetVerticalScroll() or 0
+        -- The last header that has reached the top, counting one partly under the sticky one
+        -- (it said "Home" over Zones' rows, WoWScrnShot_110926_202008).
         local pick
-        for _, h in ipairs(page.headerYs or {}) do if h.y < off then pick = h end end
+        if off > 0 then
+            for _, h in ipairs(page.headerYs or {}) do if h.y < off + L.listHeader then pick = h end end
+        end
         sticky:SetShown(pick ~= nil and page.list:IsShown())
         if pick then sticky.text:SetText(pick.text); sticky.count:SetText(pick.count) end
     end
     scroll:HookScript("OnVerticalScroll", updateSticky)
     page.UpdateSticky = updateSticky
+    -- Rows are laid out for a width: redraw when it changes (a resize left them running past
+    -- the right edge at minimum size, WoWScrnShot_110926_201959).
+    scroll.onWidth = function(w)
+        if page.drawnWidth and math.abs(page.drawnWidth - (w or 0)) >= 1 and page.data then page:Redraw() end
+    end
 
     -- Faction page ---------------------------------------------------------------------------------
     local d = CreateFrame("Frame", nil, page)
@@ -463,6 +499,9 @@ local function build(parent)
     dscroll:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, -S.s3)
     dscroll:SetPoint("BOTTOMRIGHT", 0, S.s2)
     d.scroll = dscroll
+    dscroll.onWidth = function(w)
+        if page.pageWidth and math.abs(page.pageWidth - (w or 0)) >= 1 and page.data then page:Redraw() end
+    end
     local dc = dscroll.child
     d.sum = newFactionRow(dc, true, false)
     d.reach = T.Text(dc, "sm", "text"); d.reach:SetJustifyH("LEFT"); d.reach:SetWordWrap(true)
@@ -589,6 +628,7 @@ local function build(parent)
         banner.react:SetText(T.ReactionLabel(f.reaction))
         banner.react:SetTextColor(c[1], c[2], c[3])
 
+        page.pageWidth = dscroll:GetWidth() or 0
         local w = width(dscroll, page.wide and (width(page) - RT.splitList) or nil)
         local inner = w - L.listInset - S.s6
         local x = L.listInset
@@ -691,6 +731,7 @@ local function build(parent)
         paintHead(data)
         local child = scroll.child
         local wList = width(scroll, self.wide and RT.splitList or nil)
+        self.drawnWidth = scroll:GetWidth() or 0
         local inner = wList - L.listInset - S.s6
         local cols = self.wide and RT.wideCols or RT.cols
         local thumb = self.wide and RT.thumbWide or RT.thumb

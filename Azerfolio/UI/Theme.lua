@@ -309,7 +309,7 @@ Theme.color.repGain = hex("7ee08a")   -- "+n today"
 Theme.color.repWatch = { 1, 0.82, 0 } -- "Watched"
 Theme.color.repFaint = hex("7a6e5c")  -- a "not for you" source
 Theme.layout.repTab = {
-    strip = 56,                -- the standing strip's height (cells 44 + padding)
+    strip = 68,                -- the standing strip's height (cells 52 + padding; 56 put the labels on the frame, WoWScrnShot_110926_201953)
     cellGap = 4, emblem = 32, emblemSmall = 24,
     cellLabelMin = 96,         -- narrower cells drop the reaction label (the info line names it)
     sum = 170,                 -- "Met n of m · Exalted n of m" column
