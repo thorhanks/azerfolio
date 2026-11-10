@@ -26,6 +26,19 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | T2 | "+n today" shows a gain seen this session, and nothing after a `/reload` | A quest turn-in that raises any faction | Turn in, open the tab: the tag on that faction; trace-report reputation shows the `+n` |
 | T3 | Whether an unmet faction can be watched (the addon offers X only for met ones) | Any time | Same as T1 on Booty Bay, with the check lifted, or ask the game's Reputation window |
 
+## Class tab (Phase 13)
+
+`/azf debug class [questID ...]` (debug on), `/reload`, then `luajit tools/trace-report.lua class`. C1-C3 can be checked any time; C4-C6 wait on play.
+
+| ID | What to confirm | When it comes up | How to check |
+|---|---|---|---|
+| C1 | A done class quest reads as done (Gideon: 3101 Consecrated Letter) and the road's first stop is "done" | Any time | trace-report class: `01 intro ... done`, completed list known |
+| C2 | Which curated IDs QuestieDB's in-game view lacks, and whether the newer IDs (78088-78093, 9xxxx) are there | Any time | trace-report class: "not in QuestieDB" list and the newer-ID count |
+| C3 | Whether the in-game corrections link the chains ordered by level (A Strange Artifact; Horde: Diplomatic Incident, Moonsilver Blade) | Any time (Horde ones on Thragor only if he's a Paladin) | trace-report class: "order inferred" lines with pre/next |
+| C4 | Whether the game flags repeatable-flagged chain quests as completed (1641 Tome of Divinity start, 1442 Kor Gem, 1655 Bailor's Ore) | Gideon doing the Tome of Divinity (12) and Tome of Valor (20) | `/azf debug class 1641 1442 1655`: completed=true after turning them in. If so they could count |
+| C5 | Skyborne race ID and race bit, so Skyborne intros can show | A Skyborne character logs in | `/azf debug class`: raceID, raceFile, raceBit (nil today) |
+| C6 | Whether a Warlock can do both Succubus routes or only one | A Warlock at 20 | Either way one route finishes the stop; note it in docs/research/class-quests.md |
+
 ## Celebrations (Phase 10)
 
 | ID | What to confirm | When it comes up | How to check |

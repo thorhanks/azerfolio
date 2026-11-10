@@ -32,6 +32,8 @@ Systems\QuestRules.lua
 Systems\Quests.lua
 Systems\ReputationRules.lua
 Systems\Reputation.lua
+Systems\ClassJourneyRules.lua
+Systems\ClassJourney.lua
 Systems\FlightPaths.lua
 Systems\Zones.lua
 Systems\Atlas.lua

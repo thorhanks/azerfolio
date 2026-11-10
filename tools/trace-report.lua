@@ -7,6 +7,7 @@
 --   zone <mapID>        one zone's quest line and checklist from the latest quest report
 --   perf                the latest /azf debug perf: memory, profiler peaks, busiest callbacks
 --   reputation          zone factions built (per zone, rivals) and the latest standing read
+--   class               the latest /azf debug class: the road's stops, extras, inferred links, probes
 --   kind <name> [n]     the latest n entries of one kind, one line each
 -- Set AZF_SV_FILE to read a different file.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/Azerfolio.lua"
@@ -229,9 +230,34 @@ function R.reputation()
     for _, k in ipairs(keys(d.probes)) do p("  %-6s %s", k, tostring(d.probes[k])) end
 end
 
+-- Class road (Systems/ClassJourney, /azf debug class): the latest report.
+function R.class()
+    local d, di = latest(function(e) return e.kind == "class" and e.report end)
+    if not d then p("no /azf debug class report in the trace (debug on, /azf debug class, then /reload)"); return end
+    p("report #%d at %.1f: %s %s", di, d.t, tostring(d.status), tostring(d.character))
+    if d.status ~= "ready" then p("  %s", tostring(d.reason)); return end
+    p("  %s; completed list %s", tostring(d.totals), d.completedKnown and "known" or "NOT known")
+    p("  %s", tostring(d.ids))
+    if d.missing and d.missing ~= "" then p("  not in QuestieDB: %s", d.missing) end
+    p("stops (kind state name done/count [questID:state ...]):")
+    for _, k in ipairs(keys(d.stops)) do p("  %-14s %s", k, tostring(d.stops[k])) end
+    if next(d.extras or {}) then
+        p("extras, not counted (lead-ins, repeatable-flagged sub-quests):")
+        for _, k in ipairs(keys(d.extras)) do p("  %-12s %s", k, tostring(d.extras[k])) end
+    end
+    if next(d.inferred or {}) then
+        p("order inferred: QuestieDB's links in game (corrections applied):")
+        for _, k in ipairs(keys(d.inferred)) do p("  %-12s %s", k, tostring(d.inferred[k])) end
+    end
+    if next(d.probes or {}) then
+        p("probed quests:")
+        for _, k in ipairs(keys(d.probes)) do p("  %-6s %s", k, tostring(d.probes[k])) end
+    end
+end
+
 local fn = R[section]
 if not fn then
-    p("unknown section %q; sections: summary, last [n], quests, zone <mapID>, perf, reputation, kind <name> [n]", section)
+    p("unknown section %q; sections: summary, last [n], quests, zone <mapID>, perf, reputation, class, kind <name> [n]", section)
     os.exit(1)
 end
 fn(arg2, arg3)

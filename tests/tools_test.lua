@@ -27,6 +27,11 @@ AzerfolioDB = { debug = true, trace = {
   { t = 16, kind = "reputation", report = true, zones = 1, picks = { ["1434"] = "21:40 [1:100 2:75]" },
     watched = { ["1444"] = "12 quests; 169 dropped 2/40 [7003:75 7721:50]  |  609 kept 6/30 [1:25]" },
     probes = { ["7003"] = "Zapped Giants lv48 exists=true zoneOrSort=440 -> zone 1446, index 1446, rep [169:75]" } },
+  { t = 17, kind = "class", report = true, status = "ready", character = "PALADIN Alliance raceID=1 raceFile=Human raceBit=1 level=10",
+    totals = "road 1/5, side paths 0/2, quests 1/42, unknown stops 0, complete false", completedKnown = true,
+    ids = "500 curated IDs, 2 not in QuestieDB, 120 newer IDs present", missing = "78090 78091",
+    stops = { ["01 intro"] = "road done Consecrated Letter 1/1  [3101:done]" }, extras = { divinity = "2998:locked 1641:locked" },
+    inferred = { artifact = "78088 pre=- next=78089" }, probes = { ["1641"] = "The Tome of Divinity exists=true completed=false" } },
 } }
 ]]
 
@@ -62,6 +67,17 @@ return function(t)
         t.ok(out:find("169 dropped 2/40 %[7003:75 7721:50%]"), out)
         t.ok(out:find("609 kept 6/30"), out)
         t.ok(out:find("7003%s+Zapped Giants lv48 .- index 1446"), out)
+    end)
+
+    t.test("trace-report class: totals, stops, extras, inferred links and probes", function()
+        local out = run(file, "class")
+        t.ok(out:find("PALADIN Alliance raceID=1"), out)
+        t.ok(out:find("road 1/5, side paths 0/2"), out)
+        t.ok(out:find("not in QuestieDB: 78090 78091"), out)
+        t.ok(out:find("Consecrated Letter 1/1"), out)
+        t.ok(out:find("2998:locked 1641:locked"), out)
+        t.ok(out:find("78088 pre=%- next=78089"), out)
+        t.ok(out:find("1641%s+The Tome of Divinity exists=true"), out)
     end)
 
     t.test("trace-report groups level reasons", function()
