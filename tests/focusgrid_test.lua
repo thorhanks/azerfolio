@@ -146,4 +146,21 @@ return function(t)
         g:FocusKey("hero")
         t.eq(g:Move("left"), false, "nothing to the left of the left column")
     end)
+
+    t.test("a row's home column is where up/down and LT/RT land (the Class tab's road)", function()
+        local G = load()
+        local g = G.New()
+        -- Road stops with side paths left or right of them; home is the road stop.
+        local a, b, c = row(1, "valor", "artifact"), row(2, "mightstone", "nobility"), row(3, "charger")
+        b.home = 2
+        g:SetRows({ a, b, c })
+        t.eq(g:CurrentKey(), "valor")
+        t.ok(g:Move("right")); t.eq(g:CurrentKey(), "artifact", "onto the side path")
+        t.ok(g:Move("down")); t.eq(g:CurrentKey(), "nobility", "down follows the road, not the next side path")
+        t.ok(g:Move("left")); t.eq(g:CurrentKey(), "mightstone")
+        t.ok(g:Move("down")); t.eq(g:CurrentKey(), "charger")
+        t.ok(g:Move("up")); t.eq(g:CurrentKey(), "nobility")
+        g:FocusKey("valor")
+        t.ok(g:JumpSection(1)); t.eq(g:CurrentKey(), "nobility", "RT lands on the road stop too")
+    end)
 end

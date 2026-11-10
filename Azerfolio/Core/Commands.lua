@@ -22,6 +22,7 @@ local HELP = {
     "/azf shot - take a test screenshot (development)",
     "/azf shots - screenshot every tab and state (development)",
     "/azf shots banners - screenshot the zones with a banner offset (development)",
+    "/azf shots class - screenshot the Class tab: the road, a stop's steps, the road's end, minimum size and wide (development)",
     "/azf minimap - show or hide the minimap button",
 }
 

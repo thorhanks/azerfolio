@@ -167,9 +167,34 @@ local function reputationSteps(zones, here)
     return list
 end
 
+-- /azf shots class: the Class tab (Phase 13) on your current stop, that stop's steps, the
+-- next stop (RT), the road's end, the minimum size, then wide.
+local function classPage() return UI.GetFrame().pages.class end
+local function classSteps()
+    local minW, minH = ns.Config.RANGES["window.width"][1], ns.Config.RANGES["window.height"][1]
+    local function road()
+        UI.SelectTab("class")
+        local p = classPage()
+        if p and p.mode == "steps" then p:Back() end
+        return p
+    end
+    local function current() local p = road(); if p and p.journey then p:FocusStop(p:CurrentStopKey()) end end
+    return {
+        { label = "class", fn = function() UI.ApplyGeometry(); UI.Relayout(); current() end },
+        { label = "class, steps", fn = function() local p = classPage(); if p then p:EnterSteps() end end },
+        { label = "class, next stop", fn = function() current(); ns.Focus.Jump(1); UI.RefreshHints() end },
+        { label = "class, road's end", fn = function() local p = road(); if p and p.journey then p:FocusStop("end") end end },
+        { label = "class, road's end list", fn = function() local p = classPage(); if p then p:EnterSteps() end end },
+        { label = "class at minimum size", fn = function() current(); UI.FitSize(minW, minH) end },
+        { label = "class wide", fn = function() UI.FitSize(wideSize()); current() end },
+        { label = "class wide, steps", fn = function() local p = classPage(); if p then p:EnterSteps() end end },
+    }
+end
+
 -- Each step changes the window, then one screenshot is taken.
 local function steps(which)
     if which == "banners" then return bannerSteps() end
+    if which == "class" then return classSteps() end
     if which == "reputation" or which == "rep" then
         local here = C_Map and C_Map.GetBestMapForUnit
             and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
@@ -312,6 +337,8 @@ function UI.RunShots(which)
             end
         end
         UI.shotsRepSort = nil
+        local cp = UI.GetFrame().pages.class
+        if cp and cp.mode == "steps" then cp:Back() end
         if UI.shotsOpenedDetail then
             UI.SelectTab("zones")
             local zp = UI.GetFrame().pages.zones

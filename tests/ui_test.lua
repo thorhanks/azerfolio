@@ -666,6 +666,147 @@ return function(t)
         restore(); restoreZone()
     end)
 
+    -- The Class tab over the real Paladin road (Data/ClassJourneys.lua) built by the real rules
+    -- for a Human: the letter done, The Tome of Divinity 1 of 8, the rest locked by level.
+    local DWARF = { 3107, 1646, 1647, 1648, 1778, 1779, 1783, 1784, 1785, 2997, 2999, 3000, 1645, 1789 }
+    local function classStub(ns, completed, status)
+        local R = ns.ClassJourneyRules
+        local dwarf = {}
+        for _, id in ipairs(DWARF) do dwarf[id] = true end
+        local open = { [3101] = true, [1642] = true, [1643] = true, [2998] = true, [3681] = true, [1641] = true }
+        local function ev(id)
+            if dwarf[id] then return "unavailable", "race or faction" end
+            if open[id] then return "eligible" end
+            if id >= 1644 and id <= 1790 and id ~= 1649 then return "locked", "prerequisite" end
+            return "locked", "level 20"
+        end
+        local j = R.Build(R.Journey(ns.ClassJourneyData, "PALADIN", "Alliance"), ev, completed, 1)
+        local real = { get = ns.ClassJourney.Get, info = ns.Quests.Info, starter = ns.Quests.Starter }
+        ns.ClassJourney.Get = function()
+            if status then return { status = status, reason = "QuestieDB isn't loaded" } end
+            return { status = "ready", journey = j, char = { classFile = "PALADIN", side = "Alliance" } }
+        end
+        ns.Quests.Info = function(id)
+            if id >= 1642 and id <= 1788 then return { name = "The Tome of Divinity", level = 12 } end
+            return { name = "Quest " .. id .. " name", level = 20 }
+        end
+        ns.Quests.Starter = function() return { kind = "npc", name = "Duthorian Rall", place = "Stormwind City" } end
+        return j, function() ns.ClassJourney.Get = real.get; ns.Quests.Info = real.info; ns.Quests.Starter = real.starter end
+    end
+
+    t.test("class tab: the road, side paths, steps, the road's end, gamepad and shots", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local j, restore = classStub(ns, { [3101] = true, [1642] = true })
+        t.eq(j.road.count, 5); t.eq(j.side.count, 2)
+        slash("")
+        ns.UI.SelectTab("class")
+        local cp = ns.UI.GetFrame().pages.class
+        t.ok(cp and cp:IsShown(), "the fourth tab")
+        t.eq(cp.plaque.title:GetText(), "The Paladin's Road")
+        t.eq(cp.plaque.count:GetText(), "Road 1 of 5  ·  Side paths 0 of 2")
+        -- Opens on your stop: the first road stop not done.
+        t.eq(ns.Focus.Current().key, "n:divinity")
+        t.eq(cp.sel, "divinity")
+        local div = cp.byKey.divinity
+        t.eq(div.label.sub:GetText(), "1 of 8 quests")
+        t.eq(cp.byKey.intro.label.sub:GetText(), "All 1 quest done")
+        t.eq(cp.byKey.charger.label.sub:GetText(), "Opens at level 60")
+        t.eq(cp.detail.hero.name:GetText(), "The Tome of Divinity")
+        t.eq(cp.detail.hero.kicker:GetText(), "Stop 2 of 5 on the road")
+        t.eq(cp.detail.hero.score:GetText(), "1")
+        t.eq(cp.detail.hero.sub:GetText(), "Reward: Redemption")
+        t.eq(cp.detail.facts[1].v:GetText(), "Duthorian Rall  ·  Stormwind City")
+        -- Gamepad: down follows the road; right onto Valor's side path; down returns to the road.
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().key, "n:valor")
+        t.eq(cp.detail.hero.name:GetText(), "The Tome of Valor", "the pane follows focus")
+        press(ns, "PADDLEFT") -- A Strange Artifact sits left of Valor on the Paladin's strip
+        t.eq(ns.Focus.Current().key, "n:artifact")
+        t.eq(cp.detail.hero.kicker:GetText(), "Side path off The Tome of Valor")
+        t.ok(cp.notes[1]:GetText():find("Order inferred"), "the inferred-order note")
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().key, "n:nobility", "down follows the road, not Mightstone")
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().key, "n:charger")
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().key, "n:end")
+        t.eq(cp.detail.hero.name:GetText(), "The Paladin's Road")
+        -- A on the road's end: every stop; A on one goes back to it on the road.
+        press(ns, "PAD1")
+        t.eq(cp.mode, "steps")
+        t.eq(ns.Focus.Current().key, "go:intro")
+        press(ns, "PADDDOWN")
+        press(ns, "PAD1")
+        t.eq(cp.mode, "road")
+        t.eq(ns.Focus.Current().key, "n:divinity")
+        -- A into the steps: your next step first, parts numbered; B back to the stop.
+        press(ns, "PAD1")
+        t.eq(cp.mode, "steps")
+        local cur = ns.Focus.Current()
+        t.eq(cur.key, "st:2:1643", "the next step after the one done")
+        t.eq(cur.title, "The Tome of Divinity  ·  part 2 of 8")
+        t.eq(cp.backLabel, "Road")
+        press(ns, "PAD2")
+        t.eq(cp.mode, "road")
+        t.eq(ns.Focus.Current().key, "n:divinity")
+        -- A turn-in: AZF_CLASS_UPDATED redraws and keeps focus.
+        ns.Events.Send("AZF_CLASS_UPDATED")
+        t.eq(ns.Focus.Current().key, "n:divinity")
+        -- Shots: the tab's own set, restored after.
+        local labels = {}
+        for _, s in ipairs(ns.UI.ShotSteps("class")) do labels[#labels + 1] = s.label end
+        t.eq(#labels, 8)
+        slash("shots class")
+        wow.runTimers()
+        t.eq(_G.screenshotsTaken, 8)
+        t.eq(cp.mode, "road", "back on the road")
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("Quests.Starter: the starter's name and zone from QuestieDB, items without a place", function()
+        local ns = boot()
+        local L = _G.LibQuestieDB
+        L.Quest.startedBy = function(id)
+            if id == 1 then return { { 6171 } } end
+            if id == 2 then return { nil, nil, { 6775 } } end
+            if id == 3 then return {} end
+            error("bad read")
+        end
+        L.Npc = { name = function() return "Duthorian Rall" end, zoneID = function() return 1519 end }
+        L.Item = { name = function() return "Tome of Valor" end }
+        _G.C_Map.GetAreaInfo = function(a) return a == 1519 and "Stormwind City" or nil end
+        t.same(ns.Quests.Starter(1), { kind = "npc", name = "Duthorian Rall", place = "Stormwind City" })
+        t.same(ns.Quests.Starter(2), { kind = "item", name = "Tome of Valor" })
+        t.eq(ns.Quests.Starter(3), nil, "no starter")
+        t.eq(ns.Quests.Starter(4), nil, "a failed read is nil, not an error")
+        _G.C_Map.GetAreaInfo = nil
+    end)
+
+    t.test("class tab: unknown completion is never 0, and no QuestieDB says why", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "class" })
+        t.eq(ns.db.lastTab, "class", "a valid saved tab (was reset in game, 2026-11-09)")
+        local j, restore = classStub(ns, nil)
+        t.eq(j.complete, nil)
+        slash("")
+        t.eq(ns.UI.CurrentTab(), "class", "reopens on the Class tab")
+        local cp = ns.UI.GetFrame().pages.class
+        t.eq(cp.plaque.count:GetText(), "Road ? of 5  ·  Side paths ? of 2")
+        t.eq(cp.detail.hero.score:GetText(), "?")
+        t.ok(cp.byKey.divinity.label.sub:GetText():find("not known"), cp.byKey.divinity.label.sub:GetText())
+        t.eq(cp.you:IsShown(), false, "no 'you' without knowing what's done")
+        restore()
+        local _, restore2 = classStub(ns, nil, "unavailable")
+        ns.Events.Send("AZF_CLASS_UPDATED")
+        t.eq(cp.emptyTitle:GetText(), "Class quests need QuestieDB")
+        t.eq(cp.emptyTitle:IsShown(), true)
+        t.eq(ns.Focus.Current(), nil, "nothing to focus")
+        t.eq(#ns.Debug.errors, 0)
+        restore2()
+    end)
+
     t.test("zone reputation: standing updates redraw the ledger; shots cover the ledger and the page", function()
         padUI = true
         local ns = boot({ schemaVersion = 4, lastTab = "zones" })
@@ -1163,14 +1304,16 @@ return function(t)
 
     t.test("tabs are registered in order and wrap around", function()
         local ns = boot()
-        t.eq(#ns.UI.tabs, 3)
+        t.eq(#ns.UI.tabs, 4)
         t.eq(ns.UI.tabs[1].id, "overview")
         t.eq(ns.UI.tabs[2].id, "zones")
         t.eq(ns.UI.tabs[3].id, "reputation")
+        t.eq(ns.UI.tabs[4].id, "class")
         t.eq(ns.UI.TabAfter("overview", 1), "zones")
         t.eq(ns.UI.TabAfter("zones", 1), "reputation")
-        t.eq(ns.UI.TabAfter("reputation", 1), "overview")
-        t.eq(ns.UI.TabAfter("overview", -1), "reputation")
+        t.eq(ns.UI.TabAfter("reputation", 1), "class")
+        t.eq(ns.UI.TabAfter("class", 1), "overview")
+        t.eq(ns.UI.TabAfter("overview", -1), "class")
     end)
 
     t.test("/azf opens and closes the window; Escape is registered", function()
@@ -1296,7 +1439,7 @@ return function(t)
         local pictures = 0
         for _, s in ipairs(ns.UI.ShotSteps()) do if not s.skip then pictures = pictures + 1 end end
         t.eq(_G.screenshotsTaken, pictures)
-        t.eq(_G.screenshotsTaken, 20, "12 before, the zone's three category pages, the Atlas, the Reputation tab (2) and its split (2)")
+        t.eq(_G.screenshotsTaken, 22, "12 before, the zone's three category pages, the Atlas, the Reputation tab (2) and its split (2), the Class tab (2)")
         t.eq(ns.db.zones.displayMode, "cards", "view restored")
         t.eq(ns.UI.GetFrame().pages.zones.popup:IsShown(), false, "popup closed")
         local labels = {}

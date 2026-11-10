@@ -43,7 +43,7 @@ Config.CHAR_DEFAULTS = {
 
 -- Allowed values, by dotted path. Anything else resets to the default.
 Config.ENUMS = {
-    ["lastTab"] = { overview = true, zones = true, reputation = true },
+    ["lastTab"] = { overview = true, zones = true, reputation = true, class = true },
     ["reputation.filter"] = { all = true, met = true, unmet = true },
     ["reputation.sort"] = { group = true, closest = true, name = true },
     ["window.point"] = {

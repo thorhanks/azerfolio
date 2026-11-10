@@ -623,6 +623,47 @@ function Quests.Probe(id)
     return p
 end
 function Quests.Info(id) return info(id) end
+
+-- Where a quest starts (the Class tab's "Where it starts"), from QuestieDB's startedBy
+-- ({ npcIDs?, objectIDs?, itemIDs? }, contract 4 [verified-files, src/meta/questMeta.lua]) and the
+-- starter's name and zone (Npc / Object / Item entities, zoneID an AreaTable ID).
+--   { kind = "npc"|"object"|"item", name, place }   name or place nil when not known
+-- nil when QuestieDB has no starter for it (or isn't loaded). Cached per quest.
+local starters = {}
+function Quests.Starter(id)
+    if starters[id] ~= nil then return starters[id] or nil end
+    local Q = lib and lib.Quest
+    if type(Q) ~= "table" or type(Q.startedBy) ~= "function" then return nil end
+    local function read(entity, field, key)
+        local E = lib[entity]
+        local f = type(E) == "table" and E[field]
+        if type(f) ~= "function" then return nil end
+        local ok, v = pcall(f, key)
+        return ok and v or nil
+    end
+    local function areaName(areaID)
+        if type(areaID) ~= "number" or not (C_Map and type(C_Map.GetAreaInfo) == "function") then return nil end
+        local ok, name = pcall(C_Map.GetAreaInfo, areaID)
+        return ok and type(name) == "string" and name ~= "" and name or nil
+    end
+    local ok, sb = pcall(Q.startedBy, id)
+    local r = false
+    if ok and type(sb) == "table" then
+        for i, kind in ipairs({ "npc", "object", "item" }) do
+            local list = sb[i]
+            local first = type(list) == "table" and list[1]
+            if type(first) == "number" then
+                local entity = ({ npc = "Npc", object = "Object", item = "Item" })[kind]
+                local name = read(entity, "name", first)
+                r = { kind = kind, name = type(name) == "string" and name or nil }
+                if kind ~= "item" then r.place = areaName(read(entity, "zoneID", first)) end
+                break
+            end
+        end
+    end
+    starters[id] = r
+    return r or nil
+end
 function Quests.Context() return state.status == "ready" and context() or nil end
 
 -- Every zone together: { status, progress, zones = zones with quests, left = index.left }.

@@ -342,6 +342,44 @@ Theme.repGroups = { home = "Home", zones = "Zones", instances = "Dungeons & raid
 Theme.repKinds = { zone = "Zone", dungeon = "Dungeon", raid = "Raid", battleground = "Battleground",
     profession = "Profession", class = "Class quests", event = "Event", other = "Other quests" }
 
+-- Class tab (Phase 13, mockups/DESIGN.md "Class tab", style.css .cjourney/.cmapart/.cnode/
+-- .chero/.cstep). The strip is a stand-in drawn from the curated stops until the painted strip
+-- (one per class and side) exists.
+Theme.color.classRoad = hex("d8c08a")      -- the road (unlit)
+Theme.color.classBead = hex("5b4a32")      -- a quest not done yet
+Theme.color.classBeadOn = hex("fff1b0")    -- a quest done
+Theme.color.classPeach = hex("ffd9a8")     -- open now / your next step / in progress text
+Theme.color.classCairn = hex("8c826f")     -- a side path's dead end
+Theme.color.classLabel = hex("140c06")     -- node label plate
+Theme.layout.classTab = {
+    strip = 430, stripWide = 560,          -- the journey strip's column
+    plaque = 52,                           -- "The Paladin's Road" and the counts, above the map
+    mapW = 420,                            -- logical width of node positions (Theme.classStrip)
+    node = 46, sideNode = 34, endNode = 52, ring = 3,
+    endLabel = 64,                         -- room under the road's end for its label
+    factCols = { 0.44, 0.34 },             -- Where it starts, Level (State takes the rest)
+    glow = 18,                             -- the open-now glow past the seal
+    road = 10, roadStep = 4,               -- road band: square size and spacing (logical)
+    sideDot = 5, sideStep = 11,            -- a side path's dotted track
+    bead = 9, sideBead = 7,
+    label = 200, labelGap = 10, labelPad = 6,
+    you = 26,                              -- the class crest where you are
+    hero = 132, heroScore = 140,
+    facts = 46, stepRow = 40, stepIcon = 22, stopRow = 40,
+    bar = 18,
+}
+-- The stand-in strip's sky, top to bottom (style.css #csky): dawn over the start, gloom at the end.
+Theme.classSky = { { 0, hex("f7dc9a") }, { 0.12, hex("d9b46a") }, { 0.3, hex("7f9a63") }, { 0.62, hex("4d5a3c") },
+    { 0.82, hex("2c2e27") }, { 1, hex("15130f") } }
+-- Hand-placed node positions per class and side, by stop key, on a mapW-wide strip H tall
+-- (the mockup's CLASS_ROAD). A road without its own table is laid out by the page.
+Theme.classStrip = {
+    PALADIN = {
+        Alliance = { H = 1500, ["end"] = { 214, 1416 }, intro = { 214, 92 }, divinity = { 300, 330 }, valor = { 118, 600 },
+            artifact = { 66, 846 }, nobility = { 306, 900 }, mightstone = { 362, 1132 }, charger = { 140, 1226 } },
+    },
+}
+
 -- A painted nine-slice (a chrome piece with { x, y } border fractions) around `frame`, corners
 -- `corner` units, `out` units outside it. Returns a handle with SetShown / SetVertexColor /
 -- SetAlpha, or nil without the art.

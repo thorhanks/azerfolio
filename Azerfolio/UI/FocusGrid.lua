@@ -6,6 +6,8 @@
 -- Items are opaque tables; an item's `key` (if any) lets focus survive SetRows.
 -- An item's `group` (if any) makes a column: up/down stay among items of the same group and
 -- skip rows that have none (the Overview's two columns share rows); left/right cross groups.
+-- A row's `home` (a column index, if any) is where up/down and LT/RT land in it, whatever
+-- column you came from (the Class tab: up/down follow the road, side paths are left/right).
 local _, ns = ...
 
 local FocusGrid = {}
@@ -160,7 +162,13 @@ function FocusGrid:Move(dir)
         local group = cur and cur.group
         local row = self.row + step
         while row >= 1 and row <= #self.rows do
-            local cols = inGroup(self.rows[row], group)
+            local r = self.rows[row]
+            if r.home and r.items[r.home] then
+                self.row, self.col = row, r.home
+                self.wantCol = self:GroupIndex(row, r.home)
+                return true
+            end
+            local cols = inGroup(r, group)
             if #cols > 0 then
                 self.row = row
                 self.col = cols[math.min(self.wantCol or 1, #cols)]
@@ -205,6 +213,8 @@ function FocusGrid:JumpSection(delta, pageRows)
         end
     end
     if not target then return false end
-    self.row, self.col, self.wantCol = target, 1, 1
+    local home = rows[target].home
+    self.row, self.col = target, (home and rows[target].items[home]) and home or 1
+    self.wantCol = self:GroupIndex(target, self.col)
     return true
 end
