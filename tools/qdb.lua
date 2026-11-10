@@ -13,7 +13,9 @@
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
 --   class [name]           class-restricted quests: counts per class by level and side; with a class
 --                          name, its quests grouped into chains with starters (run from repo root)
---   class <name> <race>    the same, only quests that race can take (race mask unset or has its bit)
+--   class <name> <race>    the same, only quests that race can take (race mask unset or has its bit);
+--                          <race> may be alliance or horde (any of that side's races)
+--   class check            Azerfolio/Data/ClassJourneys.lua against QuestieDB (IDs, class, side, left out)
 --   reps [zone filter]     quest reputation rewards per Azerfolio zone (Data/QuestAreas.lua); run from repo root
 --   reps rule [min low share]  draft zone-faction rule (defaults 5 3 0.5)
 --   reps check             Azerfolio's Systems/ReputationRules.lua on the same rows must match `reps rule`
@@ -411,7 +413,8 @@ elseif cmd == "class" then
                 local j = data[token] and data[token][side]
                 if j then
                     local listed, keyOf, counted, roadN, sideN = {}, {}, 0, 0, 0
-                    local seenKey = {}
+                    local seenKey, racesOf = {}, {}
+                    local ignore = data[token].ignore or {}
                     local function note(msg) problems = problems + 1; print("  ! " .. msg) end
                     print(string.format("%s %s: %s", token, side, j.title or "?"))
                     for _, s in ipairs(j.stops) do
@@ -419,27 +422,61 @@ elseif cmd == "class" then
                             seenKey[s.key] = true
                             if s.kind == "road" then roadN = roadN + 1 else sideN = sideN + 1 end
                         end
+                        -- The side's races this stop is for: a counted quest suits the race (and the
+                        -- stop's raceMask, when it has one).
+                        local races = {}
                         local function check(id, isCounted)
                             local r = rows[id]
                             if keyOf[id] and keyOf[id] ~= s.key then note(id .. " is in two stops: " .. keyOf[id] .. ", " .. s.key) end
                             keyOf[id] = s.key; listed[id] = true
+                            if ignore[id] then note(id .. " is listed and ignored") end
                             if not r then return note(id .. " (" .. s.name .. ") is not in QuestieDB") end
                             if type(r[7]) == "number" and r[7] > 0 and not has(r[7], b) then note(id .. " " .. tostring(r[1]) .. ": not a " .. token .. " quest") end
                             if not suits(r[6], side) then note(id .. " " .. tostring(r[1]) .. ": race mask " .. string.format("%.0f", r[6]) .. " doesn't suit " .. side) end
                             if isCounted and rep(r) then note(id .. " " .. tostring(r[1]) .. ": counted but repeatable") end
-                            if isCounted then counted = counted + 1 end
+                            if isCounted then
+                                for _, rb in ipairs(SIDE[side]) do
+                                    local m = r[6]
+                                    if (type(m) ~= "number" or m == 0 or has(m, rb)) and (not s.raceMask or has(s.raceMask, rb)) then races[rb] = true end
+                                end
+                            end
                         end
-                        for _, q in ipairs(s.quests) do
-                            if type(q) == "table" then for _, a in ipairs(q) do check(a, false) end; counted = counted + 1
-                            else check(q, true) end
+                        local function list(qs)
+                            local n = 0
+                            for _, q in ipairs(qs) do
+                                if type(q) == "table" then for _, a in ipairs(q) do check(a, true) end
+                                else check(q, true) end
+                                n = n + 1
+                            end
+                            return n
+                        end
+                        if s.routes then
+                            local most = 0
+                            for _, route in ipairs(s.routes) do most = math.max(most, list(route)) end
+                            counted = counted + most
+                            if s.quests then note(s.key .. ": has both quests and routes") end
+                        else
+                            counted = counted + list(s.quests)
                         end
                         for _, q in ipairs(s.extra or {}) do check(q, false) end
+                        racesOf[#racesOf + 1] = { key = s.key, name = s.name, races = races }
+                    end
+                    for _, s in ipairs(j.stops) do
                         if s.kind == "side" and not seenKey[s.from] then note(s.key .. ": side path off unknown stop " .. tostring(s.from)) end
                     end
+                    -- Race versions sharing a key must not both suit one race: the addon shows one.
+                    for x = 1, #racesOf do for y = x + 1, #racesOf do
+                        local a, c = racesOf[x], racesOf[y]
+                        if a.key == c.key then
+                            for rb in pairs(a.races) do
+                                if c.races[rb] then note(string.format("%s: '%s' and '%s' both suit race bit %.0f", a.key, a.name, c.name, rb)) end
+                            end
+                        end
+                    end end
                     print(string.format("  %d road stops, %d side paths, %d counted quests (race versions add up)", roadN, sideN, counted))
                     local missed, core = {}, 0
                     for id, r in pairs(rows) do
-                        if r[17] == SORT[token] and has(r[7], b) and not rep(r) and suits(r[6], side) then
+                        if r[17] == SORT[token] and has(r[7], b) and not rep(r) and suits(r[6], side) and not ignore[id] then
                             core = core + 1
                             if not listed[id] then missed[#missed + 1] = id end
                         end
@@ -459,10 +496,17 @@ elseif cmd == "class" then
         assert(wantBit, "class [warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid|...]")
     end
     local RACES = { "human", "orc", "dwarf", "nightelf", "undead", "tauren", "gnome", "troll", "goblin" }
-    local raceBit
-    if arg[3] then
+    local raceBit, sideBits
+    if arg[3] == "alliance" or arg[3] == "horde" then
+        sideBits = arg[3] == "alliance" and { 1, 4, 8, 64, 2 ^ 32 } or { 2, 16, 32, 128, 2 ^ 33 }
+    elseif arg[3] then
         for i, n in ipairs(RACES) do if n == arg[3]:lower() then raceBit = 2 ^ (i - 1) end end
-        assert(raceBit, "class <name> [human|orc|dwarf|nightelf|undead|tauren|gnome|troll|goblin]")
+        assert(raceBit, "class <name> [human|orc|dwarf|nightelf|undead|tauren|gnome|troll|goblin|alliance|horde]")
+    end
+    local function sideOk(r)
+        if not sideBits or type(r) ~= "number" or r == 0 then return true end
+        for _, b in ipairs(sideBits) do if has(r, b) then return true end end
+        return false
     end
     local rows = load()
     local all = 0
@@ -471,7 +515,7 @@ elseif cmd == "class" then
     for id, row in pairs(rows) do
         local m = row[7]
         local r = row[6]
-        local raceOk = not raceBit or type(r) ~= "number" or r == 0 or has(r, raceBit)
+        local raceOk = (not raceBit or type(r) ~= "number" or r == 0 or has(r, raceBit)) and sideOk(r)
         if type(m) == "number" and m > 0 and m % (2 ^ 11) ~= all % (2 ^ 11) and (not wantBit or has(m, wantBit)) and raceOk then
             ids[id] = true
         end

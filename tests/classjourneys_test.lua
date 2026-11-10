@@ -12,16 +12,30 @@ local CLASSES = { WARRIOR = true, PALADIN = true, HUNTER = true, ROGUE = true, P
 local function eachJourney(data, fn)
     for token, sides in pairs(data) do
         if type(sides) == "table" then
-            for side, j in pairs(sides) do fn(token, side, j) end
+            for side, j in pairs(sides) do
+                if side ~= "ignore" then fn(token, side, j) end
+            end
         end
     end
 end
 
 return function(t)
-    t.test("class journeys: loads without WoW globals and has the Paladin's two roads", function()
+    t.test("class journeys: loads without WoW globals and has all nine classes on both sides", function()
         local data = loadData()
         t.ok(type(data.source) == "string", "source")
-        t.ok(data.PALADIN and data.PALADIN.Alliance and data.PALADIN.Horde, "Paladin, both sides")
+        for token in pairs(CLASSES) do
+            t.ok(data[token] and data[token].Alliance and data[token].Horde, token .. ", both sides")
+        end
+    end)
+
+    t.test("class journeys: ignored quests carry a reason", function()
+        for token, c in pairs(loadData()) do
+            if type(c) == "table" and c.ignore then
+                for id, why in pairs(c.ignore) do
+                    t.ok(type(id) == "number" and type(why) == "string" and #why > 0, token .. " ignore " .. tostring(id))
+                end
+            end
+        end
     end)
 
     t.test("class journeys: every class and side is known, every stop is complete", function()
@@ -35,15 +49,28 @@ return function(t)
                 t.ok(type(s.key) == "string" and type(s.name) == "string", "key and name " .. at)
                 t.ok(s.kind == "road" or s.kind == "side", "kind " .. at)
                 t.ok(type(s.level) == "number" and s.level >= 1 and s.level <= 60, "level " .. at)
-                t.ok(type(s.quests) == "table" and #s.quests > 0, "quests " .. at)
-                for _, q in ipairs(s.quests) do
-                    if type(q) == "table" then
-                        t.ok(#q >= 2, "an any-of entry lists at least two quests " .. at)
-                        for _, a in ipairs(q) do t.ok(type(a) == "number", "quest ID " .. at) end
-                    else
-                        t.ok(type(q) == "number", "quest ID " .. at)
+                t.ok((s.quests == nil) ~= (s.routes == nil), "quests or routes, not both " .. at)
+                local function checkList(qs)
+                    t.ok(type(qs) == "table" and #qs > 0, "quests " .. at)
+                    for _, q in ipairs(qs) do
+                        if type(q) == "table" then
+                            t.ok(#q >= 2, "an any-of entry lists at least two quests " .. at)
+                            for _, a in ipairs(q) do t.ok(type(a) == "number", "quest ID " .. at) end
+                        else
+                            t.ok(type(q) == "number", "quest ID " .. at)
+                        end
                     end
                 end
+                if s.routes then
+                    t.ok(#s.routes >= 2, "at least two routes " .. at)
+                    for _, r in ipairs(s.routes) do
+                        checkList(r)
+                        t.ok(r.name == nil or type(r.name) == "string", "route name " .. at)
+                    end
+                else
+                    checkList(s.quests)
+                end
+                t.ok(s.raceMask == nil or (type(s.raceMask) == "number" and s.raceMask > 0), "raceMask " .. at)
                 for _, q in ipairs(s.extra or {}) do t.ok(type(q) == "number", "extra quest ID " .. at) end
                 t.ok(s.order == nil or s.order == "inferred", "order " .. at)
             end
@@ -74,8 +101,10 @@ return function(t)
                     t.ok(keyOf[id] == nil or keyOf[id] == s.key, token .. " " .. side .. ": quest " .. id .. " in two stops")
                     keyOf[id] = s.key
                 end
-                for _, q in ipairs(s.quests) do
-                    if type(q) == "table" then for _, a in ipairs(q) do see(a) end else see(q) end
+                for _, qs in ipairs(s.routes or { s.quests }) do
+                    for _, q in ipairs(qs) do
+                        if type(q) == "table" then for _, a in ipairs(q) do see(a) end else see(q) end
+                    end
                 end
                 for _, q in ipairs(s.extra or {}) do see(q) end
             end

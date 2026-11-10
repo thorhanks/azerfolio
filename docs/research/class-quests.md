@@ -62,10 +62,28 @@ That gives **7 stops** for the main road, which fits a map strip well. Besides t
 
 `Azerfolio/Data/ClassJourneys.lua` holds the structure (stops, their quests in order, side paths, extras that don't count); `luajit tools/qdb.lua class check` tests it against the base rows. Race versions of a stop share its key, so the quest rules pick the one that suits the character (race masks separate them: 1641-1788 Human 1, 1645-1785 Dwarf 4) [verified-files].
 
-| Journey | Road stops | Side paths | Counted quests | Class-sort quests left out |
+All nine classes, both sides (`class check`: OK; every one-time class-sort quest is on a road, in an extra, or ignored with a reason). Stops count each key once; quests count race versions together and the longest route of a stop.
+
+| Journey | Road stops (level) | Side paths | Quests | Class-sort quests |
 |---|---|---|---|---|
-| Paladin, Alliance | 5: letter/rune 1, Tome of Divinity 12, Tome of Valor 20, Tome of Nobility 40, the Charger 60 | 2: A Strange Artifact 22, Forging the Mightstone 50 | 46 (Human and Dwarf versions added up) | 0 of 56 |
-| Paladin, Horde (Forsaken) | 6: A Difficult Path 1, Rediscovering the Light 2, Bandarion Keep 7, A Lesson in Divinity 12, Diplomatic Incident 18, The Moonsilver Blade 20 | 1: A Second Home 8 | 30 | 0 of 30 |
+| Warrior, A | intro 1, Defensive Stance 10 (4 routes: Stormwind, Ironforge, Darnassus, Zephras Isle), The Shieldsmith 20, The Affray 30 (Berserker Stance), Whirlwind Weapon 30, Voodoo Feathers 50 | 3 armour chains off the Shieldsmith | 30 | 46 |
+| Warrior, H | intro, Defensive Stance 10 (Barrens, Tirisfal, Zephras), Trial at the Field of Giants 20, The Affray, Whirlwind Weapon, Voodoo Feathers | Brutal Gauntlets, Helm, Legguards | 28 | 39 |
+| Paladin, A | letter/rune 1, Tome of Divinity 12, Tome of Valor 20, Tome of Nobility 40, the Charger 60 | A Strange Artifact 22, Forging the Mightstone 50 | 46 | 56 |
+| Paladin, H (Forsaken) | A Difficult Path 1, Rediscovering the Light 2, Bandarion Keep 7, A Lesson in Divinity 12, Diplomatic Incident 18, The Moonsilver Blade 20 | A Second Home 8 | 30 | 30 |
+| Hunter, A / H | intro, Taming the Beast 10 (routes per starting area), The Green Drake 50 | none | 12 / 20 | 30 / 27 |
+| Rogue, A | intro, Thieves' Errand 10 (3 routes), Lockpicking Trial 16 (3 routes), The Touch of Zanzil 20, Ravenholdt 24, The Syndicate Sting 24 (Forever), The Azure Key 50 | The Eye of Bhossca 25 | 27 | 38 |
+| Rogue, H | intro, The Shattered Hand / The Deathstalkers 10, Lockpicking Trial 16 (2 routes), Hinott's Assistance 20, Ravenholdt, The Syndicate Sting, The Azure Key | The Eye of Bhossca | 31 | 38 |
+| Priest, A | intro, Garments 5, racial spell 10 (Desperate Prayer, Stars of Elune, Confounding Flash), Divine Grace 10 (Human, Forever), racial spell 20 (Fear Ward, Elune's Grace, Feedback, Contingency Plan), Blood of Morphaz 50, The Balance of Light and Shadow 60 | none | 20 | 57 |
+| Priest, H | intro, Garments 5, Hex / Touch of Weakness 10, Shadowguard / Dark Sacrifice 20, Blood of Morphaz 50, Balance of Light and Shadow 60 | none | 13 | 28 |
+| Shaman, A (Dwarf) | Archaic Rune 1, Call of Earth 4, Fire 10, Water 20, Air 30, The Tempest's Weapons 30 | none | 21 | 25 |
+| Shaman, H | intro, Call of Earth 4, Fire 10, Water 20, Air 30 (each with Durotar / Mulgore / Zephras versions), The Tempest's Weapons 30, Da Voodoo 50, The Darkreaver Menace 58 | none | 30 | 49 |
+| Mage, A / H | intro, First Errand 10 (routes), robe 15, robe 26, Mage's Wand 30, Celestial Power 35, Destroy Morphaz 50, Fragmented Magic 60 | none | 26 / 26 | 34 / 33 |
+| Warlock, A / H | intro, First Lessons 1, Voidwalker 10, Succubus 20 (routes: the 1.12 chain or Classic Era's 655xx/656xx), Felhunter 30, Felsteed 40, Trolls of a Feather 50, Dreadsteed 60 | Orb of Soran'ruk, The Completed Robe, Orb of Orahil, Kroshius' Infernal Core, Suppression | 46 / 55 | 62 / 77 |
+| Druid, A / H | intro, Bear Form 10 (Moonglade or Zephras Isle), Power over Poison 14, Aquatic Form 16, Cat Form 20 (routes), A Better Ingredient 50 | Child of Nature 10 (Skyborne) | 27 / 27 | 31 / 31 |
+
+Format additions found while curating: **routes** (the stop is done when any one route is; for home-city chains whose race masks all suit the side, and the two Succubus paths), **raceMask** (the Skyborne intros, which QuestieDB opens to every race but which sit behind Zephras Isle's 92461), and **ignore** per class with a reason (Priest `<NYI>` placeholders 5691-5693 and 5704-5706, Mage 97286 behind 40 Season of Discovery quests and 7463 in Dire Maul, Hunter Rhok'delar 7632-7636 from a Molten Core drop). `class check` now also reports race versions that share a key and both suit one race: 62 such overlaps were found and turned into routes. One quest sits in the wrong sort: 92479 A Scribbled Letter (Human Hunter) is filed under the Warrior sort, so the check can't see it; it's on the Hunter road by hand.
+
+Thin roads: the Hunter has only three stops (no class-sort quests between 10 and 50, and Rhok'delar is a raid quest), the Priest has no side paths.
 
 Curating rules learned on the way:
 - **Repeatable-flagged chain quests don't count.** QuestieDB flags some chain starters and sub-quests as repeatable (1641 and 1645, the Tome starts; 1442 Kor Gem and 1655 Bailor's Ore, 1654's child quests; 7645, 7643's child). The game may never flag those as completed, so they're `extra`: shown, not counted. Whether `IsQuestFlaggedCompleted` reports them is an in-game check.
@@ -80,6 +98,8 @@ Curating rules learned on the way:
 - **Forever's corrections:** do the in-game QuestieDB rows link the chains that the base rows don't (78088-78093, the Horde Paladin quests)? Needs a probe in `/azfdiag questdb` or `/azf debug`.
 - **Are the newer-ID quests live** for Gideon (e.g. 78088 "A Strange Artifact")?
 - **Completion read** of an already-done class quest for Gideon (e.g. 3101, Consecrated Letter), the same way Quests already does it.
+- **Skyborne race:** the race ID and token, and whether its bits are 2^32 (Alliance) / 2^33 (Horde); `QuestRules.RaceBit` returns nil for it today, so `raceMask` stops can't be shown to a Skyborne character until then.
+- **Succubus routes:** can a Warlock still take the 1.12 chain (1738) and the Classic Era one (65602) both, or only one? Either way the stop is done by one route.
 - **Repeatable-flagged chain quests:** does the game report 1641 (the Tome of Divinity start) as completed once done? If so, it could count.
 
 ## Third-party guides (2026-11-09)
