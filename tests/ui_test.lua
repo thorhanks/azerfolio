@@ -1140,6 +1140,27 @@ return function(t)
         t.eq(_G.Azerfolio_Toggle, nil)
     end)
 
+    -- A module function defined twice in a file: the later one silently wins (Theme.NineSlice
+    -- hid the Reputation tab's plaque helper, a Lua error in game the mock didn't raise).
+    t.test("no module function is defined twice in a file", function()
+        local files = {}
+        for line in io.lines("Azerfolio/Azerfolio.toc") do
+            local f = line:match("^([%w\\/_]+%.lua)%s*$")
+            if f then files[#files + 1] = "Azerfolio/" .. f:gsub("\\", "/") end
+        end
+        t.ok(#files > 20, "files from the TOC")
+        for _, path in ipairs(files) do
+            local seen = {}
+            for line in io.lines(path) do
+                local name = line:match("^function%s+([%w_]+%.[%w_%.]+)%s*%(")
+                if name then
+                    t.eq(seen[name], nil, path .. ": " .. name .. " defined twice")
+                    seen[name] = true
+                end
+            end
+        end
+    end)
+
     t.test("tabs are registered in order and wrap around", function()
         local ns = boot()
         t.eq(#ns.UI.tabs, 3)

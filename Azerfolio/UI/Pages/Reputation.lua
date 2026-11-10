@@ -274,7 +274,7 @@ local function newCell(parent, r)
     shade("TOPRIGHT", "BOTTOMRIGHT", "HORIZONTAL", 0, 0.55):SetWidth(28)
     shade("BOTTOMLEFT", "BOTTOMRIGHT", "VERTICAL", 0.45, 0):SetHeight(12)
     shade("TOPLEFT", "TOPRIGHT", "VERTICAL", 0, 0.35):SetHeight(10)
-    c.plaque = T.NineSlice(c, "frame-plaque", RT.plaqueCorner, 0, "ARTWORK")
+    c.plaque = T.ChromeNineSlice(c, "frame-plaque", RT.plaqueCorner, 0, "ARTWORK")
     if not c.plaque then
         c.edge = ns.Widgets.Edge(c, "ARTWORK"); c.edge:SetColor("cardEdge")
     end

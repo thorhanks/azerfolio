@@ -341,7 +341,8 @@ Theme.repKinds = { zone = "Zone", dungeon = "Dungeon", raid = "Raid", battlegrou
 -- A painted nine-slice (a chrome piece with { x, y } border fractions) around `frame`, corners
 -- `corner` units, `out` units outside it. Returns a handle with SetShown / SetVertexColor /
 -- SetAlpha, or nil without the art.
-function Theme.NineSlice(frame, name, corner, out, layer, sub)
+-- (Not Theme.NineSlice: that one draws an atlas family, below.)
+function Theme.ChromeNineSlice(frame, name, corner, out, layer, sub)
     local file, slice = Theme.Chrome(name)
     if not file or type(slice) ~= "table" then return nil end
     out = out or 0
