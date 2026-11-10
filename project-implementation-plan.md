@@ -163,6 +163,9 @@ Verified in Phase 0: the client loads `.png` and `.tga` from addon folders. Ship
 | 7 | Overview dashboard | E |
 | 8 | Polish and v1 validation | F (v1 done) |
 | 9 | Quest tracking (v1.1) | G |
+| 10 | Celebrations and the Atlas (v1.2) | H |
+| 11 | Zone reputation (v1.3) | I |
+| 12 | Reputation tab (v1.4) | J |
 
 Phases 3 and 4 can overlap with 5. Do not finalize the exploration catalogue format until Phase 1 is accepted.
 
@@ -368,6 +371,19 @@ Owner's choice 2026-11-08. Spec §7.8, §8.9; research `docs/research/reputation
 
 **Done when:** the section shows correct, game-confirmed standing for every zone faction on both characters, never touches the combined %, and the owner approves.
 
+### Phase 12 — Reputation tab (v1.4)
+
+Owner's choice 2026-11-09, after Phase 11 task 5. Spec §7.9, §8.10; design `mockups/DESIGN.md` "Reputation tab" and "Gold beyond completion"; mockup code `mockups/app.js` ("Reputation tab (Phase 12 proposal)": `allFactions`, `renderReputation`, `renderFactionInto`, `repDist`, `toggleWatch`) and `mockups/style.css`; research `docs/research/reputation.md`. Phase 11's open checks R1 and R2 stay open and are checked where Phase 11 asks; they don't block this phase.
+
+**Tasks**
+1. Design analysis, mockup and art: every faction the game returns data for, grouped by where their quests are, the standing strip, the faction page with the reach, the rival seesaw, where to raise it, X to watch. Art: `icon-reputation`, `frame-plaque`, `plaque-fill-cloth`, eight `rep-<reaction>` emblems (iron to gold). *(Done 2026-11-09: mockup approved by the owner; art processed and committed.)*
+2. Plan and spec: this phase, spec §7.9 and §8.10, decision log. *(Done 2026-11-09.)*
+3. Systems: extend the pure `Systems/ReputationRules` (group by where most raising quests are; reach = standing + the base amounts of one-time quests not done and eligible, capped at Exalted; repeatables counted separately, never in the reach; class-only sources flagged "not for you"; sorts By group, Closest to next with met first, A–Z) and `Systems/Reputation` (`All()`: every faction `C_Reputation.GetFactionDataByID` returns, the other side's battleground factions 510 / 729 / 2798 and the Alliance / Horde headers left out by side; sources per zone, dungeon, raid, battleground, profession, class and event from QuestieDB `reputationReward`; gains seen this session from `UPDATE_FACTION` snapshots, in memory only; watched from `isWatched`). Tests on fixtures; pure modules load without WoW globals.
+4. UI: `UI/Pages/Reputation.lua` as the third tab (painted `Media\Icons\icon-reputation.blp`): toolbar (All / Met / Not met yet, Sort, Y cycles it), the standing strip (`frame-plaque` nine-slice around `plaque-fill-cloth` tinted in the reaction colour, `rep-<reaction>` emblems, "Met n of m · Exalted n of m"), grouped rows with sticky headers (LT/RT), zone-art thumbnails, tags (Not met yet, At war, Rival of, "+n today", Watched), the faction page (banner, bar with the reach ghost and its dashed end mark, the reach sentence, the game's description, the rival seesaw, Where to raise it), X to watch (`C_Reputation.SetWatchedFactionByID`, guarded; open check until seen in game), the wide split view, focus and legend as designed. Exalted becomes gold everywhere, the zone ledger included (`Theme` reaction colours, `Widgets.RepBar`). The tab joins `/azf shots`.
+5. In-game check on Gideon (`/azf shots reputation`): the list matches the game's Reputation window for met factions, filters and sorts, the strip's counts, the faction page, watching from X, both window widths. Checks that need real play (a session gain, a rank-up) go to `docs/open-checks.md`.
+
+**Done when:** the tab lists every faction the game returns data for on this side with game-confirmed standing, the reach and sources come from QuestieDB and are marked approximate, X watching works in game (or is shown as unavailable), nothing touches combined zone completion, and the owner approves.
+
 ## 7. Phase 0 questions
 
 All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabilities.md`.
@@ -469,6 +485,9 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-08 | The reputation section is hidden in zones with no zone faction (no home-faction fallback) | A home-faction bar would repeat in every leveling zone. Owner's choice |
 | 2026-11-08 | Phase 11 (zone reputation, v1.3) planned; task 1 (research) done | Spec §7.8, §8.9 |
 | 2026-11-08 | Phase 11 task 2: reputation mockup approved. A ledger under Next up (one line per faction, a painted eight-step reaction ladder, Not met yet / At war / Rival tags); A opens a faction page with the zone's quests that raise it. Rivals derived from QuestieDB's negative rewards | `mockups/DESIGN.md` Zone reputation |
+| 2026-11-09 | Phase 12 (Reputation tab, v1.4) planned. Mockup approved: a third tab with every faction the game returns data for, grouped by where most of its raising quests are (Home, Zones, Dungeons & raids, Battlegrounds, Professions, Class and events, No known quests), All / Met / Not met yet and three sorts, a standing strip of painted plaques and emblems, and a faction page with the reach, the rival seesaw and where to raise it | Owner approved `mockups/DESIGN.md` "Reputation tab"; the probe reads 38 IDs for Gideon, so a full view has real data |
+| 2026-11-09 | The reach counts only one-time quests not done and eligible, at QuestieDB's base amounts, capped at Exalted, always shown as approximate ("about", "~"); repeatables are named but not counted; kill reputation isn't known to the addon | Honest data: base amounts leave out racial and other bonuses, and repeatables have no end |
+| 2026-11-09 | X sets the watched faction (`C_Reputation.SetWatchedFactionByID`) on the player's request; Azerfolio still never changes reputation UI state by itself. Gains "today" are kept in memory for the session only | Watching is a player action the design asks for (spec §8.9 amended); a saved gain history would bring back the removed milestone store |
 | 2026-11-09 | Gold isn't reserved for completion: important non-completable states may use it. Exalted is gold (label, bar, standing strip); completion keeps ✓, %, pennants and celebrations as its own cues | Owner, during the Reputation tab art review (`mockups/DESIGN.md` "Gold beyond completion") |
 
 ## 10. Definition of done (v1)

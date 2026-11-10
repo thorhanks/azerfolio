@@ -26,7 +26,11 @@ In-game checks that wait on real play (a first-time faction, a level-60 characte
 
 - 2026-11-08, task 5, both characters (approval pending): Thragor and Gideon get the same 20 zones and the same standing for shared factions; side factions follow the side (Thragor 2778, 2787; Gideon 2779, 589). Each game Reputation window shows only home factions, which agrees with "Not met yet" everywhere. Settled: 471 and Brood of Nozdormu hidden (no data), Zephras Isle one faction per side, Feralas keeps the rule (owner). Still open: a met zone faction against the game's window and a refresh after a zone-faction turn-in (neither character has one). `trace-report.lua reputation` now prints the standing that changed between refreshes. Shots `WoWScrnShot_110826_225848`-`230104`.
 
-## Proposed next: Phase 12, Reputation tab
+## Phase 12: Reputation tab (v1.4)
+
+Plan §6 Phase 12, spec §7.9 and §8.10. Next: task 3, systems (`ReputationRules`, `Reputation.All`).
+
+- 2026-11-09, mockup approved by the owner; task 2, plan and spec (done): Phase 12 tasks, decision-log rows (approved mockup, the reach rule, Watch as the one player-requested change to reputation UI state), spec §7.9, §8.10 and v1.4 acceptance criteria.
 
 - 2026-11-09, design analysis and mockup round 1 (awaiting review): a Reputation tab with every faction the game returns data for (34 for Gideon), grouped by where their quests are, a standing strip, and a faction page with the reach (what the quests left would bring), the rival seesaw, where to raise it, X to watch. Spec in `mockups/DESIGN.md` "Reputation tab". Probe: the other side's battleground factions return data (Hated), so they're filtered by side.
 - 2026-11-09, art: prompts for `icon-reputation`, `frame-plaque` and eight `rep-<reaction>` emblems (metal climbing iron → gold) in art/prompts.md; `process-art.ps1` knows them (plaque nine-slice 256×128, emblems 128×128 keyed). Mockup shows glyph stand-ins until the art exists. Owner: Exalted is gold (decision log); the Lua zone ledger still draws Exalted green (`Theme` reaction colours) until the Lua step.

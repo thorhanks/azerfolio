@@ -55,9 +55,13 @@ These are hard rules. When a requirement elsewhere conflicts with one of these, 
 
 - The zone's own factions on Zone Detail, with the character's standing (§7.8, §8.9). Owner's choice, 2026-11-08.
 
+### v1.4 — Reputation tab
+
+- A third tab with every faction the game returns data for, and a page per faction on how to raise it (§7.9, §8.10). Owner's choice, 2026-11-09.
+
 ### Later (architecture must allow, do not build)
 
-Class progression, professions (recipes: known vs. available, where to get them), collections, dungeons and raids (incl. a dungeon tile on Zone Detail: art and quest progress, opens the Dungeons tab), Legacy progression, a full reputations view, account-wide and cross-character views, custom goals, smarter recommendations, waypoint integration, localization.
+Class progression, professions (recipes: known vs. available, where to get them), collections, dungeons and raids (incl. a dungeon tile on Zone Detail: art and quest progress, opens the Dungeons tab), Legacy progression, reputation rewards per standing and kill reputation, account-wide and cross-character views, custom goals, smarter recommendations, waypoint integration, localization.
 
 ### Out of scope
 
@@ -268,6 +272,20 @@ Decided 2026-11-08 (owner):
 - **Hidden** when the zone has no zone faction for this character (most leveling zones and the capitals).
 - Quest reputation amounts are QuestieDB's base values; if shown, they are labeled as approximate, never as exact gains.
 - Layout comes from the mockup step.
+- Exalted is gold, here and on the Reputation tab (owner, 2026-11-09): gold isn't reserved for completion, and completion keeps its own cues (✓, %, the claimed pennant, celebrations).
+
+### 7.9 Reputation tab (v1.4)
+
+Approved 2026-11-09 (owner); layout and gamepad map in `mockups/DESIGN.md` "Reputation tab". Like §7.8, it's progress beside completion, never part of it: no %, no claims, no celebrations.
+
+- **Factions:** every faction the game returns data for (§8.10), on this character's side.
+- **Groups** with sticky headers ("n of m met"), from where most of a faction's raising quests are: Home, Zones, Dungeons & raids, Battlegrounds, Professions, Class and events, No known quests.
+- **Toolbar:** All / Met / Not met yet; sort By group, Closest to next (met factions first, "n to <next>" in place of n / m), A–Z.
+- **Standing strip:** how many factions sit at each reaction, and "Met n of m · Exalted n of m".
+- **Row:** the main zone's art (or a glyph), name, tags (Not met yet, At war, Rival of, "+n today" for a gain seen this session, Watched), reaction, the reputation bar, n / m (none at Exalted).
+- **Faction page:** the main zone's art in the banner; the bar with the **reach** (where the one-time quests you haven't done and can do would take you, at QuestieDB's base amounts, capped at Exalted, always "about"; repeatables mentioned, not counted); the game's description; for rivals both factions side by side; **Where to raise it**, one row per place with its kind, quest count and ~amount; class quests for another class dimmed as "not for you". A on a zone opens that zone's faction page (§7.8), or its dashboard when the faction isn't one of its zone factions; dungeons and raids wait for the Dungeons tab. A faction with no known quests says so.
+- **Watch:** X sets or clears the faction shown on the experience bar, when the client allows it; otherwise the action isn't offered.
+- Not built: rank-up toasts, rewards per standing, kill reputation (no data source).
 
 ### 7.6 Map actions
 
@@ -312,7 +330,16 @@ Research and probe: `docs/research/reputation.md`.
 - **Zone factions** are derived at runtime from the `reputationReward` of the zone's quests (QuestieDB composed view, same zone mapping as quests). No hand-curated table. Rule: count the quests that raise each faction; leave out home factions (capitals, races, Alliance/Horde) and battleground factions; keep a faction with ≥ 5 such quests in the zone, or ≥ 3 when the zone holds ≥ 50% of the faction's quests in all zones. Offline, this gives 21 zones.
 - **Standing** from `C_Reputation.GetFactionDataByID` (Forever has no classic faction globals). "Met" = the faction is in `C_Reputation`'s index list. Factions the game returns no data for (the other side's) are left out.
 - Without QuestieDB there are no zone factions, so the section is hidden, the same as quests being unavailable.
-- Refresh on `UPDATE_FACTION`, debounced. Standing is read from the game, never stored. Azerfolio never changes the player's reputation UI state (collapsed headers, watched faction).
+- Refresh on `UPDATE_FACTION`, debounced. Standing is read from the game, never stored. Azerfolio never changes the player's reputation UI state (collapsed headers, watched faction) by itself; the one exception is the Reputation tab's Watch, which the player asks for (§7.9).
+
+### 8.10 Reputation tab data (v1.4)
+
+- **All factions:** every ID `C_Reputation.GetFactionDataByID` returns data for, met or not (38 IDs for Gideon in the probe). Left out by side: the other side's battleground factions (510, 729, 2798; the game returns them at Hated) and the Alliance / Horde headers. "Met" as in §8.9.
+- **Sources** from each quest's QuestieDB `reputationReward`, sorted by where the quest is: zone, dungeon, raid, battleground, profession, class or event. A faction's group is where most of its raising quests are. Rivals as in §8.9 (negative rewards).
+- **Reach:** standing plus the base amounts of the one-time quests that raise it and are neither done nor ruled out for this character (the quest eligibility of §8.4), capped at Exalted. Repeatables are counted separately. Shown as approximate.
+- **Gains this session:** standing changes between `UPDATE_FACTION` reads while the addon runs; kept in memory only, never saved, nothing at login.
+- **Watched:** `isWatched` from the faction data; set with `C_Reputation.SetWatchedFactionByID`, guarded (existence check and `pcall`) until verified in game.
+- Pure rules (groups, reach, sorts) live in `Systems/ReputationRules`; the UI only shows their results.
 
 ### 8.6 Aggregation output
 
@@ -388,6 +415,13 @@ All v1 criteria met 2026-11-08 (evidence: `docs/testing.md` § Phase 8).
 - [x] Incomplete coverage clearly labeled; no unverifiable total presented as complete.
 - [x] Zone completion combines the applying categories (§7.7); a category that doesn't apply is left out, not 0%.
 - [x] Flight paths per zone, confirmed by the client, or shown as unavailable with the reason.
+
+### v1.4 Reputation tab
+- [ ] Lists every faction the game returns data for on this side; met factions match the game's Reputation window.
+- [ ] Filters, sorts and the standing strip's counts agree with the list.
+- [ ] Reach and amounts come from QuestieDB and are marked approximate; without QuestieDB the tab still shows standing, with sources unavailable.
+- [ ] Watch sets the experience bar's faction in game, or isn't offered.
+- [ ] Exalted is gold on the tab and in the zone ledger; nothing touches combined zone completion.
 
 ## 13. Definition of v1 success
 
