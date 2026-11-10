@@ -33,6 +33,7 @@
   <label>Look <select id="lookSel"><option>Alliance</option><option>Horde</option></select></label>
   <label>Rep bar <select id="repBarSel"><option value="equal">Notched, equal steps</option><option value="true">Notched, true scale</option><option value="ladder">Ladder (round 2)</option></select></label>
   <label>Strip <select id="stripSel"><option value="cloth">Tinted cloth</option><option value="enamel">Tinted enamel</option><option value="line">Top line (round 1)</option></select></label>
+  <label>Class <select id="classSel"><option value="data">From the scenario</option><option value="all">Every quest done</option></select></label>
   <label><input type="checkbox" id="claimPreview"> Preview claimed</label>
   <span class="right">
     <label><input type="checkbox" id="wideToggle"> Wide window (ultrawide)</label>
@@ -70,6 +71,9 @@
       </button>
       <button class="tab focusable" data-tab="reputation" aria-label="Reputation" data-tip="<b>Reputation</b>Every faction and how to raise it.">
         <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 7 H32 L30 16 L33 33 L20 29 L7 33 L10 16 Z" fill="#7a1f1f" stroke="#2a0d08" stroke-width="2" stroke-linejoin="round"/><path d="M8 7 H32 L31 11 H9 Z" fill="#c9a24a" stroke="#4a3218" stroke-width="1"/><path d="M20 14 L25 19 L20 25 L15 19 Z" fill="#ffd24d" stroke="#6b4a10" stroke-width="1.2"/><path d="M11 30 L20 27 L29 30" stroke="#c9a24a" stroke-width="1.5" fill="none"/></svg>
+      </button>
+      <button class="tab focusable" data-tab="class" aria-label="Class" data-tip="<b>Class</b>Your class quest journey.">
+        <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 5 L32 10 V20 C32 28 26 33 20 36 C14 33 8 28 8 20 V10 Z" fill="#f58cba" stroke="#3a1424" stroke-width="2" stroke-linejoin="round"/><path d="M20 9 L28 12.5 V20 C28 26 24 29.5 20 32 C16 29.5 12 26 12 20 V12.5 Z" fill="#fff0d0" opacity=".25"/><path d="M14 13 L26 25 M26 13 L14 25" stroke="#2a1608" stroke-width="2"/><rect x="11" y="10" width="7" height="5" rx="1" transform="rotate(45 14.5 12.5)" fill="#e2bb4f" stroke="#4a3218"/><path d="M20 4 V9" stroke="#ffd24d" stroke-width="2"/></svg>
       </button>
       <span class="glyph shoulder">RB</span>
     </nav>

@@ -464,7 +464,7 @@
   const ui = { repBar: "equal", tab: "overview", detail: null, view: "cards", faction: "relevant", status: "all", level: "all", sort: "recommended",
     search: "", zonesScroll: 0, lastZone: null, selected: null, flyout: null, wide: false, newCrit: null, celebrate: null,
     quests: "loaded", showUnavailable: false, openStories: new Set(), detailPage: null, look: "Alliance",
-    repFilter: "all", repSort: "group", repSel: null, repOpen: null, watched: null };
+    repFilter: "all", repSort: "group", repSel: null, repOpen: null, watched: null, classSel: null, classPreview: "data" };
   const OPTIONS = {
     faction: { label: "Show", items: [["relevant", "Relevant to me"], ["all", "All zones"]] },
     level: { label: "Level", items: [["all", "All levels"], ["appropriate", "For my level"]] },
@@ -1510,6 +1510,245 @@
   }
 
   // =====================================================================================
+  // Class tab (Phase 13 mockup, 2026-11-09): the class quest journey. Left: a painted map
+  // strip (SVG stand-in), the road running down it with one node per stop (a quest chain) and a
+  // bead per quest; optional side paths branch off and end in a dead end. Right: the selected
+  // stop. Sample data: Gideon, Human Paladin; quest IDs from `qdb.lua class paladin human`
+  // (base rows). In the addon the stops come from the curated Data/ClassJourneys.lua and every
+  // done / not done from the game.
+  // =====================================================================================
+  // step: [questID, name, NPC, place, level]
+  const CLASS_ROAD = {
+    cls: "Paladin", title: "The Paladin's Road",
+    W: 420, H: 1500, end: { x: 214, y: 1416 },
+    stops: [
+      { id: "letter", kind: "road", x: 214, y: 92, lv: 1, name: "Consecrated Letter", landmark: "abbey",
+        reward: "Meet Brother Sammuel, your first trainer", start: "Marshal McBride · Northshire Abbey, Elwynn Forest",
+        steps: [[3101, "Consecrated Letter", "Marshal McBride", "Northshire Abbey, Elwynn Forest", 1]] },
+      { id: "divinity", kind: "road", x: 300, y: 330, lv: 12, name: "The Tome of Divinity", landmark: "cathedral",
+        reward: "Redemption (spell)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
+        alt: "Dwarf paladins take this from Tiza Battleforge in Ironforge; Humans get Stormwind's version (the other one is never counted).",
+        optional: [[2998, "Tome of Divinity", "Brother Wilhelm", "Goldshire, Elwynn Forest", 12]],
+        steps: [[1641, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 12],
+          [1642, "The Tome of Divinity", "the Tome of Divinity (item)", "Your bags", 12],
+          [1643, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 12],
+          [1644, "The Tome of Divinity", "Stephanie Turner", "Old Town, Stormwind City", 12],
+          [1780, "The Tome of Divinity", "Stephanie Turner", "Old Town, Stormwind City", 12],
+          [1781, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 12],
+          [1786, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 12],
+          [1787, "The Tome of Divinity", "Henze Faulk", "Elwynn Forest", 12],
+          [1788, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 12]] },
+      { id: "valor", kind: "road", x: 118, y: 600, lv: 20, name: "The Tome of Valor", landmark: "farm",
+        reward: "Verigan's Fist (two-handed mace)", start: "The Tome of Valor (item) · from Duthorian Rall, Stormwind City",
+        steps: [[1649, "The Tome of Valor", "the Tome of Valor (item)", "Your bags", 20],
+          [1650, "The Tome of Valor", "Duthorian Rall", "Cathedral of Light, Stormwind City", 20],
+          [1651, "The Tome of Valor", "Daphne Stilwell", "Westfall", 20],
+          [1652, "The Tome of Valor", "Daphne Stilwell", "Westfall", 20],
+          [1653, "The Test of Righteousness", "Duthorian Rall", "Cathedral of Light, Stormwind City", 20],
+          [1654, "The Test of Righteousness", "Jordan Stilwell", "Ironforge gates, Dun Morogh", 20],
+          [1442, "Seeking the Kor Gem", "Thundris Windweaver", "Auberdine, Darkshore", 20],
+          [1655, "Bailor's Ore Shipment", "Bailor Stonehand", "Thelsamar, Loch Modan", 20],
+          [1806, "The Test of Righteousness", "Jordan Stilwell", "Ironforge gates, Dun Morogh", 20]] },
+      { id: "artifact", kind: "side", from: "valor", x: 66, y: 846, lv: 22, name: "A Strange Artifact", landmark: "grove",
+        reward: "Not known yet (read from the quest in game)", start: "A strange artifact (object) · Ashenvale",
+        flag: "A newer quest ID: whether it's live in Forever is still an in-game check.",
+        steps: [[78088, "A Strange Artifact", "a strange artifact (object)", "Ashenvale", 22],
+          [78089, "Advice From Stormwind", "Delgren the Purifier", "Ashenvale", 22],
+          [78090, "A Second Opinion", "Katherine the Pure", "Stormwind City", 22],
+          [78091, "Earning Your Salt", "Ursula Deline", "Stormwind City", 22],
+          [78092, "It Must Be Destroyed", "Ursula Deline", "Stormwind City", 22],
+          [78093, "Return to Delgren", "an object", "Ashenvale", 22]] },
+      { id: "nobility", kind: "road", x: 306, y: 900, lv: 40, name: "The Tome of Nobility", landmark: "keep",
+        reward: "Summon Warhorse (mount)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
+        steps: [[1661, "The Tome of Nobility", "Duthorian Rall", "Cathedral of Light, Stormwind City", 40]] },
+      { id: "mightstone", kind: "side", from: "nobility", x: 362, y: 1132, lv: 50, name: "Forging the Mightstone", landmark: "camp",
+        reward: "Shown in game (from the quest)", start: "Lord Grayson Shadowbreaker · Stormwind City",
+        steps: [[8415, "Chillwind Point", "Lord Grayson Shadowbreaker", "Stormwind City", 50],
+          [8414, "Dispelling Evil", "Commander Ashlam Valorfist", "Chillwind Camp, Western Plaguelands", 50],
+          [8416, "Inert Scourgestones", "High Priest Thel'danis", "Chillwind Camp, Western Plaguelands", 50],
+          [8418, "Forging the Mightstone", "Commander Ashlam Valorfist", "Chillwind Camp, Western Plaguelands", 50]] },
+      { id: "charger", kind: "road", x: 140, y: 1226, lv: 60, name: "The Charger", landmark: "ossuary",
+        reward: "Summon Charger (epic mount)", start: "Duthorian Rall, then Lord Grayson Shadowbreaker · Stormwind City",
+        flag: "Needs groups for Scholomance and Stratholme.",
+        steps: [[7638, "Lord Grayson Shadowbreaker", "Duthorian Rall", "Stormwind City", 60],
+          [7637, "Emphasis on Sacrifice", "Lord Grayson Shadowbreaker", "Stormwind City", 60],
+          [7639, "To Show Due Judgment", "High Priest Rohan", "Ironforge", 60],
+          [7640, "Exorcising Terrordale", "Lord Grayson Shadowbreaker", "Stormwind City", 60],
+          [7641, "The Work of Grimand Elmore", "Lord Grayson Shadowbreaker", "Stormwind City", 60],
+          [7642, "Collection of Goods", "Grimand Elmore", "Stormwind City", 60],
+          [7648, "Grimand's Finest Work", "Grimand Elmore", "Stormwind City", 60],
+          [7643, "Ancient Equine Spirit", "Lord Grayson Shadowbreaker", "Stormwind City", 60],
+          [7644, "Blessed Arcanite Barding", "Ancient Equine Spirit", "Scholomance", 60],
+          [7645, "Manna-Enriched Horse Feed", "Merideth Carlson", "Southshore, Hillsbrad Foothills", 60],
+          [7646, "The Divination Scryer", "Lord Grayson Shadowbreaker", "Stormwind City", 60],
+          [7647, "Judgment and Redemption", "Lord Grayson Shadowbreaker", "Stratholme", 60]] },
+    ],
+  };
+  // Quests done per scenario (sample data, invented except "today": Gideon has the letter).
+  const CLASS_DONE = { today: [3101], almost: [3101], veteran: [3101, 1641, 1642, 1643, 1644, 1780, 1781, 1786, 1787, 1788,
+    1649, 1650, 1651, 1652, 1653, 1654, 1442, 1655, 1806, 78088, 78089], fresh: [] };
+
+  function classModel() {
+    const R = CLASS_ROAD, all = ui.classPreview === "all";
+    const done = new Set(all ? R.stops.flatMap(s => s.steps.map(q => q[0])) : CLASS_DONE[ui.scenarioName] || []);
+    const stops = R.stops.map(s => {
+      const n = s.steps.length, d = s.steps.filter(q => done.has(q[0])).length;
+      const state = d === n ? "done" : d > 0 ? "progress" : CHAR.level >= s.lv ? "ready" : "later";
+      return { ...s, n, d, state };
+    });
+    const road = stops.filter(s => s.kind === "road"), side = stops.filter(s => s.kind === "side");
+    const quests = stops.reduce((a, s) => a + s.n, 0), questsDone = stops.reduce((a, s) => a + s.d, 0);
+    const complete = stops.every(s => s.state === "done");
+    return { stops, road, side, quests, questsDone, complete, roadDone: road.filter(s => s.state === "done").length, sideDone: side.filter(s => s.state === "done").length };
+  }
+  // Road geometry: one cubic segment per stop, from it to the next road stop (the last to the road's
+  // end); the stop's own quests are beads along it. Side paths leave from the middle of their
+  // stop's segment and end at their own node.
+  const bez = (p, t) => { const u = 1 - t; return { x: u*u*u*p[0].x + 3*u*u*t*p[1].x + 3*u*t*t*p[2].x + t*t*t*p[3].x, y: u*u*u*p[0].y + 3*u*u*t*p[1].y + 3*u*t*t*p[2].y + t*t*t*p[3].y }; };
+  function splitBez(p, t) { // the part of the curve from 0 to t (de Casteljau)
+    const L = (a, b) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    const a = L(p[0], p[1]), b = L(p[1], p[2]), c = L(p[2], p[3]), d = L(a, b), e = L(b, c), f = L(d, e);
+    return [p[0], a, d, f];
+  }
+  const bpath = (p) => `M${p[0].x} ${p[0].y} C${p[1].x} ${p[1].y} ${p[2].x} ${p[2].y} ${p[3].x} ${p[3].y}`;
+  function roadSegs(m) {
+    const R = CLASS_ROAD, segs = {};
+    m.road.forEach((s, i) => {
+      const nx = m.road[i + 1] || R.end, dy = nx.y - s.y;
+      segs[s.id] = [{ x: s.x, y: s.y }, { x: s.x, y: s.y + dy * 0.55 }, { x: nx.x, y: nx.y - dy * 0.55 }, { x: nx.x, y: nx.y }];
+    });
+    m.side.forEach(s => {
+      const b = bez(segs[s.from], 0.5);
+      segs[s.id] = [b, { x: b.x + (s.x - b.x) * 0.6, y: b.y + 10 }, { x: s.x, y: s.y - (s.y - b.y) * 0.6 }, { x: s.x, y: s.y }];
+    });
+    return segs;
+  }
+  // Landmark silhouettes (stand-ins for the painted strip's own scenery).
+  const LANDMARK = {
+    abbey: (x, y) => `<g transform="translate(${x} ${y})" class="lm"><path d="M-26 0 V-26 L-13 -40 L0 -26 V0 Z M0 0 V-18 H26 V0 Z"/><path d="M-13 -40 V-56 M-19 -50 H-7" class="lmline"/></g>`,
+    cathedral: (x, y) => `<g transform="translate(${x} ${y})" class="lm"><path d="M-34 0 V-30 L-26 -62 L-18 -30 V-22 H18 V-30 L26 -62 L34 -30 V0 Z"/><path d="M-8 0 V-14 A8 8 0 0 1 8 -14 V0 Z" class="lmlit"/></g>`,
+    farm: (x, y) => `<g transform="translate(${x} ${y})" class="lm"><path d="M-30 0 V-16 L-16 -30 L-2 -16 V0 Z"/><path d="M14 0 L18 -34 L22 0 Z"/><path d="M18 -34 L36 -44 M18 -34 L0 -24 M18 -34 L28 -16 M18 -34 L8 -52" class="lmline"/></g>`,
+    grove: (x, y) => `<g transform="translate(${x} ${y})" class="lm"><path d="M-18 0 C-34 -10 -30 -38 -14 -40 C-12 -56 10 -56 12 -40 C28 -38 30 -10 16 0 Z"/><path d="M-1 0 V-22" class="lmline"/></g>`,
+    keep: (x, y) => `<g transform="translate(${x} ${y})" class="lm"><path d="M-34 0 V-34 H-26 V-40 H-20 V-34 H-12 V-40 H-6 V-34 H6 V-40 H12 V-34 H20 V-40 H26 V-34 H34 V0 Z M-8 -34 V-58 H8 V-34"/><path d="M0 -58 V-72 L12 -67 L0 -62" class="lmlit"/></g>`,
+    camp: (x, y) => `<g transform="translate(${x} ${y})" class="lm"><path d="M-22 0 L-8 -24 L6 0 Z M4 0 L16 -18 L28 0 Z"/><path d="M-8 -24 V-38 L4 -34 L-8 -30" class="lmlit"/></g>`,
+    ossuary: (x, y) => `<g transform="translate(${x} ${y})" class="lm dark"><path d="M-38 0 L-26 -14 H26 L38 0 Z M-24 -14 L-14 -28 H14 L24 -14 Z M-12 -28 L-4 -40 H4 L12 -28 Z"/><circle cx="0" cy="-48" r="5" class="lmsick"/></g>`,
+  };
+  // The painted map strip (SVG stand-in): dawn light at the top over Northshire, the green
+  // Elwynn hills, the road south and east, and the Plaguelands' gloom at the bottom, where the
+  // Charger waits; a gilded crest at the road's end.
+  function classStrip(m) {
+    const R = CLASS_ROAD, segs = roadSegs(m);
+    const hills = [[300, "#4c6b38", 0.9], [520, "#3f5c30", 1], [780, "#3a5230", 1], [1000, "#3c4632", 1], [1180, "#2f3529", 1], [1330, "#24261f", 1]].map(([y, c, o], i) => {
+      let d = `M0 ${y}`; for (let x = 0; x <= R.W; x += 30) d += ` L${x} ${(y - 30 - Math.abs(Math.sin((x + i * 70) / 60)) * 46).toFixed(0)}`;
+      return `<path d="${d} L${R.W} ${R.H} L0 ${R.H} Z" fill="${c}" opacity="${o}"/>`; }).join("");
+    const trees = Array.from({ length: 34 }, (_, i) => { const x = (i * 97) % (R.W - 20) + 10, y = 360 + ((i * 211) % 760);
+      return `<path d="M${x} ${y} l-8 14 h5 l-6 10 h18 l-6 -10 h5 Z" fill="${y > 1000 ? "#1d2219" : "#203a1c"}" opacity=".75"/>`; }).join("");
+    const segPaths = Object.entries(segs).map(([id, p]) => {
+      const s = m.stops.find(x => x.id === id), lit = s.d / s.n;
+      return `<path d="${bpath(p)}" class="road ${s.kind}"/>${lit > 0 ? `<path d="${bpath(splitBez(p, lit))}" class="road lit ${s.kind}"/>` : ""}`;
+    }).join("");
+    const beads = m.stops.map(s => s.steps.map((q, k) => {
+      const t = s.kind === "road" ? (k + 1) / (s.n + 1) : (k + 1) / (s.n + 1) * 0.86;
+      const pt = bez(segs[s.id], t), on = k < s.d;
+      return `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${s.kind === "road" ? 4.5 : 3.5}" class="bead ${on ? "on" : ""}"/>`;
+    }).join("")).join("");
+    const marks = m.stops.map(s => LANDMARK[s.landmark] ? LANDMARK[s.landmark](s.x + (s.x < R.W / 2 ? 70 : -70), s.y + 22) : "").join("");
+    // A side path ends in a dead end: a small cairn under its node.
+    const deadends = m.side.map(s => `<g class="cairn" transform="translate(${s.x} ${s.y + 30})"><ellipse cx="0" cy="8" rx="11" ry="4.5"/><ellipse cx="1" cy="1" rx="8" ry="3.8"/><ellipse cx="-1" cy="-5" rx="5" ry="3"/></g>`).join("");
+    // "You": on the first road stop not done, at its last done bead (or at its node).
+    const cur = m.road.find(s => s.state !== "done");
+    let you = "";
+    if (cur) { const p = cur.d ? bez(segs[cur.id], cur.d / (cur.n + 1)) : { x: cur.x, y: cur.y };
+      you = `<g class="you" transform="translate(${(p.x + (cur.d ? 0 : cur.x < R.W / 2 ? -40 : 40)).toFixed(1)} ${(p.y - (cur.d ? 0 : 6)).toFixed(1)})"><path d="M0 -14 L11 -9 V1 C11 8 5 12 0 15 C-5 12 -11 8 -11 1 V-9 Z"/><path d="M0 -8 V9 M-6 -2 H6" class="youx"/></g>`; }
+    return `<svg viewBox="0 0 ${R.W} ${R.H}" preserveAspectRatio="none" class="cmapart" aria-hidden="true">
+      <defs><linearGradient id="csky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7dc9a"/><stop offset=".12" stop-color="#d9b46a"/><stop offset=".3" stop-color="#7f9a63"/><stop offset=".62" stop-color="#4d5a3c"/><stop offset=".82" stop-color="#2c2e27"/><stop offset="1" stop-color="#15130f"/></linearGradient>
+        <radialGradient id="cdawn" cx=".5" cy="0" r=".5"><stop offset="0" stop-color="#fff6d8" stop-opacity=".95"/><stop offset="1" stop-color="#fff6d8" stop-opacity="0"/></radialGradient>
+        <radialGradient id="cgloom" cx=".3" cy=".86" r=".5"><stop offset="0" stop-color="#7a9a3a" stop-opacity=".35"/><stop offset="1" stop-color="#7a9a3a" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ccrest" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe9a0" stop-opacity=".9"/><stop offset="1" stop-color="#ffe9a0" stop-opacity="0"/></radialGradient></defs>
+      <rect width="${R.W}" height="${R.H}" fill="url(#csky)"/>${hills}${trees}
+      <rect width="${R.W}" height="420" fill="url(#cdawn)"/><rect width="${R.W}" height="${R.H}" fill="url(#cgloom)"/>
+      <path d="M150 0 L214 92 L278 0 Z" fill="#fff8e0" opacity=".22"/>
+      ${marks}${segPaths}${beads}${deadends}
+      <g class="crest ${m.complete ? "lit" : ""}" transform="translate(${R.end.x} ${R.end.y})">${m.complete ? `<circle r="70" fill="url(#ccrest)"/>` : ""}
+        <path d="M0 -30 L24 -20 V2 C24 18 12 26 0 32 C-12 26 -24 18 -24 2 V-20 Z" class="crestshield"/><path d="M0 -18 V20 M-12 -4 H12" class="crestx"/></g>
+      ${you}
+      <rect width="${R.W}" height="${R.H}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="10"/></svg>`;
+  }
+  const C_STATE = { done: "Done", progress: "In progress", ready: "You can start it", later: "Later" };
+  function stopSub(s) {
+    return s.state === "done" ? `✓ ${s.n} of ${s.n} quests` : s.state === "progress" ? `${s.d} of ${s.n} quests` : s.state === "ready" ? `Open now · ${s.n} quests` : `Opens at level ${s.lv}`;
+  }
+  function stopTip(s) {
+    const when = s.state === "later" ? ` Opens at level ${s.lv} (${s.lv - CHAR.level} to go).` : "";
+    return `<b>${esc(s.name)}</b>${s.kind === "side" ? "Side path. " : ""}Level ${s.lv}. ${s.state === "done" ? "Done" : `${s.d} of ${s.n} quests done`}. Reward: ${esc(s.reward)}.${when} A shows the steps.`;
+  }
+  function classNodes(m) {
+    const R = CLASS_ROAD;
+    return m.stops.map(s => `<button class="cnode focusable ${s.kind} st-${s.state} ${s.x > R.W * 0.58 ? "lab-left" : ""} ${ui.classSel === s.id ? "selected" : ""}"
+      data-stop="${s.id}" style="left:${(s.x / R.W * 100).toFixed(2)}%;top:${(s.y / R.H * 100).toFixed(3)}%" data-tip="${stopTip(s)}">
+      <span class="cseal">${s.state === "done" ? "✓" : s.state === "later" ? "🔒" : s.lv}</span>
+      <span class="clabel"><span class="clv">Level ${s.lv}${s.kind === "side" ? " · side path" : ""}</span><span class="cname">${esc(s.name)}</span><span class="csub">${stopSub(s)}</span></span></button>`).join("")
+      + `<button class="cnode focusable end ${m.complete ? "st-done" : ""} ${ui.classSel === "end" ? "selected" : ""}" data-stop="end" style="left:${(R.end.x / R.W * 100).toFixed(2)}%;top:${(R.end.y / R.H * 100).toFixed(3)}%"
+        data-tip="<b>The road's end</b>${m.complete ? "Every class quest on the road and its side paths is done." : `${m.questsDone} of ${m.quests} class quests done. A shows the whole road.`}"><span class="cseal"></span>
+        <span class="clabel below"><span class="cname">${m.complete ? "The road walked" : "The road's end"}</span><span class="csub">${m.questsDone} of ${m.quests} quests</span></span></button>`;
+  }
+  function renderClass() {
+    const m = classModel();
+    if (!ui.classSel) ui.classSel = (m.road.find(s => s.state !== "done") || { id: "end" }).id;
+    content.innerHTML = `<div class="cjourney ${ui.wide ? "wide" : ""}"><div class="cstrip"><div class="scroll" id="scroll">
+        <div class="cplaque ${m.complete ? "done" : ""}"><span class="ctitle">${CLASS_ROAD.title}</span>
+          <span class="ccount">Road ${m.roadDone} of ${m.road.length} · Side paths ${m.sideDone} of ${m.side.length}</span></div>
+        <div class="cmap" style="aspect-ratio:${CLASS_ROAD.W} / ${CLASS_ROAD.H}">${classStrip(m)}${classNodes(m)}</div></div></div>
+      <div class="cdetailpane" id="detailpane"></div></div>`;
+    renderStopInto($("#detailpane"), m, ui.classSel);
+  }
+  function renderStopInto(box, m, id) {
+    if (id === "end") {
+      const pct = m.quests ? m.questsDone / m.quests : 0;
+      box.innerHTML = `<div class="chero ${m.complete ? "done" : ""}"><div class="chlight"></div><div class="chinfo"><div><div class="ckicker">Paladin · ${esc(CHAR.race)}</div>
+        <h1>${m.complete ? "The Paladin's Road, walked" : CLASS_ROAD.title}</h1><div class="csubline">${m.complete ? "Every class quest you can do is done" : "Every class quest you can do, from Northshire to the Charger"}</div></div>
+        <div class="cscore">${m.complete ? `<b class="gold">✓</b>` : `<b>${m.questsDone}</b><small>of ${m.quests} quests</small>`}</div></div></div>
+        <div class="cbody"><div class="scroll" id="detailscroll">
+        <div class="cbar ${m.complete ? "complete" : ""}"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
+        <h2 class="section" data-group>The road <small>${m.roadDone} of ${m.road.length} stops</small></h2>${m.road.map(stopRow).join("")}
+        <h2 class="section" data-group>Side paths <small>${m.sideDone} of ${m.side.length} · optional, but they count</small></h2>${m.side.map(stopRow).join("")}
+        <div class="qfoot"><span class="qnote">Raid and dungeon class quests (gear turn-ins, Quel'Serrar, Dire Maul books) aren't on the road: they belong to the Dungeons tab. Quests that are another race's version of a stop, and repeatable turn-ins, never count.</span></div></div></div>`;
+      return;
+    }
+    const s = m.stops.find(x => x.id === id); if (!s) return;
+    const pos = s.kind === "road" ? `Stop ${m.road.indexOf(s) + 1} of ${m.road.length} on the road` : `Side path off ${esc(m.stops.find(x => x.id === s.from).name)}`;
+    const score = s.state === "done" ? `<b class="gold">✓</b><small>Done</small>` : s.state === "later" ? `<b class="dim">${s.lv}</b><small>opens at level</small>` : `<b>${s.d}</b><small>of ${s.n} quests</small>`;
+    const firstOpen = s.steps.findIndex((q, k) => k >= s.d);
+    // Quests that share a name (The Tome of Divinity x9) get "part n of m" so the rows read apart.
+    const same = {}, seen = {};
+    s.steps.forEach(q => { same[q[1]] = (same[q[1]] || 0) + 1; });
+    s.steps = s.steps.map(q => same[q[1]] > 1 ? [q[0], `${q[1]} · part ${seen[q[1]] = (seen[q[1]] || 0) + 1} of ${same[q[1]]}`, q[2], q[3], q[4]] : q);
+    const rows = s.steps.map((q, k) => {
+      const st = k < s.d ? "done" : s.state === "later" ? "later" : k === firstOpen ? "next" : "after";
+      const icon = { done: "✓", next: "●", after: "○", later: "🔒" }[st];
+      return `<button class="cstep focusable st-${st}" data-step="${q[0]}" data-tip="<b>${esc(q[1])}</b>${st === "done" ? "Done. " : st === "next" ? "Your next step. " : ""}${esc(q[2])} · ${esc(q[3])}. Level ${q[4]}. Quest ${q[0]}.">
+        <span class="cicon">${icon}</span><span class="cqname">${esc(q[1])}<small>${esc(q[2])} · ${esc(q[3])}</small></span><span class="cqlv">Lv ${q[4]}</span></button>`;
+    }).join("");
+    box.innerHTML = `<div class="chero st-${s.state}"><div class="chlight"></div><div class="chinfo"><div><div class="ckicker">${pos}</div>
+      <h1>${esc(s.name)}</h1><div class="csubline">Reward: ${esc(s.reward)}</div></div><div class="cscore">${score}</div></div></div>
+      <div class="cbody"><div class="scroll" id="detailscroll">
+      <div class="cfacts"><div><span class="rk">Where it starts</span>${esc(s.start)}</div><div><span class="rk">Level</span>${s.lv}${s.state === "later" ? ` · ${s.lv - CHAR.level} levels to go` : ""}</div>
+        <div><span class="rk">State</span><span class="cst st-${s.state}">${C_STATE[s.state]}</span></div></div>
+      ${s.flag ? `<div class="cflag">${esc(s.flag)}</div>` : ""}
+      <h2 class="section" data-group>Steps <small>${s.d} of ${s.n} done</small></h2><div class="csteps">${rows}</div>
+      ${s.optional ? `<h2 class="section" data-group>Optional lead-in <small>not counted</small></h2><div class="csteps">${s.optional.map(q => `<button class="cstep focusable st-after opt" data-step="${q[0]}" data-tip="<b>${esc(q[1])}</b>A lead-in that sends you to this stop; it doesn't count. ${esc(q[2])} · ${esc(q[3])}.">
+        <span class="cicon">›</span><span class="cqname">${esc(q[1])}<small>${esc(q[2])} · ${esc(q[3])}</small></span><span class="cqlv">Lv ${q[4]}</span></button>`).join("")}</div>` : ""}
+      ${s.alt ? `<p class="fdesc">${esc(s.alt)}</p>` : ""}
+      <div class="qfoot"><span class="qnote">Steps and starters from QuestieDB and the curated journey; done or not is read from the game.</span></div></div></div>`;
+  }
+  function stopRow(s) {
+    return `<button class="cstep focusable st-${s.state === "done" ? "done" : s.state === "later" ? "later" : s.state === "progress" ? "next" : "after"}" data-goto="${s.id}" data-tip="${stopTip(s).replace(" A shows the steps.", " A goes to it on the road.")}">
+      <span class="cicon">${s.state === "done" ? "✓" : s.state === "later" ? "🔒" : s.state === "progress" ? "◐" : "○"}</span>
+      <span class="cqname">${esc(s.name)}<small>Level ${s.lv} · ${esc(s.reward)}</small></span><span class="cqlv">${s.d} / ${s.n}</span></button>`;
+  }
+  function restoreClass() { setFocus($(`.cnode[data-stop="${ui.classSel}"]`) || $(".cnode")); }
+
+  // =====================================================================================
   // Render + hints
   // =====================================================================================
   const HINTS = {
@@ -1522,8 +1761,11 @@
     rep: [["A", "A", "Open"], ["X", "X", "Watch"], ["Y", "Y", "Sort"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
     repWide: [["A", "A", "Details"], ["X", "X", "Watch"], ["Y", "Y", "Sort"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
     repPage: [["A", "A", "Open"], ["X", "X", "Watch"], ["B", "B", "Reputation"]],
+    class: [["A", "A", "Steps"], ["LT", "LT/RT", "Stop"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
+    classSteps: [["DP", "✥", "Step"], ["B", "B", "Road"]],
   };
   function screen() {
+    if (ui.tab === "class") return "class";
     if (ui.tab === "reputation") return ui.wide ? "repWide" : ui.repOpen ? "repPage" : "rep";
     return ui.tab === "zones" ? (ui.detail && !ui.wide ? "detail" : ui.wide ? "zonesWide" : "zones") : "overview";
   }
@@ -1531,7 +1773,8 @@
     renderHeader();
     $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === ui.tab));
     const sc = screen();
-    if (sc === "rep" || sc === "repWide") renderReputation();
+    if (sc === "class") renderClass();
+    else if (sc === "rep" || sc === "repWide") renderReputation();
     else if (sc === "repPage") renderFactionInto(content, allFactions().find(f => f.id === ui.repOpen), { back: true });
     else if (sc === "overview") renderOverview();
     else if (sc === "detail") renderDetailInto(content, byName[ui.detail], { back: true });
@@ -1545,7 +1788,7 @@
   function keyOf(el) {
     if (!el) return null;
     const d = el.dataset, parts = [];
-    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "rep", "rq", "tab", "cycle", "status", "view", "go", "faction", "src", "rfilter"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
+    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "rep", "rq", "tab", "cycle", "status", "view", "go", "faction", "src", "rfilter", "stop", "step", "goto"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
     for (const a of ["search", "back", "map", "atlas", "qtoggle"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
     if (el.id) parts.push("#" + el.id);
     return parts.length ? "." + [...el.classList].filter(c => !["focused", "on", "new", "selected"].includes(c))[0] + parts.join("") : null;
@@ -1565,7 +1808,7 @@
     if (ui.tab === "reputation" && !ui.repOpen) ui.repScroll = $("#scroll")?.scrollTop || 0;
     ui.tab = tab; ui.flyout = null;
     render();
-    if (tab === "zones" && !ui.detail) restoreCatalog(); else if (tab === "reputation") restoreRep(); else focusFirst();
+    if (tab === "zones" && !ui.detail) restoreCatalog(); else if (tab === "reputation") restoreRep(); else if (tab === "class") restoreClass(); else focusFirst();
   }
   // The Reputation list: back to the faction you were on (or the first one), scroll kept.
   function restoreRep() {
@@ -1574,7 +1817,7 @@
     if (sc) { sc.style.scrollBehavior = "auto"; sc.scrollTop = ui.repScroll || 0; sc.style.scrollBehavior = ""; }
     setFocus($(`#scroll [data-faction="${ui.repSel}"]`) || $("#scroll .focusable") || $(".toolbar .focusable"));
   }
-  const TABS = ["overview", "zones", "reputation"];
+  const TABS = ["overview", "zones", "reputation", "class"];
   const nextTab = (d) => TABS[(TABS.indexOf(ui.tab) + d + TABS.length) % TABS.length];
   function openZone(name, crit) {
     if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
@@ -1589,6 +1832,7 @@
   function back() {
     if (ui.celebrate) return closeCelebrate();
     if (ui.flyout) return closeFlyout();
+    if (ui.tab === "class" && focused && focused.closest("#detailpane")) { setHints("class"); return restoreClass(); }
     if (ui.tab === "reputation" && ui.repOpen) { ui.repOpen = null; render(); return restoreRep(); }
     if (ui.tab === "reputation" && ui.wide && focused && focused.closest("#detailpane")) return setFocus($(`.frep[data-faction="${ui.repSel}"]`));
     // A category page goes back to the zone's overview, focused on that category's tile.
@@ -1637,6 +1881,12 @@
     if (d.tab) return setTab(d.tab);
     if (el.id === "closeBtn") return closeWindow();
     if (d.back !== undefined) return back();
+    if (d.stop) { // Class tab: A on a stop moves into its steps
+      const first = $("#detailpane .cstep"); if (!first) return;
+      setHints("classSteps"); return setFocus(first);
+    }
+    if (d.goto) { ui.classSel = d.goto; renderStopInto($("#detailpane"), classModel(), d.goto); setHints("class"); return restoreClass(); }
+    if (d.step) return; // a quest step: details in the info line
     if (d.rfilter) { ui.repFilter = d.rfilter; render(); return setFocus($(`[data-rfilter="${d.rfilter}"]`)); }
     if (d.faction) { // Reputation tab: open the faction's page (wide: move into it)
       const id = Number(d.faction); ui.repSel = id;
@@ -1738,6 +1988,15 @@
       el.classList.add("selected");
       renderDetailInto($("#detailpane"), byName[ui.selected], { back: false });
     }
+    if (ui.tab === "class" && el.dataset.stop) {
+      if (el.dataset.stop !== ui.classSel || !$("#detailpane .chero")) {
+        ui.classSel = el.dataset.stop;
+        $$(".cnode.selected").forEach(r => r.classList.remove("selected"));
+        el.classList.add("selected");
+        renderStopInto($("#detailpane"), classModel(), ui.classSel);
+      }
+      setHints("class");
+    }
     if (ui.wide && ui.tab === "reputation" && el.dataset.faction && Number(el.dataset.faction) !== ui.repSel) {
       ui.repSel = Number(el.dataset.faction);
       $$(".frep.selected").forEach(r => r.classList.remove("selected"));
@@ -1772,6 +2031,12 @@
   // LT/RT: jump to the previous/next section header (in document order) that has focusable content;
   // pages instead when the current scroll area has no sections.
   function jump(dir) {
+    if (ui.tab === "class" && !(focused && focused.closest("#detailpane"))) { // LT/RT: previous / next stop on the road
+      const order = CLASS_ROAD.stops.filter(s => s.kind === "road").map(s => s.id).concat("end");
+      const i = order.indexOf(focused && focused.dataset.stop), from = i < 0 ? order.indexOf((CLASS_ROAD.stops.find(s => s.id === (focused && focused.dataset.stop)) || {}).from) : i;
+      const t = order[Math.max(0, Math.min(order.length - 1, from + dir))];
+      return setFocus($(`.cnode[data-stop="${t}"]`));
+    }
     const sc = (focused && focused.closest(".scroll")) || $("#scroll"); if (!sc) return;
     const firstAfter = (h) => $$(".focusable", sc).find(el => h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
     const heads = $$("[data-group]", sc).filter(h => firstAfter(h));
@@ -1857,11 +2122,11 @@
     ui.scenarioName = name;
     S = SCENARIOS[name]();
     CHAR = S.char;
-    ui.detail = null; ui.selected = null; ui.lastZone = null; ui.repOpen = null; ui.repSel = null; ui.watched = null;
+    ui.detail = null; ui.selected = null; ui.lastZone = null; ui.repOpen = null; ui.repSel = null; ui.watched = null; ui.classSel = null;
     $("#celebrate")?.remove(); ui.celebrate = null; closeFlyout();
     buildModel();
   }
-  $("#scenario").addEventListener("change", (e) => { loadScenario(e.target.value); render(); focusFirst(); e.target.blur(); });
+  $("#scenario").addEventListener("change", (e) => { loadScenario(e.target.value); render(); if (ui.tab === "class") restoreClass(); else focusFirst(); e.target.blur(); });
   $("#simulate").addEventListener("click", (e) => { simulateDiscovery(); e.target.blur(); });
   $("#questMode").innerHTML = Object.entries(QUEST_MODES).map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
   $("#questMode").addEventListener("change", (e) => { ui.quests = e.target.value; buildModel(); rerenderKeepFocus(); e.target.blur(); });
@@ -1883,8 +2148,9 @@
     ui.wide = e.target.checked; ui.detail = null;
     document.documentElement.style.setProperty("--win-w", winW() + "px");
     ui.repOpen = null;
-    fit(); render(); if (ui.tab === "zones") restoreCatalog(); else if (ui.tab === "reputation") restoreRep(); else focusFirst(); e.target.blur();
+    fit(); render(); if (ui.tab === "zones") restoreCatalog(); else if (ui.tab === "reputation") restoreRep(); else if (ui.tab === "class") restoreClass(); else focusFirst(); e.target.blur();
   });
+  $("#classSel").addEventListener("change", (e) => { ui.classPreview = e.target.value; ui.classSel = null; render(); if (ui.tab === "class") restoreClass(); e.target.blur(); });
   let currentScale = 1;
   function fit() {
     const stage = $("#stage").getBoundingClientRect();
