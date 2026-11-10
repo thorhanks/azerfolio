@@ -11,12 +11,12 @@ Read before working:
 - [mockups/DESIGN.md](mockups/DESIGN.md): **the approved UI design** (design system, screens, gamepad map). The Lua UI must follow it; the mockup at http://localhost:8765 is the visual reference.
 - [art/style-guide.md](art/style-guide.md): zone art rules and pipeline.
 
-## Current state (2026-11-08, v1.2.0)
+## Current state (2026-11-09, v1.2.0)
 
-- v1 (1.0.0) and v1.1 (1.1.0, Phase 9: quests via QuestieDB, flight paths, combined zone completion, zone dashboard, Overview) closed 2026-11-08; v1.2 (1.2.0, Phase 10: celebrations and the Atlas) closed the same day. **Next:** Phase 11, zone reputation (v1.3); tasks 1 (research), 2 (mockup, approved), 3 (systems: `ReputationRules`, `Reputation`) and 4 (UI: the ledger and the faction page) done, task 5 (both characters, open questions) next. History in `docs/history/`.
+- v1 (1.0.0) and v1.1 (1.1.0, Phase 9: quests via QuestieDB, flight paths, combined zone completion, zone dashboard, Overview) closed 2026-11-08; v1.2 (1.2.0, Phase 10: celebrations and the Atlas) closed the same day. Phase 12 (v1.4, the Reputation tab: `UI/Pages/Reputation.lua`) closed 2026-11-09. **Open:** Phase 11, zone reputation (v1.3): built, waiting on in-game checks R1/R2 (`docs/open-checks.md`); the version stays 1.2.0 until it closes. Exalted is gold (gold isn't only for completion). History in `docs/history/`.
 - Level ranges and factions come from the hand-curated, unofficial `Data/Zones.lua`; quest areas from `Data/QuestAreas.lua`. Dungeon and raid quests are kept per instance for a later Dungeons tab.
 - Debug mode (`/azf debug`) writes a capped trace to `AzerfolioDB.trace`; read it after `/reload` with `luajit tools/trace-report.lua` (not ad hoc scripts). `/azf debug exploration` prints the current zone and the total. `RECEIVED_ACHIEVEMENT_LIST` doesn't fire on `/reload`.
-- Banner crop offsets: `Theme.bannerFocus`; check with `/azf shots banners`, `/azf shots reputation`.
+- Banner crop offsets: `Theme.bannerFocus`; check with `/azf shots banners`, `/azf shots reputation` (the Reputation tab, then the zone ledger; run it once QuestieDB has loaded, a few seconds after `/reload`, or the ledger shots are skipped).
 - In game, the owner may still have **Azerfolio Diagnostics** enabled with its event sniffer on. Ask them to turn it off (`/azfdiag sniff`, then untick the addon) when it's no longer needed.
 
 ## How the owner likes to work
