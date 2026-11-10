@@ -58,7 +58,8 @@ function Convert-Image([string]$inPath, [string]$outPath, [double]$fx, [double]$
 #   streamer  64x512    fit, keyed, DXT5                      Media\Banner
 #   badge     64x64     fit, keyed, DXT5 (no longer used)     Media\Banner
 #   frame     256x256 (frame-card) / 512x64 (frame-bar) / 128x64 (frame-step) / 256x128 (frame-plaque): stretched, keyed, DXT5, border measured -> Media\Chrome
-#   emblem    128x128   fit, keyed, DXT5                      Media\Chrome (rep-<reaction>: the standing strip)
+#   emblem    128x128   fit, keyed + despilled, DXT5          Media\Chrome (rep-<reaction>: the standing strip)
+# despill (emblems, frame-plaque): solid pixels lose the magenta they reflect (silver, gold).
 #   plate     512x128   stretched, keyed, DXT5                Media\Chrome
 #   divider   512x64    stretched, keyed, DXT5                Media\Chrome
 #   fill      512x64    stretched, opaque DXT1                Media\Chrome
@@ -76,8 +77,8 @@ $PieceKinds = @{
     'frame-card' = @{ size = @(256, 256); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
     'frame-bar' = @{ size = @(512, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
     'frame-step' = @{ size = @(128, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true } # reputation ladder step
-    'frame-plaque' = @{ size = @(256, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true } # standing strip cell
-    emblem = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome' }
+    'frame-plaque' = @{ size = @(256, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true; despill = $true } # standing strip cell
+    emblem = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true }
     plate = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
     divider = @{ size = @(512, 64); fit = 'stretch'; key = $true; dir = 'Chrome' }
     fill = @{ size = @(512, 64); fit = 'stretch'; key = $false; dir = 'Chrome' }
@@ -159,7 +160,8 @@ function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
         $note = [AzfBlp]::KeyBlack($tmp, $png)
         $null = [AzfBlp]::ConvertAlpha($png, $blp)
     } elseif ($k.key) {
-        $note = [AzfBlp]::KeyMagenta($tmp, $png)
+        $note = [AzfBlp]::KeyMagenta($tmp, $png, [bool]$k.despill)
+        if ($k.despill) { $note += ', despilled' }
         $null = [AzfBlp]::ConvertAlpha($png, $blp)
     } else {
         Copy-Item $tmp $png -Force

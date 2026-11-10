@@ -175,7 +175,13 @@ public static class AzfBlp
     // Keys out a flat magenta background (#FF00FF): alpha falls off with "magenta-ness"
     // (min(R,B) - G), and the magenta spill left on soft edges is removed. Fully transparent
     // pixels get black colour (the encoder replaces it with the block's own colour).
-    public static string KeyMagenta(string inPath, string outPath)
+    public static string KeyMagenta(string inPath, string outPath) { return KeyMagenta(inPath, outPath, false); }
+
+    // despill: also removes magenta picked up by solid pixels (silver and gold reflect the
+    // background): where both red and blue exceed green, both come down by that excess.
+    // Rust reds (blue below green) and steel blues (red below green) are untouched; purples
+    // and crimsons would shift, so it's opt-in per piece kind.
+    public static string KeyMagenta(string inPath, string outPath, bool despill)
     {
         int w, h;
         var px = ReadRgba(inPath, out w, out h);
@@ -194,6 +200,11 @@ public static class AzfBlp
             }
             a *= px[i + 3] / 255f;
             if (a <= 0.004f) { px[i] = px[i + 1] = px[i + 2] = px[i + 3] = 0; clear++; continue; }
+            if (despill)
+            {
+                float gg = px[i + 1], s = Math.Min(r, b) - gg;
+                if (s > 0f) { r -= s; b -= s; }
+            }
             if (a < 0.996f) soft++;
             px[i] = (byte)Clamp((int)Math.Round(r), 0, 255); px[i + 2] = (byte)Clamp((int)Math.Round(b), 0, 255);
             px[i + 3] = (byte)Clamp((int)Math.Round(a * 255f), 0, 255);

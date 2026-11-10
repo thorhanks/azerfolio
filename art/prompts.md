@@ -206,12 +206,12 @@ Subject:
 
 | File | Subject line |
 |---|---|
-| rep-hated | A broken longsword snapped in two, the halves slightly apart, made of blackened pitted iron with patches of red rust |
+| rep-hated | A broken sword with a wide blade, snapped clean in half: the hilt with a short jagged stub of blade upright, and the snapped-off upper half lying tilted beside it with a clear gap between them, made of blackened pitted iron with patches of red rust (round 2, 2026-11-09: the first one read as a whole dagger at 32 px) |
 | rep-hostile | Two short swords crossed in an X, blades pointing up, made of dark rough iron with dull edges |
 | rep-unfriendly | A plain kite shield held upright, closed and guarded, made of worn dull bronze with a few dents and a darker rim |
 | rep-neutral | A simple balance scale with two pans hanging level, made of plain bronze |
 | rep-friendly | Two hands clasped in a handshake, seen from the side, cast in polished warm bronze |
-| rep-honored | A round laurel wreath, open at the bottom and tied with a small ribbon, made of bright polished silver |
+| rep-honored | A laurel wreath shaped like a cup: two leafy branches curving up and outward from a small ribbon bow tied at the bottom, the wreath open at the top, made of bright polished silver (round 2, 2026-11-09: the first one had the bow on top and looked like an upside-down horseshoe) |
 | rep-revered | A five-pointed star set inside a small laurel wreath, made of gleaming bright silver with a soft white shine |
 | rep-exalted | A royal crown with five points, each tipped with a small round ball, made of rich radiant gold with a soft warm golden glow around it |
 
