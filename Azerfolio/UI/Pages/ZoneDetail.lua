@@ -387,8 +387,10 @@ function Detail.New(page)
 
     -- Dashboard -------------------------------------------------------------------------------
     local dash = CreateFrame("Frame", nil, d)
-    dash:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", L.listInset, -S.s4)
-    dash:SetPoint("BOTTOMRIGHT", -S.s6, S.s3)
+    -- Left edge on the zone title's (S.s6); the same visible gap above and below the war banner
+    -- panel (owner, 2026-11-09: it was 8 units right of the title, 16 above and about 10 below).
+    dash:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", S.s6, -S.s4)
+    dash:SetPoint("BOTTOMRIGHT", -S.s6, S.s4 + L.edgeCover)
     d.dash = dash
     local std = CreateFrame("Frame", nil, dash)
     std:SetPoint("TOPLEFT"); std:SetPoint("BOTTOMLEFT")

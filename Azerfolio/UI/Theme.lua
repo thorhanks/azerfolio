@@ -57,6 +57,8 @@ Theme.layout = {
     headerCompactHeight = 40,  -- one-line strip (clears the portrait ring)
     portraitClear = 66,        -- strip text starts right of the ring
     edgeInset = 2,             -- content inset from the frame edge (the metal edge overlays it)
+    edgeCover = 2,             -- how far the frame's bottom metal edge still covers the content
+                               -- (measured on WoWScrnShot_110926_202003: 12 units left about 10 visible)
     xpWidth = 300,
     xpHeight = 29,             -- common-stat-bar art height (the well is 15 tall)
     xpFillInset = 6,
