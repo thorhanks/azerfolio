@@ -386,6 +386,73 @@ elseif cmd == "class" then
         return (zoneName[z] or "") .. "(" .. z .. ")"
     end
     local which = arg[2]
+    if which == "check" then
+        -- Azerfolio/Data/ClassJourneys.lua against the base rows: every listed quest exists, has the
+        -- class (or no class mask) and suits the side; and no one-time quest in the class's quest
+        -- sort is left out (raid and dungeon gear sit outside the sort, so they aren't asked for).
+        local data = {}
+        assert(loadfile("Azerfolio/Data/ClassJourneys.lua"))(nil, data)
+        data = data.ClassJourneyData
+        local SORT = { WARRIOR = -81, PALADIN = -141, HUNTER = -261, ROGUE = -162, PRIEST = -262, SHAMAN = -82,
+            MAGE = -161, WARLOCK = -61, DRUID = -263 }
+        local SIDE = { Alliance = { 1, 4, 8, 64, 2 ^ 32 }, Horde = { 2, 16, 32, 128, 2 ^ 33 } }
+        local rows = load()
+        local function rep(r) return type(r[24]) == "number" and r[24] % 2 == 1 end
+        local function suits(m, side)
+            if type(m) ~= "number" or m == 0 then return true end
+            for _, b in ipairs(SIDE[side]) do if has(m, b) then return true end end
+            return false
+        end
+        local problems = 0
+        for ci, token in ipairs({ "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE",
+            "WARLOCK", "MONK", "DRUID" }) do
+            local b = 2 ^ (ci - 1)
+            for _, side in ipairs({ "Alliance", "Horde" }) do
+                local j = data[token] and data[token][side]
+                if j then
+                    local listed, keyOf, counted, roadN, sideN = {}, {}, 0, 0, 0
+                    local seenKey = {}
+                    local function note(msg) problems = problems + 1; print("  ! " .. msg) end
+                    print(string.format("%s %s: %s", token, side, j.title or "?"))
+                    for _, s in ipairs(j.stops) do
+                        if not seenKey[s.key] then
+                            seenKey[s.key] = true
+                            if s.kind == "road" then roadN = roadN + 1 else sideN = sideN + 1 end
+                        end
+                        local function check(id, isCounted)
+                            local r = rows[id]
+                            if keyOf[id] and keyOf[id] ~= s.key then note(id .. " is in two stops: " .. keyOf[id] .. ", " .. s.key) end
+                            keyOf[id] = s.key; listed[id] = true
+                            if not r then return note(id .. " (" .. s.name .. ") is not in QuestieDB") end
+                            if type(r[7]) == "number" and r[7] > 0 and not has(r[7], b) then note(id .. " " .. tostring(r[1]) .. ": not a " .. token .. " quest") end
+                            if not suits(r[6], side) then note(id .. " " .. tostring(r[1]) .. ": race mask " .. string.format("%.0f", r[6]) .. " doesn't suit " .. side) end
+                            if isCounted and rep(r) then note(id .. " " .. tostring(r[1]) .. ": counted but repeatable") end
+                            if isCounted then counted = counted + 1 end
+                        end
+                        for _, q in ipairs(s.quests) do
+                            if type(q) == "table" then for _, a in ipairs(q) do check(a, false) end; counted = counted + 1
+                            else check(q, true) end
+                        end
+                        for _, q in ipairs(s.extra or {}) do check(q, false) end
+                        if s.kind == "side" and not seenKey[s.from] then note(s.key .. ": side path off unknown stop " .. tostring(s.from)) end
+                    end
+                    print(string.format("  %d road stops, %d side paths, %d counted quests (race versions add up)", roadN, sideN, counted))
+                    local missed, core = {}, 0
+                    for id, r in pairs(rows) do
+                        if r[17] == SORT[token] and has(r[7], b) and not rep(r) and suits(r[6], side) then
+                            core = core + 1
+                            if not listed[id] then missed[#missed + 1] = id end
+                        end
+                    end
+                    print(string.format("  %d one-time quests in the class sort suit this side; %d left out", core, #missed))
+                    table.sort(missed, function(x, y) return (rows[x][4] or 0) < (rows[y][4] or 0) or ((rows[x][4] or 0) == (rows[y][4] or 0) and x < y) end)
+                    for _, id in ipairs(missed) do note(string.format("missed: %d %s (req %s, races %.0f)", id, tostring(rows[id][1]), tostring(rows[id][4]), rows[id][6] or 0)) end
+                end
+            end
+        end
+        print(problems == 0 and "OK" or (problems .. " problems"))
+        return
+    end
     local wantBit
     if which then
         for i, n in ipairs(CLASSES) do if n == which:lower() then wantBit = 2 ^ (i - 1) end end

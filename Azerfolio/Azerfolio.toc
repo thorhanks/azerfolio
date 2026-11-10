@@ -17,6 +17,7 @@ Data\Exploration.lua
 Data\Zones.lua
 Data\QuestAreas.lua
 Data\FlightPaths.lua
+Data\ClassJourneys.lua
 Core\Config.lua
 Core\SavedVariables.lua
 Core\Debug.lua

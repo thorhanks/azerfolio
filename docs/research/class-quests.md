@@ -58,11 +58,29 @@ That gives **7 stops** for the main road, which fits a map strip well. Besides t
 3. **What counts toward "complete".** Two candidate rules: (a) the main road only, levels 1-60 through the class mount or epic (Charger, Dreadsteed, Rhok'delar…), with raid gear on the Dungeons tab; or (b) the road plus an "Epic" branch at 60. Decision for the owner.
 4. **Stops per class** will be about 5-10 (estimated from the table; to be counted per class while curating). With 5 stops the strip has room for art, and with 10 it's still readable at 512×1024 if it scrolls.
 
+## Curated journeys (2026-11-09)
+
+`Azerfolio/Data/ClassJourneys.lua` holds the structure (stops, their quests in order, side paths, extras that don't count); `luajit tools/qdb.lua class check` tests it against the base rows. Race versions of a stop share its key, so the quest rules pick the one that suits the character (race masks separate them: 1641-1788 Human 1, 1645-1785 Dwarf 4) [verified-files].
+
+| Journey | Road stops | Side paths | Counted quests | Class-sort quests left out |
+|---|---|---|---|---|
+| Paladin, Alliance | 5: letter/rune 1, Tome of Divinity 12, Tome of Valor 20, Tome of Nobility 40, the Charger 60 | 2: A Strange Artifact 22, Forging the Mightstone 50 | 46 (Human and Dwarf versions added up) | 0 of 56 |
+| Paladin, Horde (Forsaken) | 6: A Difficult Path 1, Rediscovering the Light 2, Bandarion Keep 7, A Lesson in Divinity 12, Diplomatic Incident 18, The Moonsilver Blade 20 | 1: A Second Home 8 | 30 | 0 of 30 |
+
+Curating rules learned on the way:
+- **Repeatable-flagged chain quests don't count.** QuestieDB flags some chain starters and sub-quests as repeatable (1641 and 1645, the Tome starts; 1442 Kor Gem and 1655 Bailor's Ore, 1654's child quests; 7645, 7643's child). The game may never flag those as completed, so they're `extra`: shown, not counted. Whether `IsQuestFlaggedCompleted` reports them is an in-game check.
+- **Exclusive versions are one step**: `{ 1661, 4485, 4486 }` (the warhorse from any of three trainers), `{ 7638, 7670 }` (the Charger's start in Stormwind or Ironforge).
+- **Breadcrumbs are extras** (2998/3681, 2997/2999/3000, 8415).
+- **The Horde Paladin road has no level 40 or 60 stops**: QuestieDB has no such quests yet, though Warcraft Tavern says the Horde mount is a long chain. The road ends at The Moonsilver Blade until QuestieDB or the game shows more; nothing is invented.
+- **Unlinked Forever chains** (Diplomatic Incident, The Moonsilver Blade, A Strange Artifact) are ordered by quest level and marked `order = "inferred"`.
+- **Not class quests despite the mask**: 792 Vile Familiars (a Valley of Trials quest for several classes) and 8767 A Gently Shaken Gift (Winter Veil) sit outside the class sort, so the check doesn't ask for them.
+
 ## Still to check in game
 
 - **Forever's corrections:** do the in-game QuestieDB rows link the chains that the base rows don't (78088-78093, the Horde Paladin quests)? Needs a probe in `/azfdiag questdb` or `/azf debug`.
 - **Are the newer-ID quests live** for Gideon (e.g. 78088 "A Strange Artifact")?
 - **Completion read** of an already-done class quest for Gideon (e.g. 3101, Consecrated Letter), the same way Quests already does it.
+- **Repeatable-flagged chain quests:** does the game report 1641 (the Tome of Divinity start) as completed once done? If so, it could count.
 
 ## Third-party guides (2026-11-09)
 
