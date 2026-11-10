@@ -64,8 +64,24 @@ That gives **7 stops** for the main road, which fits a map strip well. Besides t
 - **Are the newer-ID quests live** for Gideon (e.g. 78088 "A Strange Artifact")?
 - **Completion read** of an already-done class quest for Gideon (e.g. 3101, Consecrated Letter), the same way Quests already does it.
 
-## Open questions for the owner
+## Third-party guides (2026-11-09)
 
-1. Main road only, or road plus an Epic branch (raid and dungeon class quests) on the Class tab?
-2. Do optional side quests from trainers (the level-10 ability quests, "Seeking the Kor Gem") count as stops, or are they details inside a stop?
-3. Is a hand-curated journey file OK (as with `Data/Zones.lua`), with completion still read from the game only?
+Forever guides for curating the journey file. These are web sources, so their facts are [unverified] until QuestieDB or the game agrees.
+- Read: Warcraft Tavern [Skyborne Druid quests](https://www.warcrafttavern.com/forever/guides/skyborne-druid-quests/), [Dwarf Shaman totem quests](https://www.warcrafttavern.com/forever/guides/dwarf-shaman-totem-quests/), [Undead Paladin](https://www.warcrafttavern.com/forever/guides/undead-paladin/) (an overview: most Forsaken Paladin class quests are in Bandarion Keep, Tirisfal, and the level-60 mount is a long chain), [class trainers](https://www.warcrafttavern.com/forever/guides/class-trainers/) (class quests mostly come from the trainer at set levels), and the wiki's [Zephras Isle storyline](https://warcraft.wiki.gg/wiki/Zephras_Isle_storyline) (level-2 class intros: Druid, Hunter, Mage (Alliance), Rogue, Shaman (Horde), Warrior; none for Paladin, Priest or Warlock).
+- Refused automated reading (HTTP 403): Icy Veins' Forever class quest guides ([paladin](https://www.icy-veins.com/wow-forever/paladin-class-quests), [priest](https://www.icy-veins.com/wow-forever/priest-class-quests)) and [Mobalytics](https://mobalytics.gg/wow-forever/quests). If the owner wants them used, they could save a page from their browser.
+- Classic-era guides (Wowhead, Icy Veins Classic, Warcraft Tavern's Paladin epic mount guide) cover the unchanged 1.12 chains.
+
+The guides agree with QuestieDB [verified-files]:
+- **Dwarf Shaman:** Call of Earth at 4 (94373-94375, Earth Sapta 94472), Call of Fire at 10 (94449, 94465-94468: Bruegs Kindleborn, then Braldir Ashmantle in Loch Modan), Call of Water at 20 (94494-94505, a long trip through Wetlands, Redridge, Ashenvale and Westfall, about 2 hours), Call of Air at 30 (94789, Veyric in Arathi).
+- **Skyborne Druid:** Bear Form at 10 (94006 The Great Ursera Spirit, 94638 Strength and Mercy) and Cat Form at 20 through Moonglade (98341, 98404, 98738 and the trainer quests).
+- **Level-2 intros:** 92481 A Student of the Arcane, 92532 The Warrior's Path, and the others listed above.
+
+Two things to watch for when curating:
+- **Some class quests have no `requiredClasses`.** The Skyborne Cat Form steps (98341, 98404, 98738) and 96136 Call of Air (Horde Skyborne) have no class mask, so `qdb.lua class` misses them. Curating must start from the chains, not only from the class filter. These quests are class-only in practice because they're reached through the class chain.
+- **Skyborne sides are race bits 2^32 and 2^33.** Alliance masks are 77 + 2^32 and Horde masks 178 + 2^33, so 2^32 is the Alliance Skyborne and 2^33 the Horde Skyborne [inferred]. `QuestRules.RaceBit` doesn't map them yet (race ID unknown), so a Skyborne character's road needs that settled in game.
+
+## Owner decisions (2026-11-09)
+
+1. **Main road only.** Raid and dungeon class quests (gear turn-ins, Quel'Serrar, Dire Maul books) aren't on the road; they're for the Dungeons tab.
+2. **Optional side quests become side paths**: each one is a short spur that branches off the main road and ends in a dead end. The aim is to show as many stops and quests on the map as is reasonable.
+3. **Hand-curated journey file is fine**, cross-checked with third-party guides on class quest chains as well as QuestieDB.
