@@ -82,6 +82,7 @@ ns.Art = {
         ["frame-card"] = { x = 0.16, y = 0.16 },
         ["frame-plaque"] = { x = 0.0469, y = 0.0938 },
         ["frame-step"] = { x = 0.0547, y = 0.1094 },
+        ["plaque-fill-cloth"] = true,
         ["plate-header"] = { x = 0.19, y = 0 },
         ["rep-exalted"] = true,
         ["rep-friendly"] = true,

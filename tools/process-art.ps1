@@ -80,7 +80,7 @@ $PieceKinds = @{
     'frame-step' = @{ size = @(128, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true } # reputation ladder step
     'frame-plaque' = @{ size = @(256, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true; despill = $true } # standing strip cell
     emblem = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true }
-    texture = @{ size = @(256, 128); fit = 'stretch'; key = $false; dir = 'Chrome' } # plaque-fill-*: colourless, tinted in the UI
+    texture = @{ size = @(256, 128); fit = 'stretch'; key = $false; dir = 'Chrome'; levels = 165 } # plaque-fill-*: colourless, tinted in the UI
     plate = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
     divider = @{ size = @(512, 64); fit = 'stretch'; key = $true; dir = 'Chrome' }
     fill = @{ size = @(512, 64); fit = 'stretch'; key = $false; dir = 'Chrome' }
@@ -119,6 +119,24 @@ function Get-PieceKind([string]$name) {
     if ($name -eq 'cel-ribbon') { return 'ribbon' }
     if ($name -match '^cel-(laurel|seal-[a-z0-9-]+|claim-(alliance|horde))$') { return 'cel' }
     return $null
+}
+
+# Tinted textures (plaque-fill-*): a generator paints them very low contrast (209..229 for the
+# first cloth), and multiplied onto a dark tint the pattern vanishes. Stretch the luminance range
+# to $lo..255, the same mapping on every channel, so a grey texture stays grey.
+function Set-Levels([string]$path, [int]$lo) {
+    $src = [System.Drawing.Bitmap]::FromFile($path)
+    $bmp = New-Object System.Drawing.Bitmap $src; $src.Dispose()
+    $min = 255; $max = 0
+    for ($y = 0; $y -lt $bmp.Height; $y++) { for ($x = 0; $x -lt $bmp.Width; $x++) {
+        $c = $bmp.GetPixel($x, $y); $l = [int](($c.R + $c.G + $c.B) / 3); if ($l -lt $min) { $min = $l }; if ($l -gt $max) { $max = $l } } }
+    if ($max -le $min) { $bmp.Dispose(); return 'levels: flat image, left as is' }
+    $f = (255 - $lo) / ($max - $min)
+    $map = { param($v) [int][Math]::Max(0, [Math]::Min(255, [Math]::Round($lo + ($v - $min) * $f))) }
+    for ($y = 0; $y -lt $bmp.Height; $y++) { for ($x = 0; $x -lt $bmp.Width; $x++) {
+        $c = $bmp.GetPixel($x, $y); $bmp.SetPixel($x, $y, [System.Drawing.Color]::FromArgb(255, (& $map $c.R), (& $map $c.G), (& $map $c.B))) } }
+    $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
+    return "levels $min..$max -> $lo..255"
 }
 
 function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
@@ -167,9 +185,10 @@ function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
         if ($k.despill) { $note += ', despilled' }
         $null = [AzfBlp]::ConvertAlpha($png, $blp)
     } else {
+        if ($k.levels) { $note = Set-Levels $tmp $k.levels }
         Copy-Item $tmp $png -Force
         $null = [AzfBlp]::Convert($png, $blp)
-        $note = "${cw}x${ch}, opaque"
+        $note = "${cw}x${ch}, opaque" + $(if ($note) { ", $note" } else { '' })
     }
     Remove-Item $tmp -ErrorAction SilentlyContinue
     if ($k.slice) {
