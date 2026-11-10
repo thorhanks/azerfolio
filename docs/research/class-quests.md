@@ -85,3 +85,4 @@ Two things to watch for when curating:
 1. **Main road only.** Raid and dungeon class quests (gear turn-ins, Quel'Serrar, Dire Maul books) aren't on the road; they're for the Dungeons tab.
 2. **Optional side quests become side paths**: each one is a short spur that branches off the main road and ends in a dead end. The aim is to show as many stops and quests on the map as is reasonable.
 3. **Hand-curated journey file is fine**, cross-checked with third-party guides on class quest chains as well as QuestieDB.
+4. **One painted strip per class and side** (18), so the map matches the character. Size is fine: about 683 KB each (512×2048 DXT1 with mips), 12 MB at most for all of them.
