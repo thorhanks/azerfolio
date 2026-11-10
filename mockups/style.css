@@ -599,6 +599,60 @@ body.chrome .repbar { border: solid transparent; border-width: 6px 14px; border-
 .rivalnote { margin: 0 0 var(--s3); color: #d9b77a; font-style: normal; }
 .qchip.repq .amt { margin-left: auto; flex: none; font-size: var(--fs-xs); color: var(--dim); }
 .qchip.repq.later .qn { color: var(--dim); }
+/* ---- Reputation tab (Phase 12 proposal): the ledger for every faction, then a faction page. ---- */
+.rephdr { position: relative; }
+.repdist { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)) auto; gap: 4px; align-items: stretch; padding: var(--s2) var(--s6); border-bottom: 1px solid var(--divider); background: rgba(0,0,0,.18); }
+.repdist .dcell { --c: #ffd21e; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 2px 4px; border-top: 3px solid var(--c);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 16%, transparent), transparent); font-size: var(--fs-xs); color: var(--text); border-radius: 2px; }
+.repdist .dcell b { font: var(--fs-lg) var(--font); color: var(--white); font-weight: 400; line-height: 1.1; }
+.repdist .dcell.zero { opacity: .38; }
+.repdist .dcell.r1, .repdist .dcell.r2 { --c: #f0644a; } .repdist .dcell.r3 { --c: #f07018; } .repdist .dcell.r4 { --c: #ffd21e; }
+.repdist .dcell.r5, .repdist .dcell.r6, .repdist .dcell.r7, .repdist .dcell.r8 { --c: #22d046; }
+.repdist .dcell.r8 { border-top-color: var(--wow-gold); }
+.repdist .dsum { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding-left: var(--s4); font-size: var(--fs-sm); color: var(--text); white-space: nowrap; }
+.repdist .dsum b { color: var(--wow-gold); font-weight: 400; }
+.frep.tabrow { grid-template-columns: 56px minmax(0, 1fr) 76px 260px 128px; min-height: 40px; padding: 4px var(--s3) 4px 4px; }
+.fthumb { width: 56px; height: 30px; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px #000, 0 0 0 2px #4a3622; display: block; }
+.fthumb > :is(svg, img) { width: 100%; height: 100%; display: block; object-fit: cover; }
+.fthumb.glyph-k { display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #3b2c1c, #120b05); color: #c9a24a; font-size: 16px; }
+.frep.unmet .fthumb > :is(svg, img) { filter: grayscale(.7) brightness(.7); }
+.frep.selected { background: var(--row-hi); }
+.frep .ftags .gain { color: #7ee08a; }
+.frep .ftags .watch { color: var(--wow-gold); }
+.repsplit { grid-template-columns: 640px 1fr; }
+.repsplit .frep.tabrow { grid-template-columns: 44px minmax(0, 1fr) 64px 148px 96px; column-gap: var(--s2); }
+.repsplit .fthumb { width: 44px; height: 26px; }
+.repsplit .tabrow .ftags .rival { display: none; } /* the page says it; the narrow list would wrap to three lines */
+/* Faction page */
+.fhero .plainart { width: 100%; height: 100%; background: radial-gradient(ellipse at 70% 30%, #4a3520, #1a1008 70%); }
+.freact-big { font: var(--fs-xxl) var(--font) !important; text-shadow: 0 2px 4px #000; }
+.freact-big.r1, .freact-big.r2 { color: #ff7a5c !important; } .freact-big.r3 { color: #ff8a3d !important; } .freact-big.r4 { color: #ffd24d !important; }
+.freact-big.r5, .freact-big.r6, .freact-big.r7, .freact-big.r8 { color: #4cd964 !important; }
+.repbar b.ghost { --c: #ffd21e; position: absolute; top: 0; bottom: 0; z-index: 0;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 55%, transparent) 0 3px, color-mix(in srgb, var(--c) 18%, transparent) 3px 7px); }
+.repbar b.ghost.r1, .repbar b.ghost.r2 { --c: #f0644a; } .repbar b.ghost.r3 { --c: #f07018; }
+.repbar b.ghost.r5, .repbar b.ghost.r6, .repbar b.ghost.r7, .repbar b.ghost.r8 { --c: #22d046; }
+.repbar s.reachmark { position: absolute; top: -5px; bottom: -5px; width: 0; margin-left: -1px; border-left: 2px dashed rgba(255,255,255,.85); z-index: 2; }
+.reach { margin: -4px 0 var(--s3); padding: 0 var(--s3); font-size: var(--fs-sm); color: var(--text); }
+.reach .rk { color: var(--wow-gold); margin-right: var(--s2); }
+.reach b { color: var(--white); font-weight: 400; }
+.reach b.r5, .reach b.r6, .reach b.r7, .reach b.r8 { color: #4cd964; } .reach b.r4 { color: #ffd24d; } .reach b.r3 { color: #ff8a3d; }
+.fdesc { margin: 0 0 var(--s4); padding: 0 var(--s3); font-size: var(--fs-sm); font-style: italic; color: var(--dim); }
+.seesaw { margin: 0 0 var(--s4); padding: var(--s2) var(--s3); border: 1px solid #5a4128; border-radius: var(--r-card); background: rgba(0,0,0,.25); display: flex; flex-direction: column; gap: 4px; }
+.seesaw .sstitle { font-size: var(--fs-sm); color: #d9b77a; }
+.frep.mini { grid-template-columns: minmax(0, 1fr) 76px 260px; cursor: default; }
+.srclist { display: flex; flex-direction: column; gap: 3px; }
+.srow { display: grid; grid-template-columns: 56px minmax(0, 1fr) 90px 80px; column-gap: var(--s3); align-items: center; text-align: left; padding: 4px var(--s3) 4px 4px;
+  background: linear-gradient(180deg, rgba(36,26,17,.85), rgba(16,10,5,.9)); border: 1px solid #3a2e22; border-radius: var(--r-ctl); color: var(--white); font: var(--fs-sm) var(--font); cursor: pointer; }
+.srow .sname { display: flex; flex-direction: column; min-width: 0; }
+.srow .sname small { font-size: var(--fs-xs); color: var(--dim); }
+.srow .sq { color: var(--text); text-align: right; font-size: var(--fs-xs); }
+.srow .samt { color: var(--text); text-align: right; font-size: var(--fs-xs); }
+.srow.notyou { color: var(--faint); cursor: default; }
+.srow.notyou .fthumb { opacity: .45; }
+.focused.srow { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
+#detailpane .repsum.frep { grid-template-columns: minmax(0, 1fr) 70px 220px 170px; }
+#detailpane .frep.mini { grid-template-columns: minmax(0, 1fr) 70px 220px; }
 .focused.nitem { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
 .warbanner.painted .streamer { transform-box: fill-box; transform-origin: 50% 0; animation: swing 3.2s ease-in-out infinite; }
 img.cimg { width: 20px; height: 20px; border-radius: 3px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #6b4c2a; flex: none; }

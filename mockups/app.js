@@ -67,6 +67,7 @@
         "Duskwood": firstN("Duskwood", 7), "Wetlands": firstN("Wetlands", 4), "Darkshore": firstN("Darkshore", 3) },
       flights: ["Stormwind", "Ironforge", "Sentinel Hill", "Lakeshire", "Darkshire", "Thelsamar", "Menethil Harbor", "Auberdine"],
       questScale: "veteran", flightsRead: ["Eastern Kingdoms", "Kalimdor"], rep: REP_VETERAN,
+      repGains: { 21: 350, 72: 75, 529: 250 }, watched: 21, // SAMPLE: gains the addon saw this session, the XP-bar faction
       milestones: [
         { t: ago(12, 20, 10), kind: "zone", zone: "Elwynn Forest" }, { t: ago(9, 21, 40), kind: "zone", zone: "Westfall" },
         { t: ago(6, 19, 5), kind: "zone", zone: "Loch Modan" }, { t: ago(4, 22, 15), kind: "area", area: "Lakeridge Highway", zone: "Redridge Mountains" },
@@ -195,11 +196,17 @@
   // starting standing; no data for Brood of Nozdormu, 471 or the Horde side, so they're absent.
   const REP_PROBE = { 21: [500, false, false], 59: [0, false, false], 87: [-6500, false, true], 92: [2000, false, true], 93: [2000, false, true],
     169: [500, false, false], 369: [500, false, false], 470: [500, false, false], 529: [200, false, false], 576: [-3500, false, true],
-    577: [500, false, false], 589: [0, false, false], 609: [0, false, false], 2758: [0, false, false], 2779: [0, false, false] };
+    577: [500, false, false], 589: [0, false, false], 609: [0, false, false], 2758: [0, false, false], 2779: [0, false, false],
+    // The rest of the probe (home factions are the met list; every other one unmet):
+    72: [6600, true, false], 47: [3112, true, false], 69: [3112, true, false], 54: [3112, true, false],
+    2586: [0, false, false], 2719: [500, false, false], 2740: [0, false, false], 2747: [-3400, false, true], 2765: [0, false, false],
+    2799: [0, false, false], 2819: [0, false, false], 2826: [1, false, false], 2827: [500, false, false], 349: [0, false, false],
+    509: [0, false, false], 730: [0, false, false], 809: [0, false, false], 890: [0, false, false], 909: [0, false, false] };
   // The veteran's standing is invented for design review: Booty Bay met mid-Friendly, Ratchet
   // Honored, Cenarion Circle met, Brood of Nozdormu readable (unmet, Hated, its classic start).
   const REP_VETERAN = { ...REP_PROBE, 21: [7200, true, false], 470: [11350, true, false], 87: [-6500, false, true],
-    609: [1250, true, false], 910: [-42000, false, false], 369: [2150, true, false] };
+    609: [1250, true, false], 910: [-42000, false, false], 369: [2150, true, false],
+    72: [15200, true, false], 47: [9800, true, false], 69: [5400, true, false], 54: [8850, true, false], 529: [3400, true, false], 509: [1100, true, false] };
   // Rivals: pairs of the zone's factions where a quest here raises one and lowers the other
   // (`qdb.lua reps rivals`, base rows). The addon derives these from negative reputationReward.
   const REP_RIVALS = { "Stranglethorn Vale": [[21, 87]], "Desolace": [[92, 93]] };
@@ -235,6 +242,65 @@
     "Silithus|910": [[8286, "What Tomorrow Brings", 60, 60, 100], [8301, "The Path of the Righteous", 60, 60, 200], [8302, "The Hand of the Righteous", 60, 60, 200],
       [8303, "Anachronos", 60, 60, 200], [8305, "Long Forgotten Memories", 60, 60, 50], [8519, "A Pawn on the Eternal Board", 60, 60, 100],
       [8743, "Bang a Gong!", 60, 60, 200], [8745, "Treasure of the Timeless One", 60, 60, 200]],
+  };
+  // ---- Reputation tab (Phase 12 proposal) ----
+  // Every faction the game returns data for (GetFactionDataByID, probe 2026-11-08: 38 IDs for
+  // Gideon). The other side's battleground factions also return data (The Defilers, Frostwolf
+  // Clan, Darkspear Raiders: Hated, at war), so the addon leaves them out by side; the Alliance
+  // header (469) is a header, not a row. Group: where most of the faction's raising quests are
+  // (QuestieDB, `qdb.lua reps`), derived, not hand-sorted. Sources: [kind, place, quests, ~total,
+  // forYou] from the base rows (both sides' quests, so SAMPLE counts). home: the zone whose art
+  // makes the faction's banner. rpt: repeatable turn-ins among them (SAMPLE), left out of the reach.
+  const REP_GROUPS = [["home", "Home"], ["zones", "Zones"], ["instances", "Dungeons & raids"], ["bgs", "Battlegrounds"],
+    ["profs", "Professions"], ["other", "Class and events"], ["none", "No known quests"]];
+  const REP_ALL = [
+    { id: 72, name: "Stormwind", group: "home", home: "Elwynn Forest", src: [["zone", "Elwynn Forest", 61, 4375], ["zone", "Duskwood", 49, 3125], ["zone", "Stormwind City", 43, 4020], ["zone", "Redridge Mountains", 35, 3150], ["zone", "Westfall", 32, 2320], ["zone", "Wetlands", 17, 950], ["dungeon", "The Stockade", 5, 600], ["dungeon", "The Deadmines", 4, 450]] },
+    { id: 47, name: "Ironforge", group: "home", home: "Dun Morogh", src: [["zone", "Dun Morogh", 50, 4088], ["zone", "Loch Modan", 40, 3385], ["zone", "Wetlands", 24, 2225], ["zone", "Ironforge", 23, 2005], ["zone", "Badlands", 13, 1100], ["dungeon", "Uldaman", 8, 1000], ["bg", "Alterac Valley", 33, 2695]] },
+    { id: 69, name: "Darnassus", group: "home", home: "Teldrassil", src: [["zone", "Darkshore", 59, 4860], ["zone", "Teldrassil", 57, 5315], ["zone", "Ashenvale", 42, 3775], ["zone", "Feralas", 32, 2375], ["zone", "Darnassus", 18, 1335]] },
+    { id: 54, name: "Gnomeregan Exiles", group: "home", home: "Dun Morogh", src: [["zone", "Dun Morogh", 47, 3888], ["zone", "Loch Modan", 10, 475], ["zone", "Stonetalon Mountains", 10, 900], ["zone", "Ironforge", 10, 1100], ["dungeon", "Gnomeregan", 10, 870]] },
+    { id: 21, name: "Booty Bay", group: "zones", home: "Stranglethorn Vale", src: [["zone", "Stranglethorn Vale", 40, 4499], ["zone", "Arathi Highlands", 9, 875], ["zone", "Azshara", 2, 300], ["zone", "The Hinterlands", 2, 250], ["zone", "Tanaris", 2, 250], ["zone", "Badlands", 2, 225], ["dungeon", "Uldaman", 1, 150]] },
+    { id: 87, name: "Bloodsail Buccaneers", group: "zones", home: "Stranglethorn Vale", src: [["zone", "Stranglethorn Vale", 3, 235]] },
+    { id: 470, name: "Ratchet", group: "zones", home: "The Barrens", src: [["zone", "The Barrens", 27, 2594], ["zone", "Thousand Needles", 7, 375], ["zone", "Stonetalon Mountains", 6, 525], ["zone", "Durotar", 4, 400], ["zone", "Desolace", 4, 350], ["dungeon", "Razorfen Kraul", 2, 250], ["dungeon", "Wailing Caverns", 2, 200]] },
+    { id: 369, name: "Gadgetzan", group: "zones", home: "Tanaris", src: [["zone", "Tanaris", 28, 3154], ["dungeon", "Zul'Farrak", 3, 325]] },
+    { id: 577, name: "Everlook", group: "zones", home: "Winterspring", src: [["zone", "Winterspring", 18, 1899]] },
+    { id: 59, name: "Thorium Brotherhood", group: "zones", home: "Searing Gorge", rpt: 4, src: [["zone", "Searing Gorge", 12, 900], ["raid", "Molten Core", 5, 800], ["dungeon", "Blackrock Depths", 1, 200], ["prof", "Blacksmithing quests", 8, 1150, false]] },
+    { id: 576, name: "Timbermaw Hold", group: "zones", home: "Felwood", rpt: 5, src: [["zone", "Felwood", 12, 1200], ["zone", "Winterspring", 1, 150]] },
+    { id: 529, name: "Argent Dawn", group: "zones", home: "Eastern Plaguelands", rpt: 6, src: [["zone", "Eastern Plaguelands", 65, 6680], ["zone", "Western Plaguelands", 36, 2670], ["zone", "Tirisfal Glades", 6, 850], ["raid", "Naxxramas", 77, 15400], ["dungeon", "Stratholme", 7, 1149], ["dungeon", "Blackfathom Deeps", 4, 700], ["dungeon", "Scholomance", 4, 375]] },
+    { id: 609, name: "Cenarion Circle", group: "zones", home: "Silithus", rpt: 12, src: [["zone", "Silithus", 101, 7760], ["zone", "Moonglade", 7, 800], ["raid", "Ahn'Qiraj", 31, 3298], ["dungeon", "Maraudon", 3, 450], ["class", "Druid quests", 42, 2320, false]] },
+    { id: 92, name: "Gelkis Clan Centaur", group: "zones", home: "Desolace", src: [["zone", "Desolace", 10, 16450], ["zone", "Shen'dralas", 8, 3625]] },
+    { id: 93, name: "Magram Clan Centaur", group: "zones", home: "Desolace", src: [["zone", "Desolace", 9, 15950], ["zone", "Shen'dralas", 11, 5125]] },
+    { id: 589, name: "Wintersaber Trainers", group: "zones", home: "Winterspring", rpt: 3, src: [["zone", "Winterspring", 3, 150]] },
+    { id: 169, name: "Steamwheedle Cartel", group: "zones", home: "Feralas", src: [["zone", "Feralas", 4, 350], ["dungeon", "Dire Maul", 4, 450], ["dungeon", "Blackrock Spire", 2, 350]] },
+    { id: 2779, name: "High Order", group: "zones", home: "Zephras Isle", src: [["zone", "Zephras Isle", 55, 2860], ["zone", "Alterac Mountains", 2, 300]] },
+    { id: 2758, name: "Nightclaw Druids", group: "zones", home: "Zephras Isle", src: [["zone", "Zephras Isle", 11, 5400]] },
+    { id: 2740, name: "Kirin Tor", group: "zones", home: "Alterac Mountains", src: [["zone", "Alterac Mountains", 2, 20], ["zone", "Stormwind City", 1, 100], ["dungeon", "Scarlet Monastery", 1, 100]] },
+    { id: 2827, name: "Powderfuse", group: "zones", home: "The Barrens", src: [["zone", "The Barrens", 3, 200]] },
+    { id: 809, name: "Shen'dralar", group: "instances", home: null, src: [["dungeon", "Dire Maul", 14, 2800], ["raid", "Onyxia's Lair", 1, 200]] },
+    { id: 509, name: "The League of Arathor", group: "bgs", home: "Arathi Highlands", src: [["bg", "Arathi Basin", 29, 3655]] },
+    { id: 730, name: "Stormpike Guard", group: "bgs", home: "Alterac Mountains", src: [["bg", "Alterac Valley", 28, 4455]] },
+    { id: 890, name: "Silverwing Sentinels", group: "bgs", home: "Ashenvale", src: [["bg", "Warsong Gulch", 29, 2905]] },
+    { id: 2799, name: "Theramore Expeditionary Force", group: "bgs", home: null, src: [["bg", "Darkspear Islands", 8, 1300]] },
+    { id: 2586, name: "Azeroth Commerce Authority", group: "profs", home: null, rpt: 20, src: [["prof", "Crafting orders", 150, 19875]] },
+    { id: 909, name: "Darkmoon Faire", group: "other", home: null, rpt: 29, src: [["event", "Darkmoon Faire", 29, 2900]] },
+    { id: 349, name: "Ravenholdt", group: "other", home: "Alterac Mountains", src: [["class", "Rogue quests", 11, 1210, false]] },
+    { id: 2747, name: "Barkskin Burrow", group: "none", home: null, src: [] },
+    { id: 2719, name: "Cenarion Scouts", group: "none", home: null, src: [] },
+    { id: 2765, name: "Guardians of Hyjal", group: "none", home: null, src: [] },
+    { id: 2819, name: "The Watchers", group: "none", home: null, src: [] },
+    { id: 2826, name: "Brotherhood of the Horse", group: "none", home: null, src: [] },
+  ];
+  REP_ALL.forEach(f => { if (!REP_NAMES[f.id]) REP_NAMES[f.id] = f.name; });
+  const REP_RIVAL_OF = { 21: 87, 87: 21, 92: 93, 93: 92 };
+  // Stand-in text for the game's own faction description (`description` in the faction data);
+  // written for the mockup, not the client's wording.
+  const REP_DESC = {
+    21: "The goblin port at the tip of Stranglethorn, and the Steamwheedle Cartel's busiest harbour.",
+    87: "Pirates who prey on the Cartel's ships along the southern coast.",
+    576: "Furbolgs of Felwood who held on to their minds when the rest of their kind fell to corruption.",
+    529: "A brotherhood sworn to drive the Scourge from the Plaguelands.",
+    609: "Druids who watch over the balance of nature from Moonglade to the deserts of Silithus.",
+    92: "Earth-spirit centaur of southern Desolace, bitter enemies of the Magram.", 93: "Centaur of eastern Desolace, at war with the Gelkis.",
+    72: "The human kingdom and its capital, heart of the Alliance.",
   };
   const CATS = { explore: { label: "Exploration", icon: "◎", unit: "areas" }, quests: { label: "Quests", icon: "!", unit: "quests" },
     flights: { label: "Flight paths", icon: "✈", unit: "flight paths" } };
@@ -397,11 +463,13 @@
   // =====================================================================================
   const ui = { repBar: "equal", tab: "overview", detail: null, view: "cards", faction: "relevant", status: "all", level: "all", sort: "recommended",
     search: "", zonesScroll: 0, lastZone: null, selected: null, flyout: null, wide: false, newCrit: null, celebrate: null,
-    quests: "loaded", showUnavailable: false, openStories: new Set(), detailPage: null, look: "Alliance" };
+    quests: "loaded", showUnavailable: false, openStories: new Set(), detailPage: null, look: "Alliance",
+    repFilter: "all", repSort: "group", repSel: null, repOpen: null, watched: null };
   const OPTIONS = {
     faction: { label: "Show", items: [["relevant", "Relevant to me"], ["all", "All zones"]] },
     level: { label: "Level", items: [["all", "All levels"], ["appropriate", "For my level"]] },
     sort: { label: "Sort", items: [["recommended", "Recommended"], ["alphabetical", "A–Z"], ["highest", "Highest %"], ["lowest", "Lowest %"], ["closest", "Closest to done"]] },
+    repSort: { label: "Sort", items: [["group", "By group"], ["closest", "Closest to next"], ["az", "A–Z"]] },
   };
   const STATUS = [["all", "All"], ["progress", "In progress"], ["untouched", "Untouched"], ["complete", "Complete"]];
   const optLabel = (key) => OPTIONS[key].items.find(o => o[0] === ui[key])[1];
@@ -892,16 +960,29 @@
     }
     return [1, 2, 3, 4, 5, 6, 7, 8].map(r => ({ r, x: (r - 1) * 12.5, w: 12.5 }));
   }
-  function repBar(f, scale) {
+  // Position on the bar (0..100) of a standing, on the equal-steps or true scale.
+  function repPos(standing, scale) {
+    const r = reactionOf(standing), segs = repSegments(scale), s = segs[r - 1], [lo, hi] = REP_BOUNDS[r];
+    return s.x + s.w * (r === 8 ? 1 : (standing - lo) / (hi - lo));
+  }
+  // reach (optional): the standing the quests you haven't done would bring you to, drawn as a
+  // hatched ghost past your marker with a dashed end mark (Reputation tab's faction page).
+  function repBar(f, scale, reach) {
     const segs = repSegments(scale), cur = segs[f.reaction - 1];
     const into = f.reaction === 8 ? 1 : f.into / f.span;
     const pos = cur.x + cur.w * into;
     const fill = segs.filter(s => s.r <= f.reaction).map(s => {
       const w = s.r < f.reaction ? s.w : s.w * into;
       return `<i class="r${s.r}" style="left:${s.x.toFixed(2)}%;width:${w.toFixed(2)}%"></i>`; }).join("");
+    let ghost = "";
+    if (reach != null && reach > f.standing) {
+      const end = repPos(reach, scale), rr = reactionOf(reach);
+      ghost = `<b class="ghost r${rr}" style="left:${pos.toFixed(2)}%;width:${(end - pos).toFixed(2)}%"></b><s class="reachmark" style="left:${end.toFixed(2)}%"></s>`;
+    }
     const notches = segs.slice(1).map(s => `<u class="${s.r === f.reaction + 1 ? "next" : s.r <= f.reaction ? "past" : ""}" style="left:${s.x.toFixed(2)}%"></u>`).join("");
-    return `<span class="repbar ${scale}"><span class="rtrack">${fill}${notches}<em class="r${f.reaction}" style="left:${pos.toFixed(2)}%"></em></span></span>`;
+    return `<span class="repbar ${scale}"><span class="rtrack">${fill}${ghost}${notches}<em class="r${f.reaction}" style="left:${pos.toFixed(2)}%"></em></span></span>`;
   }
+  const reactionOf = (standing) => standing >= 42000 ? 8 : REP_BOUNDS.findIndex(b => b && standing >= b[0] && standing < b[1]);
   function ladder(f) {
     if (ui.repBar !== "ladder") return repBar(f, ui.repBar === "true" ? "true" : "equal");
     return `<span class="ladder">${[1, 2, 3, 4, 5, 6, 7, 8].map(r => {
@@ -948,6 +1029,129 @@
     if (now.length) html += `<h2 class="section" data-group>Up to your level <small>${now.length}</small></h2><div class="readygrid">${now.map(chip).join("")}</div>`;
     if (later.length) html += `<h2 class="section" data-group>Later <small>${later.length} · from level ${Math.min(...later.map(q => q[3]))}</small></h2><div class="readygrid">${later.map(chip).join("")}</div>`;
     return html + `<div class="qfoot"><span class="qnote">From QuestieDB. Amounts are its base values, so approximate; done and locked states come from the Quests page in the addon.</span></div>`;
+  }
+
+  // ==== Reputation tab (Phase 12 proposal) ====
+  // What a Reputation.All() would hand the tab: every faction with game data, its standing, the
+  // quest sources that raise it, and the reach (standing plus the base amounts of the one-time
+  // quests you haven't done and can do; repeatables left out, since they have no end). The
+  // mockup treats every quest as not done (SAMPLE); the addon uses the Quests page's states.
+  function allFactions() {
+    if (!S.rep) return [];
+    return REP_ALL.filter(f => S.rep[f.id]).map(f => {
+      const [standing, met, atWar] = S.rep[f.id];
+      const reaction = reactionOf(standing), [lo, hi] = REP_BOUNDS[reaction];
+      const usable = f.src.filter(s => s[4] !== false);
+      const gain = usable.reduce((n, s) => n + s[3], 0), quests = usable.reduce((n, s) => n + s[2], 0);
+      const reach = usable.length && reaction < 8 ? Math.min(standing + gain, 42999) : null;
+      const rivalId = REP_RIVAL_OF[f.id];
+      return { ...f, standing, met, atWar, reaction, label: REACTIONS[reaction], next: REACTIONS[reaction + 1] || null,
+        into: standing - lo, span: hi - lo, left: reaction === 8 ? 0 : hi - standing, quests, gain, reach,
+        reachReaction: reach != null ? reactionOf(reach) : null,
+        rival: rivalId && S.rep[rivalId] ? REP_NAMES[rivalId] : null, rivalId: rivalId && S.rep[rivalId] ? rivalId : null,
+        session: (S.repGains || {})[f.id] || 0, watched: S.watched === f.id || ui.watched === f.id };
+    });
+  }
+  function repShown() {
+    const all = allFactions();
+    const list = all.filter(f => ui.repFilter === "all" || (ui.repFilter === "met" ? f.met : !f.met));
+    // Closest: met factions first (an unmet one only sits at its starting standing), Exalted last.
+    if (ui.repSort === "closest") list.sort((a, b) => (a.reaction === 8) - (b.reaction === 8) || b.met - a.met || a.left - b.left || a.name.localeCompare(b.name));
+    if (ui.repSort === "az") list.sort((a, b) => a.name.localeCompare(b.name));
+    return { all, list };
+  }
+  const SRC_KIND = { zone: "Zone", dungeon: "Dungeon", raid: "Raid", bg: "Battleground", prof: "Profession", class: "Class quests", event: "Event" };
+  const SRC_GLYPH = { dungeon: "⛫", raid: "☠", bg: "⚑", prof: "⚒", class: "✦", event: "✪", none: "?" };
+  function repThumb(zoneName, kind) {
+    const z = zoneName && byName[zoneName];
+    return z ? `<span class="fthumb">${art(z)}</span>` : `<span class="fthumb glyph-k k-${kind || "none"}">${SRC_GLYPH[kind] || "?"}</span>`;
+  }
+  const tabTags = (f) => repTags(f) + (f.session ? `<span class="gain">+${num(f.session)} today</span>` : "") + (f.watched ? `<span class="watch">Watched</span>` : "");
+  function repTabRow(f) {
+    const exalted = f.reaction === 8;
+    const how = f.group === "none" ? "No quests are known to raise it." : `A shows where to raise it.`;
+    const tip = `<b>${esc(f.name)}</b>${f.label}${exalted ? "" : `, ${num(f.left)} to ${f.next}`}${f.met ? "" : " (not met yet)"}. ${how}`;
+    const sel = ui.wide && ui.repSel === f.id ? "selected" : "";
+    return `<button class="frep tabrow focusable r${f.reaction} ${f.met ? "met" : "unmet"} ${sel}" data-faction="${f.id}" data-tip="${tip}">
+      ${repThumb(f.home, (f.src[0] || [])[0])}
+      <span class="fwho"><span class="fname">${esc(f.name)}</span><span class="ftags">${tabTags(f)}</span></span>
+      <span class="freact">${f.label}</span>${ladder(f)}
+      <span class="fnum">${exalted ? "" : ui.repSort === "closest" ? `${num(f.left)} to ${f.next}` : `${num(f.into)} / ${num(f.span)}`}</span></button>`;
+  }
+  // The standing at a glance: how many factions sit at each reaction, Hated to Exalted.
+  function repDist(all) {
+    const n = (r) => all.filter(f => f.reaction === r).length;
+    const ex = n(8), met = all.filter(f => f.met).length;
+    return `<div class="repdist">${[1, 2, 3, 4, 5, 6, 7, 8].map(r => `<span class="dcell r${r} ${n(r) ? "" : "zero"}"><b>${n(r)}</b>${REACTIONS[r]}</span>`).join("")}
+      <span class="dsum"><span>Met <b>${met}</b> of ${all.length}</span><span>Exalted <b>${ex}</b> of ${all.length}</span></span></div>`;
+  }
+  const REP_FILTERS = [["all", "All"], ["met", "Met"], ["unmet", "Not met yet"]];
+  function renderReputation() {
+    const { all, list } = repShown();
+    const tools = `<div class="toolbar">
+      <div class="seg">${REP_FILTERS.map(([v, l]) => `<button class="focusable ${ui.repFilter === v ? "on" : ""}" data-rfilter="${v}" data-tip="<b>${l}</b>Show ${v === "all" ? "every faction" : v === "met" ? "the factions you've met" : "the factions you haven't met yet"}.">${l}</button>`).join("")}</div>
+      <button class="btn focusable" data-cycle="repSort" data-tip="<b>Sort</b>${optLabel("repSort")}. Y cycles it.">Sort: ${optLabel("repSort")}</button>
+      <span class="spacer"></span><span class="count">${list.length} factions</span></div>${repDist(all)}`;
+    let body;
+    if (!list.length) body = `<div class="empty"><b>No factions here</b>Try another filter.</div>`;
+    else if (ui.repSort === "group") body = REP_GROUPS.map(([g, title]) => {
+      const items = list.filter(f => f.group === g); if (!items.length) return "";
+      return `<div class="group-h" data-group>${title} <small>${items.filter(f => f.met).length} of ${items.length} met</small></div><div class="rows">${items.map(repTabRow).join("")}</div>`;
+    }).join("");
+    else body = `<div class="group-h" data-group>${ui.repSort === "closest" ? "Closest to the next reaction" : "A–Z"} <small>${list.length}</small></div><div class="rows">${list.map(repTabRow).join("")}</div>`;
+    if (ui.wide) {
+      if (!ui.repSel || !list.some(f => f.id === ui.repSel)) ui.repSel = (list[0] || {}).id || null;
+      content.innerHTML = `<div class="rephdr">${tools}</div><div class="split repsplit"><div class="listpane"><div class="scroll" id="scroll">${body}</div></div><div class="detailpane" id="detailpane"></div></div>`;
+      renderFactionInto($("#detailpane"), all.find(f => f.id === ui.repSel), { back: false });
+    } else {
+      content.innerHTML = `<div class="rephdr">${tools}</div><div class="scroll" id="scroll">${body}</div>`;
+    }
+    ($(".split") || $("#scroll")).style.top = $(".rephdr").offsetHeight + "px";
+  }
+  // A faction's page: banner (its main zone's art), standing with the reach, the game's
+  // description, the rival, and where to raise it. A on a zone opens that zone's faction page.
+  function renderFactionInto(container, f, opts) {
+    if (!f) { container.innerHTML = `<div class="empty"><b>Select a faction</b></div>`; return; }
+    const z = f.home && byName[f.home];
+    const groupLabel = REP_GROUPS.find(g => g[0] === f.group)[1];
+    const hero = `<div class="detail-hero slim fhero">${z ? art(z) : `<div class="plainart"></div>`}<div class="shade"></div>
+      ${opts.back ? `<button class="btn dark back focusable" data-back data-tip="Back to all factions (B)">‹ Reputation</button>` : ""}
+      <div class="info"><div><h1>${esc(f.name)}</h1><div class="sub"><span>${groupLabel}</span>${z ? `<span>· Raised most in ${esc(f.home)}</span>` : ""}</div></div>
+      <div class="pagescore freact-big r${f.reaction}">${f.label}</div></div></div>`;
+    const exalted = f.reaction === 8;
+    let html = `<div class="repsum frep r${f.reaction} ${f.met ? "met" : "unmet"}"><span class="fwho"><span class="fname">Your standing</span><span class="ftags">${tabTags(f)}</span></span>
+      <span class="freact">${f.label}</span>${repBar(f, ui.repBar === "true" ? "true" : "equal", f.reach)}
+      <span class="fnum">${exalted ? "" : `${num(f.into)} / ${num(f.span)} · ${num(f.left)} to ${f.next}`}</span></div>`;
+    // The reach in words: what the quests left could do, and whether they get you to the next reaction.
+    if (f.reach != null && f.gain > 0) {
+      const enough = f.reachReaction > f.reaction;
+      html += `<div class="reach"><span class="rk">Quests you haven't done</span> about <b>+${num(f.gain)}</b> from ${f.quests} quests,
+        ${f.reachReaction === 8 ? "enough for <b class='r8'>Exalted</b>" : enough ? `enough for about <b class="r${f.reachReaction}">${REACTIONS[f.reachReaction]}</b>` : `not quite enough for ${f.next}`}${f.rpt ? `; ${f.rpt} repeatable turn-ins on top` : ""}.${f.rival ? ` Most of them lower ${esc(f.rival)}.` : ""}</div>`;
+    } else if (!exalted && f.group === "none") html += `<div class="reach"><span class="rk">No quests</span> QuestieDB has no quest that raises ${esc(f.name)}, so the addon can't say how to raise it.</div>`;
+    else if (!exalted && !f.src.some(s => s[4] !== false)) html += `<div class="reach"><span class="rk">Not for you</span> Only ${esc(f.src.map(s => s[1]).join(", "))} raise it.</div>`;
+    html += `<p class="fdesc">${esc(REP_DESC[f.id] || `(The game's description of ${f.name} goes here: C_Reputation's description field.)`)}</p>`;
+    if (f.rivalId) {
+      const r = allFactions().find(x => x.id === f.rivalId);
+      html += `<div class="seesaw"><div class="sstitle">Rivals: raising one lowers the other</div>
+        ${[f, r].map(x => `<div class="frep mini r${x.reaction} ${x.met ? "met" : "unmet"}"><span class="fwho"><span class="fname">${esc(x.name)}</span></span><span class="freact">${x.label}</span>${ladder(x)}</div>`).join("")}</div>`;
+    }
+    if (f.src.length) {
+      html += `<h2 class="section" data-group>Where to raise it <small>${f.src.length} ${f.src.length === 1 ? "place" : "places"}</small></h2><div class="srclist">${f.src.map(s => {
+        const [kind, place, n, amt, forYou] = s, zoneHere = kind === "zone" && byName[place];
+        const hasPage = zoneHere && (REP_ZONES[place] || []).some(p => p[0] === f.id);
+        const tip = `<b>${esc(place)}</b>${SRC_KIND[kind]}. ${n} quests, about +${num(amt)} (QuestieDB's base values).${forYou === false ? " Not for your class." : zoneHere ? ` A opens ${hasPage ? `${esc(f.name)} in ${esc(place)}` : esc(place)}.` : " A would open the Dungeons tab (later)."}`;
+        return `<button class="srow focusable ${forYou === false ? "notyou" : ""}" data-src="${esc(kind + "|" + place)}" data-tip="${tip}">
+          ${repThumb(zoneHere ? place : null, kind)}<span class="sname">${esc(place)}<small>${SRC_KIND[kind]}${forYou === false ? " · not for you" : ""}</small></span>
+          <span class="sq">${n} quests</span><span class="samt">~+${num(amt)}</span></button>`; }).join("")}</div>`;
+    }
+    html += `<div class="qfoot"><span class="qnote">From QuestieDB's quest rewards: amounts are base values, so approximate (bonuses like the Human racial aren't in them). Killing and other ways to gain reputation aren't known to the addon.</span></div>`;
+    container.innerHTML = `<div class="detail paged">${hero}<div class="detail-body full"><div class="scroll" id="${opts.back ? "scroll" : "detailscroll"}">${html}</div></div></div>`;
+  }
+  function toggleWatch(id) {
+    const f = allFactions().find(x => x.id === id); if (!f) return;
+    if (f.watched) { ui.watched = null; if (S.watched === id) S.watched = null; toast(`Stopped watching <b>${esc(f.name)}</b><small>The XP bar shows experience only.</small>`); }
+    else { ui.watched = id; S.watched = null; toast(`Watching <b>${esc(f.name)}</b> on the XP bar<small>C_Reputation.SetWatchedFactionByID</small>`); }
+    rerenderKeepFocus();
   }
 
   // "Next up in <zone>" (round 3): the few most useful things to do here now. The addon's
@@ -1310,13 +1514,21 @@
     detail: [["A", "A", "Open"], ["X", "X", "World map"], ["B", "B", "Zones"]],
     detailPage: [["A", "A", "Select"], ["X", "X", "World map"], ["LT", "LT/RT", "Section"], ["B", "B", "Overview"]],
     flyout: [["DP", "✥", "Choose"], ["A", "A", "Apply"], ["B", "B", "Cancel"]],
+    rep: [["A", "A", "Open"], ["X", "X", "Watch"], ["Y", "Y", "Sort"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
+    repWide: [["A", "A", "Details"], ["X", "X", "Watch"], ["Y", "Y", "Sort"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
+    repPage: [["A", "A", "Open"], ["X", "X", "Watch"], ["B", "B", "Reputation"]],
   };
-  function screen() { return ui.tab === "zones" ? (ui.detail && !ui.wide ? "detail" : ui.wide ? "zonesWide" : "zones") : "overview"; }
+  function screen() {
+    if (ui.tab === "reputation") return ui.wide ? "repWide" : ui.repOpen ? "repPage" : "rep";
+    return ui.tab === "zones" ? (ui.detail && !ui.wide ? "detail" : ui.wide ? "zonesWide" : "zones") : "overview";
+  }
   function render() {
     renderHeader();
     $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === ui.tab));
     const sc = screen();
-    if (sc === "overview") renderOverview();
+    if (sc === "rep" || sc === "repWide") renderReputation();
+    else if (sc === "repPage") renderFactionInto(content, allFactions().find(f => f.id === ui.repOpen), { back: true });
+    else if (sc === "overview") renderOverview();
     else if (sc === "detail") renderDetailInto(content, byName[ui.detail], { back: true });
     else renderZones();
     setHints(ui.flyout ? "flyout" : sc === "detail" && ui.detailPage ? "detailPage" : sc);
@@ -1328,7 +1540,7 @@
   function keyOf(el) {
     if (!el) return null;
     const d = el.dataset, parts = [];
-    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "rep", "rq", "tab", "cycle", "status", "view", "go"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
+    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "rep", "rq", "tab", "cycle", "status", "view", "go", "faction", "src", "rfilter"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
     for (const a of ["search", "back", "map", "atlas", "qtoggle"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
     if (el.id) parts.push("#" + el.id);
     return parts.length ? "." + [...el.classList].filter(c => !["focused", "on", "new", "selected"].includes(c))[0] + parts.join("") : null;
@@ -1345,10 +1557,20 @@
   // =====================================================================================
   function setTab(tab) {
     if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
+    if (ui.tab === "reputation" && !ui.repOpen) ui.repScroll = $("#scroll")?.scrollTop || 0;
     ui.tab = tab; ui.flyout = null;
     render();
-    if (tab === "zones" && !ui.detail) restoreCatalog(); else focusFirst();
+    if (tab === "zones" && !ui.detail) restoreCatalog(); else if (tab === "reputation") restoreRep(); else focusFirst();
   }
+  // The Reputation list: back to the faction you were on (or the first one), scroll kept.
+  function restoreRep() {
+    if (ui.repOpen) return setFocus($("#content .srow") || $("[data-back]"));
+    const sc = $("#scroll");
+    if (sc) { sc.style.scrollBehavior = "auto"; sc.scrollTop = ui.repScroll || 0; sc.style.scrollBehavior = ""; }
+    setFocus($(`#scroll [data-faction="${ui.repSel}"]`) || $("#scroll .focusable") || $(".toolbar .focusable"));
+  }
+  const TABS = ["overview", "zones", "reputation"];
+  const nextTab = (d) => TABS[(TABS.indexOf(ui.tab) + d + TABS.length) % TABS.length];
   function openZone(name, crit) {
     if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
     ui.tab = "zones"; ui.lastZone = name;
@@ -1362,6 +1584,8 @@
   function back() {
     if (ui.celebrate) return closeCelebrate();
     if (ui.flyout) return closeFlyout();
+    if (ui.tab === "reputation" && ui.repOpen) { ui.repOpen = null; render(); return restoreRep(); }
+    if (ui.tab === "reputation" && ui.wide && focused && focused.closest("#detailpane")) return setFocus($(`.frep[data-faction="${ui.repSel}"]`));
     // A category page goes back to the zone's overview, focused on that category's tile.
     if (ui.tab === "zones" && ui.detailPage && (ui.detail || ui.wide)) { const pg = ui.detailPage; ui.detailPage = null; render(); return setFocus($(`[data-page="${pg}"]`) || $(".ctile")); }
     if (ui.tab === "zones" && ui.wide && focused && focused.closest("#detailpane")) return setFocus($(`.zrow[data-open="${CSS.escape(ui.selected)}"]`));
@@ -1408,6 +1632,22 @@
     if (d.tab) return setTab(d.tab);
     if (el.id === "closeBtn") return closeWindow();
     if (d.back !== undefined) return back();
+    if (d.rfilter) { ui.repFilter = d.rfilter; render(); return setFocus($(`[data-rfilter="${d.rfilter}"]`)); }
+    if (d.faction) { // Reputation tab: open the faction's page (wide: move into it)
+      const id = Number(d.faction); ui.repSel = id;
+      if (ui.wide) return setFocus($("#detailpane .srow") || el);
+      ui.repScroll = $("#scroll")?.scrollTop || 0; ui.repOpen = id; render(); return restoreRep();
+    }
+    if (d.src) { // a place that raises the faction: a zone opens its page (the faction's own when it has one)
+      const [kind, place] = d.src.split(/\|(.*)/), id = ui.repOpen || ui.repSel;
+      if (el.classList.contains("notyou")) return;
+      if (kind !== "zone" || !byName[place]) return toast(`Would open ${esc(place)} in the Dungeons tab<small>(a later phase)</small>`);
+      const page = (REP_ZONES[place] || []).some(p => p[0] === id) ? `rep:${id}` : null;
+      ui.tab = "zones"; ui.lastZone = place;
+      if (ui.wide) { ui.selected = place; ui.detail = null; ui.view = "list"; ui.detailPage = page; render(); return setFocus($("#detailpane .detail .scroll .focusable") || $("#detailpane .ctile")); }
+      ui.detail = place; ui.detailPage = page; render();
+      return setFocus($("#content .detail .scroll .focusable") || $("[data-back]"));
+    }
     if (d.open && d.next) { // an Overview suggestion: open the zone, then its page on that item
       openZone(d.open);
       return activate({ dataset: { next: d.next }, classList: { contains: () => false } });
@@ -1493,6 +1733,12 @@
       el.classList.add("selected");
       renderDetailInto($("#detailpane"), byName[ui.selected], { back: false });
     }
+    if (ui.wide && ui.tab === "reputation" && el.dataset.faction && Number(el.dataset.faction) !== ui.repSel) {
+      ui.repSel = Number(el.dataset.faction);
+      $$(".frep.selected").forEach(r => r.classList.remove("selected"));
+      el.classList.add("selected");
+      renderFactionInto($("#detailpane"), allFactions().find(f => f.id === ui.repSel), { back: false });
+    }
   }
   function focusFirst() { setFocus($("#content .focusable") || $(".tab.active")); }
   function move(dir) {
@@ -1571,10 +1817,13 @@
     const map = {
       ArrowUp: () => move("up"), ArrowDown: () => move("down"), ArrowLeft: () => move("left"), ArrowRight: () => move("right"),
       Enter: () => activate(focused), " ": () => activate(focused), Escape: back, Backspace: back,
-      q: () => !ui.flyout && !ui.celebrate && setTab(ui.tab === "overview" ? "zones" : "overview"),
-      e: () => !ui.flyout && !ui.celebrate && setTab(ui.tab === "overview" ? "zones" : "overview"),
-      y: () => { if (ui.tab === "zones" && !ui.detail && !ui.flyout) { const v = VIEWS().map(x => x[0]); ui.view = v[(v.indexOf(ui.view) + 1) % v.length]; render(); restoreCatalog(); } },
-      x: () => { if (ui.flyout || ui.celebrate) return; if (ui.tab === "zones" && (ui.detail || (ui.wide && focused && focused.closest("#detailpane")))) toast(`Would open the world map at ${esc(ui.detail || ui.selected)}`); else if (ui.tab === "zones") { setFocus($("[data-search]")); $("#searchInput").focus(); } },
+      q: () => !ui.flyout && !ui.celebrate && setTab(nextTab(-1)),
+      e: () => !ui.flyout && !ui.celebrate && setTab(nextTab(1)),
+      y: () => { if (ui.tab === "reputation" && !ui.repOpen && !ui.flyout) { const v = OPTIONS.repSort.items.map(x => x[0]); ui.repSort = v[(v.indexOf(ui.repSort) + 1) % v.length]; render(); return restoreRep(); }
+        if (ui.tab === "zones" && !ui.detail && !ui.flyout) { const v = VIEWS().map(x => x[0]); ui.view = v[(v.indexOf(ui.view) + 1) % v.length]; render(); restoreCatalog(); } },
+      x: () => { if (ui.flyout || ui.celebrate) return;
+        if (ui.tab === "reputation") { const id = ui.repOpen || (focused && Number(focused.dataset.faction)) || (ui.wide && ui.repSel); if (id) toggleWatch(id); return; }
+        if (ui.tab === "zones" && (ui.detail || (ui.wide && focused && focused.closest("#detailpane")))) toast(`Would open the world map at ${esc(ui.detail || ui.selected)}`); else if (ui.tab === "zones") { setFocus($("[data-search]")); $("#searchInput").focus(); } },
       PageDown: () => jump(1), PageUp: () => jump(-1),
     };
     const fn = map[k];
@@ -1603,7 +1852,7 @@
     ui.scenarioName = name;
     S = SCENARIOS[name]();
     CHAR = S.char;
-    ui.detail = null; ui.selected = null; ui.lastZone = null;
+    ui.detail = null; ui.selected = null; ui.lastZone = null; ui.repOpen = null; ui.repSel = null; ui.watched = null;
     $("#celebrate")?.remove(); ui.celebrate = null; closeFlyout();
     buildModel();
   }
@@ -1624,7 +1873,8 @@
   $("#wideToggle").addEventListener("change", (e) => {
     ui.wide = e.target.checked; ui.detail = null;
     document.documentElement.style.setProperty("--win-w", winW() + "px");
-    fit(); render(); if (ui.tab === "zones") restoreCatalog(); else focusFirst(); e.target.blur();
+    ui.repOpen = null;
+    fit(); render(); if (ui.tab === "zones") restoreCatalog(); else if (ui.tab === "reputation") restoreRep(); else focusFirst(); e.target.blur();
   });
   let currentScale = 1;
   function fit() {

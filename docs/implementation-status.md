@@ -26,6 +26,10 @@ In-game checks that wait on real play (a first-time faction, a level-60 characte
 
 - 2026-11-08, task 5, both characters (approval pending): Thragor and Gideon get the same 20 zones and the same standing for shared factions; side factions follow the side (Thragor 2778, 2787; Gideon 2779, 589). Each game Reputation window shows only home factions, which agrees with "Not met yet" everywhere. Settled: 471 and Brood of Nozdormu hidden (no data), Zephras Isle one faction per side, Feralas keeps the rule (owner). Still open: a met zone faction against the game's window and a refresh after a zone-faction turn-in (neither character has one). `trace-report.lua reputation` now prints the standing that changed between refreshes. Shots `WoWScrnShot_110826_225848`-`230104`.
 
+## Proposed next: Phase 12, Reputation tab
+
+- 2026-11-09, design analysis and mockup round 1 (awaiting review): a Reputation tab with every faction the game returns data for (34 for Gideon), grouped by where their quests are, a standing strip, and a faction page with the reach (what the quests left would bring), the rival seesaw, where to raise it, X to watch. Spec in `mockups/DESIGN.md` "Reputation tab". Probe: the other side's battleground factions return data (Hated), so they're filtered by side.
+
 ## Tooling (2026-11-08)
 
 - `luajit tools/trace-report.lua [summary|last [n]|quests|zone <mapID>|perf|kind <name> [n]]` reads `AzerfolioDB.trace` compactly. Use it instead of ad hoc scripts.
