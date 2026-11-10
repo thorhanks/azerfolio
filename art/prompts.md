@@ -190,7 +190,7 @@ Reputation standing strip (Reputation tab, Phase 12; added 2026-11-09). Eight ce
 |---|---|---|
 | frame-plaque | 2:1 | A small rectangular plaque frame: a slim band of dark aged bronze with a fine thin gold rim on its inner edge, small plain square corner studs, the four sides even and plain between the corners (no ornament in the middle of any side, since the sides are stretched); the whole inside is empty magenta; the band about one tenth of the image height |
 
-**Plaque fills** (round 2, 2026-11-09; owner: the plaque's bare inside looked empty). A painted texture fills each plaque, tinted with the reaction colour by the addon (multiplied, like `bar-fill-white`), replacing the colour line along the top. One colourless piece for all eight cells. Two candidates; the mockup's dev bar "Strip" compares them (CSS stand-ins until painted). Generate the one the owner picks, or both to compare.
+**Plaque fills** (round 2, 2026-11-09; owner: the plaque's bare inside looked empty). A painted texture fills each plaque, tinted with the reaction colour by the addon (multiplied, like `bar-fill-white`), replacing the colour line along the top. One colourless piece for all eight cells. Two candidates; the mockup's dev bar "Strip" compares them (CSS stand-ins until painted). **Owner picked cloth (2026-11-09): generate `plaque-fill-cloth`**; enamel is kept for reference only.
 
 ```
 Hand-painted fantasy game texture in the style of a classic high-fantasy MMO, a flat swatch seen
