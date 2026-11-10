@@ -11,6 +11,9 @@
 --   rares [areaID|all]     rare, rare elite and boss NPCs (rank 4, 2, 3; cmangos ranks), by spawn area
 --   objects <text|*> [areaID] game objects whose name contains text (* = all), spawn points per area
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
+--   class [name]           class-restricted quests: counts per class by level and side; with a class
+--                          name, its quests grouped into chains with starters (run from repo root)
+--   class <name> <race>    the same, only quests that race can take (race mask unset or has its bit)
 --   reps [zone filter]     quest reputation rewards per Azerfolio zone (Data/QuestAreas.lua); run from repo root
 --   reps rule [min low share]  draft zone-faction rule (defaults 5 3 0.5)
 --   reps check             Azerfolio's Systems/ReputationRules.lua on the same rows must match `reps rule`
@@ -354,6 +357,179 @@ elseif cmd == "recipes" then
                     print(string.format("  %6d %-44s %-15s %s", e.id, tostring(e.name), e.sub, tostring(e.vendor)))
                 end
             end
+        end
+    end
+elseif cmd == "class" then
+    -- Class-restricted quests (requiredClasses set, not every class). Masks are tested with
+    -- arithmetic, not bit.band: race masks pass 2^32 on Forever.
+    local CLASSES = { "warrior", "paladin", "hunter", "rogue", "priest", "deathknight", "shaman", "mage",
+        "warlock", "monk", "druid" }
+    local function has(mask, b) return type(mask) == "number" and math.floor(mask / b) % 2 == 1 end
+    local ALLIANCE, HORDE = 1 + 4 + 8 + 64, 2 + 16 + 32 + 128 -- human dwarf nightelf gnome / orc undead tauren troll
+    local function side(m)
+        if type(m) ~= "number" or m == 0 then return "both" end
+        local a, h = false, false
+        for i = 1, 9 do
+            local b = 2 ^ (i - 1)
+            if has(m, b) then if has(ALLIANCE, b) then a = true elseif has(HORDE, b) then h = true end end
+        end
+        if a and not h then return "A" elseif h and not a then return "H" end
+        return (a and h and "mixed:" or "other:") .. string.format("%.0f", m)
+    end
+    local zoneName = {}
+    for line in io.lines("Azerfolio/Data/QuestAreas.lua") do
+        local a, label = line:match("^%s*%[(%d+)%] = %w+,%s*%-%-%s*(.-)%s*$")
+        if a then zoneName[tonumber(a)] = zoneName[tonumber(a)] or label end
+    end
+    local function place(z)
+        if type(z) ~= "number" then return "-" end
+        return (zoneName[z] or "") .. "(" .. z .. ")"
+    end
+    local which = arg[2]
+    local wantBit
+    if which then
+        for i, n in ipairs(CLASSES) do if n == which:lower() then wantBit = 2 ^ (i - 1) end end
+        assert(wantBit, "class [warrior|paladin|hunter|rogue|priest|shaman|mage|warlock|druid|...]")
+    end
+    local RACES = { "human", "orc", "dwarf", "nightelf", "undead", "tauren", "gnome", "troll", "goblin" }
+    local raceBit
+    if arg[3] then
+        for i, n in ipairs(RACES) do if n == arg[3]:lower() then raceBit = 2 ^ (i - 1) end end
+        assert(raceBit, "class <name> [human|orc|dwarf|nightelf|undead|tauren|gnome|troll|goblin]")
+    end
+    local rows = load()
+    local all = 0
+    for i = 1, #CLASSES do all = all + 2 ^ (i - 1) end
+    local ids = {}
+    for id, row in pairs(rows) do
+        local m = row[7]
+        local r = row[6]
+        local raceOk = not raceBit or type(r) ~= "number" or r == 0 or has(r, raceBit)
+        if type(m) == "number" and m > 0 and m % (2 ^ 11) ~= all % (2 ^ 11) and (not wantBit or has(m, wantBit)) and raceOk then
+            ids[id] = true
+        end
+    end
+    local _, tabs = load(function(id) return ids[id] end)
+    local function f(id, i) return field(rows[id], tabs[id], i) end
+    local function repeatable(id) local sf = f(id, 24); return type(sf) == "number" and sf % 2 == 1 end
+    if not wantBit then
+        print("class-restricted quests per class (base rows; corrections not applied); a quest open to several classes counts for each")
+        print(string.format("%-12s %5s %5s %5s %5s %5s %5s %5s %5s %5s %5s %5s %5s %5s  %s", "class", "all", "multi", "rep",
+            "1-9", "10-19", "20-29", "30-39", "40-49", "50-59", "60+", "sort", "core", "id9x", "A/H/b"))
+        for i, n in ipairs(CLASSES) do
+            local b = 2 ^ (i - 1)
+            local c, multi, rep, lv, sides = 0, 0, 0, { 0, 0, 0, 0, 0, 0, 0 }, { A = 0, H = 0, both = 0, other = 0 }
+            -- The class's quest sort: the most common negative zoneOrSort among its quests.
+            local sorts, sort, best = {}, nil, 0
+            for id in pairs(ids) do
+                local z = f(id, 17)
+                if has(f(id, 7), b) and type(z) == "number" and z < 0 then sorts[z] = (sorts[z] or 0) + 1 end
+            end
+            for z, k in pairs(sorts) do if k > best then sort, best = z, k end end
+            local core, new = 0, 0
+            for id in pairs(ids) do
+                local m = f(id, 7)
+                if has(m, b) then
+                    c = c + 1
+                    if f(id, 17) == sort and not repeatable(id) then core = core + 1 end
+                    if id >= 90000 or (id >= 78000 and id < 80000) then new = new + 1 end
+                    if m ~= b then multi = multi + 1 end
+                    if repeatable(id) then rep = rep + 1 end
+                    local l = f(id, 4) or f(id, 5) or 0
+                    if l <= 0 then l = f(id, 5) or 0 end
+                    local k = math.min(7, math.floor(math.max(l, 0) / 10) + 1)
+                    lv[k] = lv[k] + 1
+                    local s = side(f(id, 6))
+                    if s == "A" or s == "H" or s == "both" then sides[s] = sides[s] + 1 else sides.other = sides.other + 1 end
+                end
+            end
+            if c > 0 then
+                print(string.format("%-12s %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5s %5d %5d  %d/%d/%d+%d", n, c, multi, rep,
+                    lv[1], lv[2], lv[3], lv[4], lv[5], lv[6], lv[7], tostring(sort), core, new, sides.A, sides.H, sides.both, sides.other))
+            end
+        end
+        print("level = requiredLevel (questLevel when unset); sort = the class's quest sort; core = one-time quests in that sort;")
+        print("id9x = IDs 78000-79999 or >= 90000 (newer than the 1.12 range); A/H/b = Alliance races / Horde races / no race mask + other masks")
+        return
+    end
+    -- One class: quests grouped into chains (pre-quests, next in chain, exclusive alternatives).
+    local parent = {}
+    local function find(x) while parent[x] and parent[x] ~= x do x = parent[x] end return x end
+    local function union(a, b)
+        if not (ids[a] and ids[b]) then return end
+        parent[a] = parent[a] or a; parent[b] = parent[b] or b
+        local ra, rb = find(a), find(b)
+        if ra ~= rb then parent[ra] = rb end
+    end
+    local function each(v, fn)
+        if type(v) == "number" and v > 0 then fn(v) elseif type(v) == "table" then for _, x in ipairs(v) do each(x, fn) end end
+    end
+    for id in pairs(ids) do
+        parent[id] = parent[id] or id
+        each(f(id, 12), function(p) union(id, p) end)
+        each(f(id, 13), function(p) union(id, p) end)
+        each(f(id, 22), function(p) union(id, p) end)
+        each(f(id, 16), function(p) union(id, p) end)
+        each(f(id, 25), function(p) union(id, p) end)
+    end
+    local npcWant = {}
+    for id in pairs(ids) do
+        local sb = f(id, 2)
+        if type(sb) == "table" and type(sb[1]) == "table" then for _, n in ipairs(sb[1]) do npcWant[n] = true end end
+    end
+    local npcRows, npcTabs = load(function(id) return npcWant[id] end, "Npc")
+    local function starter(id)
+        local sb = f(id, 2)
+        if type(sb) ~= "table" then return "-" end
+        local out = {}
+        if type(sb[1]) == "table" then
+            for _, n in ipairs(sb[1]) do
+                local r = npcRows[n]
+                local z = r and r[9]
+                local spawns = npcTabs[n] and npcTabs[n][7]
+                if type(spawns) == "table" then for a in pairs(spawns) do z = a; break end end
+                out[#out + 1] = (r and r[1] or "?") .. "@" .. place(z)
+            end
+        end
+        if type(sb[2]) == "table" and #sb[2] > 0 then out[#out + 1] = "object " .. show(sb[2]) end
+        if type(sb[3]) == "table" and #sb[3] > 0 then out[#out + 1] = "item " .. show(sb[3]) end
+        return table.concat(out, "; ")
+    end
+    local chains = {}
+    for id in pairs(ids) do
+        local r = find(id)
+        chains[r] = chains[r] or {}
+        table.insert(chains[r], id)
+    end
+    local list = {}
+    for _, c in pairs(chains) do
+        table.sort(c, function(a, b)
+            local la, lb = f(a, 4) or 0, f(b, 4) or 0
+            if la ~= lb then return la < lb end
+            return a < b
+        end)
+        list[#list + 1] = c
+    end
+    table.sort(list, function(a, b)
+        local la, lb = f(a[1], 4) or 0, f(b[1], 4) or 0
+        if la ~= lb then return la < lb end
+        return a[1] < b[1]
+    end)
+    local n = 0
+    for _ in pairs(ids) do n = n + 1 end
+    print(string.format("%s: %d class quests in %d chains (base rows; corrections not applied)", which, n, #list))
+    for _, c in ipairs(list) do
+        print(string.format("chain of %d, req %s-%s:", #c, tostring(f(c[1], 4)), tostring(f(c[#c], 4))))
+        for _, id in ipairs(c) do
+            local extra = {}
+            if repeatable(id) then extra[#extra + 1] = "repeatable" end
+            if f(id, 7) ~= wantBit then extra[#extra + 1] = string.format("classes %.0f", f(id, 7)) end
+            local pre = f(id, 13) or f(id, 12)
+            if pre then extra[#extra + 1] = "pre " .. show(pre) end
+            if f(id, 16) then extra[#extra + 1] = "excl " .. show(f(id, 16)) end
+            if f(id, 18) then extra[#extra + 1] = "skill " .. show(f(id, 18)) end
+            print(string.format("  %6d %-40s req %-3s lvl %-3s %-8s zone %-22s start %s %s", id, tostring(f(id, 1)),
+                tostring(f(id, 4)), tostring(f(id, 5)), side(f(id, 6)), place(f(id, 17)), starter(id), table.concat(extra, " ")))
         end
     end
 elseif cmd == "reps" then

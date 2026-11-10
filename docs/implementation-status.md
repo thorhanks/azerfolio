@@ -28,10 +28,14 @@ In-game checks that wait on real play (a first-time faction, a level-60 characte
 
 - 2026-11-08, task 5, both characters (approval pending): Thragor and Gideon get the same 20 zones and the same standing for shared factions; side factions follow the side (Thragor 2778, 2787; Gideon 2779, 589). Each game Reputation window shows only home factions, which agrees with "Not met yet" everywhere. Settled: 471 and Brood of Nozdormu hidden (no data), Zephras Isle one faction per side, Feralas keeps the rule (owner). Still open: a met zone faction against the game's window and a refresh after a zone-faction turn-in (neither character has one). `trace-report.lua reputation` now prints the standing that changed between refreshes. Shots `WoWScrnShot_110826_225848`-`230104`.
 
+## Class tab (planned)
+
+- 2026-11-09, task 1, class quest research (in progress): owner chose a Class tab, designed as a class-themed journey map with nodes (strip on the left, stop details on the right). `qdb.lua class [name [race]]`: 93-144 class-restricted quests per class (base rows), dense at 10-29 and sparse at 30-49. Forever adds race/class pairs (Horde Paladin, Dwarf Shaman), Skyborne intros, and trainer ability quests. Gideon's road comes out at about 7 stops, plus about 40 raid gear quests (for the Dungeons tab). Base chain links are incomplete, so the proposal is a curated `Data/ClassJourneys.lua`. In-game checks and owner questions in [research/class-quests.md](research/class-quests.md).
+
 ## Tooling (2026-11-08)
 
 - `luajit tools/trace-report.lua [summary|last [n]|quests|zone <mapID>|perf|kind <name> [n]]` reads `AzerfolioDB.trace` compactly. Use it instead of ad hoc scripts.
-- `luajit tools/qdb.lua [quest <id>...|area <areaID>|name <text>|stats|npc|rares|objects|recipes|reps]` looks up QuestieDB's base rows offline (no corrections).
+- `luajit tools/qdb.lua [quest <id>...|area <areaID>|name <text>|stats|npc|rares|objects|recipes|class|reps]` looks up QuestieDB's base rows offline (no corrections).
 - `/azfdiag reps` + `luajit tools/diag-report.lua reps`: reputation APIs, met factions, lookups by ID.
 - `/azf debug quests [full]`: reasons grouped ("level"); `full` saves every zone's checklist.
 - `/azf debug perf gc`: memory after a full garbage collection.
