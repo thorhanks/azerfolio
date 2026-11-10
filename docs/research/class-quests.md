@@ -93,6 +93,12 @@ Curating rules learned on the way:
 - **Unlinked Forever chains** (Diplomatic Incident, The Moonsilver Blade, A Strange Artifact) are ordered by quest level and marked `order = "inferred"`.
 - **Not class quests despite the mask**: 792 Vile Familiars (a Valley of Trials quest for several classes) and 8767 A Gently Shaken Gift (Winter Veil) sit outside the class sort, so the check doesn't ask for them.
 
+## Checked in game (2026-11-09, Gideon, `/azf debug class`)
+
+- A done class quest reads as done: 3101 completed, the first stop done; the other stops are "later", locked by level [verified-ingame].
+- All 653 curated IDs exist in QuestieDB's in-game view, 142 of them newer IDs [verified-ingame]. That's QuestieDB, not proof the game offers them (open check J7).
+- The corrections don't link 78088-78093 either; the order stays inferred [verified-ingame].
+
 ## Still to check in game
 
 - **Forever's corrections:** do the in-game QuestieDB rows link the chains that the base rows don't (78088-78093, the Horde Paladin quests)? Needs a probe in `/azfdiag questdb` or `/azf debug`.

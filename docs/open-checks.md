@@ -28,16 +28,14 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 
 ## Class tab (Phase 13)
 
-`/azf debug class [questID ...]` (debug on), `/reload`, then `luajit tools/trace-report.lua class`. C1-C3 can be checked any time; C4-C6 wait on play.
+`/azf debug class [questID ...]` (debug on), `/reload`, then `luajit tools/trace-report.lua class`. J1-J3 are done (see Done); these wait on play.
 
 | ID | What to confirm | When it comes up | How to check |
 |---|---|---|---|
-| C1 | A done class quest reads as done (Gideon: 3101 Consecrated Letter) and the road's first stop is "done" | Any time | trace-report class: `01 intro ... done`, completed list known |
-| C2 | Which curated IDs QuestieDB's in-game view lacks, and whether the newer IDs (78088-78093, 9xxxx) are there | Any time | trace-report class: "not in QuestieDB" list and the newer-ID count |
-| C3 | Whether the in-game corrections link the chains ordered by level (A Strange Artifact; Horde: Diplomatic Incident, Moonsilver Blade) | Any time (Horde ones on Thragor only if he's a Paladin) | trace-report class: "order inferred" lines with pre/next |
-| C4 | Whether the game flags repeatable-flagged chain quests as completed (1641 Tome of Divinity start, 1442 Kor Gem, 1655 Bailor's Ore) | Gideon doing the Tome of Divinity (12) and Tome of Valor (20) | `/azf debug class 1641 1442 1655`: completed=true after turning them in. If so they could count |
-| C5 | Skyborne race ID and race bit, so Skyborne intros can show | A Skyborne character logs in | `/azf debug class`: raceID, raceFile, raceBit (nil today) |
-| C6 | Whether a Warlock can do both Succubus routes or only one | A Warlock at 20 | Either way one route finishes the stop; note it in docs/research/class-quests.md |
+| J4 | Whether the game flags repeatable-flagged chain quests as completed (1641 Tome of Divinity start, 1442 Kor Gem, 1655 Bailor's Ore) | Gideon doing the Tome of Divinity (12) and Tome of Valor (20) | `/azf debug class 1641 1442 1655`: completed=true after turning them in. If so they could count |
+| J5 | Skyborne race ID and race bit, so Skyborne intros can show | A Skyborne character logs in | `/azf debug class`: raceID, raceFile, raceBit (nil today) |
+| J6 | Whether a Warlock can do both Succubus routes or only one | A Warlock at 20 | Either way one route finishes the stop; note it in docs/research/class-quests.md |
+| J7 | Whether the newer-ID quests are offered in game (A Strange Artifact 78088 for Gideon) | Gideon at 22, in Ashenvale | Find the object and take the quest; QuestieDB having them (J2) doesn't prove the game does |
 
 ## Celebrations (Phase 10)
 
@@ -60,6 +58,10 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | P1 | Which work caused the 39.5 ms peak frame seen in Phase 8 (window open, a page build, or shots) | Any session with debug on | `/azf debug perf`, `/reload`, `luajit tools/trace-report.lua perf` |
 
 ## Done
+
+- 2026-11-09: J1, a done class quest reads as done: Gideon's 3101 Consecrated Letter completed, the road's first stop "done", road 1/5, 1/37 quests, completed list known (`/azf debug class 3101 1641`, trace-report class, report #100).
+- 2026-11-09: J2, all 653 curated quest IDs exist in QuestieDB's in-game view (corrections applied), 142 of them newer IDs (78xxx, 9xxxx). Same report.
+- 2026-11-09: J3, the in-game corrections don't link A Strange Artifact either (78088-78093: no pre, no next), so its order stays inferred. Horde chains not checked (no Horde Paladin). Same report.
 
 - 2026-11-09: T1, X on a met faction (Stormwind) puts it on the experience bar via `C_Reputation.SetWatchedFactionByID` (owner, in game: "Watching worked" after the set-and-clear steps; no trace saved, as there was no `/reload` after).
 - 2026-11-08: both characters get the same zone factions and standing, and the other side's factions are hidden (Phase 11 task 5, `docs/research/reputation.md`).
