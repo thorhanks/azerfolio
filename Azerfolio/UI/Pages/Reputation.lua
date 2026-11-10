@@ -309,7 +309,7 @@ local function newCell(parent, r)
     c.emblem:SetPoint("LEFT")
     local file = T.Chrome(T.reaction.emblem[r])
     if file then c.emblem:SetTexture(file) end
-    c.count = T.Text(c.holder, "lg", "white", "OVERLAY")
+    c.count = T.Text(c.holder, "md", "white", "OVERLAY")
     c.label = T.Text(c.holder, "xs", "text", "OVERLAY")
     c.label:SetText(T.ReactionLabel(r))
     c.reaction = r
@@ -336,12 +336,15 @@ local function paintCell(c, n, width, height)
     c.label:SetAlpha(n > 0 and 1 or 0.38)
     c.count:ClearAllPoints(); c.label:ClearAllPoints()
     local tx = em + 6
-    if showLabel then
-        c.count:SetPoint("TOPLEFT", c.holder, "TOPLEFT", tx, 2)
-        c.label:SetPoint("TOPLEFT", c.count, "BOTTOMLEFT", 0, -1)
-    else
-        c.count:SetPoint("LEFT", c.holder, "LEFT", tx, 0)
-    end
+    -- The count over the label, centred on the cell by their measured height (anchored to the
+    -- emblem's top they ran onto the plaque's frame, owner's shot 2026-11-09).
+    local countH = math.ceil(c.count:GetStringHeight() or T.size.md)
+    local labelH = showLabel and math.ceil(c.label:GetStringHeight() or T.size.xs) or 0
+    local blockH = countH + (showLabel and (RT.cellText + labelH) or 0)
+    local holderH = math.max(em, blockH)
+    c.holder:SetHeight(holderH)
+    c.count:SetPoint("TOPLEFT", c.holder, "TOPLEFT", tx, -math.floor((holderH - blockH) / 2))
+    if showLabel then c.label:SetPoint("TOPLEFT", c.count, "BOTTOMLEFT", 0, -RT.cellText) end
     local textW = math.max(c.count:GetStringWidth() or 0, showLabel and (c.label:GetStringWidth() or 0) or 0)
     c.holder:SetWidth(tx + textW)
     c.holder:ClearAllPoints(); c.holder:SetPoint("CENTER", c, "CENTER", 0, 0)

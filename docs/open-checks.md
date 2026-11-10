@@ -23,7 +23,6 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 
 | ID | What to confirm | When it comes up | How to check |
 |---|---|---|---|
-| T1 | X on a met faction puts it on the experience bar (`C_Reputation.SetWatchedFactionByID`), X again clears it (the addon passes 0) | Any time, once the tab is built (Gideon: Stormwind) | Debug on, X on Stormwind, `/azf shot`, X again, `/reload`, `luajit tools/trace-report.lua reputation`: a `watch` entry with ok, and the next refresh showing ` watched` then not |
 | T2 | "+n today" shows a gain seen this session, and nothing after a `/reload` | A quest turn-in that raises any faction | Turn in, open the tab: the tag on that faction; trace-report reputation shows the `+n` |
 | T3 | Whether an unmet faction can be watched (the addon offers X only for met ones) | Any time | Same as T1 on Booty Bay, with the check lifted, or ask the game's Reputation window |
 
@@ -49,4 +48,5 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 
 ## Done
 
+- 2026-11-09: T1, X on a met faction (Stormwind) puts it on the experience bar via `C_Reputation.SetWatchedFactionByID` (owner, in game: "Watching worked" after the set-and-clear steps; no trace saved, as there was no `/reload` after).
 - 2026-11-08: both characters get the same zone factions and standing, and the other side's factions are hidden (Phase 11 task 5, `docs/research/reputation.md`).
