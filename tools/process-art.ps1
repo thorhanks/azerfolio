@@ -57,7 +57,8 @@ function Convert-Image([string]$inPath, [string]$outPath, [double]$fx, [double]$
 #   pole      64x256    fit, keyed, DXT5                      Media\Banner
 #   streamer  64x512    fit, keyed, DXT5                      Media\Banner
 #   badge     64x64     fit, keyed, DXT5 (no longer used)     Media\Banner
-#   frame     256x256 (frame-card) / 512x64 (frame-bar) / 128x64 (frame-step): stretched, keyed, DXT5, border measured -> Media\Chrome
+#   frame     256x256 (frame-card) / 512x64 (frame-bar) / 128x64 (frame-step) / 256x128 (frame-plaque): stretched, keyed, DXT5, border measured -> Media\Chrome
+#   emblem    128x128   fit, keyed, DXT5                      Media\Chrome (rep-<reaction>: the standing strip)
 #   plate     512x128   stretched, keyed, DXT5                Media\Chrome
 #   divider   512x64    stretched, keyed, DXT5                Media\Chrome
 #   fill      512x64    stretched, opaque DXT1                Media\Chrome
@@ -75,6 +76,8 @@ $PieceKinds = @{
     'frame-card' = @{ size = @(256, 256); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
     'frame-bar' = @{ size = @(512, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
     'frame-step' = @{ size = @(128, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true } # reputation ladder step
+    'frame-plaque' = @{ size = @(256, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true } # standing strip cell
+    emblem = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome' }
     plate = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
     divider = @{ size = @(512, 64); fit = 'stretch'; key = $true; dir = 'Chrome' }
     fill = @{ size = @(512, 64); fit = 'stretch'; key = $false; dir = 'Chrome' }
@@ -101,7 +104,8 @@ $measured = @{}
 # The kind of a source file by its name, or $null.
 function Get-PieceKind([string]$name) {
     if ($name -match '^(banner|pole|streamer|badge)-(alliance|horde)$') { return $Matches[1] }
-    if ($name -eq 'frame-card' -or $name -eq 'frame-bar' -or $name -eq 'frame-step') { return $name }
+    if ($name -eq 'frame-card' -or $name -eq 'frame-bar' -or $name -eq 'frame-step' -or $name -eq 'frame-plaque') { return $name }
+    if ($name -match '^rep-(hated|hostile|unfriendly|neutral|friendly|honored|revered|exalted)$') { return 'emblem' }
     if ($name -match '^plate-[a-z0-9-]+$') { return 'plate' }
     if ($name -match '^divider(-[a-z0-9-]+)?$') { return 'divider' }
     if ($name -match '^bar-fill(-[a-z0-9-]+)?$') { return 'fill' }

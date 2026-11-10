@@ -469,6 +469,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-08 | The reputation section is hidden in zones with no zone faction (no home-faction fallback) | A home-faction bar would repeat in every leveling zone. Owner's choice |
 | 2026-11-08 | Phase 11 (zone reputation, v1.3) planned; task 1 (research) done | Spec §7.8, §8.9 |
 | 2026-11-08 | Phase 11 task 2: reputation mockup approved. A ledger under Next up (one line per faction, a painted eight-step reaction ladder, Not met yet / At war / Rival tags); A opens a faction page with the zone's quests that raise it. Rivals derived from QuestieDB's negative rewards | `mockups/DESIGN.md` Zone reputation |
+| 2026-11-09 | Gold isn't reserved for completion: important non-completable states may use it. Exalted is gold (label, bar, standing strip); completion keeps ✓, %, pennants and celebrations as its own cues | Owner, during the Reputation tab art review (`mockups/DESIGN.md` "Gold beyond completion") |
 
 ## 10. Definition of done (v1)
 

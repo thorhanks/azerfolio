@@ -602,13 +602,38 @@ body.chrome .repbar { border: solid transparent; border-width: 6px 14px; border-
 /* ---- Reputation tab (Phase 12 proposal): the ledger for every faction, then a faction page. ---- */
 .rephdr { position: relative; }
 .repdist { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)) auto; gap: 4px; align-items: stretch; padding: var(--s2) var(--s6); border-bottom: 1px solid var(--divider); background: rgba(0,0,0,.18); }
-.repdist .dcell { --c: #ffd21e; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 2px 4px; border-top: 3px solid var(--c);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 16%, transparent), transparent); font-size: var(--fs-xs); color: var(--text); border-radius: 2px; }
+.repdist .dcell { --c: #ffd21e; position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 5px 4px 5px; min-height: 44px;
+  border: 1px solid #4a3622; border-top: 3px solid var(--c); border-radius: 2px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 16%, transparent), rgba(0,0,0,.25)); font-size: var(--fs-xs); color: var(--text); }
+.repdist .dtxt { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; min-width: 0; }
 .repdist .dcell b { font: var(--fs-lg) var(--font); color: var(--white); font-weight: 400; line-height: 1.1; }
-.repdist .dcell.zero { opacity: .38; }
+.repdist .dcell.zero .dtxt, .repdist .dcell.zero .demb { opacity: .38; }
+.repdist .dcell.zero .demb { filter: grayscale(.8); }
+.repdist .dcell.zero { border-top-color: color-mix(in srgb, var(--c) 40%, #2a1d12); }
 .repdist .dcell.r1, .repdist .dcell.r2 { --c: #f0644a; } .repdist .dcell.r3 { --c: #f07018; } .repdist .dcell.r4 { --c: #ffd21e; }
-.repdist .dcell.r5, .repdist .dcell.r6, .repdist .dcell.r7, .repdist .dcell.r8 { --c: #22d046; }
-.repdist .dcell.r8 { border-top-color: var(--wow-gold); }
+.repdist .dcell.r5, .repdist .dcell.r6, .repdist .dcell.r7 { --c: #22d046; } .repdist .dcell.r8 { --c: #ffc933; }
+/* Reaction emblems: painted rep-<reaction> pieces, or stand-in glyphs in the same climbing metals. */
+.demb { flex: none; width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 1px 1px #000); }
+.demb.standin { display: grid; place-items: center; font-size: 22px; line-height: 1; -webkit-background-clip: text; background-clip: text; color: transparent; }
+.demb.m1 { background-image: linear-gradient(180deg, #6a4a3a, #2a1a14 60%, #7a3a1c); }  /* rusty black iron */
+.demb.m2 { background-image: linear-gradient(180deg, #8a8580, #3a3632 60%, #5a5550); }  /* dark iron */
+.demb.m3 { background-image: linear-gradient(180deg, #a07a4a, #5a3e20 60%, #7a5a34); }  /* worn bronze */
+.demb.m4 { background-image: linear-gradient(180deg, #c99a5a, #7a5428 60%, #a8783e); }  /* bronze */
+.demb.m5 { background-image: linear-gradient(180deg, #f0c080, #a06a30 60%, #d89a54); }  /* polished bronze */
+.demb.m6 { background-image: linear-gradient(180deg, #f4f4f8, #9aa0aa 60%, #d0d4dc); }  /* silver */
+.demb.m7 { background-image: linear-gradient(180deg, #ffffff, #b8c0cc 55%, #eef2f8); }  /* bright silver */
+.demb.m8 { background-image: linear-gradient(180deg, #fff2b0, #e0a020 55%, #ffd860); filter: drop-shadow(0 0 4px rgba(255,200,60,.7)); } /* gold */
+/* Painted plaque (frame-plaque) when it exists; the reaction colour stays on the top edge. */
+body.plaque .repdist .dcell { border: solid transparent; border-width: 5px 7px; border-radius: 0;
+  border-image: url(chrome-art/frame-plaque.png) var(--plaque-slice, 14% 8%) fill / 5px 7px stretch; background: none; }
+body.plaque .repdist .dcell::before { content: ""; position: absolute; left: 4px; right: 4px; top: 0; height: 3px; background: var(--c); box-shadow: 0 0 6px color-mix(in srgb, var(--c) 60%, transparent); }
+body.plaque .repdist .dcell.zero::before { opacity: .35; }
+/* Exalted is gold (owner, 2026-11-09: gold isn't only for completion; important non-completable
+   states may use it). Overrides the green of Friendly and up for reaction 8 only. */
+.frep.r8 { --rt: #ffd24d; }
+.repbar i.r8, .repbar em.r8, .repbar b.ghost.r8 { --c: #ffc933 !important; }
+.freact-big.r8 { color: #ffd24d !important; }
+.reach b.r8 { color: #ffd24d; }
 .repdist .dsum { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding-left: var(--s4); font-size: var(--fs-sm); color: var(--text); white-space: nowrap; }
 .repdist .dsum b { color: var(--wow-gold); font-weight: 400; }
 .frep.tabrow { grid-template-columns: 56px minmax(0, 1fr) 76px 260px 128px; min-height: 40px; padding: 4px var(--s3) 4px 4px; }

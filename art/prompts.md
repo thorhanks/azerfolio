@@ -184,6 +184,41 @@ Reputation ladder (Phase 11, added 2026-11-08). Reputation isn't completion, so 
 
 Tips for these two: `frame-step` is drawn at about 26×14 px, eight in a row, so keep it plain (no filigree, which turns to noise at that size). `bar-fill-white` must stay neutral grey-white: any colour in it shifts every reaction colour after tinting. Check both with `tools/art-contact-sheet.ps1`.
 
+Reputation standing strip (Reputation tab, Phase 12; added 2026-11-09). Eight cells under the toolbar, one per reaction (Hated … Exalted), each with a count. One plaque frame used for all eight, and one emblem per reaction. The reaction colour stays on the cell's top edge (drawn by the addon), so the plaque itself is colourless bronze.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| frame-plaque | 2:1 | A small rectangular plaque frame: a slim band of dark aged bronze with a fine thin gold rim on its inner edge, small plain square corner studs, the four sides even and plain between the corners (no ornament in the middle of any side, since the sides are stretched); the whole inside is empty magenta; the band about one tenth of the image height |
+
+Tips for the plaque: it's drawn at about 120×52 px, eight in a row, so keep it plain like `frame-step`. No crest or notch on the top edge: a nine-slice stretches the middle of each side, which would smear it.
+
+**Reaction emblems** (`rep-<reaction>`): eight small metal emblems shown at about 32 px beside each count. The **metal climbs with the reaction**, so the row reads as a ladder: dark iron at Hated up to gold at Exalted. Each is a free-standing object (not a round painting) on flat magenta, one bold silhouette, no fine detail. Use this style block instead of the chrome one:
+
+```
+Hand-painted fantasy game user interface emblem in the style of a classic high-fantasy MMO,
+a single small heraldic metal emblem with a bold simple silhouette that reads at very small
+size, front-facing flat orthographic view, soft warm highlight from the upper left, centred
+and filling about 80% of a square, isolated on a perfectly flat solid pure magenta (#FF00FF)
+background, no shadow on the background, no text, no letters, no gems, no frame, no circle
+behind it. 1:1 square.
+Subject:
+```
+
+| File | Subject line |
+|---|---|
+| rep-hated | A broken longsword snapped in two, the halves slightly apart, made of blackened pitted iron with patches of red rust |
+| rep-hostile | Two short swords crossed in an X, blades pointing up, made of dark rough iron with dull edges |
+| rep-unfriendly | A plain kite shield held upright, closed and guarded, made of worn dull bronze with a few dents and a darker rim |
+| rep-neutral | A simple balance scale with two pans hanging level, made of plain bronze |
+| rep-friendly | Two hands clasped in a handshake, seen from the side, cast in polished warm bronze |
+| rep-honored | A round laurel wreath, open at the bottom and tied with a small ribbon, made of bright polished silver |
+| rep-revered | A five-pointed star set inside a small laurel wreath, made of gleaming bright silver with a soft white shine |
+| rep-exalted | A royal crown with five points, each tipped with a small round ball, made of rich radiant gold with a soft warm golden glow around it |
+
+Negative prompt: the chrome one, plus `text, letters, numbers, circle background, round frame, coin, many objects, tiny details, faces`.
+
+Tips: keep each one a single object with a clear outline; the row is checked dimmed (count 0) as well as lit. Review all eight side by side with `tools/art-contact-sheet.ps1`: the metal should step up evenly from Hated to Exalted.
+
 Tips: frames must be symmetrical, with an even band between the corners (it is stretched). If the processing script reports a border it couldn't measure, set it by hand in `art/slices.json` (`{ "frame-card": { "x": 0.08, "y": 0.08 } }`, fractions of width and height).
 
 ## Atlas backdrop (Phase 10; added 2026-11-08)
@@ -252,5 +287,6 @@ Negative prompt: the zone one, plus `frame, border, rounded corners, photo, tiny
 | icon-explore | Exploration category | A brass spyglass held out over a misty valley with a distant mountain peak |
 | icon-quests | Quests category | A tall golden exclamation mark glowing above a sealed parchment scroll |
 | icon-flights | Flight paths category | A gryphon in flight with wings spread wide, seen from the side, against an evening sky |
+| icon-reputation | Reputation tab | A heraldic tabard hanging from a short wooden crossbar, deep green cloth with a gold embroidered border and a bold gold sunburst emblem on the chest, gently folded (added 2026-11-09; green and gold so it's neither Alliance nor Horde and stands apart from the brown journal and the parchment map) |
 
 Future tabs add one line each (for example icon-dungeons: a dark stone archway with a glowing portal).

@@ -206,7 +206,7 @@
   // Honored, Cenarion Circle met, Brood of Nozdormu readable (unmet, Hated, its classic start).
   const REP_VETERAN = { ...REP_PROBE, 21: [7200, true, false], 470: [11350, true, false], 87: [-6500, false, true],
     609: [1250, true, false], 910: [-42000, false, false], 369: [2150, true, false],
-    72: [15200, true, false], 47: [9800, true, false], 69: [5400, true, false], 54: [8850, true, false], 529: [3400, true, false], 509: [1100, true, false] };
+    72: [42999, true, false] /* Exalted, to show its gold */, 47: [9800, true, false], 69: [5400, true, false], 54: [8850, true, false], 529: [3400, true, false], 509: [1100, true, false] };
   // Rivals: pairs of the zone's factions where a quest here raises one and lowers the other
   // (`qdb.lua reps rivals`, base rows). The addon derives these from negative reputationReward.
   const REP_RIVALS = { "Stranglethorn Vale": [[21, 87]], "Desolace": [[92, 93]] };
@@ -1078,11 +1078,16 @@
       <span class="freact">${f.label}</span>${ladder(f)}
       <span class="fnum">${exalted ? "" : ui.repSort === "closest" ? `${num(f.left)} to ${f.next}` : `${num(f.into)} / ${num(f.span)}`}</span></button>`;
   }
-  // The standing at a glance: how many factions sit at each reaction, Hated to Exalted.
+  // The standing at a glance: how many factions sit at each reaction, Hated to Exalted. Each
+  // cell is a painted plaque (frame-plaque) with the reaction's emblem (rep-<reaction>, metal
+  // climbing from iron to gold); stand-in glyphs in the same metals until the art exists.
+  const REP_EMBLEM = ["", "✗", "⚔", "⛉", "⚖", "✦", "❦", "✶", "♛"];
+  const emblem = (r) => { const key = `rep-${REACTIONS[r].toLowerCase()}`;
+    return hasChrome(key) ? `<img class="demb" src="chrome-art/${key}.png" alt="">` : `<span class="demb standin m${r}">${REP_EMBLEM[r]}</span>`; };
   function repDist(all) {
     const n = (r) => all.filter(f => f.reaction === r).length;
     const ex = n(8), met = all.filter(f => f.met).length;
-    return `<div class="repdist">${[1, 2, 3, 4, 5, 6, 7, 8].map(r => `<span class="dcell r${r} ${n(r) ? "" : "zero"}"><b>${n(r)}</b>${REACTIONS[r]}</span>`).join("")}
+    return `<div class="repdist">${[1, 2, 3, 4, 5, 6, 7, 8].map(r => `<span class="dcell r${r} ${n(r) ? "" : "zero"}">${emblem(r)}<span class="dtxt"><b>${n(r)}</b>${REACTIONS[r]}</span></span>`).join("")}
       <span class="dsum"><span>Met <b>${met}</b> of ${all.length}</span><span>Exalted <b>${ex}</b> of ${all.length}</span></span></div>`;
   }
   const REP_FILTERS = [["all", "All"], ["met", "Met"], ["unmet", "Not met yet"]];
@@ -1888,7 +1893,7 @@
   $("#scaleToggle").addEventListener("change", (e) => { fit(); e.target.blur(); });
 
   // Painted tab icons and chrome, when the art pipeline has produced them.
-  for (const t of ["overview", "zones"]) {
+  for (const t of ["overview", "zones", "reputation"]) {
     const b = $(`.tab[data-tab="${t}"]`);
     if (b && hasIcon(t)) b.innerHTML = `<img src="icon-art/icon-${t}.png" alt="">`;
   }
@@ -1903,6 +1908,9 @@
   document.body.classList.toggle("repstep", hasChrome("frame-step"));
   document.body.classList.toggle("repfill", hasChrome("bar-fill-white"));
   document.body.classList.toggle("repdiv", hasChrome("divider"));
+  document.body.classList.toggle("plaque", hasChrome("frame-plaque"));
+  if (hasChrome("frame-plaque")) { const p = ART.chrome["frame-plaque"], s = p === true ? { x: .08, y: .14 } : p;
+    document.documentElement.style.setProperty("--plaque-slice", `${Math.round(s.y * 100)}% ${Math.round(s.x * 100)}%`); }
   if (hasChrome("frame-step")) { const st = ART.chrome["frame-step"], s = st === true ? { x: .12, y: .2 } : st;
     document.documentElement.style.setProperty("--step-slice", `${Math.round(s.y * 100)}% ${Math.round(s.x * 100)}%`); }
 
