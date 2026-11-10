@@ -628,6 +628,38 @@ body.plaque .repdist .dcell { border: solid transparent; border-width: 5px 7px; 
   border-image: url(chrome-art/frame-plaque.png) var(--plaque-slice, 14% 8%) fill / 5px 7px stretch; background: none; }
 body.plaque .repdist .dcell::before { content: ""; position: absolute; left: 4px; right: 4px; top: 0; height: 3px; background: var(--c); box-shadow: 0 0 6px color-mix(in srgb, var(--c) 60%, transparent); }
 body.plaque .repdist .dcell.zero::before { opacity: .35; }
+/* Round 2 (owner: "don't like the bare background"): the plaque's inside is a painted fill,
+   tinted with the reaction colour instead of the line along the top. One colourless painted
+   piece (plaque-fill-cloth or plaque-fill-enamel, art/prompts.md) multiplied by the colour,
+   like bar-fill-white; in Lua SetVertexColor. Dark enough that white numbers read; edges
+   vignetted so the bronze frame stays the edge. Empty cells: the tint fades to grey.
+   CSS stand-ins below until the art exists. */
+body:is(.strip-cloth, .strip-enamel) .repdist .dcell::before { display: none; }
+body:is(.strip-cloth, .strip-enamel) .repdist .dcell { --t: color-mix(in srgb, var(--c) 46%, #140c06); }
+body:is(.strip-cloth, .strip-enamel) .repdist .dcell.zero { --t: color-mix(in srgb, var(--c) 12%, #1a140e); }
+body:is(.strip-cloth, .strip-enamel) .repdist .dcell .dtxt b { text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,.8); }
+body:is(.strip-cloth, .strip-enamel) .repdist .dcell .dtxt { color: #e8dcc4; text-shadow: 0 1px 2px #000; }
+/* Cloth stand-in: a fine woven heraldic damask (diagonal weave + small diamond motif), tinted. */
+body.strip-cloth .repdist .dcell { background:
+    radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0,0,0,.55) 100%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.07) 0 2px, transparent 2.5px) 0 0 / 12px 12px,
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,.18) 0 2px, transparent 2.5px) 6px 6px / 12px 12px,
+    repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,.12) 0 1px, transparent 1px 3px),
+    var(--t); background-clip: padding-box; }
+/* Enamel stand-in: glossy fired enamel, a soft highlight top left, mottled depth, darker rim. */
+body.strip-enamel .repdist .dcell { background:
+    radial-gradient(ellipse at 30% 15%, rgba(255,255,255,.22), transparent 45%),
+    radial-gradient(circle at 75% 70%, rgba(0,0,0,.25), transparent 40%),
+    radial-gradient(circle at 20% 80%, rgba(255,255,255,.06), transparent 30%),
+    radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,.6) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--t), #fff 10%), var(--t) 60%, color-mix(in srgb, var(--t), #000 30%));
+  background-clip: padding-box; }
+/* Painted fills, when process-art has produced them. */
+body.strip-cloth.fill-cloth .repdist .dcell { background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0,0,0,.5) 100%),
+    url(chrome-art/plaque-fill-cloth.png) center / cover, var(--t); background-blend-mode: normal, multiply, normal; background-clip: padding-box; }
+body.strip-enamel.fill-enamel .repdist .dcell { background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,0,0,.5) 100%),
+    url(chrome-art/plaque-fill-enamel.png) center / cover, var(--t); background-blend-mode: normal, multiply, normal; background-clip: padding-box; }
 /* Exalted is gold (owner, 2026-11-09: gold isn't only for completion; important non-completable
    states may use it). Overrides the green of Friendly and up for reaction 8 only. */
 .frep.r8 { --rt: #ffd24d; }

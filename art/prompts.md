@@ -190,6 +190,25 @@ Reputation standing strip (Reputation tab, Phase 12; added 2026-11-09). Eight ce
 |---|---|---|
 | frame-plaque | 2:1 | A small rectangular plaque frame: a slim band of dark aged bronze with a fine thin gold rim on its inner edge, small plain square corner studs, the four sides even and plain between the corners (no ornament in the middle of any side, since the sides are stretched); the whole inside is empty magenta; the band about one tenth of the image height |
 
+**Plaque fills** (round 2, 2026-11-09; owner: the plaque's bare inside looked empty). A painted texture fills each plaque, tinted with the reaction colour by the addon (multiplied, like `bar-fill-white`), replacing the colour line along the top. One colourless piece for all eight cells. Two candidates; the mockup's dev bar "Strip" compares them (CSS stand-ins until painted). Generate the one the owner picks, or both to compare.
+
+```
+Hand-painted fantasy game texture in the style of a classic high-fantasy MMO, a flat swatch seen
+straight on, even soft lighting with no shading, no folds, no vignette, no highlights, filling the
+entire image edge to edge, no border, no frame, no object, completely colourless pale grey-white
+(no colour, no warm tint, no blue), so it can be tinted any colour. 2:1 landscape.
+Subject:
+```
+
+| File | Subject line |
+|---|---|
+| plaque-fill-cloth | Fine woven heraldic cloth with a subtle damask pattern of small repeating diamonds and tiny fleur motifs woven into it; the thread weave just visible; the pattern quiet and low contrast |
+| plaque-fill-enamel | Fired vitreous enamel, a smooth surface with gentle cloudy mottling and a few tiny bubbles in the glass; quiet and low contrast |
+
+Negative prompt: `colour, gold, warm tint, blue tint, folds, wrinkles, shadow, vignette, frame, border, text, letters, objects, high contrast, busy pattern`.
+
+Tips: like `bar-fill-white`, any colour in it shifts every reaction colour after tinting, and a busy pattern fights the emblem and the count on top; quiet and grey is right. The addon darkens the edges itself.
+
 Tips for the plaque: it's drawn at about 120×52 px, eight in a row, so keep it plain like `frame-step`. No crest or notch on the top edge: a nine-slice stretches the middle of each side, which would smear it.
 
 **Reaction emblems** (`rep-<reaction>`): eight small metal emblems shown at about 32 px beside each count. The **metal climbs with the reaction**, so the row reads as a ladder: dark iron at Hated up to gold at Exalted. Each is a free-standing object (not a round painting) on flat magenta, one bold silhouette, no fine detail. Use this style block instead of the chrome one:

@@ -1874,6 +1874,10 @@
   });
   $("#lookSel").addEventListener("change", (e) => { ui.look = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#repBarSel").addEventListener("change", (e) => { ui.repBar = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  // Standing-strip plaque background: a tinted painted fill (cloth or enamel) or round 1's top line.
+  const setStrip = (v) => { ["cloth", "enamel", "line"].forEach(k => document.body.classList.toggle(`strip-${k}`, k === v)); };
+  setStrip("cloth");
+  $("#stripSel").addEventListener("change", (e) => { setStrip(e.target.value); e.target.blur(); });
   $("#claimPreview").addEventListener("change", (e) => { ui.claimPreview = e.target.checked; rerenderKeepFocus(); e.target.blur(); });
   $("#wideToggle").addEventListener("change", (e) => {
     ui.wide = e.target.checked; ui.detail = null;
@@ -1909,6 +1913,8 @@
   document.body.classList.toggle("repfill", hasChrome("bar-fill-white"));
   document.body.classList.toggle("repdiv", hasChrome("divider"));
   document.body.classList.toggle("plaque", hasChrome("frame-plaque"));
+  document.body.classList.toggle("fill-cloth", hasChrome("plaque-fill-cloth"));
+  document.body.classList.toggle("fill-enamel", hasChrome("plaque-fill-enamel"));
   if (hasChrome("frame-plaque")) { const p = ART.chrome["frame-plaque"], s = p === true ? { x: .08, y: .14 } : p;
     document.documentElement.style.setProperty("--plaque-slice", `${Math.round(s.y * 100)}% ${Math.round(s.x * 100)}%`); }
   if (hasChrome("frame-step")) { const st = ART.chrome["frame-step"], s = st === true ? { x: .12, y: .2 } : st;
