@@ -627,7 +627,8 @@ function Quests.Info(id) return info(id) end
 -- Where a quest starts (the Class tab's "Where it starts"), from QuestieDB's startedBy
 -- ({ npcIDs?, objectIDs?, itemIDs? }, contract 4 [verified-files, src/meta/questMeta.lua]) and the
 -- starter's name and zone (Npc / Object / Item entities, zoneID an AreaTable ID).
---   { kind = "npc"|"object"|"item", name, place }   name or place nil when not known
+--   { kind = "npc"|"object"|"item", name, place, mapID }   nil fields when not known (mapID: the
+--   zone map of the starter's area per Data/QuestAreas)
 -- nil when QuestieDB has no starter for it (or isn't loaded). Cached per quest.
 local starters = {}
 function Quests.Starter(id)
@@ -656,7 +657,13 @@ function Quests.Starter(id)
                 local entity = ({ npc = "Npc", object = "Object", item = "Item" })[kind]
                 local name = read(entity, "name", first)
                 r = { kind = kind, name = type(name) == "string" and name or nil }
-                if kind ~= "item" then r.place = areaName(read(entity, "zoneID", first)) end
+                if kind ~= "item" then
+                    local area = read(entity, "zoneID", first)
+                    r.place = areaName(area)
+                    -- The zone it's in (Data/QuestAreas: the area's zone map), for the zone's art.
+                    local zones = ns.QuestAreaData and ns.QuestAreaData.zone
+                    r.mapID = type(area) == "number" and zones and zones[area] or nil
+                end
                 break
             end
         end

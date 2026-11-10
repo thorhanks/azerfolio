@@ -353,17 +353,24 @@ Theme.color.classCairn = hex("8c826f")     -- a side path's dead end
 Theme.color.classLabel = hex("140c06")     -- node label plate
 Theme.layout.classTab = {
     strip = 430, stripWide = 560,          -- the journey strip's column
-    plaque = 52,                           -- "The Paladin's Road" and the counts, above the map
+    plaque = 84,                           -- "The Paladin's Road", the counts and the Next line (round 2; two
+                                           -- lines: one cut it off at 430 px, WoWScrnShot_110926_224436)
     mapW = 420,                            -- logical width of node positions (Theme.classStrip)
     node = 46, sideNode = 34, endNode = 52, ring = 3,
     endLabel = 64,                         -- room under the road's end for its label
-    factCols = { 0.44, 0.34 },             -- Where it starts, Level (State takes the rest)
+    factCols = { 0.40, 0.14 },             -- Where it starts, Level (a number since round 2); Travels to
+                                           -- takes the rest (22% wrapped it over five lines, WoWScrnShot_110926_224439)
     glow = 18,                             -- the open-now glow past the seal
     road = 10, roadStep = 4,               -- road band: square size and spacing (logical)
     sideDot = 5, sideStep = 11,            -- a side path's dotted track
     bead = 9, sideBead = 7,
-    label = 200, labelGap = 10, labelPad = 6,
-    you = 26,                              -- the class crest where you are
+    label = 240, labelGap = 10, labelPad = 6, -- (200 cut "Summon Charger · 11 quests", WoWScrnShot_110926_224440)
+    you = 34, youTag = { 40, 16 },         -- the class crest where you are, and its "You" tag (round 2)
+    medal = 56, sideMedal = 42, heroMedal = 84, -- the quests medal on finished stops (owner, 2026-11-09)
+    medalSeal = 0.74,                      -- the seal's share of the laurel (style.css .cmedal .seal)
+    stepsWide = 560,                       -- wide pane: the steps column; the facts go beside it
+    wideFacts = 860,                       -- pane width from which the facts go beside the steps
+    labelPush = 4,                         -- gap kept between node labels pushed apart
     hero = 132, heroScore = 140,
     facts = 46, stepRow = 40, stepIcon = 22, stopRow = 40,
     bar = 18,
@@ -525,11 +532,13 @@ Theme.glyphAtlas = {
     B = { "gamepad-xbox1-buttonb-normal" },
     X = { "gamepad-xbox1-buttonx-normal" },
     Y = { "gamepad-xbox1-buttony-normal" },
+    -- D-pad left/right (the Class tab's side-path hint). From InputIconTexture.lua [external].
+    D = { "gamepad-xbox1-dpadleftright-normal" },
 }
 Theme.circleMask = 130924 -- PortraitFrameTemplate's CircleMask file [verified-ingame]
 Theme.glyphFallback = {
     A = "padA", B = "padB", X = "padX", Y = "padY",
-    LB = "padShoulder", RB = "padShoulder", LT = "padShoulder", RT = "padShoulder",
+    LB = "padShoulder", RB = "padShoulder", LT = "padShoulder", RT = "padShoulder", D = "padShoulder",
 }
 
 function Theme.RGB(name)

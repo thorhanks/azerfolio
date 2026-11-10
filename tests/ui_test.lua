@@ -680,17 +680,29 @@ return function(t)
             if id >= 1644 and id <= 1790 and id ~= 1649 then return "locked", "prerequisite" end
             return "locked", "level 20"
         end
-        local j = R.Build(R.Journey(ns.ClassJourneyData, "PALADIN", "Alliance"), ev, completed, 1)
+        local j = R.Build(R.Journey(ns.ClassJourneyData, "PALADIN", "Alliance"), ev, completed, 1, 9)
         local real = { get = ns.ClassJourney.Get, info = ns.Quests.Info, starter = ns.Quests.Starter }
         ns.ClassJourney.Get = function()
             if status then return { status = status, reason = "QuestieDB isn't loaded" } end
             return { status = "ready", journey = j, char = { classFile = "PALADIN", side = "Alliance" } }
         end
+        -- QuestieDB's shape for the parts the page reads: 1641 leads into 1642 (the chain's
+        -- start); 1442 is 1654's sub-quest; 1644 needs level 13; 1642 starts from an item.
         ns.Quests.Info = function(id)
-            if id >= 1642 and id <= 1788 then return { name = "The Tome of Divinity", level = 12 } end
-            return { name = "Quest " .. id .. " name", level = 20 }
+            if id == 1641 then return { name = "The Tome of Divinity", level = 12, reqLevel = 12, next = 1642 } end
+            -- A breadcrumb into 1642 too, listed first (QuestieDB, as in game): not where it starts.
+            if id == 2998 then return { name = "Tome of Divinity", level = 12, reqLevel = 12, next = 1642, breadcrumbFor = 1642 } end
+            if id == 1442 then return { name = "Seeking the Kor Gem", level = 20, reqLevel = 20, parent = 1654 } end
+            if id == 1644 then return { name = "The Tome of Divinity", level = 13, reqLevel = 13 } end
+            if id >= 1642 and id <= 1788 then return { name = "The Tome of Divinity", level = 12, reqLevel = 12 } end
+            return { name = "Quest " .. id .. " name", level = 20, reqLevel = 20 }
         end
-        ns.Quests.Starter = function() return { kind = "npc", name = "Duthorian Rall", place = "Stormwind City" } end
+        ns.Quests.Starter = function(id)
+            if id == 1642 then return { kind = "item", name = "Tome of Divinity" } end
+            if id == 2998 then return { kind = "npc", name = "Brother Wilhelm", place = "Elwynn Forest", mapID = 1429 } end
+            if id == 1787 then return { kind = "npc", name = "Henze Faulk", place = "Elwynn Forest", mapID = 1429 } end
+            return { kind = "npc", name = "Duthorian Rall", place = "Stormwind City", mapID = 1453 }
+        end
         return j, function() ns.ClassJourney.Get = real.get; ns.Quests.Info = real.info; ns.Quests.Starter = real.starter end
     end
 
@@ -711,16 +723,29 @@ return function(t)
         local div = cp.byKey.divinity
         t.eq(div.label.sub:GetText(), "1 of 8 quests")
         t.eq(cp.byKey.intro.label.sub:GetText(), "All 1 quest done")
-        t.eq(cp.byKey.charger.label.sub:GetText(), "Opens at level 60")
+        -- Round 2: a later stop's label shows its reward; the plaque says what's next.
+        t.eq(cp.byKey.charger.label.sub:GetText(), "Summon Charger  ·  11 quests")
+        t.eq(cp.plaque.next:GetText(), "Next: The Tome of Divinity  ·  Duthorian Rall  ·  Stormwind City")
         t.eq(cp.detail.hero.name:GetText(), "The Tome of Divinity")
         t.eq(cp.detail.hero.kicker:GetText(), "Stop 2 of 5 on the road")
         t.eq(cp.detail.hero.score:GetText(), "1")
         t.eq(cp.detail.hero.sub:GetText(), "Reward: Redemption")
+        -- Where it starts: the first step comes from an item, so the lead-in into it (1641).
         t.eq(cp.detail.facts[1].v:GetText(), "Duthorian Rall  ·  Stormwind City")
+        t.eq(cp.detail.facts[3].k:GetText(), "Travels to")
+        t.eq(cp.detail.facts[3].v:GetText(), "Stormwind City  >  Elwynn Forest")
+        t.eq(cp.detail.hero.mapID, 1453, "Stormwind's art behind the header")
+        t.eq(cp.byKey.intro.medal ~= nil and cp.byKey.intro.medal.laurel:IsShown() or cp.byKey.intro.check:IsShown(), true,
+            "a finished stop wears the medal (or the check without the art)")
+        t.eq(cp:GetHints()[1], nil, "no side path at Divinity")
         -- Gamepad: down follows the road; right onto Valor's side path; down returns to the road.
         press(ns, "PADDDOWN")
         t.eq(ns.Focus.Current().key, "n:valor")
         t.eq(cp.detail.hero.name:GetText(), "The Tome of Valor", "the pane follows focus")
+        t.eq(cp:GetHints()[1][2], "Side path", "the legend says a side path is there")
+        local sub
+        for _, r in ipairs(cp.detailRows) do if r.items[1].key == "sub:1442" then sub = r.items[1] end end
+        t.ok(sub and sub.detail:find("Part of step 6"), "Kor Gem sits in place after step 6, not counted")
         press(ns, "PADDLEFT") -- A Strange Artifact sits left of Valor on the Paladin's strip
         t.eq(ns.Focus.Current().key, "n:artifact")
         t.eq(cp.detail.hero.kicker:GetText(), "Side path off The Tome of Valor")
@@ -745,7 +770,13 @@ return function(t)
         t.eq(cp.mode, "steps")
         local cur = ns.Focus.Current()
         t.eq(cur.key, "st:2:1643", "the next step after the one done")
-        t.eq(cur.title, "The Tome of Divinity  ·  part 2 of 8")
+        t.eq(cur.title, "2. The Tome of Divinity")
+        t.eq(cur.frame.name:GetText(), "Duthorian Rall  ·  Stormwind City", "same-name steps lead with who and where")
+        t.eq(cur.frame.glyph:GetText(), "2", "numbered ring")
+        t.eq(cp.hasSections, true, "Start here and Steps")
+        press(ns, "PADLTRIGGER"); press(ns, "PADLTRIGGER")
+        t.eq(ns.Focus.Current().key, "ex:2998", "LT to Start here")
+        t.eq(ns.Focus.Current().frame.lv:GetText(), "not counted")
         t.eq(cp.backLabel, "Road")
         press(ns, "PAD2")
         t.eq(cp.mode, "road")
@@ -765,6 +796,18 @@ return function(t)
         restore()
     end)
 
+    t.test("class tab: node labels are pushed apart top to bottom", function()
+        local ns = boot()
+        local push = ns.ClassPage.PushApart
+        -- Two overlapping labels: the lower moves below the upper plus the gap; a third beside
+        -- them (no horizontal overlap) stays.
+        local s = push({ { 0, 100, 0, 40 }, { 50, 150, 30, 70 }, { 200, 300, 30, 70 } }, 4)
+        t.eq(s[1], 0); t.eq(s[2], 14); t.eq(s[3], 0)
+        -- A chain: the third clears the second after it moved.
+        s = push({ { 0, 100, 0, 40 }, { 0, 100, 20, 60 }, { 0, 100, 50, 90 } }, 4)
+        t.eq(s[2], 24); t.eq(s[3], 38)
+    end)
+
     t.test("Quests.Starter: the starter's name and zone from QuestieDB, items without a place", function()
         local ns = boot()
         local L = _G.LibQuestieDB
@@ -777,7 +820,7 @@ return function(t)
         L.Npc = { name = function() return "Duthorian Rall" end, zoneID = function() return 1519 end }
         L.Item = { name = function() return "Tome of Valor" end }
         _G.C_Map.GetAreaInfo = function(a) return a == 1519 and "Stormwind City" or nil end
-        t.same(ns.Quests.Starter(1), { kind = "npc", name = "Duthorian Rall", place = "Stormwind City" })
+        t.same(ns.Quests.Starter(1), { kind = "npc", name = "Duthorian Rall", place = "Stormwind City", mapID = 1453 })
         t.same(ns.Quests.Starter(2), { kind = "item", name = "Tome of Valor" })
         t.eq(ns.Quests.Starter(3), nil, "no starter")
         t.eq(ns.Quests.Starter(4), nil, "a failed read is nil, not an error")

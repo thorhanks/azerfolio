@@ -36,7 +36,7 @@ function ClassJourney.Get()
     local ctx = ns.Quests.Context()
     local function ev(id) return ns.QuestRules.Evaluate(ctx, id) end
     result = { status = "ready", char = char,
-        journey = R.Build(journey, ev, ctx.completed, ns.QuestRules.RaceBit(char.raceID)) }
+        journey = R.Build(journey, ev, ctx.completed, ns.QuestRules.RaceBit(char.raceID), char.level) }
     return result
 end
 

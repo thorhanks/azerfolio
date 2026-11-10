@@ -1137,6 +1137,50 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .cstep.st-next .cicon { border-color: #ffd9a8; color: #ffb35a; }
 .cstep.st-later, .cstep.opt { opacity: .7; }
 .cstep.focused { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
+/* Design round 2 (2026-11-09, after the in-game review) */
+.cplaque { background: linear-gradient(180deg, #1a0e06, #160c05); }
+/* A finished stop's header: the celebration's quests medal, small (owner, 2026-11-09) */
+.chero .cmedal { position: relative; display: block; width: 84px; height: 84px; margin-bottom: -6px; filter: drop-shadow(0 2px 6px #000); }
+.chero .cmedal .laurel { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; object-fit: contain; }
+.chero .cmedal .seal { position: absolute; left: 13%; top: 13%; width: 74%; height: 74%; z-index: 1; object-fit: contain; border-radius: 50%; }
+.chero .cmedal .standin small { display: none; }
+/* A finished stop on the map wears the same medal, a little larger than the seal so the laurel reads */
+.cnode .cmedal { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; transform: translate(-50%, -50%); filter: drop-shadow(0 2px 4px #000); }
+.cnode.side .cmedal { width: 42px; height: 42px; }
+.cnode .cmedal .laurel { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; object-fit: contain; }
+.cnode .cmedal .seal { position: absolute; left: 13%; top: 13%; width: 74%; height: 74%; z-index: 1; object-fit: contain; border-radius: 50%; }
+.cnode .cmedal .standin small { display: none; }
+.cnode.focused .cmedal { filter: drop-shadow(0 0 0 #ffe600) drop-shadow(0 0 6px rgba(255,230,0,.9)); }
+.cplaque .cnext { font-size: var(--fs-xs); color: #ffd9a8; text-align: center; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cplaque .cnext.done { color: var(--st-complete); }
+.cplaque .cnext.unk { color: var(--dim); font-style: italic; }
+.cnode.st-unknown .cseal { border-style: dashed; color: var(--dim); filter: grayscale(.8); }
+.cnode.st-unknown .cname { color: var(--dim); }
+.cnode.st-later .csub { color: var(--dim); }
+.cmapart .bead.unk { opacity: .45; }
+.cmapart .you { transform-box: fill-box; }
+.cmapart .you .youtag { fill: rgba(14,9,4,.85); stroke: #f58cba; stroke-width: 1.5; }
+.cmapart .you .youtxt { fill: #fff; font: 11px var(--font); text-anchor: middle; }
+.chero .cheroart { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 35%; }
+.chero .chshade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,6,2,.92) 0%, rgba(10,6,2,.6) 55%, rgba(10,6,2,.75) 100%); }
+.chero.st-later .cheroart, .chero.st-unknown .cheroart { filter: grayscale(.7) brightness(.8); }
+.chero.st-later { filter: none; }
+.chero .chinfo { z-index: 1; }
+.cfacts { grid-template-columns: auto auto 1fr; }
+.cstep .cicon { font: 12px var(--font); }
+.cstep.st-next .cicon { background: rgba(224,138,60,.25); color: #ffd9a8; }
+.cstep.st-later .cicon, .cstep.st-after .cicon { color: var(--text); }
+.cstep.st-unknown .cicon { border-style: dashed; }
+.cstep.st-sub { opacity: .6; }
+.cstep.st-sub .cicon { border-style: dotted; }
+.cstep.st-sub .cqlv, .cstep.opt .cqlv { font-style: italic; }
+.cstep.focused { opacity: 1; }
+.cstep .youhere { margin-left: var(--s2); font-style: normal; font-size: var(--fs-xs); color: #f58cba; }
+/* Wide: steps capped at 560 px with the facts beside them (round 2) */
+.cjourney.wide .cstopgrid { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 1fr); gap: var(--s6); align-items: start; }
+.cjourney.wide .cstopgrid .cmain { grid-column: 1; grid-row: 1; }
+.cjourney.wide .cstopgrid .caside { grid-column: 2; grid-row: 1; position: sticky; top: 0; }
+.cjourney.wide .cfacts { grid-template-columns: 1fr; }
 .cbar { height: 10px; border-radius: 5px; background: #2a2018; border: 1px solid #000; margin: 0 0 var(--s2); overflow: hidden; }
 .cbar i { display: block; height: 100%; background: var(--grad-progress); }
 .cbar.complete i { background: linear-gradient(180deg, #ffe08a, #ffcc33 55%, #b8860b); }

@@ -118,12 +118,44 @@ function Rules.Stop(stop, ev, completed, raceBit)
         count = #list, done = completed and done or nil, state = Rules.StopState(list, done, completed) }
 end
 
+-- Pure: the one thing to do next on a built road (the Class tab's Next line, design round 2):
+-- your road stop, the first that isn't done (a side path once the road is walked).
+--   { kind = "unknown" }                       completed quests not known
+--   { kind = "walked" }                        every stop done
+--   { kind = "level", stop, level }            the stop opens at a level you haven't reached
+--   { kind = "step", stop, step }              its first step not done (the first you can do
+--                                              now, else the first not done)
+-- level: the character's level (nil = not known: no "level" kind, the step instead).
+function Rules.Next(r, level)
+    if r.complete == nil then return { kind = "unknown" } end
+    local cur
+    for _, kind in ipairs({ "road", "side" }) do
+        for _, s in ipairs(r.stops) do
+            if not cur and (s.kind == "side") == (kind == "side") and s.state ~= "done" then cur = s end
+        end
+    end
+    if not cur then return { kind = "walked" } end
+    if type(level) == "number" and type(cur.level) == "number" and cur.level > level and cur.state == "later" then
+        return { kind = "level", stop = cur, level = cur.level }
+    end
+    local first, open
+    for _, st in ipairs(cur.steps) do
+        if st.state ~= "done" then
+            first = first or st
+            if st.state == "eligible" and not open then open = st end
+        end
+    end
+    return { kind = "step", stop = cur, step = open or first }
+end
+
 -- Pure: the whole road for one character.
---   journey = Rules.Journey(...); ev, completed as for Rules.Step; raceBit as for Rules.Stop.
+--   journey = Rules.Journey(...); ev, completed as for Rules.Step; raceBit as for Rules.Stop;
+--   level: the character's level (for `next`; nil = not known).
 -- Returns { title, notes, stops = { stop... } in curated order, one per key,
 --   road = { count, done }, side = { count, done }, quests = { count, done },
---   complete = true|false|nil (nil: completed quests not known), unknown = stops in "unknown" }
-function Rules.Build(journey, ev, completed, raceBit)
+--   complete = true|false|nil (nil: completed quests not known), unknown = stops in "unknown",
+--   next = Rules.Next(...) }
+function Rules.Build(journey, ev, completed, raceBit, level)
     local byKey, order = {}, {}
     for _, stop in ipairs(journey.stops or {}) do
         local s = Rules.Stop(stop, ev, completed, raceBit)
@@ -152,6 +184,7 @@ function Rules.Build(journey, ev, completed, raceBit)
     if completed then
         r.complete = #r.stops > 0 and r.road.done == r.road.count and r.side.done == r.side.count
     end
+    r.next = Rules.Next(r, level)
     return r
 end
 

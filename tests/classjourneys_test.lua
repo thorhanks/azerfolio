@@ -87,6 +87,35 @@ return function(t)
         -- Without the completed list: every stop unknown, completion not claimed.
         local u = R.Build(R.Journey(data, "PALADIN", "Alliance"), ev, nil, 1)
         t.eq(u.complete, nil); t.eq(u.unknown, #u.stops); t.eq(u.road.done, 0)
+        t.eq(u.next.kind, "unknown")
+    end)
+
+    t.test("journey rules: next is your road stop's level, then its first open step, then side paths", function()
+        local R = loadRules()
+        local j = { title = "T", stops = {
+            { key = "a", kind = "road", name = "A", level = 1, quests = { 1 } },
+            { key = "b", kind = "road", name = "B", level = 12, quests = { 2, 3, 4 } },
+            { key = "s", kind = "side", from = "b", name = "S", level = 14, quests = { 5 } } } }
+        local open = {}
+        local function ev(id)
+            if open[id] then return "eligible" end
+            return "locked", id == 2 and "level 12" or "prerequisite"
+        end
+        -- Level 10: B opens at 12.
+        local n = R.Build(j, ev, set({ 1 }), 1, 10).next
+        t.eq(n.kind, "level"); t.eq(n.stop.key, "b"); t.eq(n.level, 12)
+        -- Level 12, step 2 done, 3 open: the open step.
+        open[3] = true
+        n = R.Build(j, ev, set({ 1, 2 }), 1, 12).next
+        t.eq(n.kind, "step"); t.eq(n.stop.key, "b"); t.eq(n.step.id, 3)
+        -- Level not known: the first step, never a level guess.
+        open[3] = nil
+        n = R.Build(j, ev, set({ 1 }), 1, nil).next
+        t.eq(n.kind, "step"); t.eq(n.step.id, 2)
+        -- The road walked: the side path; then everything.
+        n = R.Build(j, ev, set({ 1, 2, 3, 4 }), 1, 20).next
+        t.eq(n.kind, "step"); t.eq(n.stop.key, "s")
+        t.eq(R.Build(j, ev, set({ 1, 2, 3, 4, 5 }), 1, 20).next.kind, "walked")
     end)
 
     t.test("journey rules: every curated road builds, all done when every quest is", function()

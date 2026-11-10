@@ -1517,39 +1517,44 @@
   // (base rows). In the addon the stops come from the curated Data/ClassJourneys.lua and every
   // done / not done from the game.
   // =====================================================================================
-  // step: [questID, name, NPC, place, level]
+  // step: [questID, name, NPC, place, required level, "sub"?]. A "sub" step is a repeatable-flagged
+  // sub-quest inside the chain: shown in place, not counted. `leadins` are optional starts (not
+  // counted). `art` is the zone art behind the stop's header (where it starts).
+  // Design round 2 (2026-11-09, after the in-game review): a Next line, numbered steps, Travels to,
+  // lead-ins above the steps, zone art in the header.
   const CLASS_ROAD = {
     cls: "Paladin", title: "The Paladin's Road",
     W: 420, H: 1500, end: { x: 214, y: 1416 },
     stops: [
-      { id: "letter", kind: "road", x: 214, y: 92, lv: 1, name: "Consecrated Letter", landmark: "abbey",
+      { id: "letter", kind: "road", x: 214, y: 92, lv: 1, name: "Consecrated Letter", landmark: "abbey", art: 1429,
         reward: "Meet Brother Sammuel, your first trainer", start: "Marshal McBride · Northshire Abbey, Elwynn Forest",
         steps: [[3101, "Consecrated Letter", "Marshal McBride", "Northshire Abbey, Elwynn Forest", 1]] },
-      { id: "divinity", kind: "road", x: 300, y: 330, lv: 12, name: "The Tome of Divinity", landmark: "cathedral",
+      { id: "divinity", kind: "road", x: 300, y: 330, lv: 12, name: "The Tome of Divinity", landmark: "cathedral", art: 1453,
         reward: "Redemption (spell)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
         alt: "Dwarf paladins take this from Tiza Battleforge in Ironforge; Humans get Stormwind's version (the other one is never counted).",
-        optional: [[2998, "Tome of Divinity", "Brother Wilhelm", "Goldshire, Elwynn Forest", 12]],
-        steps: [[1641, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 12],
-          [1642, "The Tome of Divinity", "the Tome of Divinity (item)", "Your bags", 12],
+        leadins: [[2998, "Tome of Divinity", "Brother Wilhelm", "Goldshire, Elwynn Forest", 12, "A lead-in: sends you to Duthorian Rall."],
+          [1641, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 12, "The chain's start. QuestieDB flags it repeatable, so it isn't counted."]],
+        steps: [[1642, "The Tome of Divinity", "the Tome of Divinity (item)", "Your bags", 12],
           [1643, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 12],
-          [1644, "The Tome of Divinity", "Stephanie Turner", "Old Town, Stormwind City", 12],
-          [1780, "The Tome of Divinity", "Stephanie Turner", "Old Town, Stormwind City", 12],
-          [1781, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 12],
-          [1786, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 12],
-          [1787, "The Tome of Divinity", "Henze Faulk", "Elwynn Forest", 12],
-          [1788, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 12]] },
-      { id: "valor", kind: "road", x: 118, y: 600, lv: 20, name: "The Tome of Valor", landmark: "farm",
-        reward: "Verigan's Fist (two-handed mace)", start: "The Tome of Valor (item) · from Duthorian Rall, Stormwind City",
+          [1644, "The Tome of Divinity", "Stephanie Turner", "Old Town, Stormwind City", 13],
+          [1780, "The Tome of Divinity", "Stephanie Turner", "Old Town, Stormwind City", 13],
+          [1781, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 13],
+          [1786, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 13],
+          [1787, "The Tome of Divinity", "Henze Faulk", "Elwynn Forest", 13],
+          [1788, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 13]] },
+      { id: "valor", kind: "road", x: 118, y: 600, lv: 20, name: "The Tome of Valor", landmark: "farm", art: 1436,
+        reward: "Verigan's Fist (two-handed mace)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
+        leadins: [[1793, "The Tome of Valor", "Duthorian Rall", "Cathedral of Light, Stormwind City", 20, "The chain's start: Duthorian Rall gives you the Tome of Valor."]],
         steps: [[1649, "The Tome of Valor", "the Tome of Valor (item)", "Your bags", 20],
           [1650, "The Tome of Valor", "Duthorian Rall", "Cathedral of Light, Stormwind City", 20],
           [1651, "The Tome of Valor", "Daphne Stilwell", "Westfall", 20],
           [1652, "The Tome of Valor", "Daphne Stilwell", "Westfall", 20],
           [1653, "The Test of Righteousness", "Duthorian Rall", "Cathedral of Light, Stormwind City", 20],
           [1654, "The Test of Righteousness", "Jordan Stilwell", "Ironforge gates, Dun Morogh", 20],
-          [1442, "Seeking the Kor Gem", "Thundris Windweaver", "Auberdine, Darkshore", 20],
-          [1655, "Bailor's Ore Shipment", "Bailor Stonehand", "Thelsamar, Loch Modan", 20],
+          [1442, "Seeking the Kor Gem", "Thundris Windweaver", "Auberdine, Darkshore", 20, "sub"],
+          [1655, "Bailor's Ore Shipment", "Bailor Stonehand", "Thelsamar, Loch Modan", 20, "sub"],
           [1806, "The Test of Righteousness", "Jordan Stilwell", "Ironforge gates, Dun Morogh", 20]] },
-      { id: "artifact", kind: "side", from: "valor", x: 66, y: 846, lv: 22, name: "A Strange Artifact", landmark: "grove",
+      { id: "artifact", kind: "side", from: "valor", x: 66, y: 846, lv: 22, name: "A Strange Artifact", landmark: "grove", art: 1440,
         reward: "Not known yet (read from the quest in game)", start: "A strange artifact (object) · Ashenvale",
         flag: "A newer quest ID: whether it's live in Forever is still an in-game check.",
         steps: [[78088, "A Strange Artifact", "a strange artifact (object)", "Ashenvale", 22],
@@ -1558,16 +1563,16 @@
           [78091, "Earning Your Salt", "Ursula Deline", "Stormwind City", 22],
           [78092, "It Must Be Destroyed", "Ursula Deline", "Stormwind City", 22],
           [78093, "Return to Delgren", "an object", "Ashenvale", 22]] },
-      { id: "nobility", kind: "road", x: 306, y: 900, lv: 40, name: "The Tome of Nobility", landmark: "keep",
+      { id: "nobility", kind: "road", x: 306, y: 900, lv: 40, name: "The Tome of Nobility", landmark: "keep", art: 1453,
         reward: "Summon Warhorse (mount)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
         steps: [[1661, "The Tome of Nobility", "Duthorian Rall", "Cathedral of Light, Stormwind City", 40]] },
-      { id: "mightstone", kind: "side", from: "nobility", x: 362, y: 1132, lv: 50, name: "Forging the Mightstone", landmark: "camp",
+      { id: "mightstone", kind: "side", from: "nobility", x: 362, y: 1132, lv: 50, name: "Forging the Mightstone", landmark: "camp", art: 1422,
         reward: "Shown in game (from the quest)", start: "Lord Grayson Shadowbreaker · Stormwind City",
-        steps: [[8415, "Chillwind Point", "Lord Grayson Shadowbreaker", "Stormwind City", 50],
-          [8414, "Dispelling Evil", "Commander Ashlam Valorfist", "Chillwind Camp, Western Plaguelands", 50],
+        leadins: [[8415, "Chillwind Point", "Lord Grayson Shadowbreaker", "Stormwind City", 50, "A lead-in: sends you to Chillwind Camp."]],
+        steps: [[8414, "Dispelling Evil", "Commander Ashlam Valorfist", "Chillwind Camp, Western Plaguelands", 50],
           [8416, "Inert Scourgestones", "High Priest Thel'danis", "Chillwind Camp, Western Plaguelands", 50],
           [8418, "Forging the Mightstone", "Commander Ashlam Valorfist", "Chillwind Camp, Western Plaguelands", 50]] },
-      { id: "charger", kind: "road", x: 140, y: 1226, lv: 60, name: "The Charger", landmark: "ossuary",
+      { id: "charger", kind: "road", x: 140, y: 1226, lv: 60, name: "The Charger", landmark: "ossuary", art: 1423,
         reward: "Summon Charger (epic mount)", start: "Duthorian Rall, then Lord Grayson Shadowbreaker · Stormwind City",
         flag: "Needs groups for Scholomance and Stratholme.",
         steps: [[7638, "Lord Grayson Shadowbreaker", "Duthorian Rall", "Stormwind City", 60],
@@ -1578,28 +1583,46 @@
           [7642, "Collection of Goods", "Grimand Elmore", "Stormwind City", 60],
           [7648, "Grimand's Finest Work", "Grimand Elmore", "Stormwind City", 60],
           [7643, "Ancient Equine Spirit", "Lord Grayson Shadowbreaker", "Stormwind City", 60],
-          [7644, "Blessed Arcanite Barding", "Ancient Equine Spirit", "Scholomance", 60],
-          [7645, "Manna-Enriched Horse Feed", "Merideth Carlson", "Southshore, Hillsbrad Foothills", 60],
+          [7645, "Manna-Enriched Horse Feed", "Merideth Carlson", "Southshore, Hillsbrad Foothills", 60, "sub"],
+          [7644, "Blessed Arcanite Barding", "Ancient Equine Spirit", "Scholomance, Western Plaguelands", 60],
           [7646, "The Divination Scryer", "Lord Grayson Shadowbreaker", "Stormwind City", 60],
-          [7647, "Judgment and Redemption", "Lord Grayson Shadowbreaker", "Stratholme", 60]] },
+          [7647, "Judgment and Redemption", "Lord Grayson Shadowbreaker", "Stratholme, Eastern Plaguelands", 60]] },
     ],
   };
   // Quests done per scenario (sample data, invented except "today": Gideon has the letter).
-  const CLASS_DONE = { today: [3101], almost: [3101], veteran: [3101, 1641, 1642, 1643, 1644, 1780, 1781, 1786, 1787, 1788,
-    1649, 1650, 1651, 1652, 1653, 1654, 1442, 1655, 1806, 78088, 78089], fresh: [] };
+  const CLASS_DONE = { today: [3101], almost: [3101], veteran: [3101, 2998, 1641, 1642, 1643, 1644, 1780, 1781, 1786, 1787, 1788,
+    1793, 1649, 1650, 1651, 1652, 1653, 1654, 1442, 1655, 1806, 78088, 78089], fresh: [] };
+  const counted = (s) => s.steps.filter(q => q[5] !== "sub");
+  const zoneOfPlace = (p) => p === "Your bags" ? null : p.split(", ").pop();
+  // "Duthorian Rall · Cathedral of Light, Stormwind City" -> "Duthorian Rall · Stormwind City"
+  const shortStart = (s) => s.replace(/ · .*, /, " · ");
 
   function classModel() {
-    const R = CLASS_ROAD, all = ui.classPreview === "all";
-    const done = new Set(all ? R.stops.flatMap(s => s.steps.map(q => q[0])) : CLASS_DONE[ui.scenarioName] || []);
+    const R = CLASS_ROAD, preview = ui.classPreview, unknown = preview === "unknown";
+    const done = new Set(preview === "all" ? R.stops.flatMap(s => s.steps.map(q => q[0])) : unknown ? [] : CLASS_DONE[ui.scenarioName] || []);
     const stops = R.stops.map(s => {
-      const n = s.steps.length, d = s.steps.filter(q => done.has(q[0])).length;
-      const state = d === n ? "done" : d > 0 ? "progress" : CHAR.level >= s.lv ? "ready" : "later";
-      return { ...s, n, d, state };
+      const c = counted(s), n = c.length, d = c.filter(q => done.has(q[0])).length;
+      const state = unknown ? "unknown" : d === n ? "done" : d > 0 ? "progress" : CHAR.level >= s.lv ? "ready" : "later";
+      const travels = [...new Set(s.steps.map(q => zoneOfPlace(q[3])).filter(Boolean))];
+      return { ...s, n, d: unknown ? null : d, state, done, travels };
     });
     const road = stops.filter(s => s.kind === "road"), side = stops.filter(s => s.kind === "side");
-    const quests = stops.reduce((a, s) => a + s.n, 0), questsDone = stops.reduce((a, s) => a + s.d, 0);
-    const complete = stops.every(s => s.state === "done");
-    return { stops, road, side, quests, questsDone, complete, roadDone: road.filter(s => s.state === "done").length, sideDone: side.filter(s => s.state === "done").length };
+    const quests = stops.reduce((a, s) => a + s.n, 0), questsDone = unknown ? null : stops.reduce((a, s) => a + s.d, 0);
+    const complete = unknown ? null : stops.every(s => s.state === "done");
+    return { stops, road, side, quests, questsDone, complete, unknown,
+      roadDone: road.filter(s => s.state === "done").length, sideDone: side.filter(s => s.state === "done").length };
+  }
+  // The one thing to do next (design round 2): your road stop (or a side path once the road is walked).
+  function classNext(m) {
+    if (m.unknown) return { text: "Next: not known until the game gives Azerfolio your completed quests" };
+    const cur = m.road.find(s => s.state !== "done") || m.side.find(s => s.state !== "done");
+    if (!cur) return { text: "Every stop walked", done: true };
+    if (cur.state === "later") {
+      const togo = cur.lv - CHAR.level;
+      return { stop: cur, text: `Next: reach level ${cur.lv} (${togo} to go), then ${shortStart(cur.start)}` };
+    }
+    const q = counted(cur).find(q => !cur.done.has(q[0]));
+    return { stop: cur, text: `Next: ${q[1]} · ${q[2]} · ${zoneOfPlace(q[3]) || q[3]}` };
   }
   // Road geometry: one cubic segment per stop, from it to the next road stop (the last to the road's
   // end); the stop's own quests are beads along it. Side paths leave from the middle of their
@@ -1644,22 +1667,25 @@
     const trees = Array.from({ length: 34 }, (_, i) => { const x = (i * 97) % (R.W - 20) + 10, y = 360 + ((i * 211) % 760);
       return `<path d="M${x} ${y} l-8 14 h5 l-6 10 h18 l-6 -10 h5 Z" fill="${y > 1000 ? "#1d2219" : "#203a1c"}" opacity=".75"/>`; }).join("");
     const segPaths = Object.entries(segs).map(([id, p]) => {
-      const s = m.stops.find(x => x.id === id), lit = s.d / s.n;
+      const s = m.stops.find(x => x.id === id), lit = s.d ? s.d / s.n : 0;
       return `<path d="${bpath(p)}" class="road ${s.kind}"/>${lit > 0 ? `<path d="${bpath(splitBez(p, lit))}" class="road lit ${s.kind}"/>` : ""}`;
     }).join("");
-    const beads = m.stops.map(s => s.steps.map((q, k) => {
+    const beads = m.stops.map(s => counted(s).map((q, k) => {
       const t = s.kind === "road" ? (k + 1) / (s.n + 1) : (k + 1) / (s.n + 1) * 0.86;
-      const pt = bez(segs[s.id], t), on = k < s.d;
-      return `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${s.kind === "road" ? 4.5 : 3.5}" class="bead ${on ? "on" : ""}"/>`;
+      const pt = bez(segs[s.id], t), on = s.done.has(q[0]);
+      return `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${s.kind === "road" ? 4.5 : 3.5}" class="bead ${on ? "on" : ""} ${m.unknown ? "unk" : ""}"/>`;
     }).join("")).join("");
     const marks = m.stops.map(s => LANDMARK[s.landmark] ? LANDMARK[s.landmark](s.x + (s.x < R.W / 2 ? 70 : -70), s.y + 22) : "").join("");
     // A side path ends in a dead end: a small cairn under its node.
     const deadends = m.side.map(s => `<g class="cairn" transform="translate(${s.x} ${s.y + 30})"><ellipse cx="0" cy="8" rx="11" ry="4.5"/><ellipse cx="1" cy="1" rx="8" ry="3.8"/><ellipse cx="-1" cy="-5" rx="5" ry="3"/></g>`).join("");
-    // "You": on the first road stop not done, at its last done bead (or at its node).
-    const cur = m.road.find(s => s.state !== "done");
+    // "You" (round 2: larger, with a tag): on the first road stop not done, at its last done bead
+    // (or beside its node). Not drawn when completion isn't known.
+    const cur = !m.unknown && m.road.find(s => s.state !== "done");
     let you = "";
-    if (cur) { const p = cur.d ? bez(segs[cur.id], cur.d / (cur.n + 1)) : { x: cur.x, y: cur.y };
-      you = `<g class="you" transform="translate(${(p.x + (cur.d ? 0 : cur.x < R.W / 2 ? -40 : 40)).toFixed(1)} ${(p.y - (cur.d ? 0 : 6)).toFixed(1)})"><path d="M0 -14 L11 -9 V1 C11 8 5 12 0 15 C-5 12 -11 8 -11 1 V-9 Z"/><path d="M0 -8 V9 M-6 -2 H6" class="youx"/></g>`; }
+    if (cur) { const c = counted(cur), last = c.reduce((a, q, k) => cur.done.has(q[0]) ? k + 1 : a, 0);
+      const p = last ? bez(segs[cur.id], last / (cur.n + 1)) : { x: cur.x + (cur.x < R.W / 2 ? -48 : 48), y: cur.y - 4 };
+      you = `<g class="you" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})"><path d="M0 -19 L15 -12 V1 C15 11 7 16 0 20 C-7 16 -15 11 -15 1 V-12 Z"/><path d="M0 -11 V12 M-8 -2 H8" class="youx"/>
+        <rect x="-17" y="23" width="34" height="15" rx="4" class="youtag"/><text x="0" y="34" class="youtxt">You</text></g>`; }
     return `<svg viewBox="0 0 ${R.W} ${R.H}" preserveAspectRatio="none" class="cmapart" aria-hidden="true">
       <defs><linearGradient id="csky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7dc9a"/><stop offset=".12" stop-color="#d9b46a"/><stop offset=".3" stop-color="#7f9a63"/><stop offset=".62" stop-color="#4d5a3c"/><stop offset=".82" stop-color="#2c2e27"/><stop offset="1" stop-color="#15130f"/></linearGradient>
         <radialGradient id="cdawn" cx=".5" cy="0" r=".5"><stop offset="0" stop-color="#fff6d8" stop-opacity=".95"/><stop offset="1" stop-color="#fff6d8" stop-opacity="0"/></radialGradient>
@@ -1674,77 +1700,106 @@
       ${you}
       <rect width="${R.W}" height="${R.H}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="10"/></svg>`;
   }
-  const C_STATE = { done: "Done", progress: "In progress", ready: "You can start it", later: "Later" };
+  const C_STATE = { done: "Done", progress: "In progress", ready: "You can start it", later: "Later", unknown: "Not known yet" };
+  const qn = (n) => `${n} quest${n === 1 ? "" : "s"}`;
+  // Round 2: a later stop's label shows its reward (the seal already says the level).
   function stopSub(s) {
-    return s.state === "done" ? `✓ ${s.n} of ${s.n} quests` : s.state === "progress" ? `${s.d} of ${s.n} quests` : s.state === "ready" ? `Open now · ${s.n} quests` : `Opens at level ${s.lv}`;
+    if (s.state === "unknown") return `${qn(s.n)} · not known yet`;
+    return s.state === "done" ? `All ${qn(s.n)} done` : s.state === "progress" ? `${s.d} of ${qn(s.n)}` : s.state === "ready" ? `Open now · ${qn(s.n)}`
+      : `${s.reward.replace(/ \(.*\)$/, "")} · ${qn(s.n)}`;
   }
   function stopTip(s) {
     const when = s.state === "later" ? ` Opens at level ${s.lv} (${s.lv - CHAR.level} to go).` : "";
-    return `<b>${esc(s.name)}</b>${s.kind === "side" ? "Side path. " : ""}Level ${s.lv}. ${s.state === "done" ? "Done" : `${s.d} of ${s.n} quests done`}. Reward: ${esc(s.reward)}.${when} A shows the steps.`;
+    const got = s.state === "unknown" ? `${qn(s.n)}; done or not isn't known yet` : s.state === "done" ? "Done" : `${s.d} of ${qn(s.n)} done`;
+    return `<b>${esc(s.name)}</b>${s.kind === "side" ? "Side path. " : ""}Level ${s.lv}. ${got}. Reward: ${esc(s.reward)}.${when}`;
   }
   function classNodes(m) {
     const R = CLASS_ROAD;
     return m.stops.map(s => `<button class="cnode focusable ${s.kind} st-${s.state} ${s.x > R.W * 0.58 ? "lab-left" : ""} ${ui.classSel === s.id ? "selected" : ""}"
-      data-stop="${s.id}" style="left:${(s.x / R.W * 100).toFixed(2)}%;top:${(s.y / R.H * 100).toFixed(3)}%" data-tip="${stopTip(s)}">
-      <span class="cseal">${s.state === "done" ? "✓" : s.state === "later" ? "🔒" : s.lv}</span>
-      <span class="clabel"><span class="clv">Level ${s.lv}${s.kind === "side" ? " · side path" : ""}</span><span class="cname">${esc(s.name)}</span><span class="csub">${stopSub(s)}</span></span></button>`).join("")
+      data-stop="${s.id}" ${m.stops.some(x => x.from === s.id) || s.from ? "data-sidepath" : ""} style="left:${(s.x / R.W * 100).toFixed(2)}%;top:${(s.y / R.H * 100).toFixed(3)}%" data-tip="${stopTip(s)}">
+      ${s.state === "done" ? doneMedal() : `<span class="cseal">${s.state === "unknown" ? "?" : s.lv}</span>`}
+      <span class="clabel"><span class="clv">Level ${s.lv}${s.kind === "side" ? " · side path" : ""}</span><span class="cname">${esc(s.name)}</span><span class="csub">${esc(stopSub(s))}</span></span></button>`).join("")
       + `<button class="cnode focusable end ${m.complete ? "st-done" : ""} ${ui.classSel === "end" ? "selected" : ""}" data-stop="end" style="left:${(R.end.x / R.W * 100).toFixed(2)}%;top:${(R.end.y / R.H * 100).toFixed(3)}%"
-        data-tip="<b>The road's end</b>${m.complete ? "Every class quest on the road and its side paths is done." : `${m.questsDone} of ${m.quests} class quests done. A shows the whole road.`}"><span class="cseal"></span>
-        <span class="clabel below"><span class="cname">${m.complete ? "The road walked" : "The road's end"}</span><span class="csub">${m.questsDone} of ${m.quests} quests</span></span></button>`;
+        data-tip="<b>The road's end</b>${m.complete ? "Every class quest on the road and its side paths is done." : m.unknown ? `${m.quests} class quests; done or not isn't known yet.` : `${m.questsDone} of ${m.quests} class quests done.`}"><span class="cseal"></span>
+        <span class="clabel below"><span class="cname">${m.complete ? "The road walked" : "The road's end"}</span><span class="csub">${m.unknown ? `${m.quests} quests` : `${m.questsDone} of ${m.quests} quests`}</span></span></button>`;
   }
   function renderClass() {
-    const m = classModel();
+    const m = classModel(), nx = classNext(m);
     if (!ui.classSel) ui.classSel = (m.road.find(s => s.state !== "done") || { id: "end" }).id;
+    const count = m.unknown ? `Road ? of ${m.road.length} · Side paths ? of ${m.side.length}` : `Road ${m.roadDone} of ${m.road.length} · Side paths ${m.sideDone} of ${m.side.length}`;
     content.innerHTML = `<div class="cjourney ${ui.wide ? "wide" : ""}"><div class="cstrip"><div class="scroll" id="scroll">
         <div class="cplaque ${m.complete ? "done" : ""}"><span class="ctitle">${CLASS_ROAD.title}</span>
-          <span class="ccount">Road ${m.roadDone} of ${m.road.length} · Side paths ${m.sideDone} of ${m.side.length}</span></div>
+          <span class="ccount">${count}</span><span class="cnext ${nx.done ? "done" : ""} ${m.unknown ? "unk" : ""}">${esc(nx.text)}</span></div>
         <div class="cmap" style="aspect-ratio:${CLASS_ROAD.W} / ${CLASS_ROAD.H}">${classStrip(m)}${classNodes(m)}</div></div></div>
       <div class="cdetailpane" id="detailpane"></div></div>`;
     renderStopInto($("#detailpane"), m, ui.classSel);
   }
+  // The header: the stop's zone art behind it (round 2), dimmed and greyed while the stop is later.
+  function heroHtml(cls, art, kicker, title, sub, score) {
+    return `<div class="chero ${cls}"><img class="cheroart" src="zone-art/${art}.png" alt="" onerror="this.remove()"><div class="chshade"></div>
+      <div class="chinfo"><div><div class="ckicker">${kicker}</div><h1>${title}</h1><div class="csubline">${sub}</div></div><div class="cscore">${score}</div></div></div>`;
+  }
+  // A finished stop (or the road walked) wears the quests medal from the celebration (owner,
+  // 2026-11-09): cel-seal-quests inside cel-laurel, small, in place of a check and "Done".
+  const doneMedal = () => `<span class="cmedal" title="Done">${celPiece("cel-seal-quests", "seal", "!")}${celPiece("cel-laurel", "laurel")}</span>`;
   function renderStopInto(box, m, id) {
+    const nx = classNext(m);
     if (id === "end") {
-      const pct = m.quests ? m.questsDone / m.quests : 0;
-      box.innerHTML = `<div class="chero ${m.complete ? "done" : ""}"><div class="chlight"></div><div class="chinfo"><div><div class="ckicker">Paladin · ${esc(CHAR.race)}</div>
-        <h1>${m.complete ? "The Paladin's Road, walked" : CLASS_ROAD.title}</h1><div class="csubline">${m.complete ? "Every class quest you can do is done" : "Every class quest you can do, from Northshire to the Charger"}</div></div>
-        <div class="cscore">${m.complete ? `<b class="gold">✓</b>` : `<b>${m.questsDone}</b><small>of ${m.quests} quests</small>`}</div></div></div>
-        <div class="cbody"><div class="scroll" id="detailscroll">
+      const pct = m.quests && !m.unknown ? m.questsDone / m.quests : 0;
+      const score = m.complete ? doneMedal() : m.unknown ? `<b class="dim">?</b><small>of ${m.quests} quests, not known</small>` : `<b>${m.questsDone}</b><small>of ${m.quests} quests</small>`;
+      box.innerHTML = heroHtml(m.complete ? "done" : "", CLASS_ROAD.stops[0].art, `Paladin · ${esc(CHAR.race)}`,
+        m.complete ? "The Paladin's Road, walked" : CLASS_ROAD.title, m.complete ? "Every class quest you can do is done" : "Every class quest you can do, stop by stop", score)
+        + `<div class="cbody"><div class="scroll" id="detailscroll">
         <div class="cbar ${m.complete ? "complete" : ""}"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
-        <h2 class="section" data-group>The road <small>${m.roadDone} of ${m.road.length} stops</small></h2>${m.road.map(stopRow).join("")}
-        <h2 class="section" data-group>Side paths <small>${m.sideDone} of ${m.side.length} · optional, but they count</small></h2>${m.side.map(stopRow).join("")}
+        <h2 class="section" data-group>The road <small>${m.unknown ? "?" : m.roadDone} of ${m.road.length} stops</small></h2>${m.road.map(s => stopRow(s, nx)).join("")}
+        <h2 class="section" data-group>Side paths <small>${m.unknown ? "?" : m.sideDone} of ${m.side.length} · optional, but they count</small></h2>${m.side.map(s => stopRow(s, nx)).join("")}
         <div class="qfoot"><span class="qnote">Raid and dungeon class quests (gear turn-ins, Quel'Serrar, Dire Maul books) aren't on the road: they belong to the Dungeons tab. Quests that are another race's version of a stop, and repeatable turn-ins, never count.</span></div></div></div>`;
       return;
     }
     const s = m.stops.find(x => x.id === id); if (!s) return;
     const pos = s.kind === "road" ? `Stop ${m.road.indexOf(s) + 1} of ${m.road.length} on the road` : `Side path off ${esc(m.stops.find(x => x.id === s.from).name)}`;
-    const score = s.state === "done" ? `<b class="gold">✓</b><small>Done</small>` : s.state === "later" ? `<b class="dim">${s.lv}</b><small>opens at level</small>` : `<b>${s.d}</b><small>of ${s.n} quests</small>`;
-    const firstOpen = s.steps.findIndex((q, k) => k >= s.d);
-    // Quests that share a name (The Tome of Divinity x9) get "part n of m" so the rows read apart.
-    const same = {}, seen = {};
-    s.steps.forEach(q => { same[q[1]] = (same[q[1]] || 0) + 1; });
-    s.steps = s.steps.map(q => same[q[1]] > 1 ? [q[0], `${q[1]} · part ${seen[q[1]] = (seen[q[1]] || 0) + 1} of ${same[q[1]]}`, q[2], q[3], q[4]] : q);
-    const rows = s.steps.map((q, k) => {
-      const st = k < s.d ? "done" : s.state === "later" ? "later" : k === firstOpen ? "next" : "after";
-      const icon = { done: "✓", next: "●", after: "○", later: "🔒" }[st];
-      return `<button class="cstep focusable st-${st}" data-step="${q[0]}" data-tip="<b>${esc(q[1])}</b>${st === "done" ? "Done. " : st === "next" ? "Your next step. " : ""}${esc(q[2])} · ${esc(q[3])}. Level ${q[4]}. Quest ${q[0]}.">
-        <span class="cicon">${icon}</span><span class="cqname">${esc(q[1])}<small>${esc(q[2])} · ${esc(q[3])}</small></span><span class="cqlv">Lv ${q[4]}</span></button>`;
+    const togo = s.lv - CHAR.level;
+    const score = s.state === "done" ? doneMedal() : s.state === "unknown" ? `<b class="dim">?</b><small>of ${qn(s.n)}, not known</small>`
+      : s.state === "later" ? `<b class="dim">${togo}</b><small>level${togo === 1 ? "" : "s"} to go</small>` : `<b>${s.d}</b><small>of ${qn(s.n)}</small>`;
+    // Round 2: quests that share a name (The Tome of Divinity x8) lead with who and where, and every
+    // step is numbered in its ring; sub-quests sit in place, unnumbered and not counted.
+    const same = {}; counted(s).forEach(q => { same[q[1]] = (same[q[1]] || 0) + 1; });
+    let num = 0, nextGiven = false;
+    const rows = s.steps.map(q => {
+      const sub = q[5] === "sub", isDone = s.done.has(q[0]);
+      if (!sub) num++;
+      let st = s.state === "unknown" ? "unknown" : isDone ? "done" : s.state === "later" ? "later" : nextGiven ? "after" : (nextGiven = true, "next");
+      if (sub && st !== "done") st = "sub";
+      const icon = st === "done" ? "✓" : st === "unknown" ? "?" : sub ? "·" : num;
+      const where = `${q[2]} · ${zoneOfPlace(q[3]) ? q[3] : q[3]}`;
+      const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+      const lead = same[q[1]] > 1 && !sub ? [cap(where), q[1]] : [q[1], where];
+      const lv = sub ? "not counted" : q[4] > s.lv ? `from ${q[4]}` : "";
+      const tip = `<b>${esc(q[1])}</b>${st === "done" ? "Done. " : st === "next" ? "Your next step. " : sub ? "Done inside the step before it; not counted (QuestieDB flags it repeatable). " : ""}${esc(q[2])} · ${esc(q[3])}.${q[4] > s.lv ? ` From level ${q[4]}.` : ""}`;
+      return `<button class="cstep focusable st-${st}" data-step="${q[0]}" data-tip="${tip}">
+        <span class="cicon">${icon}</span><span class="cqname">${esc(lead[0])}<small>${esc(lead[1])}</small></span><span class="cqlv">${lv}</span></button>`;
     }).join("");
-    box.innerHTML = `<div class="chero st-${s.state}"><div class="chlight"></div><div class="chinfo"><div><div class="ckicker">${pos}</div>
-      <h1>${esc(s.name)}</h1><div class="csubline">Reward: ${esc(s.reward)}</div></div><div class="cscore">${score}</div></div></div>
-      <div class="cbody"><div class="scroll" id="detailscroll">
-      <div class="cfacts"><div><span class="rk">Where it starts</span>${esc(s.start)}</div><div><span class="rk">Level</span>${s.lv}${s.state === "later" ? ` · ${s.lv - CHAR.level} levels to go` : ""}</div>
-        <div><span class="rk">State</span><span class="cst st-${s.state}">${C_STATE[s.state]}</span></div></div>
-      ${s.flag ? `<div class="cflag">${esc(s.flag)}</div>` : ""}
-      <h2 class="section" data-group>Steps <small>${s.d} of ${s.n} done</small></h2><div class="csteps">${rows}</div>
-      ${s.optional ? `<h2 class="section" data-group>Optional lead-in <small>not counted</small></h2><div class="csteps">${s.optional.map(q => `<button class="cstep focusable st-after opt" data-step="${q[0]}" data-tip="<b>${esc(q[1])}</b>A lead-in that sends you to this stop; it doesn't count. ${esc(q[2])} · ${esc(q[3])}.">
-        <span class="cicon">›</span><span class="cqname">${esc(q[1])}<small>${esc(q[2])} · ${esc(q[3])}</small></span><span class="cqlv">Lv ${q[4]}</span></button>`).join("")}</div>` : ""}
-      ${s.alt ? `<p class="fdesc">${esc(s.alt)}</p>` : ""}
-      <div class="qfoot"><span class="qnote">Steps and starters from QuestieDB and the curated journey; done or not is read from the game.</span></div></div></div>`;
+    const leadins = (s.leadins || []).map(q => `<button class="cstep focusable st-${s.done.has(q[0]) ? "done" : "after"} opt" data-step="${q[0]}" data-tip="<b>${esc(q[1])}</b>${esc(q[5])} ${esc(q[2])} · ${esc(q[3])}.">
+        <span class="cicon">${s.done.has(q[0]) ? "✓" : "›"}</span><span class="cqname">${esc(q[1])}<small>${esc(q[2])} · ${esc(q[3])}</small></span><span class="cqlv">not counted</span></button>`).join("");
+    box.innerHTML = heroHtml(`st-${s.state}`, s.art, pos, esc(s.name), `Reward: ${esc(s.reward)}`, score)
+      + `<div class="cbody"><div class="scroll" id="detailscroll"><div class="cstopgrid">
+      <div class="caside">
+        <div class="cfacts"><div><span class="rk">Where it starts</span>${esc(shortStart(s.start))}</div><div><span class="rk">Level</span>${s.lv}</div>
+          <div><span class="rk">Travels to</span>${s.travels.map(esc).join(" → ")}</div></div>
+        ${s.flag ? `<div class="cflag">${esc(s.flag)}</div>` : ""}
+        ${s.alt ? `<p class="fdesc">${esc(s.alt)}</p>` : ""}
+      </div>
+      <div class="cmain">
+        ${leadins ? `<h2 class="section" data-group>Start here <small>optional · not counted</small></h2><div class="csteps">${leadins}</div>` : ""}
+        <h2 class="section" data-group>Steps <small>${s.d === null ? "?" : s.d} of ${s.n} done</small></h2><div class="csteps">${rows}</div>
+        <div class="qfoot"><span class="qnote">Steps and starters from QuestieDB and the curated journey; done or not is read from the game.</span></div>
+      </div></div></div></div>`;
   }
-  function stopRow(s) {
-    return `<button class="cstep focusable st-${s.state === "done" ? "done" : s.state === "later" ? "later" : s.state === "progress" ? "next" : "after"}" data-goto="${s.id}" data-tip="${stopTip(s).replace(" A shows the steps.", " A goes to it on the road.")}">
-      <span class="cicon">${s.state === "done" ? "✓" : s.state === "later" ? "🔒" : s.state === "progress" ? "◐" : "○"}</span>
-      <span class="cqname">${esc(s.name)}<small>Level ${s.lv} · ${esc(s.reward)}</small></span><span class="cqlv">${s.d} / ${s.n}</span></button>`;
+  function stopRow(s, nx) {
+    const here = nx && nx.stop === s;
+    return `<button class="cstep focusable st-${s.state === "done" ? "done" : s.state === "later" ? "later" : s.state === "progress" ? "next" : s.state === "unknown" ? "unknown" : "after"}" data-goto="${s.id}" data-tip="${stopTip(s)} A goes to it on the road.">
+      <span class="cicon">${s.state === "done" ? "✓" : s.state === "unknown" ? "?" : s.state === "later" ? "🔒" : s.state === "progress" ? "◐" : "○"}</span>
+      <span class="cqname">${esc(s.name)}${here ? `<em class="youhere">You are here</em>` : ""}<small>Level ${s.lv} · ${esc(s.reward)}</small></span><span class="cqlv">${s.d === null ? "?" : s.d} / ${s.n}</span></button>`;
   }
   function restoreClass() { setFocus($(`.cnode[data-stop="${ui.classSel}"]`) || $(".cnode")); }
 
@@ -1762,6 +1817,7 @@
     repWide: [["A", "A", "Details"], ["X", "X", "Watch"], ["Y", "Y", "Sort"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
     repPage: [["A", "A", "Open"], ["X", "X", "Watch"], ["B", "B", "Reputation"]],
     class: [["A", "A", "Steps"], ["LT", "LT/RT", "Stop"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
+    classSide: [["A", "A", "Steps"], ["DP", "◀▶", "Side path"], ["LT", "LT/RT", "Stop"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
     classSteps: [["DP", "✥", "Step"], ["B", "B", "Road"]],
   };
   function screen() {
@@ -1995,7 +2051,7 @@
         el.classList.add("selected");
         renderStopInto($("#detailpane"), classModel(), ui.classSel);
       }
-      setHints("class");
+      setHints(el.hasAttribute("data-sidepath") ? "classSide" : "class");
     }
     if (ui.wide && ui.tab === "reputation" && el.dataset.faction && Number(el.dataset.faction) !== ui.repSel) {
       ui.repSel = Number(el.dataset.faction);
