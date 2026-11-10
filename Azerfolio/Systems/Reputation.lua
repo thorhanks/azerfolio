@@ -10,9 +10,15 @@
 -- nextReactionThreshold - currentReactionThreshold [verified-ingame, Stormwind].
 -- Met: the faction is in C_Reputation's index list, which holds only met factions
 -- [verified-ingame]. Collapsed headers hide their children, so they are expanded for the read
--- and collapsed again (bottom-up, so indexes don't shift); the watched faction is never touched.
+-- and collapsed again (bottom-up, so indexes don't shift); the watched faction is never touched
+-- by a read.
 -- If a header can't be expanded, a faction not seen is "unknown" (nil), never "not met".
 -- Refreshed on UPDATE_FACTION, debounced. Nothing is saved.
+-- Reputation tab (Phase 12, spec §7.9, §8.10): AllFactions / List / Get give every faction the
+-- game returns data for on this side (seed IDs, every faction a quest reward names, met ones),
+-- with sources and the reach from ns.ReputationRules over every quest with a reward; session
+-- gains against the first read this session (memory only); Watch through
+-- C_Reputation.SetWatchedFactionByID, only when the player asks (X).
 -- Everything above "Live" is pure, so tests can load it without the client.
 local _, ns = ...
 
@@ -151,6 +157,82 @@ function Reputation.Zone(zone, read, met, metComplete, questState)
     return #list > 0 and list or nil
 end
 
+-- Pure: a session gain: the change since the first read this session, or nil (no baseline,
+-- no standing, or no change).
+function Reputation.Gain(base, now)
+    if type(base) ~= "number" or type(now) ~= "number" or now == base then return nil end
+    return now - base
+end
+
+-- Pure: the Reputation tab's factions (spec §7.9, §8.10), in no particular order (sort with
+-- ReputationRules.Sort). o = {
+--   ids = { factionID... } to try (duplicates fine), read(factionID) -> data or nil,
+--   met, metComplete (ReadMet), side ("Alliance"/"Horde"/nil),
+--   catalogue = ReputationRules.Catalogue result, or nil while sources aren't known,
+--   sources = "ready" | "building" | "unavailable" (with reason),
+--   stateOf(questID) -> { completion, eligibility }, classFile,
+--   rivals = { [factionID] = { rivalID... } }, baseline = { [factionID] = standing },
+--   placeName(kind, key, classFile) -> name or nil, isZoneFaction(mapID, factionID) -> bool }
+-- Each: { factionID, name, description, reaction, standing, into, span, left, maxed, atWar,
+--   met, watched, gain, group, raising, unplaced, sources (ReputationRules.Evaluate, each with
+--   name and, for zones, zoneFaction), main (the source it's raised most in), artMap (main's
+--   mapID when it's a zone), reach, rivals = { { factionID, name } }, sourcesStatus }.
+-- Left out: headers (by ID or the data's isHeader), the other side's battleground factions,
+-- and factions the game returns nothing for.
+function Reputation.All(o)
+    local R = ns.ReputationRules
+    local data, order, seen = {}, {}, {}
+    for _, id in ipairs(o.ids or {}) do
+        if not seen[id] then
+            seen[id] = true
+            if R.Shown(id, o.side) then
+                local d = o.read(id)
+                if d and not d.isHeader then data[id] = d; order[#order + 1] = id end
+            end
+        end
+    end
+    local out = {}
+    for _, id in ipairs(order) do
+        local d = data[id]
+        local f = Reputation.Standing(d)
+        f.factionID, f.name = id, d.name
+        f.description = type(d.description) == "string" and d.description ~= "" and d.description or nil
+        f.watched = d.isWatched == true
+        if f.into and f.span and not f.maxed then f.left = f.span - f.into end
+        if o.met and o.met[id] then f.met = true elseif o.metComplete then f.met = false end
+        f.gain = Reputation.Gain(o.baseline and o.baseline[id], f.standing)
+        f.rivals = {}
+        local rivalIDs = {}
+        for _, r in ipairs(o.rivals and o.rivals[id] or {}) do
+            if data[r] then
+                f.rivals[#f.rivals + 1] = { factionID = r, name = data[r].name }
+                rivalIDs[#rivalIDs + 1] = r
+            end
+        end
+        f.sourcesStatus = o.sources or "unavailable"
+        local fc = o.catalogue and o.catalogue[id]
+        if o.catalogue then
+            f.group = R.GroupOf(id, fc)
+            f.raising, f.unplaced = fc and fc.raising or 0, fc and fc.unplaced or 0
+            f.sources, f.reach = R.Evaluate(fc, o.stateOf, { classFile = o.classFile,
+                standing = not f.maxed and f.standing or nil, rivals = rivalIDs })
+            for _, s in ipairs(f.sources) do
+                s.name = o.placeName and o.placeName(s.kind, s.key, s.classFile) or nil
+                if s.kind == "zone" and o.isZoneFaction then s.zoneFaction = o.isZoneFaction(s.key, id) and true or false end
+            end
+            f.main = R.Main(f.sources, f.group)
+            f.artMap = f.main and f.main.kind == "zone" and f.main.key or nil
+        else
+            -- Sources unknown: only the home and battleground factions can be placed.
+            local ex = R.EXCLUDED[id]
+            f.group = ex == "home" and "home" or ex == "battleground" and "bgs" or "unknown"
+            f.sources = {}
+        end
+        out[#out + 1] = f
+    end
+    return out
+end
+
 ---------------------------------------------------------------------------------------------
 -- Live
 ---------------------------------------------------------------------------------------------
@@ -164,6 +246,12 @@ local met, metComplete = {}, false
 local lastExpand     -- GetTime() of the last read that expanded headers
 local reading = false -- true while ReadMet runs (its own UPDATE_FACTION, if it fires at once)
 local results = {}   -- [mapID] = Zone result (cleared on every refresh and quest update)
+-- Reputation tab (Phase 12):
+local catalogue      -- ReputationRules.Catalogue over every quest with a reward (nil without QuestieDB)
+local rivalsAll = {} -- [factionID] = { rivalID... }: the zones' rival pairs together
+local readIDs = {}   -- every faction read by ID: zone factions, seeds, the catalogue's, met ones
+local baseline = {}  -- [factionID] = the first standing read this session (session gains)
+local allCache       -- Reputation.All result (cleared on every refresh and quest update)
 
 local function api() return rawget(_G, "C_Reputation") end
 local function now() return type(GetTime) == "function" and GetTime() or 0 end
@@ -188,34 +276,68 @@ local function rewardsOf(id)
     return r and r.rep
 end
 
+-- The tab's catalogue input: every zone quest (counted and repeatable) plus every quest
+-- outside a zone that has a reward (Quests' others pass).
+local function catalogueInput(index)
+    local entries = {}
+    for mapID, z in pairs(index.zones) do
+        for _, id in ipairs(z.ids) do entries[#entries + 1] = { id = id, kind = "zone", key = mapID } end
+        for _, id in ipairs(z.repeats or {}) do entries[#entries + 1] = { id = id, kind = "zone", key = mapID, repeatable = true } end
+    end
+    for _, o in ipairs(index.repOthers or {}) do entries[#entries + 1] = o end
+    return entries
+end
+
+-- The IDs read by ID on every refresh: seeds, zone factions, the catalogue's.
+local function setReadIDs()
+    local seen, list = {}, {}
+    local function add(id) if not seen[id] then seen[id] = true; list[#list + 1] = id end end
+    for _, id in ipairs(ns.ReputationRules.SEED_IDS) do add(id) end
+    for _, id in ipairs(factionIDs or {}) do add(id) end
+    local extra = {}
+    for id in pairs(catalogue or {}) do if not seen[id] then extra[#extra + 1] = id end end
+    table.sort(extra)
+    for _, id in ipairs(extra) do add(id) end
+    readIDs = list
+end
+
 local function build()
     local input = ruleInput()
     if not input then return false end
     zones = ns.ReputationRules.Build(input, rewardsOf)
     factionIDs = {}
+    rivalsAll = {}
     local seen, n = {}, 0
     for _, z in pairs(zones) do
         n = n + 1
         for _, p in ipairs(z.factions) do
             if not seen[p.factionID] then seen[p.factionID] = true; factionIDs[#factionIDs + 1] = p.factionID end
         end
+        for f, list in pairs(z.rivals or {}) do
+            rivalsAll[f] = rivalsAll[f] or {}
+            for _, g in ipairs(list) do
+                local dup = false
+                for _, x in ipairs(rivalsAll[f]) do if x == g then dup = true end end
+                if not dup then table.insert(rivalsAll[f], g) end
+            end
+        end
     end
+    for _, list in pairs(rivalsAll) do table.sort(list) end
     table.sort(factionIDs)
-    state = { status = "ready", zones = n, factions = #factionIDs }
+    catalogue = ns.ReputationRules.Catalogue(catalogueInput(ns.Quests.Index()), rewardsOf)
+    local nc = 0
+    for _ in pairs(catalogue) do nc = nc + 1 end
+    setReadIDs()
+    state = { status = "ready", zones = n, factions = #factionIDs, catalogued = nc }
     return true
 end
 
--- Re-reads standing for every zone faction and the met list. allowExpand = false: don't open
--- collapsed headers (right after our own expansion); factions met earlier stay met.
+-- Re-reads the met list and the standing of every faction read by ID (zone factions, the
+-- tab's). allowExpand = false: don't open collapsed headers (right after our own expansion);
+-- factions met earlier stay met.
 local function refresh(reason, allowExpand)
-    if state.status ~= "ready" then return end
+    if state.status ~= "ready" and state.status ~= "unavailable" then return end
     local C = api()
-    local readCount, missing = 0, 0
-    for _, id in ipairs(factionIDs) do
-        local d = Reputation.ReadFaction(C, id)
-        standings[id] = d or false
-        if d then readCount = readCount + 1 else missing = missing + 1 end
-    end
     local expanded = 0
     if allowExpand ~= false then
         local seen, complete
@@ -231,20 +353,40 @@ local function refresh(reason, allowExpand)
         local seen = Reputation.ReadMet(fake)
         for id in pairs(seen) do met[id] = true end
     end
-    results = {}
-    -- Per faction "reaction standing into/span met|unmet|? [war]", or "none" without data.
+    -- Standing by ID: every ID to read plus every met faction.
+    local ids, isRead = {}, {}
+    for _, id in ipairs(readIDs) do ids[#ids + 1] = id; isRead[id] = true end
+    local extra = {}
+    for id in pairs(met) do if not isRead[id] then extra[#extra + 1] = id end end
+    table.sort(extra)
+    for _, id in ipairs(extra) do ids[#ids + 1] = id end
+    local readCount, missing = 0, 0
+    for _, id in ipairs(ids) do
+        local d = Reputation.ReadFaction(C, id)
+        standings[id] = d or false
+        if d then
+            readCount = readCount + 1
+            if baseline[id] == nil and type(d.currentStanding) == "number" then baseline[id] = d.currentStanding end
+        else
+            missing = missing + 1
+        end
+    end
+    results, allCache = {}, nil
+    -- Per faction "reaction standing into/span met|unmet|? [war] [watched] [+gain]", or "none".
     local each = {}
-    for _, id in ipairs(factionIDs) do
+    for _, id in ipairs(ids) do
         local d = standings[id]
         if d then
             local s = Reputation.Standing(d)
-            each[tostring(id)] = string.format("%d %s %s/%s %s%s", s.reaction, tostring(s.standing), tostring(s.into),
-                tostring(s.span), met[id] and "met" or (metComplete and "unmet" or "?"), s.atWar and " war" or "")
+            local g = Reputation.Gain(baseline[id], s.standing)
+            each[tostring(id)] = string.format("%d %s %s/%s %s%s%s%s", s.reaction, tostring(s.standing), tostring(s.into),
+                tostring(s.span), met[id] and "met" or (metComplete and "unmet" or "?"), s.atWar and " war" or "",
+                d.isWatched and " watched" or "", g and string.format(" %+d", g) or "")
         else
             each[tostring(id)] = "none"
         end
     end
-    ns.Debug.Trace("reputation", { refresh = reason, factions = #factionIDs, read = readCount, missing = missing,
+    ns.Debug.Trace("reputation", { refresh = reason, factions = #(factionIDs or {}), ids = #ids, read = readCount, missing = missing,
         metComplete = metComplete, expanded = expanded, standing = each })
     ns.Events.Send("AZF_REPUTATION_UPDATED")
 end
@@ -300,6 +442,115 @@ end
 
 -- The zone-faction table itself (debug and tests): [mapID] = { factions, rivals }, or nil.
 function Reputation.Zones() return zones end
+
+---------------------------------------------------------------------------------------------
+-- Reputation tab (Phase 12, spec §7.9, §8.10)
+---------------------------------------------------------------------------------------------
+
+-- A place's name: zones and areas from the client (C_Map), classes from the client's class
+-- names, sorts from ReputationRules.SORT_NAMES. nil when the client has none.
+local function placeName(kind, key, classFile)
+    local C = rawget(_G, "C_Map")
+    if kind == "zone" then
+        if not (C and type(C.GetMapInfo) == "function") then return nil end
+        local ok, info = pcall(C.GetMapInfo, key)
+        return ok and type(info) == "table" and info.name or nil
+    end
+    if kind == "class" then
+        local names = rawget(_G, "LOCALIZED_CLASS_NAMES_MALE")
+        return type(names) == "table" and names[classFile] or nil
+    end
+    if type(key) == "number" and key < 0 then return ns.ReputationRules.SORT_NAMES[key] end
+    if type(key) == "number" and C and type(C.GetAreaInfo) == "function" then
+        local ok, name = pcall(C.GetAreaInfo, key)
+        return ok and type(name) == "string" and name ~= "" and name or nil
+    end
+    return nil
+end
+
+local function isZoneFaction(mapID, factionID)
+    for _, p in ipairs(zones and zones[mapID] and zones[mapID].factions or {}) do
+        if p.factionID == factionID then return true end
+    end
+    return false
+end
+
+-- Quest states for the reach: the client's completion and the rules' eligibility, memoised
+-- for one All() build.
+local function stateOfAll()
+    local ctx = ns.Quests.Context()
+    if not ctx then return function() return nil end end
+    local memo = {}
+    return function(id)
+        local s = memo[id]
+        if s == nil then
+            s = { completion = ns.QuestRules.Completion(ctx.completed, id), eligibility = (ns.QuestRules.Evaluate(ctx, id)) }
+            memo[id] = s
+        end
+        return s
+    end
+end
+
+-- Every faction for the tab (see Reputation.All), or nil before the first read (Quests still
+-- building). Sources are "ready" with QuestieDB, else "unavailable" (state.reason says why).
+function Reputation.AllFactions()
+    if state.status ~= "ready" and state.status ~= "unavailable" then return nil end
+    if not allCache then
+        local ids = {}
+        for _, id in ipairs(readIDs) do ids[#ids + 1] = id end
+        for id in pairs(met) do ids[#ids + 1] = id end
+        local c = ns.character or {}
+        allCache = Reputation.All({ ids = ids, read = function(id) return standings[id] or nil end,
+            met = met, metComplete = metComplete, side = c.faction,
+            catalogue = state.status == "ready" and catalogue or nil, sources = state.status,
+            stateOf = state.status == "ready" and stateOfAll() or nil, classFile = c.classFile,
+            rivals = rivalsAll, baseline = baseline, placeName = placeName, isZoneFaction = isZoneFaction })
+    end
+    return allCache
+end
+
+-- What the tab shows for a filter ("all"/"met"/"unmet") and a sort ("group"/"closest"/"name"):
+--   { factions = filtered and sorted, groups = ReputationRules.Grouped (sort "group" only),
+--     summary = ReputationRules.Summary of every faction (the standing strip), total,
+--     sources = "ready"|"unavailable", reason }  or nil before the first read.
+function Reputation.List(filter, sort)
+    local all = Reputation.AllFactions()
+    if not all then return nil end
+    local R = ns.ReputationRules
+    local list = R.Sort(R.Filter(all, filter), sort)
+    return { factions = list, groups = sort == "group" and R.Grouped(list) or nil, summary = R.Summary(all),
+        total = #all, sources = state.status, reason = state.reason }
+end
+
+-- One faction of the tab (its page), or nil.
+function Reputation.Get(factionID)
+    for _, f in ipairs(Reputation.AllFactions() or {}) do
+        if f.factionID == factionID then return f end
+    end
+    return nil
+end
+
+-- Watching (X): sets the faction shown on the experience bar. C_Reputation.SetWatchedFactionByID
+-- exists in the client [verified-ingame, probe] but hasn't been called yet [unverified]; 0
+-- clears it [unverified, retail convention]. Offered only for met factions (an unmet one isn't
+-- in the game's list) [inferred]. Open check: docs/open-checks.md.
+function Reputation.CanWatch(f)
+    local C = api()
+    return type(C) == "table" and type(C.SetWatchedFactionByID) == "function" and type(f) == "table" and f.met == true
+end
+
+-- Watch (on = true) or stop watching a faction. Returns true when the call went through (the
+-- tab shows the game's isWatched after the next read), or false and a reason.
+function Reputation.SetWatched(factionID, on)
+    local C = api()
+    if type(C) ~= "table" or type(C.SetWatchedFactionByID) ~= "function" then return false, "unsupported" end
+    local ok, err = pcall(C.SetWatchedFactionByID, on and factionID or 0)
+    ns.Debug.Trace("reputation", { watch = factionID, on = on and true or false, ok = ok, err = not ok and tostring(err) or nil })
+    if not ok then return false, "error" end
+    -- The client may or may not fire UPDATE_FACTION for this; read again either way.
+    ns.Events.Debounce("reputation", Reputation.REFRESH_DELAY, function() refresh("watch", false) end)
+    return true
+end
 
 -- /azf debug reputation [mapID|questID ...]: the zone factions with their quest IDs, every
 -- faction the rule saw in the watched zones (kept or not, with the share), and where the
@@ -398,10 +649,12 @@ end
 ns.Events.On("AZF_QUESTS_UPDATED", function()
     local qs = ns.Quests.State()
     if qs.status == "unavailable" then
+        -- No zone factions and no sources; the tab still lists standing (seeds and met ones).
         state = { status = "unavailable", reason = qs.reason }
+        zones, catalogue, factionIDs, rivalsAll = nil, nil, nil, {}
+        setReadIDs()
         ns.Debug.Trace("reputation", { status = "unavailable", reason = qs.reason })
-        ns.Events.Send("AZF_REPUTATION_UPDATED")
-        return
+        return refresh("unavailable")
     end
     if state.status ~= "ready" then
         if not build() then return end
@@ -418,12 +671,12 @@ ns.Events.On("AZF_QUESTS_UPDATED", function()
         ns.Debug.Trace("reputation", { status = "ready", zones = state.zones, factions = state.factions, list = each })
         return refresh("build")
     end
-    -- Quest states changed (turn-in, level): the faction pages' quest lists.
-    results = {}
+    -- Quest states changed (turn-in, level): the faction pages' quest lists and the reach.
+    results, allCache = {}, nil
 end)
 
 ns.Events.Register("UPDATE_FACTION", function()
-    if state.status ~= "ready" then return end
+    if state.status ~= "ready" and state.status ~= "unavailable" then return end
     local quiet = reading or (lastExpand and now() - lastExpand < Reputation.EXPAND_QUIET)
     ns.Events.Debounce("reputation", Reputation.REFRESH_DELAY, function()
         refresh("UPDATE_FACTION", not quiet)

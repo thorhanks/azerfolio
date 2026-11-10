@@ -16,6 +16,7 @@
 --   reps check             Azerfolio's Systems/ReputationRules.lua on the same rows must match `reps rule`
 --   reps rivals            per zone, faction pairs where a quest raises one and lowers the other
 --   reps quests <zone filter> <factionID>  the zone's quests that raise that faction
+--   reps tab               the Reputation tab's catalogue: every faction's group and sources (ReputationRules)
 -- Set AZF_QDB_TOC to read a different TOC.
 local bit = require("bit")
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/QuestieDB/QuestieDB_Forever.toc"
@@ -428,6 +429,62 @@ elseif cmd == "reps" then
             table.sort(parts)
             print(string.format("%-5d %-22s %s", z, tostring(zoneName[z]), table.concat(parts, "; ")))
         end
+        return
+    end
+    if filter == "tab" then
+        -- tab: the Reputation tab's catalogue (Azerfolio's ReputationRules.Catalogue, GroupOf,
+        -- SourceList) over every quest with a reward, placed like Quests.Place. Base rows, both
+        -- sides, repeatables not told apart.
+        local rows, tabs = load(function(_, f) return f == 26 end)
+        local fakeNs, areaNs = {}, {}
+        assert(loadfile("Azerfolio/Systems/ReputationRules.lua"))("Azerfolio", fakeNs)
+        assert(loadfile("Azerfolio/Data/QuestAreas.lua"))("Azerfolio", areaNs)
+        local R, A = fakeNs.ReputationRules, areaNs.QuestAreaData
+        local entries = {}
+        for id, row in pairs(rows) do
+            local v = row[17]
+            local kind, key
+            if type(v) ~= "number" or v == 0 then kind = "nozone"
+            elseif v < 0 then kind, key = "sort", v
+            elseif A.zone[v] then kind, key = "zone", A.zone[v]
+            elseif A.dungeon[v] then kind, key = "dungeon", v
+            elseif A.raid[v] then kind, key = "raid", v
+            elseif A.battleground[v] then kind, key = "battleground", v
+            else kind, key = "unmapped", v end
+            if not (A.excludedQuests and A.excludedQuests[id]) then entries[#entries + 1] = { id = id, kind = kind, key = key } end
+        end
+        local cat = R.Catalogue(entries, function(id) return tabs[id] and tabs[id][26] end)
+        local byGroup = {}
+        for f, fc in pairs(cat) do
+            local g = R.GroupOf(f, fc)
+            byGroup[g] = byGroup[g] or {}
+            table.insert(byGroup[g], { f = f, fc = fc })
+        end
+        local function label(src)
+            local k = src.key
+            if src.kind == "zone" then return tostring(zoneName[k] or k) end
+            if src.kind == "class" then return src.classFile end
+            if type(k) == "number" and k < 0 then return R.SORT_NAMES[k] or ("sort " .. k) end
+            local z = zoneOf[k]
+            return type(z) == "string" and z:gsub("^%a+:", "") or tostring(k)
+        end
+        local n = 0
+        for _, g in ipairs(R.GROUPS) do
+            local list = byGroup[g] or {}
+            table.sort(list, function(a, b) return a.fc.raising > b.fc.raising or (a.fc.raising == b.fc.raising and a.f < b.f) end)
+            if #list > 0 then print(string.format("== %s (%d)", g, #list)) end
+            for _, x in ipairs(list) do
+                n = n + 1
+                local parts = {}
+                for i, src in ipairs(R.SourceList(x.fc)) do
+                    if i > 4 then parts[#parts + 1] = "..."; break end
+                    parts[#parts + 1] = string.format("%s %s %d", src.kind, label(src), #src.quests)
+                end
+                print(string.format("%5d %-30s %4d raising, %3d unplaced: %s", x.f, tostring(names[x.f] or "?"), x.fc.raising,
+                    x.fc.unplaced, table.concat(parts, "; ")))
+            end
+        end
+        print(string.format("%d factions raised by quests (base rows)", n))
         return
     end
     local rows, tabs = load(function(_, f) return f == 26 end)

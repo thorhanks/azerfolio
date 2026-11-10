@@ -69,6 +69,10 @@ Owner's choice: derive from quest rewards, with no hand-curated table. Draft rul
 - The game's Reputation window lists only each character's home factions (four each), so "Not met yet" on every zone faction agrees with it. A met zone faction's numbers against the window, and a refresh after a turn-in that raises a zone faction, are still unchecked: neither character has one yet.
 - Thragor's ledger in Stranglethorn: the Horde standard, Booty Bay and Bloodsail as for Gideon, 86 quests counted for the Horde side.
 
+## Reputation tab catalogue (Phase 12, offline, 2026-11-09) [verified-files]
+
+`luajit tools/qdb.lua reps tab` runs `ReputationRules.Catalogue` and `GroupOf` over every quest with a reward (base rows, both sides): 51 factions raised by quests. Home 10 (the home factions and both side headers), Zones 21, Dungeons & raids 3 (Brood of Nozdormu: Ahn'Qiraj 52 against 34 in zones; Zandalar Tribe; Shen'dralar), Battlegrounds 8, Professions 7 (Azeroth Commerce Authority and Durotar Supply and Logistics from Forever's Crafting area 16941; five Leatherworking/Engineering factions 83, 86, 549, 550, 551 with 1-2 quests), Class and events 2 (Darkmoon Faire, Ravenholdt). Argent Dawn is Zones (107 zone quests against 92 in Naxxramas and dungeons), as the mockup had it. Quest sorts come from QuestieDB's `sortKeys` enum (`src/corrections/enum/quests.lua`). Factions no quest raises (Barkskin Burrow, Cenarion Scouts, ...) come only from the seed list and show as "No known quests".
+
 ## Open questions
 
 1. *(Decided: derive from quest rewards, rule above.)*

@@ -19,6 +19,14 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | R5 | "At war" follows the game's At War box | Ticking At War on a met zone faction in the game's window | `/azf shot` of the ledger: the red "At war" tag appears |
 | R6 | Exalted shows no numbers and the marker at the end of the bar | A zone faction at Exalted | `/azf shot` of the ledger |
 
+## Reputation tab (Phase 12)
+
+| ID | What to confirm | When it comes up | How to check |
+|---|---|---|---|
+| T1 | X on a met faction puts it on the experience bar (`C_Reputation.SetWatchedFactionByID`), X again clears it (the addon passes 0) | Any time, once the tab is built (Gideon: Stormwind) | Debug on, X on Stormwind, `/azf shot`, X again, `/reload`, `luajit tools/trace-report.lua reputation`: a `watch` entry with ok, and the next refresh showing ` watched` then not |
+| T2 | "+n today" shows a gain seen this session, and nothing after a `/reload` | A quest turn-in that raises any faction | Turn in, open the tab: the tag on that faction; trace-report reputation shows the `+n` |
+| T3 | Whether an unmet faction can be watched (the addon offers X only for met ones) | Any time | Same as T1 on Booty Bay, with the check lifted, or ask the game's Reputation window |
+
 ## Celebrations (Phase 10)
 
 | ID | What to confirm | When it comes up | How to check |

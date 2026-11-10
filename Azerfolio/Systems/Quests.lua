@@ -24,6 +24,7 @@ Quests.CATEGORY = "quests"
 Quests.CONTRACT = 4      -- QuestieDB contract this was written against [verified-ingame]
 Quests.BATCH = 500       -- index pass: quests per frame (3 reads each; 8.6 ms for 5,233 in game)
 Quests.DETAIL_BATCH = 50 -- details pass: quests per frame (20 reads each; 100 gave one 15.7 ms frame)
+Quests.DETAIL_READS = 20 -- reads in one full record (the others pass budgets by reads)
 Quests.START_DELAY = 5   -- seconds after AZF_READY: after the exploration baseline (3 s)
 Quests.REFRESH_DELAY = 1 -- after QUEST_TURNED_IN, so the completed list has the quest [unverified]
 
@@ -81,11 +82,15 @@ end
 --   instances[areaID] = { kind = "dungeon"|"raid", ids }  kept for a Dungeons tab later
 --   left[reason] = n          quests left out of zone counts, by reason (Quests.REASONS)
 --   unmapped[areaID] = n      quests per unmapped area; sorts[sortID] = n
+--   others = { { id, kind, key, repeatable } }  every quest outside a zone (Quests.Place kind
+--                  and key), for the Reputation tab's sources; repOthers = the ones with a
+--                  reputation reward (filled by the builder's last pass)
 --   total = quests seen, counted = quests in a zone
 function Quests.NewIndex()
     local left = {}
     for _, r in ipairs(Quests.REASONS) do left[r] = 0 end
-    return { zones = {}, instances = {}, left = left, unmapped = {}, sorts = {}, total = 0, counted = 0 }
+    return { zones = {}, instances = {}, left = left, unmapped = {}, sorts = {}, others = {}, repOthers = {},
+        total = 0, counted = 0 }
 end
 
 local function zoneOf(index, mapID)
@@ -114,9 +119,12 @@ function Quests.Add(index, id, zoneOrSort, specialFlags, areas, ok, questFlags)
             local z = zoneOf(index, key)
             z.repeatable = z.repeatable + 1
             z.repeats[#z.repeats + 1] = id
+        else
+            index.others[#index.others + 1] = { id = id, kind = kind, key = key, repeatable = true }
         end
         return "repeatable"
     end
+    if kind ~= "zone" then index.others[#index.others + 1] = { id = id, kind = kind, key = key } end
     if kind == "zone" then
         local z = zoneOf(index, key)
         z.ids[#z.ids + 1] = id
@@ -185,12 +193,13 @@ end
 
 -- Pure: a builder that reads `ids` through the reader table Q (QuestieDB's Quest API) in
 -- steps: the index first, then details for every quest in a zone (repeatables too, for their
--- reputation rewards). builder.Step(n, d) reads up
+-- reputation rewards), then the reputation reward of every quest outside a zone (details for
+-- those that have one: the Reputation tab's sources). builder.Step(n, d) reads up
 -- to n quests in the index pass or d in the details pass (defaults BATCH, DETAIL_BATCH) and
 -- returns true when both passes are done. Every read is pcall'd; a quest whose index read fails counts as "error".
 function Quests.Builder(Q, ids, areas)
     local index, pos = Quests.NewIndex(), 0
-    local details, todo, dpos = {}, nil, 0
+    local details, todo, dpos, opos = {}, nil, 0, 0
     local b = { index = index, details = details, steps = 0, phase = "index" }
     local qf = type(Q.questFlags) == "function" and Q.questFlags or nil
     function b.Step(n, d)
@@ -218,16 +227,37 @@ function Quests.Builder(Q, ids, areas)
             end
             return false
         end
-        local last = math.min(#todo, dpos + math.max(1, d or Quests.DETAIL_BATCH))
-        for i = dpos + 1, last do
-            details[todo[i]] = Quests.ReadDetails(Q, todo[i])
+        if b.phase == "details" then
+            local last = math.min(#todo, dpos + math.max(1, d or Quests.DETAIL_BATCH))
+            for i = dpos + 1, last do
+                details[todo[i]] = Quests.ReadDetails(Q, todo[i])
+            end
+            dpos = last
+            if dpos < #todo then return false end
+            b.phase = "others" -- and start it in this step
         end
-        dpos = last
-        if dpos >= #todo then b.phase = "done"; return true end
+        -- Quests outside zones: one read for the reputation reward; the full record only for
+        -- the few that have one. Budget in reads per step (a full record is about 20).
+        local others, rr = index.others, Q.reputationReward
+        if type(rr) ~= "function" then b.phase = "done"; return true end
+        local budget = math.max(1, d or Quests.DETAIL_BATCH) * Quests.DETAIL_READS
+        while opos < #others and budget > 0 do
+            opos = opos + 1
+            local o = others[opos]
+            local ok, rep = pcall(rr, o.id)
+            budget = budget - 1
+            if ok and type(rep) == "table" and next(rep) ~= nil then
+                details[o.id] = details[o.id] or Quests.ReadDetails(Q, o.id)
+                index.repOthers[#index.repOthers + 1] = o
+                budget = budget - Quests.DETAIL_READS
+            end
+        end
+        if opos >= #others then b.phase = "done"; return true end
         return false
     end
     function b.Progress()
         if b.phase == "index" then return pos, #ids, "index" end
+        if b.phase == "others" or b.phase == "done" then return opos, #index.others, b.phase end
         return dpos, todo and #todo or 0, b.phase
     end
     return b
@@ -497,6 +527,7 @@ local function finish(b, started, maxStep)
         maxStepMs = round(maxStep), workMs = round(b.workMs), elapsedMs = round(ms) }
     local i = b.index
     ns.Debug.Trace("quests", { status = "ready", total = i.total, counted = i.counted, left = i.left,
+        others = #i.others, repOthers = #i.repOthers,
         steps = b.steps, workMs = state.workMs, maxStepMs = state.maxStepMs, completedKnown = completed ~= nil })
     ns.Events.Send("AZF_QUESTS_UPDATED")
 end

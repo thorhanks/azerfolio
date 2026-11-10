@@ -57,7 +57,7 @@ Read before working:
 - Link addons: `powershell -File tools/link-addons.ps1` (`-Unlink` to remove)
 - Tests: `luajit tests/run.lua` (from repo root)
 - Read the addon's trace: `luajit tools/trace-report.lua [summary|last [n]|quests|zone <mapID>|perf|reputation|kind <name> [n]]`
-- QuestieDB offline (base rows, no corrections): `luajit tools/qdb.lua [quest <id>...|area <areaID>|name <text>|stats|npc <id>...|rares [areaID|all]|objects <text|*> [areaID]|recipes [areaID]|reps [zone filter|rule|check|rivals|quests <zone> <factionID>]]`
+- QuestieDB offline (base rows, no corrections): `luajit tools/qdb.lua [quest <id>...|area <areaID>|name <text>|stats|npc <id>...|rares [areaID|all]|objects <text|*> [areaID]|recipes [areaID]|reps [zone filter|rule|check|rivals|tab|quests <zone> <factionID>]]`
 - Read the diagnostic dump: `luajit tools/diag-report.lua [summary|env|explore|criteria <achID>|maps|zone|events|log [n]|quests|questdb [areas]|art|ns <filter>|reps|errors]`
 - Diagnostics in game: `/azfdiag` (help), `/azfdiag all`, `/azfdiag zone`, `/azfdiag zones` (level ranges, map rects; report `zones`), `/azfdiag questdb` (QuestieDB API, read cost, corrections, race masks, quest areas; report `questdb [areas]`), `/azfdiag reps` (faction APIs and list; report `reps`), `/azfdiag sniff`, `/azfdiag art`, `/azfdiag skin` (native frame textures; report `skin [tree [filter]]`)
 - Addon in game: `/azf help`, `/azf status`, `/azf debug [zone|exploration|zones|overview|quests [full]|reputation [mapID|questID...]|perf [gc|reset]]`, `/azf refresh`, `/azf shot`, `/azf shots` (screenshots every tab and state), `/azf shots banners`, `/azf shots reputation`

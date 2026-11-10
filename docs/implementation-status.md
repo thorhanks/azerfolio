@@ -28,9 +28,10 @@ In-game checks that wait on real play (a first-time faction, a level-60 characte
 
 ## Phase 12: Reputation tab (v1.4)
 
-Plan §6 Phase 12, spec §7.9 and §8.10. Next: task 3, systems (`ReputationRules`, `Reputation.All`).
+Plan §6 Phase 12, spec §7.9 and §8.10. Next: task 4, the UI (`UI/Pages/Reputation.lua`).
 
 - 2026-11-09, mockup approved by the owner; task 2, plan and spec (done): Phase 12 tasks, decision-log rows (approved mockup, the reach rule, Watch as the one player-requested change to reputation UI state), spec §7.9, §8.10 and v1.4 acceptance criteria.
+- 2026-11-09, task 3, systems (done, in-game check with the UI): `Quests` keeps every quest outside a zone (`index.others`) and a last build pass reads their reward (one read each, full record only with a reward: `repOthers`). `ReputationRules`: seed IDs, side and header filter, source kinds from QuestieDB's sort enum (class, profession, event; Crafting area 16941 = profession), `Catalogue`, `GroupOf`, `Main`, `Evaluate` (per-source counts, reach from eligible or locked one-time quests not done, capped at 42,999, repeatables and unknowns counted apart, other class "not for you"), sorts, filters, `Summary`, `Grouped`. `Reputation.AllFactions / List / Get`, session gains against the first read, `CanWatch` / `SetWatched` (pcall; open checks T1-T3); still lists standing without QuestieDB. `qdb.lua reps tab`: 51 quest-raised factions, groups as the mockup ([research](research/reputation.md)). Tests 260 pass.
 
 - 2026-11-09, design analysis and mockup round 1 (awaiting review): a Reputation tab with every faction the game returns data for (34 for Gideon), grouped by where their quests are, a standing strip, and a faction page with the reach (what the quests left would bring), the rival seesaw, where to raise it, X to watch. Spec in `mockups/DESIGN.md` "Reputation tab". Probe: the other side's battleground factions return data (Hated), so they're filtered by side.
 - 2026-11-09, art: prompts for `icon-reputation`, `frame-plaque` and eight `rep-<reaction>` emblems (metal climbing iron → gold) in art/prompts.md; `process-art.ps1` knows them (plaque nine-slice 256×128, emblems 128×128 keyed). Mockup shows glyph stand-ins until the art exists. Owner: Exalted is gold (decision log); the Lua zone ledger still draws Exalted green (`Theme` reaction colours) until the Lua step.
