@@ -422,8 +422,9 @@ local function newNode(parent)
     function b:SetFocused(on) self.focused = on; self:Paint() end
     function b:SetSelected(on) self.selected = on; self:Paint() end
     W.HoverInfo(b)
-    lab:SetScript("OnEnter", function() if b.item then ns.UI.SetInfo(b.item.title, b.item.detail) end end)
-    lab:SetScript("OnLeave", function() ns.UI.RestoreInfo() end)
+    -- The label hovers as its node does (same gamepad rule: W.HoverInfo).
+    lab:SetScript("OnEnter", function() local f = b:GetScript("OnEnter"); if f then f(b) end end)
+    lab:SetScript("OnLeave", function() local f = b:GetScript("OnLeave"); if f then f(b) end end)
     b:SetScript("OnClick", function(self) if self.onClick then self.onClick() end end)
     lab:SetScript("OnClick", function() if b.onClick then b.onClick() end end)
     return b
@@ -598,9 +599,30 @@ local function build(parent)
     plaque.next:SetWordWrap(true)
     if plaque.next.SetMaxLines then plaque.next:SetMaxLines(2) end
     page.plaque = plaque
+    -- The road overview rail (review item 13): the whole road at a glance at the strip's right
+    -- edge, fixed while the map scrolls. Dots per stop, your ring, the road's end, the view.
+    local rail = CreateFrame("Frame", nil, strip)
+    rail:SetPoint("TOPRIGHT", plaque, "BOTTOMRIGHT", 0, 0)
+    rail:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", -1, 0)
+    rail:SetWidth(CT.rail)
+    T.Solid(rail, "black", "BACKGROUND", 0.7):SetAllPoints()
+    local redge = T.Solid(rail, "divider", "BORDER")
+    redge:SetPoint("TOPLEFT"); redge:SetPoint("BOTTOMLEFT"); redge:SetWidth(1)
+    rail.track = CreateFrame("Frame", nil, rail)
+    rail.track:SetPoint("TOPLEFT", 0, -CT.railPad); rail.track:SetPoint("BOTTOMRIGHT", 0, CT.railPad)
+    rail.line = T.Solid(rail.track, "classBead", "BORDER")
+    rail.line:SetPoint("TOP"); rail.line:SetPoint("BOTTOM"); rail.line:SetWidth(CT.railLine)
+    rail.view = CreateFrame("Frame", nil, rail.track)
+    rail.view:SetPoint("LEFT", 2, 0); rail.view:SetPoint("RIGHT", -2, 0)
+    T.Solid(rail.view, "classBeadOn", "BACKGROUND", 0.08):SetAllPoints()
+    rail.viewEdge = W.Edge(rail.view, "BORDER")
+    rail.viewEdge:SetColor("classBeadOn", 0.75)
+    rail.view:SetFrameLevel(rail.track:GetFrameLevel() + 3)
+    rail.dots = {}
+    page.rail = rail
     local mscroll = W.Scroll(strip)
     mscroll:SetPoint("TOPLEFT", plaque, "BOTTOMLEFT", S.s2, -S.s2)
-    mscroll:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", -S.s2, S.s2)
+    mscroll:SetPoint("BOTTOMRIGHT", rail, "BOTTOMLEFT", -S.s2, S.s2)
     local map = mscroll.child
     page.map, page.mscroll = map, mscroll
     -- The sky: one gradient band between each pair of colour stops.
@@ -761,7 +783,8 @@ local function build(parent)
 
     -- The map, its road, beads, nodes and the road's end. Returns the focus rows.
     local function drawMap(j, lay)
-        local mapW = math.max(1, (mscroll:GetWidth() or 0) > 1 and mscroll:GetWidth() or ((page.wide and CT.stripWide or CT.strip) - 2 * S.s2))
+        local mapW = math.max(1, (mscroll:GetWidth() or 0) > 1 and mscroll:GetWidth()
+            or ((page.wide and CT.stripWide or CT.strip) - 2 * S.s2 - CT.rail))
         local s = mapW / lay.W
         page.scale = s
         -- Room under the road's end for its label (it was cut off, WoWScrnShot_110926_221342).
@@ -928,6 +951,109 @@ local function build(parent)
         page.byKey = byKey
         return rows
     end
+
+    -- The rail ---------------------------------------------------------------------------------
+    local RAIL = { -- ring, fill, alpha per state (style.css .crail .rdot)
+        done = { "classBeadOn", "complete", 1 }, progress = { "classPeach", "todo", 1 },
+        ready = { "classPeach", "cardBg", 1 }, later = { "levelRange", "cardBg", 0.75 },
+        unknown = { "untouched", "cardBg", 0.6 },
+    }
+    local function newMark()
+        local f = CreateFrame("Frame", nil, rail.track)
+        f.ring = circle(f, "BORDER", 10); f.ring:SetPoint("CENTER")
+        f.fill = circle(f, "ARTWORK", 8); f.fill:SetPoint("CENTER")
+        return f
+    end
+    -- Places the marks and the view window for the track's current height.
+    local function placeRail()
+        local h = rail.track:GetHeight() or 0
+        local mapH = map:GetHeight() or 0
+        if h <= 1 or mapH <= 1 then return end
+        for _, m in ipairs(page.railMarks or {}) do
+            m.frame:ClearAllPoints()
+            m.frame:SetPoint("CENTER", rail.track, "TOP", m.dx or 0, -m.frac * h)
+        end
+        local viewH = mscroll:GetHeight() or 0
+        local off = mscroll:GetVerticalScroll() or 0
+        local from = math.max(0, off / mapH)
+        local to = math.min(1, (off + viewH) / mapH)
+        rail.view:ClearAllPoints()
+        rail.view:SetPoint("TOPLEFT", rail.track, "TOPLEFT", 2, -from * h)
+        rail.view:SetPoint("TOPRIGHT", rail.track, "TOPRIGHT", -2, -from * h)
+        rail.view:SetHeight(math.max(6, (to - from) * h))
+    end
+    page.PlaceRail = placeRail
+    -- One mark per stop (side paths smaller, set off the line), the road's end, your ring.
+    local function drawRail(j, lay)
+        local s, mapH = page.scale or 1, map:GetHeight() or 1
+        local marks, used = {}, 0
+        local function mark(size, ringC, fillC, alpha, frac, dx, level)
+            used = used + 1
+            local f = rail.dots[used]
+            if not f then f = newMark(); rail.dots[used] = f end
+            f:SetSize(size, size)
+            f.ring:SetSize(size, size); f.fill:SetSize(math.max(2, size - 4), math.max(2, size - 4))
+            if ringC then tint(f.ring, ringC) end
+            tint(f.fill, fillC)
+            f:SetAlpha(alpha or 1)
+            f:SetFrameLevel(rail.track:GetFrameLevel() + (level or 2))
+            f:Show()
+            marks[#marks + 1] = { frame = f, frac = frac, dx = dx }
+            return f
+        end
+        local function frac(y) return math.max(0, math.min(1, y * s / math.max(1, mapH))) end
+        -- Your ring (under your stop's dot), in the class colour.
+        local cur = j.next and j.next.stop
+        if cur and j.complete ~= nil and lay.pos[cur.key] then
+            local f = mark(CT.railYou, nil, "white", 1, frac(lay.pos[cur.key][2]), lay.from[cur.key] and CT.railSideOff or 0, 1)
+            f.ring:SetColorTexture(1, 1, 1, 0)
+            local cf = ns.character and ns.character.classFile
+            local cc = cf and rawget(_G, "RAID_CLASS_COLORS") and RAID_CLASS_COLORS[cf]
+            if type(cc) == "table" and cc.r then f.fill:SetColorTexture(cc.r, cc.g, cc.b, 1) end
+            f.fill:SetSize(CT.railYou, CT.railYou)
+        end
+        for _, st in ipairs(j.stops) do
+            local side = lay.from[st.key] ~= nil
+            local c = RAIL[st.state or "unknown"] or RAIL.unknown
+            local p = lay.pos[st.key]
+            mark(side and CT.railSide or CT.railDot, c[1], c[2], c[3], frac(p[2]), side and CT.railSideOff or 0, 2)
+        end
+        for i = used + 1, #rail.dots do rail.dots[i]:Hide() end
+        -- The road's end: a diamond (two unmasked squares turned 45 degrees; Texture:SetRotation
+        -- works in this client), gold when walked.
+        local walked = j.complete == true
+        local e = rail.endMark
+        if not e then
+            e = CreateFrame("Frame", nil, rail.track)
+            e.outer = e:CreateTexture(nil, "BORDER"); e.outer:SetPoint("CENTER")
+            e.inner = e:CreateTexture(nil, "ARTWORK"); e.inner:SetPoint("CENTER")
+            rail.endMark = e
+        end
+        local side = CT.railEnd / math.sqrt(2)
+        e:SetSize(CT.railEnd, CT.railEnd)
+        e.outer:SetSize(side, side); e.inner:SetSize(side - 3, side - 3)
+        tint(e.outer, walked and "classBeadOn" or "levelRange"); tint(e.inner, walked and "complete" or "cardBg")
+        for _, tex in ipairs({ e.outer, e.inner }) do if tex.SetRotation then tex:SetRotation(math.pi / 4) end end
+        e:SetFrameLevel(rail.track:GetFrameLevel() + 2)
+        marks[#marks + 1] = { frame = e, frac = frac(lay.endPos[2]) }
+        page.railMarks = marks
+        placeRail()
+    end
+    rail:SetScript("OnSizeChanged", function() placeRail() end)
+    mscroll:HookScript("OnVerticalScroll", function() placeRail() end)
+    -- A click on the rail scrolls the map there.
+    rail:EnableMouse(true)
+    rail:SetScript("OnMouseDown", function()
+        if type(GetCursorPosition) ~= "function" then return end
+        local top, h = rail.track:GetTop(), rail.track:GetHeight() or 0
+        if not top or h <= 1 then return end
+        local _, cy = GetCursorPosition()
+        cy = cy / (rail:GetEffectiveScale() or 1)
+        local f = math.max(0, math.min(1, (top - cy) / h))
+        local mapH, viewH = map:GetHeight() or 0, mscroll:GetHeight() or 0
+        local range = mscroll:GetVerticalScrollRange() or 0
+        mscroll:SetVerticalScroll(math.max(0, math.min(range, f * mapH - viewH / 2)))
+    end)
 
     -- Text in the pane at y; returns the next y.
     local function note(text, y, x, w, color)
@@ -1233,6 +1359,7 @@ local function build(parent)
         plaque.next:SetTextColor(T.RGB(nc))
         self.drawnWidth = mscroll:GetWidth() or 0
         self.roadRows = drawMap(j, self.layout)
+        drawRail(j, self.layout)
         -- Selection: kept if the stop is still there; else your current stop.
         if self.sel ~= "end" and not (self.sel and stopByKey(self.sel)) then
             self.sel = (j.next and j.next.stop and j.next.stop.key) or "end"

@@ -371,6 +371,9 @@ Theme.layout.classTab = {
     stepsWide = 560,                       -- wide pane: the steps column; the facts go beside it
     wideFacts = 860,                       -- pane width from which the facts go beside the steps
     labelPush = 4,                         -- gap kept between node labels pushed apart
+    -- The road overview rail (review item 13, owner 2026-11-09; style.css .crail)
+    rail = 22, railPad = 10, railLine = 2,
+    railDot = 10, railSide = 7, railSideOff = 6, railEnd = 12, railYou = 16,
     hero = 132, heroScore = 140,
     facts = 46, stepRow = 40, stepIcon = 22, stopRow = 40,
     bar = 18,
@@ -493,6 +496,20 @@ end
 -- (WoWScrnShot_110726_165420): a selected row is #5f5d5a over a #120a07 pane, about 0.32 white.
 Theme.rowHighlightAlpha = { focus = 0.32, hover = 0.18 }
 
+-- Mouse-hover highlights (RowHighlight with layer "HIGHLIGHT"), so they can be hidden while the
+-- gamepad drives the window (owner, 2026-11-09, review item 16). Weak: frames are pooled.
+local hoverHighlights = setmetatable({}, { __mode = "k" })
+local hoverShown = true
+function Theme.SetHoverShown(on)
+    on = on and true or false
+    if on == hoverShown then return end
+    hoverShown = on
+    for h in pairs(hoverHighlights) do
+        local a = on and Theme.rowHighlightAlpha.hover or 0
+        for i = 1, 3 do h[i]:SetAlpha(a) end
+    end
+end
+
 -- The native list-row highlight (rounded light bar) on a frame. Returns a handle with
 -- SetShown(on). layer "HIGHLIGHT" makes it a mouse-hover highlight (dimmer).
 function Theme.RowHighlight(frame, layer)
@@ -507,6 +524,10 @@ function Theme.RowHighlight(frame, layer)
     right:SetPoint("TOPRIGHT"); right:SetPoint("BOTTOMRIGHT"); right:SetWidth(L.rowHiSide)
     mid:SetPoint("TOPLEFT", left, "TOPRIGHT"); mid:SetPoint("BOTTOMRIGHT", right, "BOTTOMLEFT")
     local h = { left, right, mid }
+    if layer == "HIGHLIGHT" then
+        hoverHighlights[h] = true
+        if not hoverShown then alpha = 0 end
+    end
     for i = 1, 3 do h[i]:SetAlpha(alpha) end
     function h:SetShown(on) for i = 1, 3 do self[i]:SetShown(on) end end
     return h

@@ -738,6 +738,11 @@ return function(t)
         t.eq(cp.byKey.intro.medal ~= nil and cp.byKey.intro.medal.laurel:IsShown() or cp.byKey.intro.check:IsShown(), true,
             "a finished stop wears the medal (or the check without the art)")
         t.eq(cp:GetHints()[1], nil, "no side path at Divinity")
+        -- The overview rail (review item 13): your ring, one mark per stop (7), the road's end.
+        t.eq(#cp.railMarks, 9)
+        t.ok(cp.railMarks[1].frac > 0 and cp.railMarks[1].frac < 1, "marks sit along the track")
+        t.ok(cp.railMarks[2].frac < cp.railMarks[3].frac, "top to bottom in road order")
+        t.ok(cp.railMarks[#cp.railMarks].frac > cp.railMarks[#cp.railMarks - 1].frac, "the road's end last")
         -- Gamepad: down follows the road; right onto Valor's side path; down returns to the road.
         press(ns, "PADDDOWN")
         t.eq(ns.Focus.Current().key, "n:valor")
@@ -794,6 +799,32 @@ return function(t)
         t.eq(cp.mode, "road", "back on the road")
         t.eq(#ns.Debug.errors, 0)
         restore()
+    end)
+
+    t.test("gamepad over mouse: hover hidden and the info line kept while the pad drives", function()
+        padUI = true
+        local ns = boot()
+        slash("")
+        local f = ns.UI.GetFrame()
+        local info = f.legend.info
+        local hover = ns.Theme.RowHighlight(CreateFrame("Frame", nil, f), "HIGHLIGHT")
+        local row = ns.Widgets.FocusRow(f, 30)
+        row.item = { title = "Hovered", detail = "under the cursor" }
+        t.eq(ns.Gamepad.PadDriving(), true, "the pad drives an opened window")
+        t.eq(hover[1]:GetAlpha(), 0, "hover highlight hidden")
+        local before = info:GetText()
+        row:GetScript("OnEnter")(row)
+        t.eq(info:GetText(), before, "a row under a resting cursor doesn't take the info line")
+        -- Moving the mouse hands it back; the next button press takes it again.
+        ns.Gamepad.MouseMoved()
+        t.eq(ns.Gamepad.PadDriving(), false)
+        t.eq(hover[1]:GetAlpha(), ns.Theme.rowHighlightAlpha.hover)
+        row:GetScript("OnEnter")(row)
+        t.ok(info:GetText():find("Hovered"), "the mouse's hover describes the row")
+        press(ns, "PADDDOWN")
+        t.eq(ns.Gamepad.PadDriving(), true)
+        t.eq(hover[1]:GetAlpha(), 0)
+        t.eq(#ns.Debug.errors, 0)
     end)
 
     t.test("class tab: node labels are pushed apart top to bottom", function()

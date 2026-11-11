@@ -67,7 +67,26 @@ function Gamepad.ShouldBeActive(windowShown, uiEnabled, combat)
     return windowShown and uiEnabled and not combat
 end
 
+-- Who drives the window (owner, 2026-11-09, review item 16): a button press hands it to the pad,
+-- moving the mouse hands it back. While the pad drives, the mouse hover highlight is hidden and
+-- hovering doesn't take the info line (a list redrawn under a resting cursor did,
+-- WoWScrnShot_110926_224439).
+local mouseDriving = false
+local function setMouseDriving(on)
+    if on == mouseDriving then return end
+    mouseDriving = on
+    ns.Theme.SetHoverShown(not Gamepad.PadDriving())
+    if not on and ns.Focus then ns.Focus.RestoreInfo() end
+end
+
+-- True while the controller drives the window and the mouse hasn't moved since.
+function Gamepad.PadDriving() return active and not mouseDriving end
+
+-- The cursor moved (MainWindow's watcher): the mouse drives until the next button.
+function Gamepad.MouseMoved() setMouseDriving(true) end
+
 local function handle(action)
+    setMouseDriving(false)
     -- A modal on the window (a celebration) takes every button first.
     local modal = ns.UI.modal
     if modal and modal.OnAction and modal.OnAction(action) then return end
@@ -103,6 +122,7 @@ function Gamepad.Update(combat)
             want = false
         end
         active = want
+        ns.Theme.SetHoverShown(not Gamepad.PadDriving())
         if owner:IsShown() then ns.UI.RefreshHints() end
         ns.Debug.Print("gamepad input %s", active and "on" or "off")
     end
@@ -122,6 +142,17 @@ function Gamepad.Attach(window)
             if not ok then ns.Debug.Error("gamepad " .. action, err) end
         end
     end)
+    -- The cursor's position, checked each frame while the window is shown (the input frame
+    -- shows with it): a real move hands the window to the mouse. A frame redrawn under a resting
+    -- cursor isn't a move.
+    local lastX, lastY
+    input:SetScript("OnUpdate", function()
+        if type(GetCursorPosition) ~= "function" then return end
+        local x, y = GetCursorPosition()
+        if lastX and (math.abs(x - lastX) > 2 or math.abs(y - lastY) > 2) then Gamepad.MouseMoved() end
+        lastX, lastY = x, y
+    end)
+    input:SetScript("OnShow", function() lastX, lastY = nil, nil end)
     ns.Events.Register("PLAYER_REGEN_DISABLED", function() Gamepad.Update(true) end)
     ns.Events.Register("PLAYER_REGEN_ENABLED", function() Gamepad.Update(false) end)
 end

@@ -139,7 +139,9 @@ The owner chose the **full native Forever look**: Azerfolio looks like the clien
   - **Legend:** "◀▶ Side path" while the focused stop has a side path (or is one).
   - **Wide:** the steps column is capped at 560 px with the facts in a column beside it.
   - Addon only (no mockup change): the road's end draws the class crest greyed until walked (it was an empty circle in game); node labels are pushed apart so they never overlap; LT/RT jump between Start here and Steps inside a stop; quest IDs leave the info line (debug only).
-  - Open for the owner: the strip shows about three stops at 740 px tall (the Paladin's road is three screens). Before the art prompts: fit the whole road to the view, or keep scrolling with a small overview of the road.
+  - **Strip length (owner, 2026-11-09):** keep the tall painted strip (512×2048) and scrolling, with a **road overview rail** at the strip's right edge (22 px, under the plaque, fixed while the map scrolls): a line with one dot per stop in its state (gold done, orange in progress, a peach glow open now, dim later, dashed unknown; side paths smaller, set off the line), a diamond for the road's end, a ring in the class colour where you are, and a window showing the part of the road in view. Not a focus stop (LT/RT already go stop to stop); a click scrolls there. Approved and built in Lua (2026-11-10).
+  - **Header (owner, 2026-11-09):** the Class tab keeps the full character header with the XP bar ("n levels to go" reads against it).
+  - **Gamepad over mouse (owner, 2026-11-09, app-wide):** while the gamepad drives the window, the mouse hover highlight is hidden and the info line stays on the focused item; moving the mouse hands both back to the mouse.
 
 **Wide window (ultrawide, about 1640 px):** Zones becomes a split view: compact list on the left, Zone Detail on the right, updating as focus moves. The Atlas view is available too; choosing a tile switches to the split view with that zone selected. A moves into the checklist; B returns to the list.
 

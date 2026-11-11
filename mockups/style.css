@@ -1137,6 +1137,25 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .cstep.st-next .cicon { border-color: #ffd9a8; color: #ffb35a; }
 .cstep.st-later, .cstep.opt { opacity: .7; }
 .cstep.focused { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
+/* Item 13: the road overview rail (owner, 2026-11-09) */
+.cstrip .scroll { padding-right: 22px; }
+.crail { position: absolute; right: 0; top: 86px; bottom: 10px; width: 22px; z-index: 7; pointer-events: none;
+  background: linear-gradient(90deg, rgba(10,6,2,.55), rgba(10,6,2,.85)); border-left: 1px solid var(--divider); }
+.crail .rtrack { position: absolute; left: 0; right: 0; top: 10px; bottom: 10px; }
+.crail .rline { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: #5b4a32; }
+.crail .rdot { position: absolute; left: 50%; width: 10px; height: 10px; border-radius: 50%; transform: translate(-50%, -50%);
+  background: #2e2418; border: 2px solid #8a7348; box-sizing: border-box; }
+.crail .rdot.side { width: 7px; height: 7px; border-width: 1px; left: calc(50% + 6px); }
+.crail .rdot.st-done { background: #ffcc33; border-color: #fff1b0; }
+.crail .rdot.st-progress { background: #e08a3c; border-color: #ffd9a8; }
+.crail .rdot.st-ready { border-color: #ffd9a8; box-shadow: 0 0 5px rgba(255,190,90,.9); }
+.crail .rdot.st-later { opacity: .75; }
+.crail .rdot.st-unknown { border-style: dashed; opacity: .6; }
+.crail .rdot.end { width: 12px; height: 12px; border-radius: 3px; transform: translate(-50%, -50%) rotate(45deg); }
+.crail .ryou { position: absolute; left: 50%; width: 16px; height: 16px; border-radius: 50%; transform: translate(-50%, -50%);
+  border: 2px solid #f58cba; box-shadow: 0 0 6px #f58cba; box-sizing: border-box; }
+.crail .rview { position: absolute; left: 2px; right: 2px; border: 1px solid rgba(255,230,160,.75); border-radius: 4px;
+  background: rgba(255,230,160,.08); transition: top .12s, height .12s; }
 /* Design round 2 (2026-11-09, after the in-game review) */
 .cplaque { background: linear-gradient(180deg, #1a0e06, #160c05); }
 /* A finished stop's header: the celebration's quests medal, small (owner, 2026-11-09) */

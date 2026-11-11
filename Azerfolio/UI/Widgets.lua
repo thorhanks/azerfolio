@@ -43,10 +43,14 @@ function W.Header(parent)
     return h
 end
 
--- The info line while the mouse is over a focusable frame (its item's title and detail).
+-- The info line while the mouse is over a focusable frame (its item's title and detail). Not
+-- while the gamepad drives the window: the line stays on the focused item (review item 16).
+local function padDriving() return ns.Gamepad and ns.Gamepad.PadDriving and ns.Gamepad.PadDriving() end
 local function hoverInfo(f)
-    f:SetScript("OnEnter", function(self) if self.item then ns.UI.SetInfo(self.item.title, self.item.detail) end end)
-    f:SetScript("OnLeave", function() ns.UI.RestoreInfo() end)
+    f:SetScript("OnEnter", function(self)
+        if self.item and not padDriving() then ns.UI.SetInfo(self.item.title, self.item.detail) end
+    end)
+    f:SetScript("OnLeave", function() if not padDriving() then ns.UI.RestoreInfo() end end)
 end
 W.HoverInfo = hoverInfo
 

@@ -1730,9 +1730,30 @@
     content.innerHTML = `<div class="cjourney ${ui.wide ? "wide" : ""}"><div class="cstrip"><div class="scroll" id="scroll">
         <div class="cplaque ${m.complete ? "done" : ""}"><span class="ctitle">${CLASS_ROAD.title}</span>
           <span class="ccount">${count}</span><span class="cnext ${nx.done ? "done" : ""} ${m.unknown ? "unk" : ""}">${esc(nx.text)}</span></div>
-        <div class="cmap" style="aspect-ratio:${CLASS_ROAD.W} / ${CLASS_ROAD.H}">${classStrip(m)}${classNodes(m)}</div></div></div>
+        <div class="cmap" style="aspect-ratio:${CLASS_ROAD.W} / ${CLASS_ROAD.H}">${classStrip(m)}${classNodes(m)}</div></div>${classRail(m)}</div>
       <div class="cdetailpane" id="detailpane"></div></div>`;
     renderStopInto($("#detailpane"), m, ui.classSel);
+    const sc = $("#scroll"); if (sc) { sc.addEventListener("scroll", updateRail); requestAnimationFrame(updateRail); }
+  }
+  // Item 13 (owner, 2026-11-09: keep scrolling, add an overview): a thin rail at the strip's right
+  // edge with the whole road at a glance. One dot per stop in its state (gold done, orange in
+  // progress, a peach ring open now, grey later; side paths smaller, set off the line), your
+  // mark, the road's end, and a window showing the part of the road in view. Not a focus stop
+  // (LT/RT already go stop to stop); a click scrolls there.
+  function classRail(m) {
+    const R = CLASS_ROAD, top = (y) => (y / R.H * 100).toFixed(2);
+    const nx = classNext(m), cur = nx.stop;
+    const dots = m.stops.map(s => `<i class="rdot ${s.kind} st-${s.state}" data-rail="${s.id}" style="top:${top(s.y)}%"></i>`).join("");
+    const you = cur && !m.unknown ? `<b class="ryou" style="top:${top(cur.y)}%"></b>` : "";
+    return `<div class="crail" aria-hidden="true"><div class="rtrack"><span class="rline"></span>${dots}
+      <i class="rdot end ${m.complete ? "st-done" : ""}" data-rail="end" style="top:${top(R.end.y)}%"></i>${you}<span class="rview" id="railview"></span></div></div>`;
+  }
+  function updateRail() {
+    const sc = $("#scroll"), v = $("#railview"), map = $(".cmap");
+    if (!sc || !v || !map) return;
+    const mapTop = map.offsetTop, h = map.offsetHeight, plaque = $(".cplaque").offsetHeight;
+    const from = Math.max(0, sc.scrollTop + plaque - mapTop) / h, to = Math.min(1, (sc.scrollTop + sc.clientHeight - mapTop) / h);
+    v.style.top = (from * 100).toFixed(2) + "%"; v.style.height = (Math.max(0.04, to - from) * 100).toFixed(2) + "%";
   }
   // The header: the stop's zone art behind it (round 2), dimmed and greyed while the stop is later.
   function heroHtml(cls, art, kicker, title, sub, score) {
