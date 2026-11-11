@@ -1591,6 +1591,22 @@
           [7647, "Judgment and Redemption", "Lord Grayson Shadowbreaker", "Stratholme, Eastern Plaguelands", 60]] },
     ],
   };
+  // Round 5 (2026-11-10): the map behind the road. "r4" is the antique strip (the whole road);
+  // "r5" is the owner's round 5 test panel (strip-r5-test, the top of the road only, 420x560): the
+  // first two stops, the road to level 20 (where it goes on to Valor), its lane traced with
+  // trace-strip.ps1 -Method lane (strip-art/paths-r5.js).
+  const CLASS_MAPS = {
+    r4: { H: CLASS_ROAD.H, end: { ...CLASS_ROAD.end }, art: CLASS_ROAD.art, pathKey: "paladin-alliance", last: 60, endName: null, stops: CLASS_ROAD.stops },
+    r5: { H: 560, end: { x: 29, y: 556 }, art: "strip-art/paladin-alliance-r5.png", pathKey: "paladin-alliance-r5", last: 20, endName: "On to Valor (level 20)",
+      stops: CLASS_ROAD.stops.filter(s => s.id === "letter" || s.id === "divinity").map(s => ({ ...s, ...(s.id === "letter" ? { x: 221, y: 96 } : { x: 300, y: 230 }) })) },
+  };
+  const ROAD_HOME = CLASS_ROAD.stops.map(s => ({ s, x: s.x, y: s.y }));
+  function setClassMap(k) {
+    const M = CLASS_MAPS[k] || CLASS_MAPS.r4;
+    ROAD_HOME.forEach(h => { h.s.x = h.x; h.s.y = h.y; });
+    Object.assign(CLASS_ROAD, { H: M.H, end: { ...M.end }, art: M.art, pathKey: M.pathKey, last: M.last, endName: M.endName, stops: M.stops });
+    ui.classSel = null;
+  }
   // Quests done per scenario (sample data, invented except "today": Gideon has the letter).
   const CLASS_DONE = { today: [3101], almost: [3101], veteran: [3101, 2998, 1641, 1642, 1643, 1644, 1780, 1781, 1786, 1787, 1788,
     1793, 1649, 1650, 1651, 1652, 1653, 1654, 1442, 1655, 1806, 78088, 78089], fresh: [] };
@@ -1617,8 +1633,9 @@
   // Round 3: where your level puts you on the road. Each road stop sits at its level, the road's end
   // at 60; returns { i: the road segment (from road stop i to the next), t: how far along it }.
   function levelPos(m, at) {
-    const lv = Math.min(60, at !== undefined ? at : CHAR.level + (CHAR.xpMax ? CHAR.xp / CHAR.xpMax : 0));
-    const pts = m.road.map(s => s.lv).concat(60);
+    const last = CLASS_ROAD.last || 60;
+    const lv = Math.min(last, at !== undefined ? at : CHAR.level + (CHAR.xpMax ? CHAR.xp / CHAR.xpMax : 0));
+    const pts = m.road.map(s => s.lv).concat(last);
     for (let i = 0; i < pts.length - 1; i++) {
       if (lv < pts[i + 1]) return { i, t: pts[i + 1] > pts[i] ? Math.max(0, (lv - pts[i]) / (pts[i + 1] - pts[i])) : 1 };
     }
@@ -1705,9 +1722,29 @@
     }
     return pts;
   }
+  // Round 5 art: the road stamped from the tileable road-band / road-band-gold pieces (256x64, the
+  // band in rows 23-40). Each stamp shows the next window of the texture (as SetTexCoord will in
+  // game), turned to follow the curve, so the band runs on without seams. Gold up to `lit`. A side
+  // path is a thinner band with every other stamp left out (dashed).
+  const BAND = { rows: 18, px: 64, w: 256 };
+  function bandStamps(p, lit, side) {
+    const T = side ? 6 : 10, step = side ? 5 : 6, k = T / BAND.rows, H = BAND.px * k, win = step / k;
+    return stampsAlong(p, step).map((pt, i) => {
+      if (side && i % 3 === 2) return "";
+      const on = lit > 0 && pt.t <= lit, u = ((step / 2 + i * step) / k) % (BAND.w - win);
+      return `<g transform="translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)}) rotate(${pt.deg.toFixed(1)})"><svg x="${(-step / 2 - 0.4).toFixed(2)}" y="${(-H / 2).toFixed(2)}" width="${(step + 0.8).toFixed(2)}" height="${H.toFixed(2)}" viewBox="${u.toFixed(1)} 0 ${win.toFixed(1)} ${BAND.px}" preserveAspectRatio="none" overflow="hidden"><image href="chrome-art/road-band${on ? "-gold" : ""}.png" width="${BAND.w}" height="${BAND.px}"/></svg></g>`;
+    }).join("");
+  }
+  // An SVG polyline along a segment from t0 to t1 (sampled finely; follows a traced stretch too).
+  function polyD(p, t0, t1) {
+    const n = Math.max(2, Math.round(60 * (t1 - t0)));
+    let d = "";
+    for (let i = 0; i <= n; i++) { const q = bez(p, t0 + (t1 - t0) * i / n); d += `${i ? "L" : "M"}${q.x.toFixed(1)} ${q.y.toFixed(1)}`; }
+    return d;
+  }
   function roadSegs(m) {
     const R = CLASS_ROAD, segs = {};
-    const P = R.art && window.AZF_STRIP_PATHS && newPath(window.AZF_STRIP_PATHS[`${R.cls.toLowerCase()}-alliance`]);
+    const P = R.art && window.AZF_STRIP_PATHS && newPath(window.AZF_STRIP_PATHS[R.pathKey || `${R.cls.toLowerCase()}-alliance`]);
     if (P) {
       // Road stops and the end sit on the traced corridor; each segment is the stretch between.
       const at = (o) => pathProject(P, o.x, o.y);
@@ -1758,13 +1795,13 @@
       const ri = m.road.indexOf(s);
       const lit = s.kind === "side" ? (s.d ? s.d / s.n : 0) : ri < lp.i ? 1 : ri === lp.i ? lp.t : 0;
       if (!hasArt) return `<path d="${bpath(p)}" class="road ${s.kind}"/>${lit > 0 ? `<path d="${bpath(splitBez(p, lit))}" class="road lit ${s.kind}"/>` : ""}`;
-      const side = s.kind === "side";
-      return stampsAlong(p, side ? 9 : 22).map((pt, k) => {
-        const on = lit > 0 && pt.t <= lit;
-        if (side) return `<image href="chrome-art/road-dot.png" x="${(pt.x - 3).toFixed(1)}" y="${(pt.y - 3).toFixed(1)}" width="6" height="6" class="${on ? "gilt" : ""}"/>`;
-        const file = `chrome-art/road-dash-${on ? "gold" : "ink"}-${(k % 2) + 1}.png`;
-        return `<image href="${file}" x="-11" y="-5.5" width="22" height="11" transform="translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)}) rotate(${pt.deg.toFixed(1)})"/>`;
-      }).join("");
+      // Round 5 (owner, 2026-11-10: the dashes were hard to see and didn't feel antique): one
+      // continuous road band, inked edges over an earth fill, gilded as far as your level. SVG
+      // strokes stand in for the painted road-band / road-band-gold tiles.
+      const cls = s.kind === "side" ? "bside" : "bmain";
+      if (R.art) return bandStamps(p, lit, s.kind === "side");
+      const d = polyD(p, 0, 1), gold = lit > 0 ? `<path d="${polyD(p, 0, lit)}" class="band-gold ${cls}"/>` : "";
+      return `<path d="${d}" class="band-edge ${cls}"/><path d="${d}" class="band-earth ${cls}"/>${gold}`;
     }).join("");
     // Quest pips ring each node (completion lives on the node now, not the road).
     const beads = m.stops.map(s => {
@@ -1780,21 +1817,103 @@
     // "You" (round 4): your portrait in a small brass ring, like a token pinned on the map, with an
     // ink tag. The stand-in draws an initial where the game draws your portrait.
     const yp = bez(segs[m.road[lp.i].id], lp.t);
-    const you = `<g class="you" transform="translate(${yp.x.toFixed(1)} ${yp.y.toFixed(1)})"><circle r="10.5" class="youface"/>
-        <text y="4" class="youinit">${esc(CHAR.name[0])}</text>
-        ${hasArt ? `<image href="chrome-art/you-ring.png" x="-15" y="-17" width="30" height="30"/>` : `<circle r="13" class="youring"/><circle cy="-14" r="2.4" class="youpin"/>`}
-        <rect x="17" y="-8" width="56" height="16" rx="2" class="youtag"/><text x="45" y="4" class="youtxt">You · ${CHAR.level}</text></g>`;
+    // Round 5 (owner): no "You · 10" tag, the portrait is enough; the token is bigger (46).
+    const you = `<g class="you" transform="translate(${yp.x.toFixed(1)} ${yp.y.toFixed(1)})"><circle r="14" class="youface"/>
+        <text y="5" class="youinit">${esc(CHAR.name[0])}</text>
+        ${hasArt ? `<image href="chrome-art/you-ring.png" x="-23" y="-25" width="46" height="46"/>` : `<circle r="17" class="youring"/>`}</g>`;
     // (The uncharted wash past your level was dropped, owner 2026-11-10: it washed the map out.)
     return `<svg viewBox="0 0 ${R.W} ${R.H}" preserveAspectRatio="none" class="cmapart antique" aria-hidden="true">
       <defs><linearGradient id="cparch" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#efe1bd"/><stop offset=".5" stop-color="#e6d3a6"/><stop offset="1" stop-color="#dcc493"/></linearGradient>
         <radialGradient id="cstain" cx=".5" cy=".5" r=".75"><stop offset=".55" stop-color="#7a5a2e" stop-opacity="0"/><stop offset="1" stop-color="#7a5a2e" stop-opacity=".45"/></radialGradient>
         <radialGradient id="ccrest" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe9a0" stop-opacity=".9"/><stop offset="1" stop-color="#ffe9a0" stop-opacity="0"/></radialGradient></defs>
       ${hasArt ? `<image href="${R.art}" width="${R.W}" height="${R.H}" preserveAspectRatio="none"/>` : `<rect width="${R.W}" height="${R.H}" fill="url(#cparch)"/>${hills}${trees}${marks}`}
-      ${segPaths}${beads}${deadends}
+      ${segPaths}${deadends}
       <g class="crest ${m.complete ? "lit" : ""}" transform="translate(${R.end.x} ${R.end.y})">${m.complete ? `<circle r="60" fill="url(#ccrest)"/>` : ""}
         ${hasArt ? "" : `<path d="M0 -26 L5 -5 L26 0 L5 5 L0 26 L-5 5 L-26 0 L-5 -5 Z" class="endstar"/><circle r="9" class="endstar-c"/>`}</g>
       ${you}
       ${hasArt ? "" : `<rect width="${R.W}" height="${R.H}" fill="url(#cstain)"/>`}</svg>`;
+  }
+  // Round 5: abilities as milestone stones on one edge of the road, at their levels (sample data:
+  // a Human Paladin's trainer, abridged; the addon reads it from your class trainer). Each entry:
+  // [name, rank or 0 for a new ability]. A stone: red pennant = you can train it now, gold cap =
+  // all learned, plain = later. Stones closer than MILE_MERGE units merge ("Levels 4–8"). No level numbers (owner: the stones are enough), no icons
+  // or "+n" on the map; the pane shows the level's abilities.
+  const CLASS_ABILITIES = {
+    1: [["Seal of Righteousness", 0], ["Holy Light", 0]], 4: [["Blessing of Might", 0], ["Judgement", 0]],
+    6: [["Divine Protection", 0], ["Holy Light", 2]], 8: [["Seal of the Crusader", 0], ["Purify", 0]],
+    10: [["Hammer of Justice", 0], ["Lay on Hands", 0], ["Devotion Aura", 2], ["Seal of Righteousness", 2]],
+    12: [["Blessing of Might", 2], ["Seal of the Crusader", 2]], 14: [["Blessing of Wisdom", 0], ["Holy Light", 3]],
+    16: [["Righteous Fury", 0], ["Retribution Aura", 0]], 18: [["Blessing of Protection", 2], ["Judgement", 2]],
+    20: [["Flash of Light", 0], ["Exorcism", 0], ["Concentration Aura", 0]], 22: [["Holy Light", 4], ["Seal of Justice", 0]],
+    24: [["Turn Undead", 0], ["Blessing of Salvation", 0], ["Hammer of Justice", 2]], 26: [["Blessing of Might", 3], ["Flash of Light", 2]],
+    28: [["Shadow Resistance Aura", 0], ["Exorcism", 2]], 30: [["Divine Intervention", 0], ["Seal of Light", 0], ["Lay on Hands", 2]],
+    32: [["Frost Resistance Aura", 0], ["Blessing of Wisdom", 3]], 34: [["Flash of Light", 3], ["Divine Shield", 0]],
+    36: [["Fire Resistance Aura", 0], ["Exorcism", 3]], 38: [["Holy Light", 6], ["Seal of Wisdom", 0]],
+    40: [["Blessing of Light", 0], ["Seal of Command", 2], ["Blessing of Might", 5]], 42: [["Flash of Light", 4], ["Hammer of Wrath", 0]],
+    44: [["Exorcism", 4], ["Retribution Aura", 4]], 46: [["Holy Light", 7], ["Hammer of Justice", 3]],
+    48: [["Blessing of Wisdom", 5], ["Shadow Resistance Aura", 2]], 50: [["Flash of Light", 5], ["Divine Shield", 2], ["Lay on Hands", 3]],
+    52: [["Exorcism", 5], ["Greater Blessing of Might", 0]], 54: [["Holy Light", 8], ["Hammer of Justice", 4]],
+    56: [["Blessing of Might", 6], ["Frost Resistance Aura", 3]], 58: [["Flash of Light", 6], ["Exorcism", 6]],
+    60: [["Holy Light", 9], ["Blessing of Wisdom", 6], ["Greater Blessing of Kings", 0]],
+  };
+  const MILE_MERGE = 40, MILE_OFF = 17;
+  // Sample state: everything below your level learned except your last two training levels.
+  function abilityState(lv) {
+    if (classModel().unknown) return "unknown";
+    if (lv > CHAR.level) return "later";
+    const due = Object.keys(CLASS_ABILITIES).map(Number).filter(l => l <= CHAR.level).slice(-2);
+    return due.includes(lv) ? "available" : "learned";
+  }
+  function milestoneGroups(m) {
+    const segs = roadSegs(m), out = [];
+    const at = (lv) => { const p = levelPos(m, lv), seg = segs[m.road[p.i].id];
+      const a = bez(seg, Math.max(0, p.t - 0.02)), b = bez(seg, Math.min(1, p.t + 0.02)), c = bez(seg, p.t);
+      const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      return { x: c.x, y: c.y, nx: -(b.y - a.y) / len, ny: (b.x - a.x) / len }; };
+    for (const lv of Object.keys(CLASS_ABILITIES).map(Number).filter(l => l > 1 && l <= (CLASS_ROAD.last || 60))) {
+      const p = at(lv), last = out[out.length - 1];
+      if (last && Math.hypot(p.x - last.p.x, p.y - last.p.y) < MILE_MERGE) { last.levels.push(lv); continue; }
+      out.push({ levels: [lv], p });
+    }
+    for (const g of out) {
+      const st = g.levels.map(abilityState);
+      g.state = st.includes("unknown") ? "unknown" : st.includes("available") ? "available" : st.includes("later") ? "later" : "learned";
+      g.key = `a:${g.levels[0]}`;
+      g.label = g.levels.length > 1 ? `${g.levels[0]}–${g.levels[g.levels.length - 1]}` : `${g.levels[0]}`;
+      // One edge of the road; the other edge only where a stop sits on this one.
+      // Further out when a stop's coin covers both edges.
+      const spots = [[1, MILE_OFF], [-1, MILE_OFF], [1, 2.2 * MILE_OFF], [-1, 2.2 * MILE_OFF]];
+      const clear = ([s, d]) => m.stops.every(o => Math.hypot(o.x - (g.p.x + g.p.nx * d * s), o.y - (g.p.y + g.p.ny * d * s)) > 34);
+      const [side, dist] = spots.find(clear) || spots[0];
+      g.x = g.p.x + g.p.nx * dist * side; g.y = g.p.y + g.p.ny * dist * side; g.side = side;
+    }
+    return out;
+  }
+  const MILE_STATE = { learned: "All learned", available: "You can train it now", later: "Later", unknown: "Not known (visit your trainer)" };
+  function classMilestones(m) {
+    const R = CLASS_ROAD;
+    return milestoneGroups(m).map(g => {
+      const n = g.levels.reduce((a, l) => a + CLASS_ABILITIES[l].length, 0);
+      const tip = `<b>${g.levels.length > 1 ? "Levels" : "Level"} ${g.label}</b>${n} abilit${n === 1 ? "y" : "ies"} at your trainer. ${MILE_STATE[g.state]}.`;
+      const art = R.art ? `<img class="mstone" src="chrome-art/milestone${g.state === "available" ? "-flag-red" : g.state === "learned" ? "-cap-gold" : ""}.png" alt="">` : `<i class="stone"></i>`;
+      return `<button class="cmile focusable st-${g.state} ${R.art ? "art" : ""} ${g.side < 0 ? "flip" : ""} ${ui.classSel === g.key ? "selected" : ""}" data-stop="${g.key}"
+        style="left:${(g.x / R.W * 100).toFixed(2)}%;top:${(g.y / R.H * 100).toFixed(3)}%" data-tip="${tip}">${art}</button>`;
+    }).join("");
+  }
+  function renderAbilitiesInto(box, m, key) {
+    const g = milestoneGroups(m).find(x => x.key === key); if (!g) return;
+    const title = `${g.levels.length > 1 ? "Levels" : "Level"} ${g.label}`;
+    const prior = m.road.filter(s => s.lv <= g.levels[0]).pop() || m.road[0];
+    const now = g.levels.filter(l => abilityState(l) === "available").reduce((a, l) => a + CLASS_ABILITIES[l].length, 0);
+    const score = g.state === "unknown" ? `<b class="dim">?</b><small>not known</small>` : g.state === "later" ? `<b class="dim">${g.levels[0] - CHAR.level}</b><small>level${g.levels[0] - CHAR.level === 1 ? "" : "s"} to go</small>`
+      : now ? `<b>${now}</b><small>to train now</small>` : doneMedal();
+    const rows = g.levels.map(l => `<h2 class="section" data-group>Level ${l} <small>${MILE_STATE[abilityState(l)]}</small></h2><div class="csteps">${CLASS_ABILITIES[l].map(([nm, rk]) => {
+      const st = abilityState(l), s = st === "learned" ? "done" : st === "available" ? "next" : st === "later" ? "later" : "unknown";
+      return `<button class="cstep focusable st-${s}" data-tip="<b>${esc(nm)}</b>${rk ? `Rank ${rk}` : "A new ability"} · level ${l}. ${MILE_STATE[st]}.">
+        <span class="cicon">${s === "done" ? "✓" : s === "next" ? "!" : s === "unknown" ? "?" : "🔒"}</span><span class="cqname">${esc(nm)}<small>${rk ? `Rank ${rk}` : "New ability"}</small></span><span class="cqlv"></span></button>`; }).join("")}</div>`).join("");
+    box.innerHTML = heroHtml(`st-${g.state === "learned" ? "done" : g.state}`, prior.art, "Abilities at your trainer", title, MILE_STATE[g.state], score)
+      + `<div class="cbody"><div class="scroll" id="detailscroll">${rows}
+        <div class="qfoot"><span class="qnote">Sample data. In the addon the list comes from your class trainer (open it once) and learned or not from the game.</span></div></div></div>`;
   }
   const C_STATE = { done: "Done", progress: "In progress", ready: "You can start it", later: "Later", unknown: "Not known yet" };
   const qn = (n) => `${n} quest${n === 1 ? "" : "s"}`;
@@ -1811,13 +1930,15 @@
   }
   function classNodes(m) {
     const R = CLASS_ROAD;
-    return m.stops.map(s => `<button class="cnode focusable ${s.kind} st-${s.state} ${s.x > R.W * 0.58 ? "lab-left" : ""} ${ui.classSel === s.id ? "selected" : ""}"
+    return m.stops.map(s => `<button class="cnode focusable ${s.kind} st-${s.state} ${s.x + (s.kind === "side" ? 20 : 26) + 30 + s.name.length * 7.2 > R.W ? "lab-left" : ""} ${ui.classSel === s.id ? "selected" : ""}"
       data-stop="${s.id}" ${m.stops.some(x => x.from === s.id) || s.from ? "data-sidepath" : ""} style="left:${(s.x / R.W * 100).toFixed(2)}%;top:${(s.y / R.H * 100).toFixed(3)}%" data-tip="${stopTip(s)}">
-      ${s.state === "done" ? classCoin() : classSketch()}<span class="clvl">${s.state === "unknown" ? "?" : s.lv}</span>
-      <span class="clabel"><span class="cname">${esc(s.name)}</span></span></button>`).join("")
+      ${classCoin(s.state === "done" ? "" : "dull")}${s.state === "ready" || s.state === "progress" ? `<i class="cred"></i>` : ""}<i class="cfocus"></i>
+      <span class="clvl">${s.state === "unknown" ? "?" : s.lv}</span>
+      <span class="clabel cartlab"><span class="cartwrap"><span class="cname">${esc(s.name)}</span></span><span class="cpips">${counted(s).map(q => `<i class="${s.done.has(q[0]) ? "on" : ""} ${m.unknown ? "unk" : ""}"></i>`).join("")}</span></span></button>`).join("")
+      + classMilestones(m)
       + `<button class="cnode focusable end ${m.complete ? "st-done" : ""} ${ui.classSel === "end" ? "selected" : ""}" data-stop="end" style="left:${(R.end.x / R.W * 100).toFixed(2)}%;top:${(R.end.y / R.H * 100).toFixed(3)}%"
-        data-tip="<b>The road's end</b>${m.complete ? "Every class quest on the road and its side paths is done." : m.unknown ? `${m.quests} class quests; done or not isn't known yet.` : `${m.questsDone} of ${m.quests} class quests done.`}"><span class="cseal"></span>
-        <span class="clabel below"><span class="cname">${m.complete ? "The road walked" : "The road's end"}</span></span></button>`;
+        data-tip="<b>The road's end</b>${m.complete ? "Every class quest on the road and its side paths is done." : m.unknown ? `${m.quests} class quests; done or not isn't known yet.` : `${m.questsDone} of ${m.quests} class quests done.`}"><span class="cseal"></span><i class="cfocus"></i>
+        <span class="clabel below cartlab"><span class="cartwrap"><span class="cname">${R.endName || (m.complete ? "The road walked" : "The road's end")}</span></span></span></button>`;
   }
   function renderClass() {
     const m = classModel(), nx = classNext(m);
@@ -1826,36 +1947,9 @@
     content.innerHTML = `<div class="cjourney ${ui.wide ? "wide" : ""}"><div class="cstrip"><div class="scroll" id="scroll">
         <div class="cplaque ${m.complete ? "done" : ""}"><span class="ctitle">${CLASS_ROAD.title}</span>
           <span class="ccount">${count}</span><span class="cnext ${nx.done ? "done" : ""} ${m.unknown ? "unk" : ""}">${esc(nx.text)}</span></div>
-        <div class="cmap" style="aspect-ratio:${CLASS_ROAD.W} / ${CLASS_ROAD.H}">${classStrip(m)}${classNodes(m)}</div></div>${classRail(m)}</div>
+        <div class="cmap" style="aspect-ratio:${CLASS_ROAD.W} / ${CLASS_ROAD.H}">${classStrip(m)}${classNodes(m)}</div></div></div>
       <div class="cdetailpane" id="detailpane"></div></div>`;
     renderStopInto($("#detailpane"), m, ui.classSel);
-    const sc = $("#scroll"); if (sc) { sc.addEventListener("scroll", updateRail); requestAnimationFrame(updateRail); }
-  }
-  // Item 13 (owner, 2026-11-09: keep scrolling, add an overview): a thin rail at the strip's right
-  // edge with the whole road at a glance. One dot per stop in its state (gold done, orange in
-  // progress, a peach ring open now, grey later; side paths smaller, set off the line), your
-  // mark, the road's end, and a window showing the part of the road in view. Not a focus stop
-  // (LT/RT already go stop to stop); a click scrolls there.
-  function classRail(m) {
-    const R = CLASS_ROAD, top = (y) => (y / R.H * 100).toFixed(2);
-    // Round 3: your mark sits at your level on the road (as on the map); the part of the road in
-    // view lights the rail line, with a brass notch at each end (no box).
-    // Round 4: the rail is the map's scale bar, an ink ruler marked in levels (1, 10 … 60) at
-    // their places on the road, gilded down to your brass dot.
-    const segs = roadSegs(m), yAt = (lv) => { const p = levelPos(m, lv); return bez(segs[m.road[p.i].id], p.t).y; };
-    const yp = { y: yAt(CHAR.level + (CHAR.xpMax ? CHAR.xp / CHAR.xpMax : 0)) };
-    const ticks = [1, 10, 20, 30, 40, 50, 60].map(l => `<i class="rtick" style="top:${top(yAt(l))}%"><em>${l}</em></i>`).join("");
-    const dots = m.stops.map(s => `<i class="rdot ${s.kind} st-${s.state}" data-rail="${s.id}" style="top:${top(s.y)}%"></i>`).join("");
-    const you = `<b class="ryou" style="top:${top(yp.y)}%"></b>`;
-    return `<div class="crail scale" aria-hidden="true"><div class="rtrack"><span class="rline"></span><span class="rfill" style="height:${top(yp.y)}%"></span>${ticks}${dots}
-      <i class="rdot end ${m.complete ? "st-done" : ""}" data-rail="end" style="top:${top(R.end.y)}%"></i>${you}<span class="rview" id="railview"></span></div></div>`;
-  }
-  function updateRail() {
-    const sc = $("#scroll"), v = $("#railview"), map = $(".cmap");
-    if (!sc || !v || !map) return;
-    const mapTop = map.offsetTop, h = map.offsetHeight, plaque = $(".cplaque").offsetHeight;
-    const from = Math.max(0, sc.scrollTop + plaque - mapTop) / h, to = Math.min(1, (sc.scrollTop + sc.clientHeight - mapTop) / h);
-    v.style.top = (from * 100).toFixed(2) + "%"; v.style.height = (Math.max(0.04, to - from) * 100).toFixed(2) + "%";
   }
   // The header: the stop's zone art behind it (round 2), dimmed and greyed while the stop is later.
   function heroHtml(cls, art, kicker, title, sub, score) {
@@ -1868,6 +1962,7 @@
   const doneMedal = () => classCoin("big");
   function renderStopInto(box, m, id) {
     const nx = classNext(m);
+    if (String(id).startsWith("a:")) return renderAbilitiesInto(box, m, id);
     if (id === "end") {
       const pct = m.quests && !m.unknown ? m.questsDone / m.quests : 0;
       const score = m.complete ? doneMedal() : m.unknown ? `<b class="dim">?</b><small>of ${m.quests} quests, not known</small>` : `<b>${m.questsDone}</b><small>of ${m.quests} quests</small>`;
@@ -2171,7 +2266,7 @@
     if (ui.tab === "class" && el.dataset.stop) {
       if (el.dataset.stop !== ui.classSel || !$("#detailpane .chero")) {
         ui.classSel = el.dataset.stop;
-        $$(".cnode.selected").forEach(r => r.classList.remove("selected"));
+        $$(".cnode.selected, .cmile.selected").forEach(r => r.classList.remove("selected"));
         el.classList.add("selected");
         renderStopInto($("#detailpane"), classModel(), ui.classSel);
       }
@@ -2330,6 +2425,8 @@
     ui.repOpen = null;
     fit(); render(); if (ui.tab === "zones") restoreCatalog(); else if (ui.tab === "reputation") restoreRep(); else if (ui.tab === "class") restoreClass(); else focusFirst(); e.target.blur();
   });
+  $("#classMap").addEventListener("change", (e) => { setClassMap(e.target.value); render(); if (ui.tab === "class") restoreClass(); e.target.blur(); });
+  setClassMap($("#classMap").value);
   $("#classSel").addEventListener("change", (e) => { ui.classPreview = e.target.value; ui.classSel = null; render(); if (ui.tab === "class") restoreClass(); e.target.blur(); });
   let currentScale = 1;
   function fit() {

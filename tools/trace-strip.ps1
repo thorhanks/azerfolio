@@ -16,12 +16,19 @@ param(
     [string]$ReviewDir = (Join-Path $PSScriptRoot '..\art\review'),
     [int]$Step = 16,          # rows between path points (strip pixels)
     [int]$Window = 13,        # detail averaging window (pixels)
-    [int]$Smooth = 5          # moving-average half width (points)
+    [int]$Smooth = 5,         # moving-average half width (points)
+    # lane (round 5's narrow painted lane; use it for those strips): the cheapest path from the top edge to the
+    #   bottom edge through plain, light pixels, kept to the lane's middle (follows any bend).
+    # rows (default; round 4's wide corridor): the widest plain run in each row, near the previous row's.
+    [ValidateSet('lane', 'rows')][string]$Method = 'rows',
+    [double]$ColorTol = 38,   # lane: how far (RGB) a cell's colour may be from the lane's colour
+    [string]$MaskDir = '',    # lane: write each strip's lane mask here (debugging)
+    [int]$LaneSmooth = 2      # lane: smoothing half width (the path already keeps to the middle)
 )
 Add-Type -AssemblyName System.Drawing
 $ErrorActionPreference = 'Stop'
 
-if (-not ('AzfStripPath' -as [type])) {
+if (-not ('AzfStripPath' -as [type]) -or -not [AzfStripPath].GetMethod('TraceLane')) {
     Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
 using System;
 using System.Drawing;
@@ -29,7 +36,166 @@ using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 
 public static class AzfStripPath {
+    public static double ColorTol = 38;
+    public static string MaskOut = null;
+    public static string Info = "";
     // Returns x,y pairs (strip pixels) of the corridor's centre every `step` rows.
+    // Lane method: plain (low detail) and light pixels form the lane mask; a distance transform
+    // inside it makes the middle cheapest; Dijkstra (8-connected, on a grid of `cell` px) finds
+    // the cheapest path from any top cell to any bottom cell. Points every `step` px along it,
+    // smoothed. Returns x,y pairs in strip pixels.
+    public static double[] TraceLane(string path, int step, int window, int smooth) {
+        const int cell = 2;
+        using (var src = new Bitmap(path)) {
+            int w = src.Width, h = src.Height;
+            var data = src.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+            var buf = new byte[data.Stride * h];
+            Marshal.Copy(data.Scan0, buf, 0, buf.Length);
+            src.UnlockBits(data);
+            var lum = new double[w * h]; var cr = new double[w * h]; var cg = new double[w * h]; var cb = new double[w * h];
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+                int i = y * data.Stride + x * 3;
+                lum[y * w + x] = 0.114 * buf[i] + 0.587 * buf[i + 1] + 0.299 * buf[i + 2];
+                cb[y * w + x] = buf[i]; cg[y * w + x] = buf[i + 1]; cr[y * w + x] = buf[i + 2];
+            }
+            var det = new double[w * h];
+            for (int y = 1; y < h - 1; y++) for (int x = 1; x < w - 1; x++) {
+                double gx = lum[y * w + x + 1] - lum[y * w + x - 1], gy = lum[(y + 1) * w + x] - lum[(y - 1) * w + x];
+                det[y * w + x] = Math.Sqrt(gx * gx + gy * gy);
+            }
+            // Box averages of detail, lightness and colour (integral images).
+            Func<double[], double[]> integral = (a) => {
+                var I = new double[(w + 1) * (h + 1)];
+                for (int y = 0; y < h; y++) { double row = 0; for (int x = 0; x < w; x++) { row += a[y * w + x]; I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + row; } }
+                return I;
+            };
+            var iDet = integral(det); var iLum = integral(lum); var iR = integral(cr); var iG = integral(cg); var iB = integral(cb);
+            int r = window / 2;
+            Func<double[], int, int, double> avg = (I, x, y) => {
+                int x0 = Math.Max(0, x - r), x1 = Math.Min(w - 1, x + r), y0 = Math.Max(0, y - r), y1 = Math.Min(h - 1, y + r);
+                double s = I[(y1 + 1) * (w + 1) + x1 + 1] - I[y0 * (w + 1) + x1 + 1] - I[(y1 + 1) * (w + 1) + x0] + I[y0 * (w + 1) + x0];
+                return s / ((x1 - x0 + 1) * (y1 - y0 + 1));
+            };
+            int gw = w / cell, gh = h / cell, n = gw * gh;
+            var dv = new double[n]; var lv = new double[n]; var rv = new double[n]; var gv = new double[n]; var bv = new double[n];
+            var sd = new System.Collections.Generic.List<double>(); var sl = new System.Collections.Generic.List<double>();
+            for (int gy = 0; gy < gh; gy++) for (int gx = 0; gx < gw; gx++) {
+                int x = gx * cell + cell / 2, y = gy * cell + cell / 2;
+                dv[gy * gw + gx] = avg(iDet, x, y); lv[gy * gw + gx] = avg(iLum, x, y);
+                rv[gy * gw + gx] = avg(iR, x, y); gv[gy * gw + gx] = avg(iG, x, y); bv[gy * gw + gx] = avg(iB, x, y);
+                if (((gx | gy) & 1) == 0) { sd.Add(dv[gy * gw + gx]); sl.Add(lv[gy * gw + gx]); }
+            }
+            sd.Sort(); sl.Sort();
+            double dThr = sd[(int)(sd.Count * 0.30)] * 1.6, lThr = sl[(int)(sl.Count * 0.55)];
+            // The lane's colour: the median of the lightest fifth of the plain cells; the lane is the cells
+            // close to it in colour and not busy (foliage of a similar lightness differs in hue).
+            var pr = new System.Collections.Generic.List<double>(); var pg = new System.Collections.Generic.List<double>(); var pb = new System.Collections.Generic.List<double>();
+            var pl = new System.Collections.Generic.List<double>();
+            for (int i = 0; i < n; i++) if (dv[i] <= dThr && lv[i] >= lThr) pl.Add(lv[i]);
+            pl.Sort();
+            double lTop = pl[(int)(pl.Count * 0.80)];
+            for (int i = 0; i < n; i++) if (dv[i] <= dThr && lv[i] >= lTop) { pr.Add(rv[i]); pg.Add(gv[i]); pb.Add(bv[i]); }
+            pr.Sort(); pg.Sort(); pb.Sort();
+            double mr = pr[pr.Count / 2], mg = pg[pg.Count / 2], mb = pb[pb.Count / 2];
+            Info = string.Format("lane colour {0:F0},{1:F0},{2:F0}", mr, mg, mb);
+            var lane = new bool[n];
+            for (int i = 0; i < n; i++) {
+                double d = Math.Sqrt((rv[i] - mr) * (rv[i] - mr) + (gv[i] - mg) * (gv[i] - mg) + (bv[i] - mb) * (bv[i] - mb));
+                lane[i] = d <= ColorTol && dv[i] <= dThr * 1.5;
+            }
+            if (!string.IsNullOrEmpty(MaskOut)) {
+                using (var m = new Bitmap(gw, gh)) { for (int i = 0; i < n; i++) m.SetPixel(i % gw, i / gw, lane[i] ? Color.White : Color.Black); m.Save(MaskOut); }
+            }
+            // Distance to the lane's edge (two-pass chamfer, in cells).
+            var dist = new double[n];
+            for (int i = 0; i < n; i++) dist[i] = lane[i] ? 1e9 : 0;
+            for (int pass = 0; pass < 2; pass++) {
+                int y0 = pass == 0 ? 0 : gh - 1, ye = pass == 0 ? gh : -1, yd = pass == 0 ? 1 : -1;
+                for (int y = y0; y != ye; y += yd) {
+                    int x0 = pass == 0 ? 0 : gw - 1, xe = pass == 0 ? gw : -1, xd = pass == 0 ? 1 : -1;
+                    for (int x = x0; x != xe; x += xd) {
+                        int i = y * gw + x; if (dist[i] == 0) continue;
+                        double best = dist[i];
+                        int px = x - xd, py = y - yd;
+                        if (px >= 0 && px < gw) best = Math.Min(best, dist[y * gw + px] + 1);
+                        if (py >= 0 && py < gh) {
+                            best = Math.Min(best, dist[py * gw + x] + 1);
+                            if (px >= 0 && px < gw) best = Math.Min(best, dist[py * gw + px] + 1.414);
+                            int qx = x + xd; if (qx >= 0 && qx < gw) best = Math.Min(best, dist[py * gw + qx] + 1.414);
+                        }
+                        dist[i] = best;
+                    }
+                }
+            }
+            var cost = new double[n];
+            for (int i = 0; i < n; i++) cost[i] = lane[i] ? 1 + 8.0 / (dist[i] * dist[i]) : 60;
+            // Dijkstra from every top cell to the first bottom cell reached.
+            var g = new double[n]; var from = new int[n];
+            for (int i = 0; i < n; i++) { g[i] = double.MaxValue; from[i] = -1; }
+            var heap = new System.Collections.Generic.SortedSet<Tuple<double, int>>();
+            for (int x = 0; x < gw; x++) { g[x] = cost[x]; heap.Add(Tuple.Create(g[x], x)); }
+            int end = -1;
+            int[] ddx = { -1, 0, 1, -1, 1, -1, 0, 1 }, ddy = { -1, -1, -1, 0, 0, 1, 1, 1 };
+            while (heap.Count > 0) {
+                var top = heap.Min; heap.Remove(top);
+                int i = top.Item2; if (top.Item1 > g[i]) continue;
+                int x = i % gw, y = i / gw;
+                if (y == gh - 1) { end = i; break; }
+                for (int k = 0; k < 8; k++) {
+                    int nx = x + ddx[k], ny = y + ddy[k];
+                    if (nx < 0 || nx >= gw || ny < 0 || ny >= gh) continue;
+                    int j = ny * gw + nx;
+                    double c = g[i] + cost[j] * ((ddx[k] != 0 && ddy[k] != 0) ? 1.414 : 1);
+                    if (c < g[j]) { if (g[j] != double.MaxValue) heap.Remove(Tuple.Create(g[j], j)); g[j] = c; from[j] = i; heap.Add(Tuple.Create(c, j)); }
+                }
+            }
+            var cells = new System.Collections.Generic.List<int>();
+            for (int i = end; i >= 0; i = from[i]) cells.Add(i);
+            cells.Reverse();
+            // Resample every `step` px of arc length, then smooth.
+            var xs = new System.Collections.Generic.List<double>(); var ys = new System.Collections.Generic.List<double>();
+            double acc = step, lx = 0, ly = 0;
+            for (int k = 0; k < cells.Count; k++) {
+                double x = (cells[k] % gw) * cell + cell / 2.0, y = (cells[k] / gw) * cell + cell / 2.0;
+                if (k > 0) acc += Math.Sqrt((x - lx) * (x - lx) + (y - ly) * (y - ly));
+                if (acc >= step || k == cells.Count - 1) { xs.Add(x); ys.Add(y); acc = 0; }
+                lx = x; ly = y;
+            }
+            // Re-centre: the cheapest path hugs the inside of bends; move each point to the middle
+            // of the lane's cross-section across the path (where the lane is found on both sides).
+            Func<double, double, bool> inLane = (px, py) => {
+                int qx = (int)(px / cell), qy = (int)(py / cell);
+                return qx >= 0 && qx < gw && qy >= 0 && qy < gh && lane[qy * gw + qx];
+            };
+            int moved = 0; double movedSum = 0;
+            for (int pass = 0; pass < 2; pass++) {
+                var nx2 = new System.Collections.Generic.List<double>(xs);
+                var ny2 = new System.Collections.Generic.List<double>(ys);
+                for (int i = 1; i < xs.Count - 1; i++) {
+                    double ddxp = xs[i + 1] - xs[i - 1], ddyp = ys[i + 1] - ys[i - 1], len = Math.Sqrt(ddxp * ddxp + ddyp * ddyp);
+                    if (len < 1e-6 || !inLane(xs[i], ys[i])) continue;
+                    double ux = -ddyp / len, uy = ddxp / len, a = 0, b = 0;
+                    while (a < 80 && inLane(xs[i] + ux * (a + 1), ys[i] + uy * (a + 1))) a++;
+                    while (b < 80 && inLane(xs[i] - ux * (b + 1), ys[i] - uy * (b + 1))) b++;
+                    if (a >= 80 || b >= 80) continue;
+                    double shift = (a - b) / 2.0;
+                    nx2[i] = xs[i] + ux * shift; ny2[i] = ys[i] + uy * shift;
+                    moved++; movedSum += Math.Abs(shift);
+                }
+                xs = nx2; ys = ny2;
+            }
+            Info += string.Format(" | recentred {0} of {1} points, mean shift {2:F1}px", moved, 2 * xs.Count, moved > 0 ? movedSum / moved : 0);
+            var outp = new double[xs.Count * 2];
+            for (int i = 0; i < xs.Count; i++) {
+                double sx = 0, sy = 0; int m = 0;
+                for (int k = Math.Max(0, i - smooth); k <= Math.Min(xs.Count - 1, i + smooth); k++) { sx += xs[k]; sy += ys[k]; m++; }
+                outp[2 * i] = i == 0 || i == xs.Count - 1 ? xs[i] : sx / m;
+                outp[2 * i + 1] = i == 0 || i == xs.Count - 1 ? ys[i] : sy / m;
+            }
+            return outp;
+        }
+    }
+
     public static double[] Trace(string path, int step, int window, int smooth) {
         using (var src = new Bitmap(path)) {
             int w = src.Width, h = src.Height;
@@ -104,7 +270,9 @@ $lua = @('-- Generated by tools/trace-strip.ps1. Do not edit.',
          'ns.StripPaths = {')
 $js = @('// Generated by tools/trace-strip.ps1. Do not edit.', 'window.AZF_STRIP_PATHS = {')
 foreach ($png in (Get-ChildItem $StripDir -Filter *.png | Where-Object { $_.BaseName -match '^[a-z]+-(alliance|horde)$' })) {
-    $pts = [AzfStripPath]::Trace($png.FullName, $Step, $Window, $Smooth)
+    [AzfStripPath]::ColorTol = $ColorTol
+    [AzfStripPath]::MaskOut = if ($MaskDir) { Join-Path $MaskDir "$($png.BaseName)-mask.png" } else { $null }
+    $pts = if ($Method -eq 'lane') { [AzfStripPath]::TraceLane($png.FullName, $Step, $Window, [Math]::Min($Smooth, $LaneSmooth)) } else { [AzfStripPath]::Trace($png.FullName, $Step, $Window, $Smooth) }
     $img = [System.Drawing.Image]::FromFile($png.FullName)
     $sx, $sy = ($W / $img.Width), ($H / $img.Height)
     # The review image: the strip with the traced centre line.
@@ -120,6 +288,7 @@ foreach ($png in (Get-ChildItem $StripDir -Filter *.png | Where-Object { $_.Base
     }
     $lua += "    [""$($png.BaseName)""] = { " + ($items -join ', ') + ' },'
     $js += "  ""$($png.BaseName)"": [" + (($items | ForEach-Object { $_ -replace '\{', '[' -replace '\}', ']' }) -join ', ') + '],'
+    if ($MaskDir) { Write-Output ([AzfStripPath]::Info) }
     Write-Output "$($png.BaseName): $($pts.Count / 2) points -> review $($png.BaseName)-path.png"
 }
 $lua += '}'

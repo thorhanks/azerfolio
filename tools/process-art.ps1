@@ -1,4 +1,4 @@
-﻿# Processes zone illustrations for the addon and the mockup (see art/style-guide.md §6).
+# Processes zone illustrations for the addon and the mockup (see art/style-guide.md §6).
 #   art/source/<mapID>-<slug>.(png|jpg|jpeg)  ->  mockups/zone-art/<mapID>.png        (1024x512 PNG, 2:1 crop)
 #                                              ->  Azerfolio/Media/Zones/<mapID>.blp   (BLP2 DXT1 + mipmaps, for the game)
 #   art/source/fallback*.(png|jpg|jpeg)       ->  fallback.png / fallback.blp
@@ -98,6 +98,12 @@ $PieceKinds = @{
     'road-dot' = @{ size = @(32, 32); fit = 'fit'; inkKey = $true; dir = 'Chrome' }      # road-dot: a side path
     'road-gold' = @{ size = @(128, 64); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # road-dash-gold-<n>
     ring = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # you-ring: your portrait's ring
+    # Class tab round 5 (art/prompts.md "Round 5"): the road band (tileable, stamped along the road),
+    # the name cartouche (nine-slice), the milestones and the red-ink focus ring.
+    band = @{ size = @(256, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; despill = $true }   # road-band, road-band-gold
+    cartouche = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; despill = $true } # cartouche
+    milestone = @{ size = @(64, 64); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true }  # milestone[-flag-red|-cap-gold]
+    'ink-ring' = @{ size = @(128, 128); fit = 'fit'; inkKey = $true; dir = 'Chrome' }               # focus-ring-red
 }
 
 # Ink on white -> ink with alpha: a pixel's alpha is how far it is from white (its darkest channel
@@ -159,6 +165,10 @@ function Get-PieceKind([string]$name) {
     if ($name -match '^road-dash-gold-\d+$') { return 'road-gold' }
     if ($name -eq 'road-dot') { return 'road-dot' }
     if ($name -eq 'you-ring') { return 'ring' }
+    if ($name -match '^road-band(-gold)?$') { return 'band' }
+    if ($name -eq 'cartouche') { return 'cartouche' }
+    if ($name -match '^milestone(-flag-red|-cap-gold)?$') { return 'milestone' }
+    if ($name -eq 'focus-ring-red') { return 'ink-ring' }
     return $null
 }
 

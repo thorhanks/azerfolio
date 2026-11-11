@@ -28,6 +28,54 @@ function W.Scroll(parent)
     return scroll
 end
 
+-- A slim scrollbar for a W.Scroll area: a track with a thumb sized to the part in view. Hidden
+-- while everything fits. Drag the thumb, or click the track to jump there. Returns the track.
+function W.ScrollBar(scroll, parent, width)
+    local T = ns.Theme
+    local bar = CreateFrame("Frame", nil, parent or scroll:GetParent())
+    bar:SetWidth(width or 6)
+    bar.bg = T.Solid(bar, "black", "BACKGROUND", 0.35)
+    bar.bg:SetAllPoints()
+    bar.thumb = T.Solid(bar, "dim", "ARTWORK", 0.8)
+    bar.thumb:SetPoint("LEFT"); bar.thumb:SetPoint("RIGHT")
+    local function place()
+        local range = scroll:GetVerticalScrollRange() or 0
+        local h = bar:GetHeight() or 0
+        if range <= 0 or h <= 0 then bar:SetAlpha(0); return end
+        bar:SetAlpha(1)
+        local view = scroll:GetHeight() or h
+        local th = math.max(24, h * view / (view + range))
+        local off = (h - th) * math.min(1, (scroll:GetVerticalScroll() or 0) / range)
+        bar.thumb:SetHeight(th)
+        bar.thumb:ClearAllPoints()
+        bar.thumb:SetPoint("TOPLEFT", 0, -off); bar.thumb:SetPoint("TOPRIGHT", 0, -off)
+    end
+    bar.Place = place
+    -- Scroll so the cursor's spot on the track is the thumb's middle.
+    local function seek()
+        local range = scroll:GetVerticalScrollRange() or 0
+        local h, top = bar:GetHeight() or 0, bar:GetTop()
+        if range <= 0 or h <= 0 or not top or not GetCursorPosition then return end
+        local _, cy = GetCursorPosition()
+        cy = cy / (bar:GetEffectiveScale() or 1)
+        local th = bar.thumb:GetHeight() or 0
+        local frac = (top - cy - th / 2) / math.max(1, h - th)
+        scroll:SetVerticalScroll(math.max(0, math.min(range, frac * range)))
+    end
+    bar:EnableMouse(true)
+    bar:SetScript("OnMouseDown", function(self)
+        seek()
+        self:SetScript("OnUpdate", seek)
+    end)
+    bar:SetScript("OnMouseUp", function(self) self:SetScript("OnUpdate", nil) end)
+    bar:SetScript("OnHide", function(self) self:SetScript("OnUpdate", nil) end)
+    bar:SetScript("OnSizeChanged", place)
+    scroll:HookScript("OnVerticalScroll", place)
+    scroll:HookScript("OnScrollRangeChanged", place)
+    scroll:HookScript("OnSizeChanged", place)
+    return bar
+end
+
 -- Native group header (common-button-list-collapseExpand): gold title left, count right.
 function W.Header(parent)
     local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space

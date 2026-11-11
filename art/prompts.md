@@ -425,3 +425,87 @@ You on the road: the player's own portrait (drawn by the game) inside a small br
 | you-ring | 1:1 | A small round antique brass ring frame seen straight on, polished warm brass with a fine engraved rope pattern around it and a tiny pin head at the top like a map pin, the whole inside of the ring (about 75% of its width) empty flat magenta, on a perfectly flat pure magenta (#FF00FF) background |
 
 Negative prompt: the chrome one, plus `gems, text, letters, face, portrait inside`.
+
+### Round 5: painterly antique strip and map pieces (added 2026-11-10)
+
+From the owner's round 5 notes (mockups/DESIGN.md "Class tab", round 5): the road dashes are hard to see and don't feel antique, unfinished stops are hard to see, the names are hard to read, and the strip's cleared corridor is far too wide (about 45% of the width). **Make the test strip panel first** and check it with the owner before panels 2 and 3. The pieces can all be made now.
+
+Backgrounds as in round 4: the map panel is a full picture; **ink pieces** on pure white (#FFFFFF); **coloured or metal pieces** on flat pure magenta (#FF00FF). Never name a game, artist or studio in a prompt.
+
+#### The map strip: zone-art painting in antique-map colours (test panel)
+
+The owner likes the zone art's style (give the tool `art/source/1429-elwynn-forest.png` as the **style** reference) but wants an antique map's colouring (give it `strip-paladin-alliance-1.png` as the **colour** reference). The corridor is now **narrow**: a winding lane of plain ground about **15–18% of the image width**, just wide enough for a road, with the land drawn right up to it on both sides.
+
+Style block for round 5 strips:
+
+```
+Hand-painted stylized fantasy journey map seen from high above at a gentle angle, painterly with
+soft visible brush texture, bold simplified shapes and chunky silhouettes, small landmark buildings
+and landscape features painted in miniature, coloured like an antique map: aged parchment ground,
+sepia and warm umber, muted sage and olive greens, faded slate blues, soft ochre, fine dark ink
+outlines around shapes, subtle paper grain over everything, gently darkened worn edges, quiet
+low saturation, no road, no path, no trail, no people, no creatures, no text.
+3:4 portrait.
+Subject:
+```
+
+Negative prompt: `text, letters, words, labels, place names, calligraphy, numbers, signature, compass rose, border, frame, road, path, trail, dotted line, wide empty band, saturated colors, neon, photograph, 3D render, people, creatures`.
+
+| File | Subject line |
+|---|---|
+| strip-r5-test | The top of a long journey map. At the top centre a small stone abbey with a bell tower in a sheltered wooded valley, soft morning light above it; pine forests painted close on both sides; a waterfall and a small pond on the left a third of the way down; on the right a third of the way down a walled city with a grand twin-spired cathedral, in miniature. A **narrow** winding lane of plain bare ground, about one sixth of the image width, runs from the top centre down to the right and back toward the left at the bottom, with nothing painted in it; trees, hills and buildings come right up to its edges. The bottom edge continues into gentle hills |
+
+Save as `art/source/strip-r5-test.png`. **Approved (2026-11-10), with every round 5 piece below.** Now: `strip-paladin-alliance-1/2/3.png` with the round 4 subject lines for panels 2 and 3 (their corridor wording changed to "a narrow winding lane of plain bare ground, about one sixth of the image width"), giving the tool the test panel as the style and continuity reference; keep the round 4 panels as `strip-paladin-alliance-antique-<n>.png`.
+
+#### The road band (tileable)
+
+The addon lays these pieces end to end along the road's curve, each turned to follow it, so each is **a horizontal stretch of road whose left and right ends join seamlessly** (the same width and edge position at both ends; nothing in it that would repeat visibly). The band fills the frame's width and about a third of its height, centred. Coloured pieces: **flat magenta**.
+
+| File | Aspect | Background | Subject line |
+|---|---|---|---|
+| road-band | 4:1 | flat magenta | A short straight horizontal stretch of an old map's road, seamlessly tileable left to right: a band of warm light earth-brown ground with faint brush texture, bordered top and bottom by fine slightly uneven dark sepia ink lines, centred, filling the width, about a third of the height, on a perfectly flat pure magenta (#FF00FF) background |
+| road-band-gold | 4:1 | flat magenta | The same stretch of road, seamlessly tileable left to right, its band filled with shining gold leaf with gentle warm highlights and a little crackle, the same fine dark sepia ink lines along both edges, on a perfectly flat pure magenta (#FF00FF) background |
+
+Negative prompt: the chrome one, plus `curve, bend, end caps, rounded ends, pebbles, footprints, wheel ruts, text, letters`.
+
+#### The cartouche (stop names)
+
+A small parchment ribbon behind each stop's name; the addon writes the name (and the quest pips under it) on it and **stretches the middle** (nine-slice), so the middle must be plain and even. Coloured piece: **flat magenta**.
+
+| File | Aspect | Background | Subject line |
+|---|---|---|---|
+| cartouche | 4:1 | flat magenta | A small antique map cartouche: a flat horizontal ribbon of pale aged parchment with a fine dark sepia ink outline, both short ends cut in a swallowtail notch with a tiny curl, the long middle completely plain and evenly coloured with no writing and no decoration, seen straight on, centred, filling the width, on a perfectly flat pure magenta (#FF00FF) background |
+
+Negative prompt: the chrome one, plus `text, letters, writing, scroll rolled ends, seal, wax, shadow on the background`.
+
+#### Milestones (abilities on the road)
+
+A small stone at the road's edge for the levels where your class trainer has something: **plain** = later, **red pennant** = you can train something there now, **gold cap** = all learned. Drawn about 16 px tall on the map, so bold, simple shapes. Coloured pieces: **flat magenta**.
+
+| File | Aspect | Background | Subject line |
+|---|---|---|---|
+| milestone | 1:1 | flat magenta | A small old roadside milestone seen from the front: a short upright grey-beige stone with a rounded top, drawn with a confident dark sepia ink outline and light hatching on one side, a thin watercolour wash, centred, filling about two thirds of the frame's height, on a perfectly flat pure magenta (#FF00FF) background |
+| milestone-flag-red | 1:1 | flat magenta | The same small rounded milestone with a thin dark wooden pole planted beside it carrying a small triangular deep red cloth pennant waving to the right, ink outline, on a perfectly flat pure magenta (#FF00FF) background |
+| milestone-cap-gold | 1:1 | flat magenta | The same small rounded milestone with its rounded top capped in shining gold leaf, ink outline, on a perfectly flat pure magenta (#FF00FF) background |
+
+Negative prompt: the chrome one, plus `text, letters, numbers, carving, runes, moss, grass base, several stones`.
+
+#### The focus ring (red ink)
+
+What the gamepad (or mouse) has focused on the map: a cartographer's red-ink circle drawn around the coin. Ink piece: **pure white**, the inside empty.
+
+| File | Aspect | Background | Subject line |
+|---|---|---|---|
+| focus-ring-red | 1:1 | pure white | One hand-drawn circle in deep red ink, a single confident pen stroke whose ends overlap a little, slightly uneven thickness like a cartographer marking a spot, the inside empty white, centred, filling the frame, on a pure white background |
+
+Negative prompt: `several circles, fill, shading, paper texture, text, letters, arrows, frame, border`.
+
+#### The dull coin (only if asked)
+
+Round 5 tries the coin greyed and tinted bronze in code for unfinished stops. **Make this only if the owner finds the code tint muddy in game.** Use the chrome style block.
+
+| File | Aspect | Background | Subject line |
+|---|---|---|---|
+| coin-paladin-dull | 1:1 | flat magenta | The same coin as coin-paladin (give it as the reference): the same design and relief, struck in dull unpolished dark bronze with a soft matte patina and only faint highlights, as if not yet earned, on a perfectly flat pure magenta (#FF00FF) background |
+
+Save every piece as `art/source/<file>.png`; `tools/process-art.ps1` will key and convert them (support for the round 5 pieces is added with the Lua build).

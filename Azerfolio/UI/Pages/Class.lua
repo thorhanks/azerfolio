@@ -463,6 +463,15 @@ local function newNode(parent)
         d:Hide()
         b.redDots[i] = d
     end
+    -- Round 5: focus on the antique map is a thin red-ink circle (tight dots read as one line,
+    -- unlike the spaced dots that mark a stop open now); the yellow disc stays off the map.
+    b.inkFocus = {}
+    for i = 1, CT.inkFocusDots do
+        local d = b:CreateTexture(nil, "OVERLAY", nil, 6)
+        d:SetColorTexture(ns.Theme.RGB("classRedInk"))
+        d:Hide()
+        b.inkFocus[i] = d
+    end
     b.lvl = T.Text(b, "xs", "classInk")
     b.lvl:SetPoint("TOP", b, "BOTTOM", 0, -1)
     b.lvl:SetShadowColor(ns.Theme.RGB("classParchment")); b.lvl:SetShadowOffset(1, -1)
@@ -487,7 +496,9 @@ local function newNode(parent)
         if self.ink then c = self.focused and "classInkFocus" or (self.selected and "classInk" or self.nameColor or "classInk")
         else c = self.focused and "focus" or (self.selected and "white" or self.nameColor or "white") end
         lab.name:SetTextColor(ns.Theme.RGB(c))
-        self.focusRing:SetShown(self.focused == true)
+        local on = self.focused == true
+        self.focusRing:SetShown(on and not self.ink)
+        for _, d in ipairs(self.inkFocus) do d:SetShown(on and self.ink and self.inkFocusR ~= nil) end
     end
     function b:SetFocused(on) self.focused = on; self:Paint() end
     function b:SetSelected(on) self.selected = on; self:Paint() end
@@ -557,15 +568,28 @@ local function paintNode(b, size, state, text, name, labelSide, coinSize, ink)
     b.ink = ink and true or false
     local c = SEAL[state] or SEAL.unknown
     local coin = state == "done" and coinSize and b.coin ~= nil
-    -- Round 4 on the antique map: an unfinished stop is the coin sketched in ink.
-    local sketch = ink and not coin and state ~= "done" and b.sketch ~= nil and coinSize ~= nil
+    -- Round 4 on the antique map: an unfinished stop is the coin sketched in ink. Round 5 test:
+    -- the coin itself, greyed and tinted bronze (dimmer while later), instead of the faint sketch.
+    local dull = ink and state ~= "done" and coinSize ~= nil and b.coin ~= nil
+    local sketch = ink and not coin and state ~= "done" and coinSize ~= nil and (dull or b.sketch ~= nil)
     b.ring:SetSize(size, size); tint(b.ring, c[1], state == "unknown" and 0.5 or 1)
     b.fill:SetSize(size - 2 * CT.ring, size - 2 * CT.ring); tint(b.fill, c[2])
     b.ring:SetShown(not coin and not sketch); b.fill:SetShown(not coin and not sketch)
     b.crest:Hide()
-    local ringSize = coin and coinSize or size
+    local ringSize = (coin or dull) and coinSize or size
     b.focusRing:SetSize(ringSize + 8, ringSize + 8)
-    tint(b.focusRing, "focus", ink and 0.35 or 1)
+    tint(b.focusRing, "focus", 1)
+    -- The red-ink focus circle: just outside the coin (and the open-now dots).
+    b.inkFocusR = ink and (math.max(ringSize, size + 8) / 2 + CT.inkFocusGap) or nil
+    if b.inkFocusR then
+        local n = #b.inkFocus
+        for i, d in ipairs(b.inkFocus) do
+            local a = (i - 1) / n * math.pi * 2
+            d:SetSize(CT.inkFocusDot, CT.inkFocusDot)
+            d:ClearAllPoints()
+            d:SetPoint("CENTER", b, "CENTER", b.inkFocusR * math.cos(a), b.inkFocusR * math.sin(a))
+        end
+    end
     b.glow:SetSize(size + CT.glow, size + CT.glow); tint(b.glow, "classPeach", 0.55)
     local glow = state == "ready" and not ink
     b.glowFrame:SetShown(glow)
@@ -573,8 +597,8 @@ local function paintNode(b, size, state, text, name, labelSide, coinSize, ink)
         if glow then b.glowFrame.anim:Play() else b.glowFrame.anim:Stop() end
     end
     if b.sketch then
-        b.sketch:SetShown(sketch)
-        if sketch then
+        b.sketch:SetShown(sketch and not dull)
+        if sketch and not dull then
             b.sketch:SetSize(size + 2, size + 2)
             local faint = state == "later" or state == "unknown"
             b.sketch:SetAlpha(faint and 0.45 or 1)
@@ -594,7 +618,15 @@ local function paintNode(b, size, state, text, name, labelSide, coinSize, ink)
     end
     b.lvl:SetShown(sketch)
     b.lvl:SetText(state == "unknown" and "?" or (text or ""))
-    if b.coin then b.coin:SetShown(coin); if coin then b.coin:SetSize(coinSize, coinSize) end end
+    if b.coin then
+        b.coin:SetShown(coin or dull)
+        if coin or dull then b.coin:SetSize(coinSize, coinSize) end
+        if b.coin.SetDesaturated then b.coin:SetDesaturated(dull and true or false) end
+        local faint = state == "later" or state == "unknown"
+        local tone = dull and CT.dullCoin[faint and "later" or "open"] or { 1, 1, 1, 1 }
+        b.coin:SetVertexColor(tone[1], tone[2], tone[3])
+        b.coin:SetAlpha(tone[4])
+    end
     b.check:SetSize(size * 0.55, size * 0.55)
     b.check:SetShown(state == "done" and not coin)
     if state == "done" then b.check:SetVertexColor(0.35, 0.22, 0.02) end
@@ -720,57 +752,14 @@ local function build(parent)
     plaque.next:SetWordWrap(true)
     if plaque.next.SetMaxLines then plaque.next:SetMaxLines(2) end
     page.plaque = plaque
-    -- The road overview rail (review item 13): the whole road at a glance at the strip's right
-    -- edge, fixed while the map scrolls. Dots per stop, your ring, the road's end, the view.
-    local rail = CreateFrame("Frame", nil, strip)
-    rail:SetPoint("TOPRIGHT", plaque, "BOTTOMRIGHT", 0, 0)
-    rail:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", -1, 0)
-    rail:SetWidth(CT.rail)
-    rail.bg = T.Solid(rail, "black", "BACKGROUND", 0.5)
-    rail.bg:SetAllPoints()
-    local redge = T.Solid(rail, "divider", "BORDER")
-    redge:SetPoint("TOPLEFT"); redge:SetPoint("BOTTOMLEFT"); redge:SetWidth(1)
-    rail.track = CreateFrame("Frame", nil, rail)
-    rail.track:SetPoint("TOPLEFT", 0, -CT.railPad); rail.track:SetPoint("BOTTOMRIGHT", 0, CT.railPad)
-    -- Round 4: the map's scale bar. The line sits right of centre; level numbers to its left.
-    rail.line = T.Solid(rail.track, "classRailLine", "BORDER")
-    rail.line:SetPoint("TOP", CT.railLineX, 0); rail.line:SetPoint("BOTTOM", CT.railLineX, 0); rail.line:SetWidth(CT.railLine)
-    -- Round 3: the road you've levelled through is gold down to your mark.
-    rail.fill = T.Solid(rail.track, "complete", "BORDER", 1)
-    rail.fill:SetWidth(CT.railLine)
-    rail.fill:Hide()
-    rail.ticks = {}
-    for i, lv in ipairs(CT.railTicks) do
-        local tick = T.Solid(rail.track, "classRailLine", "ARTWORK")
-        tick:SetSize(CT.railTick, 1)
-        local label = T.Text(rail.track, "xs", "dim")
-        label:SetJustifyH("RIGHT"); label:SetWidth(CT.railLabel); label:SetWordWrap(false)
-        label:SetText(tostring(lv))
-        rail.ticks[i] = { level = lv, tick = tick, label = label }
-    end
-    -- Round 3 (no box): the part in view glows on the line, a brass notch at each end.
-    rail.view = CreateFrame("Frame", nil, rail.track)
-    rail.view:SetWidth(CT.railView)
-    -- Bright on the line, fading to each side: two halves with mirrored gradients.
-    for _, half in ipairs({ "LEFT", "RIGHT" }) do
-        local g = rail.view:CreateTexture(nil, "ARTWORK")
-        g:SetPoint("TOP"); g:SetPoint("BOTTOM"); g:SetPoint(half)
-        g:SetWidth(CT.railView / 2)
-        g:SetColorTexture(1, 1, 1, 1)
-        local edge, mid = CreateColor and CreateColor(1, 0.92, 0.67, 0), CreateColor and CreateColor(1, 0.92, 0.67, 0.6)
-        local ok = edge and pcall(g.SetGradient, g, "HORIZONTAL", half == "LEFT" and edge or mid, half == "LEFT" and mid or edge)
-        if not ok then g:SetColorTexture(1, 0.92, 0.67, 0.35) end
-    end
-    rail.view.notchTop = T.Solid(rail.view, "classNotch", "OVERLAY")
-    rail.view.notchTop:SetSize(CT.railNotch[1], CT.railNotch[2]); rail.view.notchTop:SetPoint("CENTER", rail.view, "TOP", 0, 0)
-    rail.view.notchBottom = T.Solid(rail.view, "classNotch", "OVERLAY")
-    rail.view.notchBottom:SetSize(CT.railNotch[1], CT.railNotch[2]); rail.view.notchBottom:SetPoint("CENTER", rail.view, "BOTTOM", 0, 0)
-    rail.view:SetFrameLevel(rail.track:GetFrameLevel() + 3)
-    rail.dots = {}
-    page.rail = rail
+    -- A plain slim scrollbar at the strip's right edge (round 5: the scale-bar rail is gone).
     local mscroll = W.Scroll(strip)
     mscroll:SetPoint("TOPLEFT", plaque, "BOTTOMLEFT", S.s2, -S.s2)
-    mscroll:SetPoint("BOTTOMRIGHT", rail, "BOTTOMLEFT", -S.s2, S.s2)
+    mscroll:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", -(S.s2 + CT.scrollBar + S.s1), S.s2)
+    local sbar = W.ScrollBar(mscroll, strip, CT.scrollBar)
+    sbar:SetPoint("TOPRIGHT", plaque, "BOTTOMRIGHT", -S.s1, -S.s2)
+    sbar:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", -S.s1, S.s2)
+    page.scrollBar = sbar
     local map = mscroll.child
     page.map, page.mscroll = map, mscroll
     -- The sky: one gradient band between each pair of colour stops.
@@ -794,11 +783,7 @@ local function build(parent)
     you.ring:SetPoint("CENTER")
     you.icon = circle(you, "ARTWORK", CT.you - 4)
     you.icon:SetPoint("CENTER")
-    you.tag = CreateFrame("Frame", nil, you)
-    you.tag:SetSize(CT.youTag[1], CT.youTag[2])
-    you.tag:SetPoint("TOP", you, "BOTTOM", 0, -2)
-    you.tagBg = T.Solid(you.tag, "classLabel", "BACKGROUND", 0.9)
-    you.tagBg:SetAllPoints()
+    -- (Round 5, owner 2026-11-10: no "You · 10" tag; the portrait is enough.)
     -- Round 4: the brass ring (you-ring) around your portrait; its inside is about 56% of the
     -- piece, its centre a little below the middle (the pin is on top).
     you.brass = piece(you, "you-ring", "OVERLAY", 2)
@@ -807,10 +792,6 @@ local function build(parent)
         you.brass:ClearAllPoints(); you.brass:SetPoint("CENTER", you, "CENTER", 0, 2)
         you.brass:Hide()
     end
-    you.tagEdge = W.Edge(you.tag, "BORDER")
-    you.tagText = T.Text(you.tag, "xs", "white")
-    you.tagText:SetPoint("CENTER", 0, 0)
-    you.tagText:SetText("You")
     page.you = you
 
     -- Right: the stop -----------------------------------------------------------------------------
@@ -942,7 +923,7 @@ local function build(parent)
     -- The map, its road, beads, nodes and the road's end. Returns the focus rows.
     local function drawMap(j, lay)
         local mapW = math.max(1, (mscroll:GetWidth() or 0) > 1 and mscroll:GetWidth()
-            or ((page.wide and CT.stripWide or CT.strip) - 2 * S.s2 - CT.rail))
+            or ((page.wide and CT.stripWide or CT.strip) - 2 * S.s2 - CT.scrollBar - S.s1))
         local s = mapW / lay.W
         page.scale = s
         -- Room under the road's end for its label (it was cut off, WoWScrnShot_110926_221342).
@@ -1157,8 +1138,8 @@ local function build(parent)
         -- The names where they ended up (map pixels), for ability marks to keep clear of.
         local nameRects = {}
         for i, r in ipairs(rects) do nameRects[i] = { r[1], r[2], r[3] + shift[i], r[4] + shift[i] } end
-        -- "You" (round 3): on the road at your level, riding the front of the fill, with
-        -- "You · 10" beside it. Your level is always known, so it shows even when completion isn't.
+        -- "You" (round 3): on the road at your level, riding the front of the fill. Your level is
+        -- always known, so it shows even when completion isn't.
         you:Hide()
         page.youX, page.youY = nil, nil
         local youSeg = li and lay.road[li] and lay.segs[lay.road[li].key]
@@ -1177,19 +1158,8 @@ local function build(parent)
             you:ClearAllPoints()
             you:SetPoint("CENTER", map, "TOPLEFT", x * s, -y * s)
             you:SetFrameLevel(map:GetFrameLevel() + 7)
-            you.tag:SetFrameLevel(map:GetFrameLevel() + 8)
-            you.tag:ClearAllPoints()
-            -- The tag on the side away from the nearer stop's name (it covered "The Tome of
-            -- Divinity", WoWScrnShot_111026_184819).
-            local nearKey = lt >= 0.5 and lay.road[li + 1] and lay.road[li + 1].key or lay.road[li].key
-            local nearNode = byKey[nearKey]
-            local nameLeft = nearNode and nearNode.labelSide == "left"
-            if nearNode == nil then nameLeft = x >= lay.W / 2 end
-            if nameLeft then you.tag:SetPoint("LEFT", you, "RIGHT", 3, 0) else you.tag:SetPoint("RIGHT", you, "LEFT", -3, 0) end
-            you.tag:SetWidth(CT.youTagW)
-            you.tagText:SetText("You  ·  " .. tostring(c.level or "?"))
-            -- Round 4: your portrait in the brass ring (a token pinned to the map), an ink tag on
-            -- parchment. No class colour (the pink was the Paladin's).
+            -- Round 4: your portrait in the brass ring (a token pinned to the map). No class
+            -- colour (the pink was the Paladin's), and since round 5 no tag.
             local portrait = type(SetPortraitTexture) == "function" and pcall(SetPortraitTexture, you.icon, "player")
             if not portrait and not setClassIcon(you.icon) then tint(you.icon, "classParchment") end
             if you.brass then
@@ -1197,10 +1167,6 @@ local function build(parent)
             else
                 you.ring:Show(); tint(you.ring, "classNotch")
             end
-            tint(you.tagBg, page.painted and "classParchment" or "classLabel", 0.92)
-            you.tagEdge:SetColor(page.painted and "classInk" or "classNotch")
-            you.tagText:SetTextColor(T.RGB(page.painted and "classInk" or "white"))
-            you.tagText:SetShadowOffset(page.painted and 0 or 1, page.painted and 0 or -1)
             you:Show()
         end
         -- Abilities along the road (round 4, the owner's idea): a mark beside the road at each level
@@ -1305,135 +1271,6 @@ local function build(parent)
         page.byKey = byKey
         return rows
     end
-
-    -- The rail ---------------------------------------------------------------------------------
-    local RAIL = { -- ring, fill, alpha per state (style.css .crail .rdot)
-        done = { "classBeadOn", "complete", 1 }, progress = { "classPeach", "todo", 1 },
-        ready = { "classPeach", "cardBg", 1 }, later = { "levelRange", "cardBg", 0.75 },
-        unknown = { "untouched", "cardBg", 0.6 },
-    }
-    local function newMark()
-        local f = CreateFrame("Frame", nil, rail.track)
-        f.ring = circle(f, "BORDER", 10); f.ring:SetPoint("CENTER")
-        f.fill = circle(f, "ARTWORK", 8); f.fill:SetPoint("CENTER")
-        return f
-    end
-    -- Places the marks and the view window for the track's current height.
-    local function placeRail()
-        local h = rail.track:GetHeight() or 0
-        local mapH = map:GetHeight() or 0
-        if h <= 1 or mapH <= 1 then return end
-        local x0 = CT.railLineX
-        for _, m in ipairs(page.railMarks or {}) do
-            m.frame:ClearAllPoints()
-            m.frame:SetPoint("CENTER", rail.track, "TOP", x0 + (m.dx or 0), -m.frac * h)
-        end
-        -- The scale bar's level ticks at their places on the road.
-        for _, tk in ipairs(rail.ticks) do
-            local f = page.tickFracs and page.tickFracs[tk.level]
-            tk.tick:SetShown(f ~= nil); tk.label:SetShown(f ~= nil)
-            if f then
-                tk.tick:ClearAllPoints(); tk.tick:SetPoint("CENTER", rail.track, "TOP", x0, -f * h)
-                tk.label:ClearAllPoints(); tk.label:SetPoint("RIGHT", tk.tick, "LEFT", -1, 0)
-            end
-        end
-        local viewH = mscroll:GetHeight() or 0
-        local off = mscroll:GetVerticalScroll() or 0
-        local from = math.max(0, off / mapH)
-        local to = math.min(1, (off + viewH) / mapH)
-        rail.view:ClearAllPoints()
-        rail.view:SetPoint("TOP", rail.track, "TOP", x0, -from * h)
-        rail.view:SetHeight(math.max(6, (to - from) * h))
-        -- The gold down to your mark.
-        local yf = page.youFrac
-        rail.fill:SetShown(yf ~= nil and yf > 0)
-        if yf then
-            rail.fill:ClearAllPoints()
-            rail.fill:SetPoint("TOP", rail.track, "TOP", x0, 0)
-            rail.fill:SetHeight(math.max(1, yf * h))
-        end
-    end
-    page.PlaceRail = placeRail
-    -- One mark per stop (side paths smaller, set off the line), the road's end, your ring.
-    local function drawRail(j, lay)
-        local s, mapH = page.scale or 1, map:GetHeight() or 1
-        local marks, used = {}, 0
-        local function mark(size, ringC, fillC, alpha, frac, dx, level)
-            used = used + 1
-            local f = rail.dots[used]
-            if not f then f = newMark(); rail.dots[used] = f end
-            f:SetSize(size, size)
-            f.ring:SetSize(size, size); f.fill:SetSize(math.max(2, size - 4), math.max(2, size - 4))
-            if ringC then tint(f.ring, ringC) end
-            tint(f.fill, fillC)
-            f:SetAlpha(alpha or 1)
-            f:SetFrameLevel(rail.track:GetFrameLevel() + (level or 2))
-            f:Show()
-            marks[#marks + 1] = { frame = f, frac = frac, dx = dx }
-            return f
-        end
-        local function frac(y) return math.max(0, math.min(1, y * s / math.max(1, mapH))) end
-        -- The scale bar (round 4): its colours on the parchment, and its level ticks.
-        tint(rail.bg, page.painted and "classParchment" or "black", page.painted and 0.92 or 0.5)
-        tint(rail.line, page.painted and "classInk" or "classRailLine")
-        local levels = {}
-        for i, r in ipairs(lay.road) do levels[i] = r.level end
-        page.tickFracs = {}
-        for _, tk in ipairs(rail.ticks) do
-            local i, t = ns.ClassJourneyRules.LevelPos(levels, tk.level, 60)
-            local seg = i and lay.road[i] and lay.segs[lay.road[i].key]
-            if seg then local _, y = bez(seg, t); page.tickFracs[tk.level] = frac(y) end
-            tint(tk.tick, page.painted and "classInk" or "classRailLine")
-            tk.label:SetTextColor(T.RGB(page.painted and "classInk" or "dim"))
-        end
-        -- Your mark at your level on the road (as on the map): a brass dot (round 4: no class colour).
-        page.youFrac = page.youY and frac(page.youY) or nil
-        if page.youY then
-            local f = mark(CT.railYou, "classInk", "classNotch", 1, page.youFrac, 0, 1)
-            f.fill:SetSize(CT.railYou - 4, CT.railYou - 4)
-        end
-        for _, st in ipairs(j.stops) do
-            local side = lay.from[st.key] ~= nil
-            local c = RAIL[st.state or "unknown"] or RAIL.unknown
-            local p = lay.pos[st.key]
-            mark(side and CT.railSide or CT.railDot, c[1], c[2], c[3], frac(p[2]), side and CT.railSideOff or 0, 2)
-        end
-        for i = used + 1, #rail.dots do rail.dots[i]:Hide() end
-        -- The road's end: a diamond (two unmasked squares turned 45 degrees; Texture:SetRotation
-        -- works in this client), gold when walked.
-        local walked = j.complete == true
-        local e = rail.endMark
-        if not e then
-            e = CreateFrame("Frame", nil, rail.track)
-            e.outer = e:CreateTexture(nil, "BORDER"); e.outer:SetPoint("CENTER")
-            e.inner = e:CreateTexture(nil, "ARTWORK"); e.inner:SetPoint("CENTER")
-            rail.endMark = e
-        end
-        local side = CT.railEnd / math.sqrt(2)
-        e:SetSize(CT.railEnd, CT.railEnd)
-        e.outer:SetSize(side, side); e.inner:SetSize(side - 3, side - 3)
-        tint(e.outer, walked and "classBeadOn" or "levelRange"); tint(e.inner, walked and "complete" or "cardBg")
-        for _, tex in ipairs({ e.outer, e.inner }) do if tex.SetRotation then tex:SetRotation(math.pi / 4) end end
-        e:SetFrameLevel(rail.track:GetFrameLevel() + 2)
-        marks[#marks + 1] = { frame = e, frac = frac(lay.endPos[2]) }
-        page.railMarks = marks
-        placeRail()
-    end
-    rail:SetScript("OnSizeChanged", function() placeRail() end)
-    mscroll:HookScript("OnVerticalScroll", function() placeRail() end)
-    -- A click on the rail scrolls the map there.
-    rail:EnableMouse(true)
-    rail:SetScript("OnMouseDown", function()
-        if type(GetCursorPosition) ~= "function" then return end
-        local top, h = rail.track:GetTop(), rail.track:GetHeight() or 0
-        if not top or h <= 1 then return end
-        local _, cy = GetCursorPosition()
-        cy = cy / (rail:GetEffectiveScale() or 1)
-        local f = math.max(0, math.min(1, (top - cy) / h))
-        local mapH, viewH = map:GetHeight() or 0, mscroll:GetHeight() or 0
-        local range = mscroll:GetVerticalScrollRange() or 0
-        mscroll:SetVerticalScroll(math.max(0, math.min(range, f * mapH - viewH / 2)))
-    end)
 
     -- Text in the pane at y; returns the next y.
     local function note(text, y, x, w, color)
@@ -1823,7 +1660,7 @@ local function build(parent)
         plaque.next:SetTextColor(T.RGB(nc))
         self.drawnWidth = mscroll:GetWidth() or 0
         self.roadRows = drawMap(j, self.layout)
-        drawRail(j, self.layout)
+        if page.scrollBar then page.scrollBar.Place() end
         -- Selection: kept if the stop (or ability mark) is still there; else your current stop.
         local abSel = type(self.sel) == "string" and tonumber(self.sel:match("^a:(%d+)$")) or nil
         if abSel and not (self.abilityMarks and self.abilityMarks[abSel]) then self.sel, abSel = nil, nil end

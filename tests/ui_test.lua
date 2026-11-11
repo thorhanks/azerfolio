@@ -740,7 +740,7 @@ return function(t)
         t.eq(cp.levelSeg, 1)
         t.ok(math.abs(cp.levelT - (8 + 273 / 6500) / 11) < 1e-6, tostring(cp.levelT))
         t.eq(cp.you:IsShown(), true)
-        t.eq(cp.you.tagText:GetText(), "You  ·  9")
+        t.eq(cp.you.tag, nil, "no tag beside the portrait (round 5)")
         -- Abilities along the road: marks at 4 and 8 between the letter and Divinity; "2 to train".
         t.ok(cp.abilityMarks[4] and cp.abilityMarks[8], "marks at levels 4 and 8")
         t.ok(cp.plaque.count:GetText():find("2 to train"), cp.plaque.count:GetText())
@@ -766,11 +766,9 @@ return function(t)
         t.eq(intro.coin ~= nil and intro.coin:IsShown() or intro.check:IsShown(), true,
             "a finished stop wears the class coin (or the check without the art)")
         t.eq(cp:GetHints()[1], nil, "no side path at Divinity")
-        -- The overview rail (review item 13): your ring, one mark per stop (7), the road's end.
-        t.eq(#cp.railMarks, 9)
-        t.ok(cp.railMarks[1].frac > 0 and cp.railMarks[1].frac < 1, "marks sit along the track")
-        t.ok(cp.railMarks[2].frac < cp.railMarks[3].frac, "top to bottom in road order")
-        t.ok(cp.railMarks[#cp.railMarks].frac > cp.railMarks[#cp.railMarks - 1].frac, "the road's end last")
+        -- Round 5: no overview rail; a plain slim scrollbar instead.
+        t.eq(cp.rail, nil, "the rail is gone")
+        t.ok(cp.scrollBar ~= nil and cp.scrollBar.thumb ~= nil, "a slim scrollbar beside the map")
         -- Gamepad: down follows the road; right onto Valor's side path; down returns to the road.
         press(ns, "PADDDOWN")
         t.eq(ns.Focus.Current().key, "n:valor")

@@ -353,7 +353,6 @@ Theme.color.classCairn = hex("8c826f")     -- a side path's dead end
 Theme.color.classLabel = hex("140c06")     -- the You tag's plate
 Theme.color.className = hex("fff3d6")      -- a stop's name on the map (round 3: outlined text, no plate)
 Theme.color.classNameDim = hex("d8ccb0")   -- a later stop's name
-Theme.color.classRailLine = hex("3e3222")  -- the rail's line beyond your mark
 -- Round 4, the antique map: ink on parchment.
 Theme.color.classInk = hex("2e2014")       -- a stop's name, the level numeral, the You tag
 Theme.color.classInkGold = hex("8a5d08")   -- a finished stop's name
@@ -362,7 +361,7 @@ Theme.color.classInkFocus = hex("000000")  -- the focused stop's name
 Theme.color.classParchment = hex("efe1bd") -- the paper halo behind ink text, the uncharted wash, the rail
 Theme.color.classRedInk = hex("a8352a")    -- the cartographer's red ring around a stop open now
 Theme.color.classRedInkLight = hex("ff8a70") -- "8 to train" on the dark plaque
-Theme.color.classNotch = hex("c9a24a")     -- the brass notches at the ends of the rail's view
+Theme.color.classNotch = hex("c9a24a")     -- brass: your portrait's ring
 Theme.layout.classTab = {
     strip = 430, stripWide = 560,          -- the journey strip's column
     plaque = 84,                           -- "The Paladin's Road", the counts and the Next line (round 2; two
@@ -377,11 +376,10 @@ Theme.layout.classTab = {
     sideDot = 5, sideStep = 11,            -- a side path's dotted track
     bead = 9, sideBead = 7,
     label = 240, labelGap = 10, labelPad = 6, -- (200 cut "Summon Charger · 11 quests", WoWScrnShot_110926_224440)
-    you = 34, youTag = { 40, 16 },         -- the class crest where you are, and its "You" tag (round 2)
+    you = 46,                              -- your portrait token (round 5: a road stop's size, no tag)
     coin = 52, sideCoin = 40, heroCoin = 80, -- the class coin on finished stops (round 3, owner 2026-11-10)
     pip = 7, sidePip = 6,                  -- quest pips around a node (round 3: completion lives on the node)
     pipRing = 31, sidePipRing = 23,        -- their ring's radius (logical units, from the node's centre)
-    youTagW = 64,                          -- "You · 32"
     redDots = 28, redDot = 2,              -- round 4: the red cartographer's ring (dots, px)
     -- Round 4: road dash stamps (logical units). The dash fills about 85% of its image's width and
     -- 21% of its height, so the stamp is drawn taller than its 2:1 image to give a ~5-unit-thick
@@ -390,16 +388,12 @@ Theme.layout.classTab = {
     dotSize = 6, dotStep = 9,              -- round 4: a side path's ink dots
     abilityMark = 18,                      -- round 4: an ability mark on the road (px)
     abilityOffsets = { 20, -20, 34, -34, 48, -48, 62, -62 }, -- spots beside the road a mark tries, in order (logical)
-    railLabel = 22,                        -- round 4: the scale bar's level numbers (16 cut "10" to "…")
     stepsWide = 560,                       -- wide pane: the steps column; the facts go beside it
     wideFacts = 860,                       -- pane width from which the facts go beside the steps
     labelPush = 4,                         -- gap kept between node labels pushed apart
-    -- The road overview rail (review item 13, owner 2026-11-09; style.css .crail)
-    rail = 34, railPad = 10, railLine = 2,   -- round 4: wide enough for the scale bar's level numbers
-    railLineX = 9, railTick = 8,           -- the line right of centre; tick marks across it
-    railTicks = { 1, 10, 20, 30, 40, 50, 60 },
-    railDot = 10, railSide = 7, railSideOff = 6, railEnd = 12, railYou = 16,
-    railView = 8, railNotch = { 14, 3 },   -- round 3: the lit part in view and its brass notches (no box)
+    inkFocusDots = 72, inkFocusDot = 2, inkFocusGap = 3, -- round 5: the red-ink focus circle on the map
+    dullCoin = { open = { 0.86, 0.66, 0.44, 1 }, later = { 0.62, 0.5, 0.36, 0.75 } }, -- round 5 test: unfinished coins (bronze tint)
+    scrollBar = 6,                         -- round 5: the map's slim scrollbar (the rail is gone)
     hero = 132, heroScore = 140,
     facts = 46, stepRow = 40, stepIcon = 22, stopRow = 40,
     bar = 18,

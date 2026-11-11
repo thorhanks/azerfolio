@@ -1297,3 +1297,83 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .cbar { height: 10px; border-radius: 5px; background: #2a2018; border: 1px solid #000; margin: 0 0 var(--s2); overflow: hidden; }
 .cbar i { display: block; height: 100%; background: var(--grad-progress); }
 .cbar.complete i { background: linear-gradient(180deg, #ffe08a, #ffcc33 55%, #b8860b); }
+
+/* ---- Class tab, round 5 (owner, 2026-11-10) ------------------------------------------------- */
+/* No rail: a plain slim scrollbar on the strip. */
+.cstrip .scroll { padding-right: 0; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #6b5a44 rgba(0,0,0,.35); }
+.cstrip .scroll::-webkit-scrollbar { width: 6px; }
+.cstrip .scroll::-webkit-scrollbar-track { background: rgba(0,0,0,.35); }
+.cstrip .scroll::-webkit-scrollbar-thumb { background: #6b5a44; border-radius: 3px; }
+/* The road band: inked edges over an earth fill, gilded to your level (stand-in for road-band art). */
+.cmapart .band-edge { fill: none; stroke: #3b2a1a; stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+.cmapart .band-earth { fill: none; stroke: #c9a873; stroke-width: 6.5; stroke-linecap: round; stroke-linejoin: round; }
+.cmapart .band-gold { fill: none; stroke: #e2b13c; stroke-width: 6.5; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 2px rgba(255,220,120,.8)); }
+.cmapart .band-edge.bside { stroke-width: 6; stroke-dasharray: 7 4; opacity: .8; }
+.cmapart .band-earth.bside { stroke-width: 3; stroke-dasharray: 7 4; }
+.cmapart .band-gold.bside { stroke-width: 3; stroke-dasharray: 7 4; }
+/* You: the bigger portrait token, no tag. */
+.cmapart .you .youface { fill: #6b5a44; }
+.cmapart .you .youinit { fill: #efe1bd; font: 14px var(--font); text-anchor: middle; }
+/* The dull coin: an unfinished stop is its coin, greyed and bronze; dimmer while later. */
+.ccoin.dull { filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.ccoin.dull img { filter: grayscale(1) sepia(.6) brightness(.85) contrast(.95); }
+.cnode.st-later .ccoin.dull, .cnode.st-unknown .ccoin.dull { opacity: .75; }
+.cnode.st-later .ccoin.dull img, .cnode.st-unknown .ccoin.dull img { filter: grayscale(1) sepia(.5) brightness(.65); }
+.cnode .cred { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; transform: translate(-50%, -50%); border-radius: 50%; border: 2px dotted #a8352a; pointer-events: none; }
+.cnode.side .cred { width: 48px; height: 48px; }
+/* Focus: a red-ink circle, no yellow glow. */
+.cnode .cfocus { display: none; position: absolute; left: 50%; top: 50%; width: 68px; height: 68px; transform: translate(-50%, -50%); border-radius: 50%;
+  border: 2.5px solid #a8352a; box-shadow: 0 0 0 1px rgba(239,225,189,.6); pointer-events: none; }
+.cnode.side .cfocus { width: 54px; height: 54px; }
+.cnode.end .cfocus { width: 76px; height: 76px; top: 45%; }
+.cnode.focused .cfocus { display: block; }
+.cnode.focused .ccoin, .cnode.focused .csketch { filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.cnode.focused .ccoin.dull img { filter: grayscale(1) sepia(.6) brightness(.95); }
+/* The cartouche: a painted ribbon behind the name, the quest pips in a row under it. */
+.cnode .cartwrap { padding: 3px 12px 4px; background: linear-gradient(180deg, #f3e7c6, #e3cf9f); border: 1px solid #5a4126;
+  box-shadow: 0 1px 3px rgba(0,0,0,.55); clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 50%, 100% 100%, 0 100%, 6px 50%); gap: 2px; align-items: flex-start; }
+.cnode.lab-left .cartwrap { align-items: flex-end; }
+.cnode .clabel.below .cartwrap { align-items: center; }
+.cnode .cartwrap .cname { color: #2e2014 !important; text-shadow: none; font-weight: 600; text-decoration: none; }
+.cnode.st-done .cartwrap .cname { color: #7a5208 !important; }
+.cnode.st-later .cartwrap, .cnode.st-unknown .cartwrap { background: linear-gradient(180deg, #e9dcb9, #d8c49a); }
+.cnode.st-later .cartwrap .cname, .cnode.st-unknown .cartwrap .cname { color: #5e4d38 !important; }
+.cnode.focused .cartwrap { border-color: #a8352a; }
+.cnode.focused .cartwrap .cname { color: #8a1f16 !important; }
+.cpips { display: flex; gap: 3px; }
+.cpips i { width: 6px; height: 6px; border-radius: 50%; background: #efe1bd; border: 1px solid #4a3420; }
+.cpips i.on { background: #e2b13c; border-color: #7a5208; }
+.cpips i.unk { opacity: .45; }
+.cnode .clvl { top: calc(100% + 4px); }
+/* Milestones: an ink-outlined stone on the road's edge; red pennant = trainable now, gold cap =
+   all learned, plain = later. The level (or "4–8") beside it in ink. */
+.cmile { position: absolute; transform: translate(-50%, -50%); width: 16px; height: 18px; padding: 0; border: 0; background: none; cursor: pointer; z-index: 2; }
+.cmile .stone { position: absolute; left: 3px; right: 3px; bottom: 0; height: 13px; background: linear-gradient(180deg, #cfc2a4, #9d8f72);
+  border: 1.5px solid #3b2a1a; border-radius: 5px 5px 1px 1px; }
+.cmile.st-learned .stone { border-top: 3.5px solid #d9a93a; }
+.cmile.st-available .stone::before { content: ""; position: absolute; left: 3px; bottom: 100%; width: 1.5px; height: 11px; background: #3b2a1a; }
+.cmile.st-available .stone::after { content: ""; position: absolute; left: 4.5px; bottom: calc(100% + 4px); border: 4px solid transparent; border-left: 8px solid #a8352a; border-right: 0; }
+.cmile.st-later .stone, .cmile.st-unknown .stone { opacity: .75; }
+.cmile em { position: absolute; top: 3px; left: calc(100% + 2px); font: 10px var(--font); font-style: normal; color: #2e2014; white-space: nowrap;
+  text-shadow: 0 0 2px #efe1bd, 0 0 3px #efe1bd; }
+.cmile.flip em { left: auto; right: calc(100% + 2px); }
+.cmile.focused::before, .cmile.selected.focused::before { content: ""; position: absolute; inset: -6px -5px -4px; border: 2px solid #a8352a; border-radius: 50%; }
+.cmile.focused em { color: #8a1f16; }
+/* Round 5 art: the painted cartouche (nine-slice), milestones and the red-ink focus ring. */
+.cnode .cartwrap { clip-path: none; background: none; border: 0; box-shadow: none; padding: 3px 4px 5px;
+  border-style: solid; border-width: 0 20px; border-image: url("chrome-art/cartouche.png") 33 48 fill / 0 20px stretch; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.cnode .cartwrap > * { margin: 0 -6px; }
+.cnode.st-later .cartwrap, .cnode.st-unknown .cartwrap { background: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)) saturate(.6) brightness(.93); }
+.cnode.focused .cartwrap { filter: drop-shadow(0 0 1px #a8352a) drop-shadow(0 0 1px #a8352a) drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.cnode .cfocus { border: 0; box-shadow: none; background: url("chrome-art/focus-ring-red.png") center / contain no-repeat; }
+.cmile.art { width: 20px; height: 20px; }
+.cmile.art .mstone { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 1px rgba(0,0,0,.6)); }
+.cmile.art.st-later .mstone, .cmile.art.st-unknown .mstone { opacity: .8; }
+.cmile.art em { top: 5px; }
+.cmile.art.focused::before { inset: -6px; border: 0; background: url("chrome-art/focus-ring-red.png") center / contain no-repeat; }
+/* Round 5 (owner): the quest pips under the cartouche, not in it, so the ribbon holds just the name. */
+.cnode .clabel.cartlab { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0; border: 0; background: none; box-shadow: none; }
+.cnode .cartwrap { display: block; }
+.cnode .cartwrap .cname { display: block; margin: 0 -6px; line-height: 1.25; }
+.cnode .cartlab .cpips { padding: 0 2px; filter: drop-shadow(0 0 1px #efe1bd) drop-shadow(0 0 1px #efe1bd); }
+.cmile em { display: none; }
