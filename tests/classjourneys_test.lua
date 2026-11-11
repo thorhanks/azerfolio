@@ -52,6 +52,14 @@ return function(t)
         t.eq(s.route, "short"); t.eq(s.state, "done"); t.eq(s.count, 1)
         s = R.Stop(stop, ev, set({ 1 }), 1)
         t.eq(s.route, "long"); t.eq(s.state, "progress"); t.eq(s.done, 1); t.eq(s.count, 3)
+        -- Nothing done anywhere: the curated first route, not the one with more steps.
+        s = R.Stop({ key = "k", kind = "road", name = "S", level = 10,
+            routes = { { 1, 2, 3, name = "Barrens" }, { 4, 5, 6, 7, name = "Tirisfal" } } }, ev, set({}), 1)
+        t.eq(s.route, "Barrens")
+        -- A route partly another race's loses to one wholly yours.
+        s = R.Stop({ key = "k", kind = "road", name = "S", level = 10,
+            routes = { { 100, 1, name = "half" }, { 2, 3, name = "whole" } } }, ev, set({}), 1)
+        t.eq(s.route, "whole")
         -- raceMask: only for those races; an unknown race bit leaves the stop out.
         local sky = { key = "i", kind = "road", name = "Sky", level = 2, quests = { 5 }, raceMask = 2 ^ 32 }
         t.eq(R.Stop(sky, ev, set({}), 1), nil)

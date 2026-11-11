@@ -96,8 +96,11 @@ function Rules.Stop(stop, ev, completed, raceBit)
         for _, route in ipairs(stop.routes) do
             local l, d = steps(route, ev, completed)
             if #l > 0 then
-                -- Finished routes first, then most done, then most steps this character can do.
-                local score = (d == #l and 1e6 or 0) + d * 1000 + #l
+                -- Finished routes first, then most done, then the larger share of its steps this
+                -- character can do, then the curated order. (Counting steps, not the share, gave
+                -- an Orc Warrior the Forsaken route, 4 steps over The Barrens' 3,
+                -- WoWScrnShot_111026_173514.)
+                local score = (d == #l and 1e6 or 0) + d * 1000 + math.floor(100 * #l / #route)
                 if not bestScore or score > bestScore then
                     bestScore, list, done, routeName = score, l, d, route.name
                 end

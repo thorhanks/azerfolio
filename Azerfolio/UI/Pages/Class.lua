@@ -110,7 +110,11 @@ local function stopSub(s)
     if s.state == "done" then return "All " .. plural(s.count, "quest") .. " done" end
     if s.state == "progress" then return s.done .. " of " .. plural(s.count, "quest") end
     if s.state == "ready" then return "Open now  ·  " .. plural(s.count, "quest") end
-    if s.state == "later" then return (s.reward and (s.reward .. "  ·  ") or "") .. plural(s.count, "quest") end
+    if s.state == "later" then
+        -- The reward, unless it's the stop's own name ("Defensive Stance · Defensive Stance").
+        local reward = s.reward ~= s.name and s.reward or nil
+        return (reward and (reward .. "  ·  ") or "") .. plural(s.count, "quest")
+    end
     return plural(s.count, "quest") .. "  ·  not known yet"
 end
 
@@ -914,7 +918,10 @@ local function build(parent)
             for _, r in ipairs(lay.road) do
                 if r.state ~= "done" then
                     local p = lay.pos[r.key]
-                    local x, y = p[1] + (p[1] < lay.W / 2 and -44 or 44), p[2] - 6
+                    -- Beside the node on the side away from its label (it sat on the label of a
+                    -- road's first stop, WoWScrnShot_111026_173511).
+                    local labelLeft = p[1] > lay.W * 0.58
+                    local x, y = p[1] + (labelLeft and 44 or -44), p[2] - 6
                     local last = 0
                     for k, step in ipairs(r.steps) do if step.state == "done" then last = k end end
                     if last > 0 and lay.segs[r.key] then x, y = bez(lay.segs[r.key], last / (r.count + 1)) end
@@ -1135,6 +1142,10 @@ local function build(parent)
             hero:SetScore("done")
         elseif st.state == "later" and st.level and lv and st.level > lv then
             hero:SetScore("later", tostring(st.level - lv), st.level - lv == 1 and "level to go" or "levels to go", "dim")
+        elseif st.state == "later" and st.level and lv and st.level <= lv then
+            -- Level reached, locked by something else (a step before it): say so, not a level
+            -- (Simple Parchment read "1 · opens at level" at level 1, WoWScrnShot_111026_173511).
+            hero:SetScore("later", tostring(st.done or 0), "of " .. plural(st.count, "quest") .. "  ·  locked", "dim")
         elseif st.state == "later" then
             hero:SetScore("later", tostring(st.level or "?"), "opens at level", "dim")
         elseif st.done == nil then
