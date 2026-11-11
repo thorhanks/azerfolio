@@ -616,7 +616,8 @@ local function paintNode(b, size, state, text, name, labelSide, coinSize, ink)
             d:SetPoint("CENTER", b, "CENTER", r * math.cos(a), r * math.sin(a))
         end
     end
-    b.lvl:SetShown(sketch)
+    -- Owner (2026-11-10): no level numeral under the map's nodes; the pane and the info line say it.
+    b.lvl:SetShown(false)
     b.lvl:SetText(state == "unknown" and "?" or (text or ""))
     if b.coin then
         b.coin:SetShown(coin or dull)

@@ -88,6 +88,8 @@ ns.Art = {
         ["milestone"] = true,
         ["milestone-cap-gold"] = true,
         ["milestone-flag-red"] = true,
+        ["milestone-rune-gold"] = true,
+        ["milestone-rune-red"] = true,
         ["plaque-fill-cloth"] = true,
         ["plate-header"] = { x = 0.19, y = 0 },
         ["rep-exalted"] = true,

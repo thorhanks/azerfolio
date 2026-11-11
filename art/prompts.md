@@ -490,6 +490,14 @@ A small stone at the road's edge for the levels where your class trainer has som
 
 Negative prompt: the chrome one, plus `text, letters, numbers, carving, runes, moss, grass base, several stones`.
 
+**Rune stones (owner, 2026-11-10: the gold cap and the pennant alone were too hard to see).** A rune now fills the stone's face: **gilded** when every ability there is learned, **red ink** when you can train something now (no flag or pennant: owner). Same stone as `milestone` (give it as the reference), the rune large enough to fill most of the face, so it reads at about 26 px. Coloured pieces: **flat magenta**. These replace `milestone-cap-gold` and `milestone-flag-red` (no longer used); the plain `milestone` stays for "later".
+
+| File | Aspect | Background | Subject line |
+|---|---|---|---|
+| milestone-rune-gold | 1:1 | flat magenta | The same small rounded grey-beige milestone, a single bold simple rune carved deep into its face and filled with shining gold leaf that glows softly, the rune a straight upright stave with two pairs of short branches angled upward, filling most of the face, dark sepia ink outline, on a perfectly flat pure magenta (#FF00FF) background |
+| milestone-rune-red | 1:1 | flat magenta | The same small rounded milestone with the same bold rune drawn on its face in fresh deep red ink (not carved, not gilded), nothing beside the stone, dark sepia ink outline, on a perfectly flat pure magenta (#FF00FF) background |
+
+Negative prompt: the chrome one, plus `text, letters, numbers, several runes, moss, grass base, several stones, glowing background, flag, pennant, pole`.
 #### The focus ring (red ink)
 
 What the gamepad (or mouse) has focused on the map: a cartographer's red-ink circle drawn around the coin. Ink piece: **pure white**, the inside empty.

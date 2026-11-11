@@ -102,7 +102,7 @@ $PieceKinds = @{
     # the name cartouche (nine-slice), the milestones and the red-ink focus ring.
     band = @{ size = @(256, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; despill = $true }   # road-band, road-band-gold
     cartouche = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; despill = $true } # cartouche
-    milestone = @{ size = @(64, 64); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true }  # milestone[-flag-red|-cap-gold]
+    milestone = @{ size = @(64, 64); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true }  # milestone[-rune-gold|-rune-red] (flag/cap: unused)
     'ink-ring' = @{ size = @(128, 128); fit = 'fit'; inkKey = $true; dir = 'Chrome' }               # focus-ring-red
 }
 
@@ -167,7 +167,7 @@ function Get-PieceKind([string]$name) {
     if ($name -eq 'you-ring') { return 'ring' }
     if ($name -match '^road-band(-gold)?$') { return 'band' }
     if ($name -eq 'cartouche') { return 'cartouche' }
-    if ($name -match '^milestone(-flag-red|-cap-gold)?$') { return 'milestone' }
+    if ($name -match '^milestone(-flag-red|-cap-gold|-rune-gold|-rune-red)?$') { return 'milestone' }
     if ($name -eq 'focus-ring-red') { return 'ink-ring' }
     return $null
 }

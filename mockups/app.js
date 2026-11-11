@@ -1819,8 +1819,8 @@
   }
   // Round 5: abilities as milestone stones on one edge of the road, at their levels (sample data:
   // a Human Paladin's trainer, abridged; the addon reads it from your class trainer). Each entry:
-  // [name, rank or 0 for a new ability]. A stone: red pennant = you can train it now, gold cap =
-  // all learned, plain = later. Stones closer than MILE_MERGE units merge ("Levels 4–8"). No level numbers (owner: the stones are enough), no icons
+  // [name, rank or 0 for a new ability]. A stone's rune: red ink = you can train it now, gilded =
+  // all learned, blank = later. Stones closer than MILE_MERGE units merge ("Levels 4–8"). No level numbers (owner: the stones are enough), no icons
   // or "+n" on the map; the pane shows the level's abilities.
   const CLASS_ABILITIES = {
     1: [["Seal of Righteousness", 0], ["Holy Light", 0]], 4: [["Blessing of Might", 0], ["Judgement", 0]],
@@ -1879,7 +1879,10 @@
     return milestoneGroups(m).map(g => {
       const n = g.levels.reduce((a, l) => a + CLASS_ABILITIES[l].length, 0);
       const tip = `<b>${g.levels.length > 1 ? "Levels" : "Level"} ${g.label}</b>${n} abilit${n === 1 ? "y" : "ies"} at your trainer. ${MILE_STATE[g.state]}.`;
-      const art = R.art ? `<img class="mstone" src="chrome-art/milestone${g.state === "available" ? "-flag-red" : g.state === "learned" ? "-cap-gold" : ""}.png" alt="">` : `<i class="stone"></i>`;
+      // Owner (2026-11-10): the cap and pennant alone were hard to see; a rune fills the stone's face:
+      // gilded when everything there is learned, red ink when you can train something now, blank later.
+      const stone = g.state === "learned" ? "milestone-rune-gold" : g.state === "available" ? "milestone-rune-red" : "milestone";
+      const art = R.art ? `<img class="mstone" src="chrome-art/${stone}.png" alt="">` : `<i class="stone"></i>`;
       return `<button class="cmile focusable st-${g.state} ${R.art ? "art" : ""} ${g.side < 0 ? "flip" : ""} ${ui.classSel === g.key ? "selected" : ""}" data-stop="${g.key}"
         style="left:${(g.x / R.W * 100).toFixed(2)}%;top:${(g.y / R.H * 100).toFixed(3)}%" data-tip="${tip}">${art}</button>`;
     }).join("");
@@ -1917,7 +1920,6 @@
     return m.stops.map(s => `<button class="cnode focusable ${s.kind} st-${s.state} ${s.x + (s.kind === "side" ? 20 : 26) + 30 + s.name.length * 7.2 > R.W ? "lab-left" : ""} ${ui.classSel === s.id ? "selected" : ""}"
       data-stop="${s.id}" ${m.stops.some(x => x.from === s.id) || s.from ? "data-sidepath" : ""} style="left:${(s.x / R.W * 100).toFixed(2)}%;top:${(s.y / R.H * 100).toFixed(3)}%" data-tip="${stopTip(s)}">
       ${classCoin(s.state === "done" ? "" : "dull")}${s.state === "ready" || s.state === "progress" ? `<i class="cred"></i>` : ""}<i class="cfocus"></i>
-      <span class="clvl">${s.state === "unknown" ? "?" : s.lv}</span>
       <span class="clabel cartlab"><span class="cartwrap"><span class="cname">${esc(s.name)}</span></span><span class="cpips">${counted(s).map(q => `<i class="${s.done.has(q[0]) ? "on" : ""} ${m.unknown ? "unk" : ""}"></i>`).join("")}</span></span></button>`).join("")
       + classMilestones(m)
       + `<button class="cnode focusable end ${m.complete ? "st-done" : ""} ${ui.classSel === "end" ? "selected" : ""}" data-stop="end" style="left:${(R.end.x / R.W * 100).toFixed(2)}%;top:${(R.end.y / R.H * 100).toFixed(3)}%"

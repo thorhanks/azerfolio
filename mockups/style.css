@@ -1377,3 +1377,5 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .cnode .cartwrap .cname { display: block; margin: 0 -6px; line-height: 1.25; }
 .cnode .cartlab .cpips { padding: 0 2px; filter: drop-shadow(0 0 1px #efe1bd) drop-shadow(0 0 1px #efe1bd); }
 .cmile em { display: none; }
+/* Owner (2026-11-10): bigger stones; a rune fills the face (milestone-rune-gold = all learned, -red = train now). */
+.cmile.art { width: 26px; height: 26px; }
