@@ -193,7 +193,12 @@ local function classSteps()
             for _, mk in ipairs(tr and tr.abilities and tr.abilities.marks or {}) do
                 if not pick or (mk.state == "available" and pick.state ~= "available") then pick = mk end
             end
-            if pick then p:FocusStop("a:" .. pick.level) end
+            -- Round 5: stones can merge; focus the stone (its first level) that holds this level.
+            local key
+            for first, g in pairs(p and p.abilityGroups or {}) do
+                for _, lv in ipairs(g.levels) do if pick and lv == pick.level then key = "a:" .. first end end
+            end
+            if key then p:FocusStop(key) end
         end },
         { label = "class at minimum size", fn = function() current(); UI.FitSize(minW, minH) end },
         { label = "class wide", fn = function() UI.FitSize(wideSize()); current() end },

@@ -744,7 +744,14 @@ return function(t)
         -- Abilities along the road: marks at 4 and 8 between the letter and Divinity; "2 to train".
         t.ok(cp.abilityMarks[4] and cp.abilityMarks[8], "marks at levels 4 and 8")
         t.ok(cp.plaque.count:GetText():find("2 to train"), cp.plaque.count:GetText())
-        t.eq(cp.abilityMarks[8].more:GetText(), "+1", "two new abilities at 8")
+        -- Round 5: rune milestones (red rune = train now), one level each here (4 and 8 sit apart).
+        t.eq(cp.abilityMarks[8].stoneName, "milestone-rune-red", "level 8 has abilities to train now")
+        t.eq(#cp.abilityGroups[8].levels, 1)
+        -- Round 5: the name on its cartouche, the quest pips in a row under it (one per step).
+        t.eq(div.cartOn, true, "Divinity's name sits on a cartouche")
+        local shownPips = 0
+        for _, pr in ipairs(div.label.pips) do if pr.dot:IsShown() then shownPips = shownPips + 1 end end
+        t.eq(shownPips, #cp.journey.stops[2].steps, "a pip per step under the name")
         press(ns, "PADDUP")
         t.eq(ns.Focus.Current().key, "a:8", "up from Divinity walks back along the road to the level-8 mark")
         t.eq(cp.detail.hero.name:GetText(), "Level 8")

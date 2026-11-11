@@ -378,16 +378,23 @@ Theme.layout.classTab = {
     label = 240, labelGap = 10, labelPad = 6, -- (200 cut "Summon Charger · 11 quests", WoWScrnShot_110926_224440)
     you = 46,                              -- your portrait token (round 5: a road stop's size, no tag)
     coin = 52, sideCoin = 40, heroCoin = 80, -- the class coin on finished stops (round 3, owner 2026-11-10)
-    pip = 7, sidePip = 6,                  -- quest pips around a node (round 3: completion lives on the node)
-    pipRing = 31, sidePipRing = 23,        -- their ring's radius (logical units, from the node's centre)
+    pip = 7, sidePip = 6,                  -- quest pips (round 5: a row under the name, px)
+    pipGap = 2, pipsGap = 3,               -- between pips; between the cartouche and the pips row (px)
+    pipRing = 31, sidePipRing = 23,        -- the room kept around a node (logical; You and the milestones keep clear)
     redDots = 28, redDot = 2,              -- round 4: the red cartographer's ring (dots, px)
-    -- Round 4: road dash stamps (logical units). The dash fills about 85% of its image's width and
-    -- 21% of its height, so the stamp is drawn taller than its 2:1 image to give a ~5-unit-thick
-    -- dash (22x11 drew a hairline, WoWScrnShot_111026_200313).
-    stampLen = 20, stampW = 24, stampStep = 24,
-    dotSize = 6, dotStep = 9,              -- round 4: a side path's ink dots
-    abilityMark = 18,                      -- round 4: an ability mark on the road (px)
-    abilityOffsets = { 20, -20, 34, -34, 48, -48, 62, -62 }, -- spots beside the road a mark tries, in order (logical)
+    -- Round 5: the road band, stamped along the curve from road-band / road-band-gold (256x64, the
+    -- band in 18 rows). Each stamp shows the next window of the texture, so the band runs on
+    -- without seams. Thickness and stamp spacing in logical units.
+    bandRoad = 10, bandSide = 6, bandStep = 6, bandSideStep = 5,
+    bandRows = 18, bandPx = 64, bandTexW = 256,
+    -- Round 5: the cartouche behind a stop's name (cartouche.png 512x128: the ribbon in rows
+    -- 33-94, its notched ends within 48 px of each side), px.
+    cartH = 22, cartCap = 13, cartPad = 2,
+    cartRows = { 33, 95 }, cartCapPx = 48, cartTex = { 512, 128 },
+    -- Round 5: abilities as rune milestones (px) at the road's edge; the spots a stone tries
+    -- (logical, across the road); stones closer than mileMerge (logical) merge into one.
+    mile = 26, mileOffsets = { 17, -17, 37, -37, 54, -54 }, mileMerge = 40,
+    focusRingPad = 7,                      -- round 5: the painted red focus ring past the coin (px each side)
     stepsWide = 560,                       -- wide pane: the steps column; the facts go beside it
     wideFacts = 860,                       -- pane width from which the facts go beside the steps
     labelPush = 4,                         -- gap kept between node labels pushed apart
