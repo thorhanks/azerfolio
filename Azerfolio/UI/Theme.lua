@@ -406,12 +406,13 @@ Theme.classSky = { { 0, hex("f7dc9a") }, { 0.12, hex("d9b46a") }, { 0.3, hex("7f
 -- beside their landmarks, measured on the art. A road without its own table is laid out by the page.
 Theme.classStrip = {
     PALADIN = {
-        -- The antique strip (round 4, 2026-11-10): abbey, cathedral, farm, the wood's glade, the
-        -- hills below the keep, camp, ossuary, the inked star at the bottom. Nobility (40) sits well
-        -- below Valor (20): 92 units apart crowded twenty levels of ability marks into one short
-        -- stretch (WoWScrnShot_111026_200757).
-        Alliance = { H = 1680, ["end"] = { 214, 1621 }, intro = { 214, 92 }, divinity = { 252, 223 }, valor = { 193, 664 },
-            artifact = { 118, 823 }, nobility = { 260, 1008 }, mightstone = { 269, 1210 }, charger = { 168, 1277 } },
+        -- The round 5 strip (2026-11-10: the zone art's painting in antique colours, a narrow lane
+        -- traced into Data/StripPaths.lua): the abbey, the cathedral city, the farm, the autumn
+        -- wood's glowing glade, the open hills below the wood, the camp, the ossuary and ruined gate,
+        -- the star at the bottom. Road stops snap onto the lane. Nobility (40) sits well below Valor
+        -- (20) so twenty levels of milestones get room (WoWScrnShot_111026_200757).
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 100 }, divinity = { 250, 215 }, valor = { 190, 680 },
+            artifact = { 107, 905 }, nobility = { 200, 1065 }, mightstone = { 300, 1262 }, charger = { 190, 1400 } },
     },
 }
 

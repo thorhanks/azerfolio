@@ -1526,12 +1526,12 @@
     cls: "Paladin", title: "The Paladin's Road",
     // Round 4: the antique strip (mockups/strip-art/paladin-alliance.png, 1:4) sets the size; stops
     // sit in its corridor beside their landmarks (measured on the art, 2026-11-10).
-    W: 420, H: 1680, end: { x: 214, y: 1621 }, art: "strip-art/paladin-alliance.png",
+    W: 420, H: 1680, end: { x: 210, y: 1640 }, art: "strip-art/paladin-alliance.png",
     stops: [
-      { id: "letter", kind: "road", x: 214, y: 92, lv: 1, name: "Consecrated Letter", landmark: "abbey", art: 1429,
+      { id: "letter", kind: "road", x: 210, y: 100, lv: 1, name: "Consecrated Letter", landmark: "abbey", art: 1429,
         reward: "Meet Brother Sammuel, your first trainer", start: "Marshal McBride · Northshire Abbey, Elwynn Forest",
         steps: [[3101, "Consecrated Letter", "Marshal McBride", "Northshire Abbey, Elwynn Forest", 1]] },
-      { id: "divinity", kind: "road", x: 252, y: 223, lv: 12, name: "The Tome of Divinity", landmark: "cathedral", art: 1453,
+      { id: "divinity", kind: "road", x: 250, y: 215, lv: 12, name: "The Tome of Divinity", landmark: "cathedral", art: 1453,
         reward: "Redemption (spell)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
         alt: "Dwarf paladins take this from Tiza Battleforge in Ironforge; Humans get Stormwind's version (the other one is never counted).",
         leadins: [[2998, "Tome of Divinity", "Brother Wilhelm", "Goldshire, Elwynn Forest", 12, "A lead-in: sends you to Duthorian Rall."],
@@ -1544,7 +1544,7 @@
           [1786, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 13],
           [1787, "The Tome of Divinity", "Henze Faulk", "Elwynn Forest", 13],
           [1788, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 13]] },
-      { id: "valor", kind: "road", x: 193, y: 664, lv: 20, name: "The Tome of Valor", landmark: "farm", art: 1436,
+      { id: "valor", kind: "road", x: 190, y: 680, lv: 20, name: "The Tome of Valor", landmark: "farm", art: 1436,
         reward: "Verigan's Fist (two-handed mace)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
         leadins: [[1793, "The Tome of Valor", "Duthorian Rall", "Cathedral of Light, Stormwind City", 20, "The chain's start: Duthorian Rall gives you the Tome of Valor."]],
         steps: [[1649, "The Tome of Valor", "the Tome of Valor (item)", "Your bags", 20],
@@ -1556,7 +1556,7 @@
           [1442, "Seeking the Kor Gem", "Thundris Windweaver", "Auberdine, Darkshore", 20, "sub"],
           [1655, "Bailor's Ore Shipment", "Bailor Stonehand", "Thelsamar, Loch Modan", 20, "sub"],
           [1806, "The Test of Righteousness", "Jordan Stilwell", "Ironforge gates, Dun Morogh", 20]] },
-      { id: "artifact", kind: "side", from: "valor", x: 118, y: 823, lv: 22, name: "A Strange Artifact", landmark: "grove", art: 1440,
+      { id: "artifact", kind: "side", from: "valor", x: 107, y: 905, lv: 22, name: "A Strange Artifact", landmark: "grove", art: 1440,
         reward: "Not known yet (read from the quest in game)", start: "A strange artifact (object) · Ashenvale",
         flag: "A newer quest ID: whether it's live in Forever is still an in-game check.",
         steps: [[78088, "A Strange Artifact", "a strange artifact (object)", "Ashenvale", 22],
@@ -1565,16 +1565,16 @@
           [78091, "Earning Your Salt", "Ursula Deline", "Stormwind City", 22],
           [78092, "It Must Be Destroyed", "Ursula Deline", "Stormwind City", 22],
           [78093, "Return to Delgren", "an object", "Ashenvale", 22]] },
-      { id: "nobility", kind: "road", x: 260, y: 1008, lv: 40, name: "The Tome of Nobility", landmark: "keep", art: 1453,
+      { id: "nobility", kind: "road", x: 200, y: 1065, lv: 40, name: "The Tome of Nobility", landmark: "keep", art: 1453,
         reward: "Summon Warhorse (mount)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
         steps: [[1661, "The Tome of Nobility", "Duthorian Rall", "Cathedral of Light, Stormwind City", 40]] },
-      { id: "mightstone", kind: "side", from: "nobility", x: 269, y: 1210, lv: 50, name: "Forging the Mightstone", landmark: "camp", art: 1422,
+      { id: "mightstone", kind: "side", from: "nobility", x: 300, y: 1262, lv: 50, name: "Forging the Mightstone", landmark: "camp", art: 1422,
         reward: "Shown in game (from the quest)", start: "Lord Grayson Shadowbreaker · Stormwind City",
         leadins: [[8415, "Chillwind Point", "Lord Grayson Shadowbreaker", "Stormwind City", 50, "A lead-in: sends you to Chillwind Camp."]],
         steps: [[8414, "Dispelling Evil", "Commander Ashlam Valorfist", "Chillwind Camp, Western Plaguelands", 50],
           [8416, "Inert Scourgestones", "High Priest Thel'danis", "Chillwind Camp, Western Plaguelands", 50],
           [8418, "Forging the Mightstone", "Commander Ashlam Valorfist", "Chillwind Camp, Western Plaguelands", 50]] },
-      { id: "charger", kind: "road", x: 168, y: 1277, lv: 60, name: "The Charger", landmark: "ossuary", art: 1423,
+      { id: "charger", kind: "road", x: 190, y: 1400, lv: 60, name: "The Charger", landmark: "ossuary", art: 1423,
         reward: "Summon Charger (epic mount)", start: "Duthorian Rall, then Lord Grayson Shadowbreaker · Stormwind City",
         flag: "Needs groups for Scholomance and Stratholme.",
         steps: [[7638, "Lord Grayson Shadowbreaker", "Duthorian Rall", "Stormwind City", 60],
@@ -1591,22 +1591,6 @@
           [7647, "Judgment and Redemption", "Lord Grayson Shadowbreaker", "Stratholme, Eastern Plaguelands", 60]] },
     ],
   };
-  // Round 5 (2026-11-10): the map behind the road. "r4" is the antique strip (the whole road);
-  // "r5" is the owner's round 5 test panel (strip-r5-test, the top of the road only, 420x560): the
-  // first two stops, the road to level 20 (where it goes on to Valor), its lane traced with
-  // trace-strip.ps1 -Method lane (strip-art/paths-r5.js).
-  const CLASS_MAPS = {
-    r4: { H: CLASS_ROAD.H, end: { ...CLASS_ROAD.end }, art: CLASS_ROAD.art, pathKey: "paladin-alliance", last: 60, endName: null, stops: CLASS_ROAD.stops },
-    r5: { H: 560, end: { x: 29, y: 556 }, art: "strip-art/paladin-alliance-r5.png", pathKey: "paladin-alliance-r5", last: 20, endName: "On to Valor (level 20)",
-      stops: CLASS_ROAD.stops.filter(s => s.id === "letter" || s.id === "divinity").map(s => ({ ...s, ...(s.id === "letter" ? { x: 221, y: 96 } : { x: 300, y: 230 }) })) },
-  };
-  const ROAD_HOME = CLASS_ROAD.stops.map(s => ({ s, x: s.x, y: s.y }));
-  function setClassMap(k) {
-    const M = CLASS_MAPS[k] || CLASS_MAPS.r4;
-    ROAD_HOME.forEach(h => { h.s.x = h.x; h.s.y = h.y; });
-    Object.assign(CLASS_ROAD, { H: M.H, end: { ...M.end }, art: M.art, pathKey: M.pathKey, last: M.last, endName: M.endName, stops: M.stops });
-    ui.classSel = null;
-  }
   // Quests done per scenario (sample data, invented except "today": Gideon has the letter).
   const CLASS_DONE = { today: [3101], almost: [3101], veteran: [3101, 2998, 1641, 1642, 1643, 1644, 1780, 1781, 1786, 1787, 1788,
     1793, 1649, 1650, 1651, 1652, 1653, 1654, 1442, 1655, 1806, 78088, 78089], fresh: [] };
@@ -1938,7 +1922,7 @@
       + classMilestones(m)
       + `<button class="cnode focusable end ${m.complete ? "st-done" : ""} ${ui.classSel === "end" ? "selected" : ""}" data-stop="end" style="left:${(R.end.x / R.W * 100).toFixed(2)}%;top:${(R.end.y / R.H * 100).toFixed(3)}%"
         data-tip="<b>The road's end</b>${m.complete ? "Every class quest on the road and its side paths is done." : m.unknown ? `${m.quests} class quests; done or not isn't known yet.` : `${m.questsDone} of ${m.quests} class quests done.`}"><span class="cseal"></span><i class="cfocus"></i>
-        <span class="clabel below cartlab"><span class="cartwrap"><span class="cname">${R.endName || (m.complete ? "The road walked" : "The road's end")}</span></span></span></button>`;
+        <span class="clabel cartlab"><span class="cartwrap"><span class="cname">${R.endName || (m.complete ? "The road walked" : "The road's end")}</span></span></span></button>`;
   }
   function renderClass() {
     const m = classModel(), nx = classNext(m);
@@ -2425,8 +2409,6 @@
     ui.repOpen = null;
     fit(); render(); if (ui.tab === "zones") restoreCatalog(); else if (ui.tab === "reputation") restoreRep(); else if (ui.tab === "class") restoreClass(); else focusFirst(); e.target.blur();
   });
-  $("#classMap").addEventListener("change", (e) => { setClassMap(e.target.value); render(); if (ui.tab === "class") restoreClass(); e.target.blur(); });
-  setClassMap($("#classMap").value);
   $("#classSel").addEventListener("change", (e) => { ui.classPreview = e.target.value; ui.classSel = null; render(); if (ui.tab === "class") restoreClass(); e.target.blur(); });
   let currentScale = 1;
   function fit() {
