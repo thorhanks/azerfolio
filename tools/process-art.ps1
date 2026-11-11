@@ -89,7 +89,42 @@ $PieceKinds = @{
     celburst = @{ size = @(512, 512); fit = 'stretch'; key = $false; keyBlack = $true; dir = 'Chrome' }
     cel = @{ size = @(256, 256); fit = 'fit'; key = $true; dir = 'Chrome' }
     ribbon = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome' }
+    coin = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # coin-<class>: the Class tab's done mark
+    # Class tab round 4 (art/prompts.md "Round 4 style test"): ink drawn on pure white, the white
+    # turned to transparency (inkKey: alpha from darkness, colour un-mixed from the white), so the
+    # marks sit on the parchment map like more ink; metal pieces on magenta as usual.
+    sketch = @{ size = @(128, 128); fit = 'fit'; inkKey = $true; dir = 'Chrome' }          # sketch-<class>: a stop not done yet
+    'road-ink' = @{ size = @(128, 64); fit = 'fit'; inkKey = $true; dir = 'Chrome' }     # road-dash-ink-<n>
+    'road-dot' = @{ size = @(32, 32); fit = 'fit'; inkKey = $true; dir = 'Chrome' }      # road-dot: a side path
+    'road-gold' = @{ size = @(128, 64); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # road-dash-gold-<n>
+    ring = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # you-ring: your portrait's ring
 }
+
+# Ink on white -> ink with alpha: a pixel's alpha is how far it is from white (its darkest channel
+# counts), and its colour is what, laid over white at that alpha, gives the original back.
+function Set-InkAlpha([string]$path) {
+    $src = [System.Drawing.Bitmap]::FromFile($path)
+    $bmp = New-Object System.Drawing.Bitmap $src.Width, $src.Height, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $g = [System.Drawing.Graphics]::FromImage($bmp); $g.DrawImage($src, 0, 0, $src.Width, $src.Height); $g.Dispose(); $src.Dispose()
+    $solid = 0
+    for ($y = 0; $y -lt $bmp.Height; $y++) { for ($x = 0; $x -lt $bmp.Width; $x++) {
+        $c = $bmp.GetPixel($x, $y)
+        $a = 255 - [Math]::Min($c.R, [Math]::Min($c.G, $c.B))
+        if ($a -lt 8) { $bmp.SetPixel($x, $y, [System.Drawing.Color]::FromArgb(0, 0, 0, 0)); continue }
+        $f = 255.0 / $a
+        $un = { param($v) [int][Math]::Max(0, [Math]::Min(255, [Math]::Round(255 - (255 - $v) * $f))) }
+        $bmp.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($a, (& $un $c.R), (& $un $c.G), (& $un $c.B)))
+        if ($a -gt 200) { $solid++ }
+    } }
+    $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
+    return "ink keyed from white, $solid solid pixels"
+}
+# The Class tab's journey strips (art/prompts.md "Class tab art"): strip-<class>-<side>-<n>, three
+# 3:4 panels top to bottom, stacked into one 512x2048 opaque DXT1 -> Media\Strips\<class>-<side>.blp
+# (mockup: mockups/strip-art/<class>-<side>.png). Neighbouring panels overlap by $StripBlend rows
+# and cross-fade there, so a change in light between panels doesn't show as a seam.
+$StripSize = @(512, 2048)
+$StripBlend = 48
 $MediaRoot = if ($env:AZF_MEDIA_ROOT) { $env:AZF_MEDIA_ROOT } else { Join-Path $PSScriptRoot '..\Azerfolio\Media' }
 $PieceMockRoot = if ($env:AZF_PIECE_MOCK_ROOT) { $env:AZF_PIECE_MOCK_ROOT } else { Join-Path $PSScriptRoot '..\mockups' }
 $MockDirs = @{ Banner = 'banner-art'; Chrome = 'chrome-art'; Icons = 'icon-art' }
@@ -118,7 +153,66 @@ function Get-PieceKind([string]$name) {
     if ($name -eq 'cel-burst') { return 'celburst' }
     if ($name -eq 'cel-ribbon') { return 'ribbon' }
     if ($name -match '^cel-(laurel|seal-[a-z0-9-]+|claim-(alliance|horde))$') { return 'cel' }
+    if ($name -match '^coin-[a-z]+$') { return 'coin' }
+    if ($name -match '^sketch-[a-z]+$') { return 'sketch' }
+    if ($name -match '^road-dash-ink-\d+$') { return 'road-ink' }
+    if ($name -match '^road-dash-gold-\d+$') { return 'road-gold' }
+    if ($name -eq 'road-dot') { return 'road-dot' }
+    if ($name -eq 'you-ring') { return 'ring' }
     return $null
+}
+
+# Stacks a strip's panels (paths in order) into one image, cross-fading the overlaps, and writes
+# the mockup PNG and the game BLP. Returns a report line.
+function Convert-Strip([string]$key, [string[]]$panels) {
+    $W, $H = $StripSize
+    $n = $panels.Count
+    # Each panel is drawn $ph tall; neighbours overlap by $StripBlend, so n panels fill $H.
+    $ph = [int][Math]::Ceiling(($H + ($n - 1) * $StripBlend) / $n)
+    $canvas = New-Object System.Drawing.Bitmap $W, $H, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $g = [System.Drawing.Graphics]::FromImage($canvas)
+    $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceOver
+    $sizes = @()
+    for ($i = 0; $i -lt $n; $i++) {
+        $src = [System.Drawing.Image]::FromFile($panels[$i])
+        $sizes += "$($src.Width)x$($src.Height)"
+        $p = New-Object System.Drawing.Bitmap $W, $ph, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+        $pg = [System.Drawing.Graphics]::FromImage($p)
+        $pg.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $pg.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $attrs = New-Object System.Drawing.Imaging.ImageAttributes
+        $attrs.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)
+        $pg.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, $W, $ph), 0, 0, $src.Width, $src.Height, [System.Drawing.GraphicsUnit]::Pixel, $attrs)
+        $attrs.Dispose(); $pg.Dispose(); $src.Dispose()
+        # Fade in the top $StripBlend rows of every panel after the first.
+        if ($i -gt 0) {
+            for ($y = 0; $y -lt $StripBlend; $y++) {
+                $a = [int][Math]::Round(255 * ($y + 0.5) / $StripBlend)
+                for ($x = 0; $x -lt $W; $x++) {
+                    $c = $p.GetPixel($x, $y)
+                    $p.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($a, $c.R, $c.G, $c.B))
+                }
+            }
+        }
+        $top = [Math]::Min($H - $ph, $i * ($ph - $StripBlend))
+        $g.DrawImage($p, 0, $top, $W, $ph)
+        $p.Dispose()
+    }
+    $g.Dispose()
+    $mockDir = Join-Path $PieceMockRoot 'strip-art'
+    New-Item -ItemType Directory -Force $mockDir | Out-Null
+    $png = Join-Path (Resolve-Path $mockDir).Path "$key.png"
+    # Opaque: flatten onto black (every pixel is covered; this only drops the alpha channel).
+    $flat = New-Object System.Drawing.Bitmap $W, $H, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+    $fg = [System.Drawing.Graphics]::FromImage($flat); $fg.DrawImage($canvas, 0, 0, $W, $H); $fg.Dispose(); $canvas.Dispose()
+    $flat.Save($png, [System.Drawing.Imaging.ImageFormat]::Png); $flat.Dispose()
+    $stripDir = Join-Path $MediaRoot 'Strips'
+    New-Item -ItemType Directory -Force $stripDir | Out-Null
+    $blp = Join-Path (Resolve-Path $stripDir).Path "$key.blp"
+    $info = [AzfBlp]::Convert($png, $blp)
+    return "strip $key ($n panels: $($sizes -join ', '); each ${W}x$ph, $StripBlend-row cross-fades) -> Strips\$key.blp [$info]"
 }
 
 # Tinted textures (plaque-fill-*): a generator paints them very low contrast (209..229 for the
@@ -148,6 +242,7 @@ function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
         $g = [System.Drawing.Graphics]::FromImage($dst)
         # The canvas behind the piece: black for a glow keyed from black, else magenta.
         if ($k.keyBlack) { $g.Clear([System.Drawing.Color]::Black) }
+        elseif ($k.inkKey) { $g.Clear([System.Drawing.Color]::White) }
         else { $g.Clear([System.Drawing.Color]::FromArgb(255, 255, 0, 255)) }
         $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
         $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
@@ -180,6 +275,10 @@ function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
     if ($k.keyBlack) {
         $note = [AzfBlp]::KeyBlack($tmp, $png)
         $null = [AzfBlp]::ConvertAlpha($png, $blp)
+    } elseif ($k.inkKey) {
+        $note = Set-InkAlpha $tmp
+        Copy-Item $tmp $png -Force
+        $null = [AzfBlp]::ConvertAlpha($png, $blp)
     } elseif ($k.key) {
         $note = [AzfBlp]::KeyMagenta($tmp, $png, [bool]$k.despill)
         if ($k.despill) { $note += ', despilled' }
@@ -205,6 +304,20 @@ function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
 
 $processed = 0
 $files = Get-ChildItem $Source -File | Where-Object { $_.Extension -match '^\.(png|jpe?g)$' } | Sort-Object Name
+# Journey strips first: their panels are one image together.
+$strips = @{}
+foreach ($f in $files) {
+    if ($f.BaseName -match '^strip-([a-z]+-(alliance|horde))-(\d+)$') {
+        if (-not $strips.ContainsKey($Matches[1])) { $strips[$Matches[1]] = @() }
+        $strips[$Matches[1]] += , @([int]$Matches[3], $f.FullName)
+    }
+}
+foreach ($key in ($strips.Keys | Sort-Object)) {
+    $panels = @($strips[$key] | Sort-Object { $_[0] } | ForEach-Object { $_[1] })
+    Write-Output (Convert-Strip $key $panels)
+    $processed++
+}
+$files = @($files | Where-Object { $_.BaseName -notmatch '^strip-' })
 foreach ($f in $files) {
     $kind = Get-PieceKind $f.BaseName
     if ($kind) {
@@ -260,6 +373,12 @@ $lua += '    },'
 $icons = Get-Names 'Icons'
 $lua += '    icons = {'
 foreach ($p in $icons) { $lua += "        [""$($p -replace '^icon-', '')""] = true," }
+$lua += '    },'
+# The Class tab's journey strips in Media\Strips, by "<class>-<side>" (paladin-alliance).
+$stripsDir = Join-Path $MediaRoot 'Strips'
+$stripNames = if (Test-Path $stripsDir) { @(Get-ChildItem $stripsDir -Filter *.blp | ForEach-Object { $_.BaseName } | Sort-Object) } else { @() }
+$lua += '    strips = {'
+foreach ($p in $stripNames) { $lua += "        [""$p""] = true," }
 $lua += @('    },', '}')
 [IO.File]::WriteAllLines((Resolve-Path (Split-Path $ArtLua)).Path + '\' + (Split-Path $ArtLua -Leaf), $lua, (New-Object System.Text.UTF8Encoding $false))
 
@@ -271,7 +390,8 @@ $chromeJs = ($chrome | ForEach-Object {
 $bannerJs = ($pieces | ForEach-Object { $q + $_ + $q }) -join ','
 $iconsJs = ($icons | ForEach-Object { $q + ($_ -replace '^icon-', '') + $q }) -join ','
 $js = '// Generated by tools/process-art.ps1. Do not edit.' + "`n" + 'window.AZF_ART = { fallback: ' + $hasFallback.ToString().ToLower() +
-    ', ids: [' + ($ids -join ',') + '], banner: [' + $bannerJs + '], chrome: { ' + $chromeJs + ' }, icons: [' + $iconsJs + '] };' + "`n"
+    ', ids: [' + ($ids -join ',') + '], banner: [' + $bannerJs + '], chrome: { ' + $chromeJs + ' }, icons: [' + $iconsJs + '], strips: [' +
+    (($stripNames | ForEach-Object { $q + $_ + $q }) -join ',') + '] };' + "`n"
 [IO.File]::WriteAllText((Join-Path (Resolve-Path $MockOut).Path 'index.js'), $js, (New-Object System.Text.UTF8Encoding $false))
 
-Write-Output "Processed $processed image(s). Art available for $($ids.Count) zone(s); fallback: $hasFallback; banner pieces: $($pieces.Count); chrome: $($chrome.Count); icons: $($icons.Count)."
+Write-Output "Processed $processed image(s). Art available for $($ids.Count) zone(s); fallback: $hasFallback; banner pieces: $($pieces.Count); chrome: $($chrome.Count); icons: $($icons.Count); strips: $($stripNames.Count)."

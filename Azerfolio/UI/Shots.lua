@@ -185,6 +185,16 @@ local function classSteps()
         { label = "class, next stop", fn = function() current(); ns.Focus.Jump(1); UI.RefreshHints() end },
         { label = "class, road's end", fn = function() local p = road(); if p and p.journey then p:FocusStop("end") end end },
         { label = "class, road's end list", fn = function() local p = classPage(); if p then p:EnterSteps() end end },
+        -- Round 4: the first level with an ability you could train now (else the first mark).
+        { label = "class, abilities", fn = function()
+            local p = road()
+            local tr = p and p.trainer
+            local pick
+            for _, mk in ipairs(tr and tr.abilities and tr.abilities.marks or {}) do
+                if not pick or (mk.state == "available" and pick.state ~= "available") then pick = mk end
+            end
+            if pick then p:FocusStop("a:" .. pick.level) end
+        end },
         { label = "class at minimum size", fn = function() current(); UI.FitSize(minW, minH) end },
         { label = "class wide", fn = function() UI.FitSize(wideSize()); current() end },
         { label = "class wide, steps", fn = function() local p = classPage(); if p then p:EnterSteps() end end },

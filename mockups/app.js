@@ -1524,12 +1524,14 @@
   // lead-ins above the steps, zone art in the header.
   const CLASS_ROAD = {
     cls: "Paladin", title: "The Paladin's Road",
-    W: 420, H: 1500, end: { x: 214, y: 1416 },
+    // Round 4: the antique strip (mockups/strip-art/paladin-alliance.png, 1:4) sets the size; stops
+    // sit in its corridor beside their landmarks (measured on the art, 2026-11-10).
+    W: 420, H: 1680, end: { x: 214, y: 1621 }, art: "strip-art/paladin-alliance.png",
     stops: [
       { id: "letter", kind: "road", x: 214, y: 92, lv: 1, name: "Consecrated Letter", landmark: "abbey", art: 1429,
         reward: "Meet Brother Sammuel, your first trainer", start: "Marshal McBride · Northshire Abbey, Elwynn Forest",
         steps: [[3101, "Consecrated Letter", "Marshal McBride", "Northshire Abbey, Elwynn Forest", 1]] },
-      { id: "divinity", kind: "road", x: 300, y: 330, lv: 12, name: "The Tome of Divinity", landmark: "cathedral", art: 1453,
+      { id: "divinity", kind: "road", x: 252, y: 223, lv: 12, name: "The Tome of Divinity", landmark: "cathedral", art: 1453,
         reward: "Redemption (spell)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
         alt: "Dwarf paladins take this from Tiza Battleforge in Ironforge; Humans get Stormwind's version (the other one is never counted).",
         leadins: [[2998, "Tome of Divinity", "Brother Wilhelm", "Goldshire, Elwynn Forest", 12, "A lead-in: sends you to Duthorian Rall."],
@@ -1542,7 +1544,7 @@
           [1786, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 13],
           [1787, "The Tome of Divinity", "Henze Faulk", "Elwynn Forest", 13],
           [1788, "The Tome of Divinity", "Gazin Tenorm", "Stormwind City", 13]] },
-      { id: "valor", kind: "road", x: 118, y: 600, lv: 20, name: "The Tome of Valor", landmark: "farm", art: 1436,
+      { id: "valor", kind: "road", x: 193, y: 664, lv: 20, name: "The Tome of Valor", landmark: "farm", art: 1436,
         reward: "Verigan's Fist (two-handed mace)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
         leadins: [[1793, "The Tome of Valor", "Duthorian Rall", "Cathedral of Light, Stormwind City", 20, "The chain's start: Duthorian Rall gives you the Tome of Valor."]],
         steps: [[1649, "The Tome of Valor", "the Tome of Valor (item)", "Your bags", 20],
@@ -1554,7 +1556,7 @@
           [1442, "Seeking the Kor Gem", "Thundris Windweaver", "Auberdine, Darkshore", 20, "sub"],
           [1655, "Bailor's Ore Shipment", "Bailor Stonehand", "Thelsamar, Loch Modan", 20, "sub"],
           [1806, "The Test of Righteousness", "Jordan Stilwell", "Ironforge gates, Dun Morogh", 20]] },
-      { id: "artifact", kind: "side", from: "valor", x: 66, y: 846, lv: 22, name: "A Strange Artifact", landmark: "grove", art: 1440,
+      { id: "artifact", kind: "side", from: "valor", x: 118, y: 823, lv: 22, name: "A Strange Artifact", landmark: "grove", art: 1440,
         reward: "Not known yet (read from the quest in game)", start: "A strange artifact (object) · Ashenvale",
         flag: "A newer quest ID: whether it's live in Forever is still an in-game check.",
         steps: [[78088, "A Strange Artifact", "a strange artifact (object)", "Ashenvale", 22],
@@ -1563,16 +1565,16 @@
           [78091, "Earning Your Salt", "Ursula Deline", "Stormwind City", 22],
           [78092, "It Must Be Destroyed", "Ursula Deline", "Stormwind City", 22],
           [78093, "Return to Delgren", "an object", "Ashenvale", 22]] },
-      { id: "nobility", kind: "road", x: 306, y: 900, lv: 40, name: "The Tome of Nobility", landmark: "keep", art: 1453,
+      { id: "nobility", kind: "road", x: 260, y: 1008, lv: 40, name: "The Tome of Nobility", landmark: "keep", art: 1453,
         reward: "Summon Warhorse (mount)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
         steps: [[1661, "The Tome of Nobility", "Duthorian Rall", "Cathedral of Light, Stormwind City", 40]] },
-      { id: "mightstone", kind: "side", from: "nobility", x: 362, y: 1132, lv: 50, name: "Forging the Mightstone", landmark: "camp", art: 1422,
+      { id: "mightstone", kind: "side", from: "nobility", x: 269, y: 1210, lv: 50, name: "Forging the Mightstone", landmark: "camp", art: 1422,
         reward: "Shown in game (from the quest)", start: "Lord Grayson Shadowbreaker · Stormwind City",
         leadins: [[8415, "Chillwind Point", "Lord Grayson Shadowbreaker", "Stormwind City", 50, "A lead-in: sends you to Chillwind Camp."]],
         steps: [[8414, "Dispelling Evil", "Commander Ashlam Valorfist", "Chillwind Camp, Western Plaguelands", 50],
           [8416, "Inert Scourgestones", "High Priest Thel'danis", "Chillwind Camp, Western Plaguelands", 50],
           [8418, "Forging the Mightstone", "Commander Ashlam Valorfist", "Chillwind Camp, Western Plaguelands", 50]] },
-      { id: "charger", kind: "road", x: 140, y: 1226, lv: 60, name: "The Charger", landmark: "ossuary", art: 1423,
+      { id: "charger", kind: "road", x: 168, y: 1277, lv: 60, name: "The Charger", landmark: "ossuary", art: 1423,
         reward: "Summon Charger (epic mount)", start: "Duthorian Rall, then Lord Grayson Shadowbreaker · Stormwind City",
         flag: "Needs groups for Scholomance and Stratholme.",
         steps: [[7638, "Lord Grayson Shadowbreaker", "Duthorian Rall", "Stormwind City", 60],
@@ -1612,6 +1614,37 @@
     return { stops, road, side, quests, questsDone, complete, unknown,
       roadDone: road.filter(s => s.state === "done").length, sideDone: side.filter(s => s.state === "done").length };
   }
+  // Round 3: where your level puts you on the road. Each road stop sits at its level, the road's end
+  // at 60; returns { i: the road segment (from road stop i to the next), t: how far along it }.
+  function levelPos(m, at) {
+    const lv = Math.min(60, at !== undefined ? at : CHAR.level + (CHAR.xpMax ? CHAR.xp / CHAR.xpMax : 0));
+    const pts = m.road.map(s => s.lv).concat(60);
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (lv < pts[i + 1]) return { i, t: pts[i + 1] > pts[i] ? Math.max(0, (lv - pts[i]) / (pts[i + 1] - pts[i])) : 1 };
+    }
+    return { i: pts.length - 2, t: 1 };
+  }
+  // Round 3 (owner, 2026-11-10): a finished stop's mark is a gold coin struck with the class emblem
+  // (one painted coin per class later; this SVG is the stand-in: the Paladin's hammer in the Light).
+  const COIN_EMBLEM = {
+    Paladin: `<path d="M0 -15 L4 -4 L15 0 L4 4 L0 15 L-4 4 L-15 0 L-4 -4 Z" class="ce-ray"/><path d="M-3 -9 H3 V-3 H8 V3 H3 V12 H-3 V3 H-8 V-3 H-3 Z" class="ce-ham"/>`,
+  };
+  const classCoin = (cls = "") => CLASS_ROAD.art
+    ? `<span class="ccoin ${cls}" title="Done"><img src="chrome-art/coin-${CLASS_ROAD.cls.toLowerCase()}.png" alt=""></span>`
+    : `<span class="ccoin ${cls}" title="Done"><svg viewBox="-24 -24 48 48" aria-hidden="true">
+      <defs><radialGradient id="coinface" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#fff4c2"/><stop offset=".45" stop-color="#f2c447"/><stop offset="1" stop-color="#9a6a12"/></radialGradient>
+        <linearGradient id="coinrim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0b0"/><stop offset=".5" stop-color="#b8860b"/><stop offset="1" stop-color="#5a3a06"/></linearGradient></defs>
+      <circle r="23" fill="url(#coinrim)"/><circle r="19.5" fill="url(#coinface)"/><circle r="17" class="ce-ring"/>
+      <g class="ce">${COIN_EMBLEM[CLASS_ROAD.cls] || ""}</g></svg></span>`;
+  // Round 4: a stop not done yet is the coin's emblem as a cartographer's ink sketch (one per class,
+  // painted later; this SVG is the stand-in). Finishing the stop turns the sketch into the gold coin.
+  // Later: faint pencil; open now: fresh ink with a red cartographer's circle.
+  const classSketch = () => CLASS_ROAD.art
+    ? `<span class="csketch"><img src="chrome-art/sketch-${CLASS_ROAD.cls.toLowerCase()}.png" alt=""><i class="skred"></i></span>`
+    : `<span class="csketch"><svg viewBox="-24 -24 48 48" aria-hidden="true">
+      <circle r="20" class="sk-rim"/><circle r="16.5" class="sk-rim thin"/>
+      <path d="M0 -12 L3 -4 L11 0 L3 4 L0 12 L-3 4 L-11 0 L-3 -4 Z" class="sk-ray"/>
+      <path d="M-3 -9 H3 V-3 H8 V3 H3 V11 H-3 V3 H-8 V-3 H-3 Z" class="sk-ham"/><circle r="22.5" class="sk-red"/></svg></span>`;
   // The one thing to do next (design round 2): your road stop (or a side path once the road is walked).
   function classNext(m) {
     if (m.unknown) return { text: "Next: not known until the game gives Azerfolio your completed quests" };
@@ -1627,16 +1660,61 @@
   // Road geometry: one cubic segment per stop, from it to the next road stop (the last to the road's
   // end); the stop's own quests are beads along it. Side paths leave from the middle of their
   // stop's segment and end at their own node.
-  const bez = (p, t) => { const u = 1 - t; return { x: u*u*u*p[0].x + 3*u*u*t*p[1].x + 3*u*t*t*p[2].x + t*t*t*p[3].x, y: u*u*u*p[0].y + 3*u*u*t*p[1].y + 3*u*t*t*p[2].y + t*t*t*p[3].y }; };
+  // The traced road corridor of a painted strip (strip-art/paths.js, tools/trace-strip.ps1): the road
+  // follows the painting's cleared path (it cut across the art, owner 2026-11-10). A segment is a
+  // cubic curve [p0..p3] or a stretch { path, s0, s1 } of the traced polyline.
+  function newPath(raw) {
+    if (!raw || raw.length < 2) return null;
+    const pts = raw.map(p => ({ x: p[0], y: p[1] })), acc = [0];
+    for (let i = 1; i < pts.length; i++) acc[i] = acc[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    return { pts, acc, len: acc[acc.length - 1] };
+  }
+  function pathPoint(P, s) {
+    s = Math.max(0, Math.min(P.len, s));
+    let i = 0; while (i < P.pts.length - 2 && P.acc[i + 1] < s) i++;
+    const span = P.acc[i + 1] - P.acc[i], f = span > 0 ? (s - P.acc[i]) / span : 0, a = P.pts[i], b = P.pts[i + 1];
+    return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+  }
+  function pathProject(P, x, y) {
+    let best = 0, bestD = Infinity;
+    for (let i = 0; i < P.pts.length - 1; i++) {
+      const a = P.pts[i], b = P.pts[i + 1], dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+      const f = l2 > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / l2)) : 0;
+      const d = (a.x + dx * f - x) ** 2 + (a.y + dy * f - y) ** 2;
+      if (d < bestD) { bestD = d; best = P.acc[i] + f * (P.acc[i + 1] - P.acc[i]); }
+    }
+    return best;
+  }
+  const bez = (p, t) => { if (p.path) return pathPoint(p.path, p.s0 + (p.s1 - p.s0) * t); const u = 1 - t; return { x: u*u*u*p[0].x + 3*u*u*t*p[1].x + 3*u*t*t*p[2].x + t*t*t*p[3].x, y: u*u*u*p[0].y + 3*u*u*t*p[1].y + 3*u*t*t*p[2].y + t*t*t*p[3].y }; };
   function splitBez(p, t) { // the part of the curve from 0 to t (de Casteljau)
     const L = (a, b) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
     const a = L(p[0], p[1]), b = L(p[1], p[2]), c = L(p[2], p[3]), d = L(a, b), e = L(b, c), f = L(d, e);
     return [p[0], a, d, f];
   }
   const bpath = (p) => `M${p[0].x} ${p[0].y} C${p[1].x} ${p[1].y} ${p[2].x} ${p[2].y} ${p[3].x} ${p[3].y}`;
+  // Points every `step` units along a curve (by arc length), with the direction in degrees and t.
+  function stampsAlong(p, step) {
+    const n = 60, acc = [0], pts = [];
+    let prev = bez(p, 0);
+    for (let i = 1; i <= n; i++) { const q = bez(p, i / n); acc[i] = acc[i - 1] + Math.hypot(q.x - prev.x, q.y - prev.y); prev = q; }
+    for (let d = step / 2, i = 0; d < acc[n]; d += step) {
+      while (i < n - 1 && acc[i + 1] < d) i++;
+      const t = (i + (d - acc[i]) / Math.max(1e-6, acc[i + 1] - acc[i])) / n;
+      const a = bez(p, Math.max(0, t - 0.01)), b = bez(p, Math.min(1, t + 0.01)), c = bez(p, t);
+      pts.push({ x: c.x, y: c.y, t, deg: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI });
+    }
+    return pts;
+  }
   function roadSegs(m) {
     const R = CLASS_ROAD, segs = {};
-    m.road.forEach((s, i) => {
+    const P = R.art && window.AZF_STRIP_PATHS && newPath(window.AZF_STRIP_PATHS[`${R.cls.toLowerCase()}-alliance`]);
+    if (P) {
+      // Road stops and the end sit on the traced corridor; each segment is the stretch between.
+      const at = (o) => pathProject(P, o.x, o.y);
+      const ss = m.road.map(at).concat(at(R.end));
+      m.road.forEach((s, i) => { const q = pathPoint(P, ss[i]); s.x = q.x; s.y = q.y; segs[s.id] = { path: P, s0: ss[i], s1: ss[i + 1] }; });
+      const e = pathPoint(P, ss[ss.length - 1]); R.end.x = e.x; R.end.y = e.y;
+    } else m.road.forEach((s, i) => {
       const nx = m.road[i + 1] || R.end, dy = nx.y - s.y;
       segs[s.id] = [{ x: s.x, y: s.y }, { x: s.x, y: s.y + dy * 0.55 }, { x: nx.x, y: nx.y - dy * 0.55 }, { x: nx.x, y: nx.y }];
     });
@@ -1661,44 +1739,62 @@
   // Charger waits; a gilded crest at the road's end.
   function classStrip(m) {
     const R = CLASS_ROAD, segs = roadSegs(m);
-    const hills = [[300, "#4c6b38", 0.9], [520, "#3f5c30", 1], [780, "#3a5230", 1], [1000, "#3c4632", 1], [1180, "#2f3529", 1], [1330, "#24261f", 1]].map(([y, c, o], i) => {
+    // Round 4 (owner, 2026-11-10): a hand-drawn antique map. Stand-in: parchment, ink hill lines
+    // with a thin sage wash, inked tree glyphs; the painted strip replaces it.
+    const hills = [[300, 0.10], [520, 0.08], [780, 0.10], [1000, 0.07], [1180, 0.09], [1330, 0.06]].map(([y, o], i) => {
       let d = `M0 ${y}`; for (let x = 0; x <= R.W; x += 30) d += ` L${x} ${(y - 30 - Math.abs(Math.sin((x + i * 70) / 60)) * 46).toFixed(0)}`;
-      return `<path d="${d} L${R.W} ${R.H} L0 ${R.H} Z" fill="${c}" opacity="${o}"/>`; }).join("");
+      return `<path d="${d} L${R.W} ${R.H} L0 ${R.H} Z" fill="#7f9a63" opacity="${o}"/><path d="${d}" class="inkline"/>`; }).join("");
     const trees = Array.from({ length: 34 }, (_, i) => { const x = (i * 97) % (R.W - 20) + 10, y = 360 + ((i * 211) % 760);
-      return `<path d="M${x} ${y} l-8 14 h5 l-6 10 h18 l-6 -10 h5 Z" fill="${y > 1000 ? "#1d2219" : "#203a1c"}" opacity=".75"/>`; }).join("");
+      return `<path d="M${x} ${y} l-7 13 h4 l-5 9 h16 l-5 -9 h4 Z" class="inktree"/>`; }).join("");
+    // Round 3 (owner, 2026-11-10): the road means levels. It fills from the start to your level
+    // (XP included); a side path's dotted track fills when it's done.
+    const lp = levelPos(m);
+    // Round 4: the road is made of painted stamps placed along the curve and turned to follow it:
+    // gold-leaf dashes as far as your level, ink dashes after (two variants each, alternated),
+    // ink dots along a side path (gold dots once it's done).
+    const hasArt = !!R.art;
     const segPaths = Object.entries(segs).map(([id, p]) => {
-      const s = m.stops.find(x => x.id === id), lit = s.d ? s.d / s.n : 0;
-      return `<path d="${bpath(p)}" class="road ${s.kind}"/>${lit > 0 ? `<path d="${bpath(splitBez(p, lit))}" class="road lit ${s.kind}"/>` : ""}`;
+      const s = m.stops.find(x => x.id === id);
+      const ri = m.road.indexOf(s);
+      const lit = s.kind === "side" ? (s.d ? s.d / s.n : 0) : ri < lp.i ? 1 : ri === lp.i ? lp.t : 0;
+      if (!hasArt) return `<path d="${bpath(p)}" class="road ${s.kind}"/>${lit > 0 ? `<path d="${bpath(splitBez(p, lit))}" class="road lit ${s.kind}"/>` : ""}`;
+      const side = s.kind === "side";
+      return stampsAlong(p, side ? 9 : 22).map((pt, k) => {
+        const on = lit > 0 && pt.t <= lit;
+        if (side) return `<image href="chrome-art/road-dot.png" x="${(pt.x - 3).toFixed(1)}" y="${(pt.y - 3).toFixed(1)}" width="6" height="6" class="${on ? "gilt" : ""}"/>`;
+        const file = `chrome-art/road-dash-${on ? "gold" : "ink"}-${(k % 2) + 1}.png`;
+        return `<image href="${file}" x="-11" y="-5.5" width="22" height="11" transform="translate(${pt.x.toFixed(1)} ${pt.y.toFixed(1)}) rotate(${pt.deg.toFixed(1)})"/>`;
+      }).join("");
     }).join("");
-    const beads = m.stops.map(s => counted(s).map((q, k) => {
-      const t = s.kind === "road" ? (k + 1) / (s.n + 1) : (k + 1) / (s.n + 1) * 0.86;
-      const pt = bez(segs[s.id], t), on = s.done.has(q[0]);
-      return `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${s.kind === "road" ? 4.5 : 3.5}" class="bead ${on ? "on" : ""} ${m.unknown ? "unk" : ""}"/>`;
-    }).join("")).join("");
+    // Quest pips ring each node (completion lives on the node now, not the road).
+    const beads = m.stops.map(s => {
+      const c = counted(s), r = s.kind === "road" ? 31 : 23;
+      return c.map((q, k) => {
+        const a = -Math.PI / 2 + (k / c.length) * Math.PI * 2;
+        return `<circle cx="${(s.x + r * Math.cos(a)).toFixed(1)}" cy="${(s.y + r * Math.sin(a)).toFixed(1)}" r="${s.kind === "road" ? 3.6 : 3}" class="bead ${s.done.has(q[0]) ? "on" : ""} ${m.unknown ? "unk" : ""}"/>`;
+      }).join("");
+    }).join("");
     const marks = m.stops.map(s => LANDMARK[s.landmark] ? LANDMARK[s.landmark](s.x + (s.x < R.W / 2 ? 70 : -70), s.y + 22) : "").join("");
-    // A side path ends in a dead end: a small cairn under its node.
+    // A side path ends in a dead end: a small hatched ink cairn under its node.
     const deadends = m.side.map(s => `<g class="cairn" transform="translate(${s.x} ${s.y + 30})"><ellipse cx="0" cy="8" rx="11" ry="4.5"/><ellipse cx="1" cy="1" rx="8" ry="3.8"/><ellipse cx="-1" cy="-5" rx="5" ry="3"/></g>`).join("");
-    // "You" (round 2: larger, with a tag): on the first road stop not done, at its last done bead
-    // (or beside its node). Not drawn when completion isn't known.
-    const cur = !m.unknown && m.road.find(s => s.state !== "done");
-    let you = "";
-    if (cur) { const c = counted(cur), last = c.reduce((a, q, k) => cur.done.has(q[0]) ? k + 1 : a, 0);
-      const p = last ? bez(segs[cur.id], last / (cur.n + 1)) : { x: cur.x + (cur.x < R.W / 2 ? -48 : 48), y: cur.y - 4 };
-      you = `<g class="you" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})"><path d="M0 -19 L15 -12 V1 C15 11 7 16 0 20 C-7 16 -15 11 -15 1 V-12 Z"/><path d="M0 -11 V12 M-8 -2 H8" class="youx"/>
-        <rect x="-17" y="23" width="34" height="15" rx="4" class="youtag"/><text x="0" y="34" class="youtxt">You</text></g>`; }
-    return `<svg viewBox="0 0 ${R.W} ${R.H}" preserveAspectRatio="none" class="cmapart" aria-hidden="true">
-      <defs><linearGradient id="csky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7dc9a"/><stop offset=".12" stop-color="#d9b46a"/><stop offset=".3" stop-color="#7f9a63"/><stop offset=".62" stop-color="#4d5a3c"/><stop offset=".82" stop-color="#2c2e27"/><stop offset="1" stop-color="#15130f"/></linearGradient>
-        <radialGradient id="cdawn" cx=".5" cy="0" r=".5"><stop offset="0" stop-color="#fff6d8" stop-opacity=".95"/><stop offset="1" stop-color="#fff6d8" stop-opacity="0"/></radialGradient>
-        <radialGradient id="cgloom" cx=".3" cy=".86" r=".5"><stop offset="0" stop-color="#7a9a3a" stop-opacity=".35"/><stop offset="1" stop-color="#7a9a3a" stop-opacity="0"/></radialGradient>
+    // "You" (round 4): your portrait in a small brass ring, like a token pinned on the map, with an
+    // ink tag. The stand-in draws an initial where the game draws your portrait.
+    const yp = bez(segs[m.road[lp.i].id], lp.t);
+    const you = `<g class="you" transform="translate(${yp.x.toFixed(1)} ${yp.y.toFixed(1)})"><circle r="10.5" class="youface"/>
+        <text y="4" class="youinit">${esc(CHAR.name[0])}</text>
+        ${hasArt ? `<image href="chrome-art/you-ring.png" x="-15" y="-17" width="30" height="30"/>` : `<circle r="13" class="youring"/><circle cy="-14" r="2.4" class="youpin"/>`}
+        <rect x="17" y="-8" width="56" height="16" rx="2" class="youtag"/><text x="45" y="4" class="youtxt">You · ${CHAR.level}</text></g>`;
+    // (The uncharted wash past your level was dropped, owner 2026-11-10: it washed the map out.)
+    return `<svg viewBox="0 0 ${R.W} ${R.H}" preserveAspectRatio="none" class="cmapart antique" aria-hidden="true">
+      <defs><linearGradient id="cparch" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#efe1bd"/><stop offset=".5" stop-color="#e6d3a6"/><stop offset="1" stop-color="#dcc493"/></linearGradient>
+        <radialGradient id="cstain" cx=".5" cy=".5" r=".75"><stop offset=".55" stop-color="#7a5a2e" stop-opacity="0"/><stop offset="1" stop-color="#7a5a2e" stop-opacity=".45"/></radialGradient>
         <radialGradient id="ccrest" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe9a0" stop-opacity=".9"/><stop offset="1" stop-color="#ffe9a0" stop-opacity="0"/></radialGradient></defs>
-      <rect width="${R.W}" height="${R.H}" fill="url(#csky)"/>${hills}${trees}
-      <rect width="${R.W}" height="420" fill="url(#cdawn)"/><rect width="${R.W}" height="${R.H}" fill="url(#cgloom)"/>
-      <path d="M150 0 L214 92 L278 0 Z" fill="#fff8e0" opacity=".22"/>
-      ${marks}${segPaths}${beads}${deadends}
-      <g class="crest ${m.complete ? "lit" : ""}" transform="translate(${R.end.x} ${R.end.y})">${m.complete ? `<circle r="70" fill="url(#ccrest)"/>` : ""}
-        <path d="M0 -30 L24 -20 V2 C24 18 12 26 0 32 C-12 26 -24 18 -24 2 V-20 Z" class="crestshield"/><path d="M0 -18 V20 M-12 -4 H12" class="crestx"/></g>
+      ${hasArt ? `<image href="${R.art}" width="${R.W}" height="${R.H}" preserveAspectRatio="none"/>` : `<rect width="${R.W}" height="${R.H}" fill="url(#cparch)"/>${hills}${trees}${marks}`}
+      ${segPaths}${beads}${deadends}
+      <g class="crest ${m.complete ? "lit" : ""}" transform="translate(${R.end.x} ${R.end.y})">${m.complete ? `<circle r="60" fill="url(#ccrest)"/>` : ""}
+        ${hasArt ? "" : `<path d="M0 -26 L5 -5 L26 0 L5 5 L0 26 L-5 5 L-26 0 L-5 -5 Z" class="endstar"/><circle r="9" class="endstar-c"/>`}</g>
       ${you}
-      <rect width="${R.W}" height="${R.H}" fill="none" stroke="#000" stroke-opacity=".5" stroke-width="10"/></svg>`;
+      ${hasArt ? "" : `<rect width="${R.W}" height="${R.H}" fill="url(#cstain)"/>`}</svg>`;
   }
   const C_STATE = { done: "Done", progress: "In progress", ready: "You can start it", later: "Later", unknown: "Not known yet" };
   const qn = (n) => `${n} quest${n === 1 ? "" : "s"}`;
@@ -1717,11 +1813,11 @@
     const R = CLASS_ROAD;
     return m.stops.map(s => `<button class="cnode focusable ${s.kind} st-${s.state} ${s.x > R.W * 0.58 ? "lab-left" : ""} ${ui.classSel === s.id ? "selected" : ""}"
       data-stop="${s.id}" ${m.stops.some(x => x.from === s.id) || s.from ? "data-sidepath" : ""} style="left:${(s.x / R.W * 100).toFixed(2)}%;top:${(s.y / R.H * 100).toFixed(3)}%" data-tip="${stopTip(s)}">
-      ${s.state === "done" ? doneMedal() : `<span class="cseal">${s.state === "unknown" ? "?" : s.lv}</span>`}
-      <span class="clabel"><span class="clv">Level ${s.lv}${s.kind === "side" ? " · side path" : ""}</span><span class="cname">${esc(s.name)}</span><span class="csub">${esc(stopSub(s))}</span></span></button>`).join("")
+      ${s.state === "done" ? classCoin() : classSketch()}<span class="clvl">${s.state === "unknown" ? "?" : s.lv}</span>
+      <span class="clabel"><span class="cname">${esc(s.name)}</span></span></button>`).join("")
       + `<button class="cnode focusable end ${m.complete ? "st-done" : ""} ${ui.classSel === "end" ? "selected" : ""}" data-stop="end" style="left:${(R.end.x / R.W * 100).toFixed(2)}%;top:${(R.end.y / R.H * 100).toFixed(3)}%"
         data-tip="<b>The road's end</b>${m.complete ? "Every class quest on the road and its side paths is done." : m.unknown ? `${m.quests} class quests; done or not isn't known yet.` : `${m.questsDone} of ${m.quests} class quests done.`}"><span class="cseal"></span>
-        <span class="clabel below"><span class="cname">${m.complete ? "The road walked" : "The road's end"}</span><span class="csub">${m.unknown ? `${m.quests} quests` : `${m.questsDone} of ${m.quests} quests`}</span></span></button>`;
+        <span class="clabel below"><span class="cname">${m.complete ? "The road walked" : "The road's end"}</span></span></button>`;
   }
   function renderClass() {
     const m = classModel(), nx = classNext(m);
@@ -1742,10 +1838,16 @@
   // (LT/RT already go stop to stop); a click scrolls there.
   function classRail(m) {
     const R = CLASS_ROAD, top = (y) => (y / R.H * 100).toFixed(2);
-    const nx = classNext(m), cur = nx.stop;
+    // Round 3: your mark sits at your level on the road (as on the map); the part of the road in
+    // view lights the rail line, with a brass notch at each end (no box).
+    // Round 4: the rail is the map's scale bar, an ink ruler marked in levels (1, 10 … 60) at
+    // their places on the road, gilded down to your brass dot.
+    const segs = roadSegs(m), yAt = (lv) => { const p = levelPos(m, lv); return bez(segs[m.road[p.i].id], p.t).y; };
+    const yp = { y: yAt(CHAR.level + (CHAR.xpMax ? CHAR.xp / CHAR.xpMax : 0)) };
+    const ticks = [1, 10, 20, 30, 40, 50, 60].map(l => `<i class="rtick" style="top:${top(yAt(l))}%"><em>${l}</em></i>`).join("");
     const dots = m.stops.map(s => `<i class="rdot ${s.kind} st-${s.state}" data-rail="${s.id}" style="top:${top(s.y)}%"></i>`).join("");
-    const you = cur && !m.unknown ? `<b class="ryou" style="top:${top(cur.y)}%"></b>` : "";
-    return `<div class="crail" aria-hidden="true"><div class="rtrack"><span class="rline"></span>${dots}
+    const you = `<b class="ryou" style="top:${top(yp.y)}%"></b>`;
+    return `<div class="crail scale" aria-hidden="true"><div class="rtrack"><span class="rline"></span><span class="rfill" style="height:${top(yp.y)}%"></span>${ticks}${dots}
       <i class="rdot end ${m.complete ? "st-done" : ""}" data-rail="end" style="top:${top(R.end.y)}%"></i>${you}<span class="rview" id="railview"></span></div></div>`;
   }
   function updateRail() {
@@ -1762,7 +1864,8 @@
   }
   // A finished stop (or the road walked) wears the quests medal from the celebration (owner,
   // 2026-11-09): cel-seal-quests inside cel-laurel, small, in place of a check and "Done".
-  const doneMedal = () => `<span class="cmedal" title="Done">${celPiece("cel-seal-quests", "seal", "!")}${celPiece("cel-laurel", "laurel")}</span>`;
+  // Round 3: the class coin replaces the borrowed celebration medal (owner, 2026-11-10).
+  const doneMedal = () => classCoin("big");
   function renderStopInto(box, m, id) {
     const nx = classNext(m);
     if (id === "end") {

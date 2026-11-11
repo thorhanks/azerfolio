@@ -711,20 +711,47 @@ return function(t)
         local ns = boot({ schemaVersion = 4, lastTab = "overview" })
         local j, restore = classStub(ns, { [3101] = true, [1642] = true })
         t.eq(j.road.count, 5); t.eq(j.side.count, 2)
+        -- Round 4: the class trainer's recorded list (Judgement learned at 4; Hammer of Justice
+        -- and Purify at 8, trainable at the mock's level 9).
+        ns.charDB.trainer = { services = {
+            { name = "Judgement", kind = "used", level = 4, icon = 135959 },
+            { name = "Hammer of Justice", rank = "Rank 1", kind = "available", level = 8, icon = 135963, cost = 100 },
+            { name = "Purify", kind = "available", level = 8, icon = 135949 } } }
         slash("")
         ns.UI.SelectTab("class")
         local cp = ns.UI.GetFrame().pages.class
         t.ok(cp and cp:IsShown(), "the fourth tab")
         t.eq(cp.plaque.title:GetText(), "The Paladin's Road")
-        t.eq(cp.plaque.count:GetText(), "Road 1 of 5  ·  Side paths 0 of 2")
+        t.eq(cp.plaque.count:GetText(), "Road 1 of 5  ·  Side paths 0 of 2  ·  |cffff8a702 to train|r")
         -- Opens on your stop: the first road stop not done.
         t.eq(ns.Focus.Current().key, "n:divinity")
         t.eq(cp.sel, "divinity")
         local div = cp.byKey.divinity
-        t.eq(div.label.sub:GetText(), "1 of 8 quests")
-        t.eq(cp.byKey.intro.label.sub:GetText(), "All 1 quest done")
-        -- Round 2: a later stop's label shows its reward; the plaque says what's next.
-        t.eq(cp.byKey.charger.label.sub:GetText(), "Summon Charger  ·  11 quests")
+        -- Round 3: the name alone on the map (no plate); the level in the seal.
+        t.eq(div.label.name:GetText(), "The Tome of Divinity")
+        t.eq(div.text:GetText(), "12")
+        t.eq(ns.Focus.Current().frame, div.labelSide == "left" and div.label or div, "the chevron points at a left-hand name, else the node")
+        -- The painted strip's traced corridor (Data/StripPaths.lua): road segments follow it and
+        -- road stops sit on it.
+        local seg = cp.layout.segs.divinity
+        t.ok(seg.path ~= nil, "Divinity's stretch follows the traced path")
+        t.ok(seg.s1 > seg.s0, "and runs forward along it")
+        -- The road means levels: level 9 (the mock's) puts You on the letter's span, 8 of 11 along.
+        t.eq(cp.levelSeg, 1)
+        t.ok(math.abs(cp.levelT - (8 + 273 / 6500) / 11) < 1e-6, tostring(cp.levelT))
+        t.eq(cp.you:IsShown(), true)
+        t.eq(cp.you.tagText:GetText(), "You  ·  9")
+        -- Abilities along the road: marks at 4 and 8 between the letter and Divinity; "2 to train".
+        t.ok(cp.abilityMarks[4] and cp.abilityMarks[8], "marks at levels 4 and 8")
+        t.ok(cp.plaque.count:GetText():find("2 to train"), cp.plaque.count:GetText())
+        t.eq(cp.abilityMarks[8].more:GetText(), "+1", "two new abilities at 8")
+        press(ns, "PADDUP")
+        t.eq(ns.Focus.Current().key, "a:8", "up from Divinity walks back along the road to the level-8 mark")
+        t.eq(cp.detail.hero.name:GetText(), "Level 8")
+        t.eq(cp.detail.hero.score:GetText(), "2")
+        t.eq(cp.detail.hero.small:GetText(), "to train now")
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().key, "n:divinity")
         t.eq(cp.plaque.next:GetText(), "Next: The Tome of Divinity  ·  Duthorian Rall  ·  Stormwind City")
         t.eq(cp.detail.hero.name:GetText(), "The Tome of Divinity")
         t.eq(cp.detail.hero.kicker:GetText(), "Stop 2 of 5 on the road")
@@ -735,8 +762,9 @@ return function(t)
         t.eq(cp.detail.facts[3].k:GetText(), "Travels to")
         t.eq(cp.detail.facts[3].v:GetText(), "Stormwind City  >  Elwynn Forest")
         t.eq(cp.detail.hero.mapID, 1453, "Stormwind's art behind the header")
-        t.eq(cp.byKey.intro.medal ~= nil and cp.byKey.intro.medal.laurel:IsShown() or cp.byKey.intro.check:IsShown(), true,
-            "a finished stop wears the medal (or the check without the art)")
+        local intro = cp.byKey.intro
+        t.eq(intro.coin ~= nil and intro.coin:IsShown() or intro.check:IsShown(), true,
+            "a finished stop wears the class coin (or the check without the art)")
         t.eq(cp:GetHints()[1], nil, "no side path at Divinity")
         -- The overview rail (review item 13): your ring, one mark per stop (7), the road's end.
         t.eq(#cp.railMarks, 9)
@@ -792,10 +820,10 @@ return function(t)
         -- Shots: the tab's own set, restored after.
         local labels = {}
         for _, s in ipairs(ns.UI.ShotSteps("class")) do labels[#labels + 1] = s.label end
-        t.eq(#labels, 8)
+        t.eq(#labels, 9)
         slash("shots class")
         wow.runTimers()
-        t.eq(_G.screenshotsTaken, 8)
+        t.eq(_G.screenshotsTaken, 9)
         t.eq(cp.mode, "road", "back on the road")
         t.eq(#ns.Debug.errors, 0)
         restore()
@@ -824,6 +852,53 @@ return function(t)
         press(ns, "PADDDOWN")
         t.eq(ns.Gamepad.PadDriving(), true)
         t.eq(hover[1]:GetAlpha(), 0)
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("class trainer: reads the whole list with every filter on, then restores them", function()
+        local ns = boot()
+        local filters = { available = 1, unavailable = 0, used = 0 }
+        local list = {
+            { "Holy Light", "used", 135920, 0, "Rank 1", 0, 10 },
+            { "Hammer of Justice", "available", 135963, 0, "Rank 1", 8, 1100 },
+            { "Blessing of Wisdom", "unavailable", 135970, 0, "Rank 1", 14, 2000 },
+        }
+        local function shown()
+            local out = {}
+            for _, s in ipairs(list) do if filters[s[2]] == 1 then out[#out + 1] = s end end
+            return out
+        end
+        -- Like Forever's client: a boolean on/off; the number 1 is rejected (WoWScrnShot_111026_200313).
+        _G.GetTrainerServiceTypeFilter = function(f) return filters[f] == 1 end
+        _G.SetTrainerServiceTypeFilter = function(f, on)
+            if type(on) ~= "boolean" then error("Missing on/off parameter in SetTrainerServiceTypeFilter") end
+            filters[f] = on and 1 or 0
+        end
+        _G.GetNumTrainerServices = function() return #shown() end
+        _G.GetTrainerServiceInfo = function(i) local s = shown()[i]; return s[1], s[2], s[3], s[4], s[5] end
+        _G.GetTrainerServiceLevelReq = function(i) return shown()[i][6] end
+        _G.GetTrainerServiceCost = function(i) return shown()[i][7] end
+        _G.IsTradeskillTrainer = function() return false end
+        local updates = 0
+        ns.Events.On("AZF_CLASS_UPDATED", function() updates = updates + 1 end)
+        wow.fire("TRAINER_SHOW")
+        local tr = ns.charDB.trainer
+        t.eq(#tr.services, 3, "every service, not only the shown ones")
+        t.eq(tr.services[2].name, "Hammer of Justice"); t.eq(tr.services[2].level, 8); t.eq(tr.services[2].rank, "Rank 1")
+        t.eq(tr.services[2].cost, 1100)
+        t.same(filters, { available = 1, unavailable = 0, used = 0 }, "the filters put back")
+        t.eq(updates, 1)
+        -- Level 9 (the mock's): Hammer of Justice to train now, Blessing of Wisdom later.
+        local g = ns.ClassTrainer.Get()
+        t.eq(g.status, "recorded")
+        t.eq(g.abilities.counts.available, 1); t.eq(g.abilities.counts.later, 1); t.eq(g.abilities.counts.learned, 1)
+        -- A profession trainer is left alone.
+        _G.IsTradeskillTrainer = function() return true end
+        ns.charDB.trainer = {}
+        wow.fire("TRAINER_SHOW")
+        t.eq(ns.ClassTrainer.Get().status, "none")
+        for _, k in ipairs({ "GetTrainerServiceTypeFilter", "SetTrainerServiceTypeFilter", "GetNumTrainerServices", "GetTrainerServiceInfo",
+            "GetTrainerServiceLevelReq", "GetTrainerServiceCost", "IsTradeskillTrainer" }) do _G[k] = nil end
         t.eq(#ns.Debug.errors, 0)
     end)
 
@@ -869,8 +944,8 @@ return function(t)
         local cp = ns.UI.GetFrame().pages.class
         t.eq(cp.plaque.count:GetText(), "Road ? of 5  ·  Side paths ? of 2")
         t.eq(cp.detail.hero.score:GetText(), "?")
-        t.ok(cp.byKey.divinity.label.sub:GetText():find("not known"), cp.byKey.divinity.label.sub:GetText())
-        t.eq(cp.you:IsShown(), false, "no 'you' without knowing what's done")
+        t.eq(cp.byKey.divinity.text:GetText(), "?", "an unknown stop's seal says ?")
+        t.eq(cp.you:IsShown(), true, "your level is known, so You shows (round 3)")
         restore()
         local _, restore2 = classStub(ns, nil, "unavailable")
         ns.Events.Send("AZF_CLASS_UPDATED")

@@ -307,5 +307,121 @@ Negative prompt: the zone one, plus `frame, border, rounded corners, photo, tiny
 | icon-quests | Quests category | A tall golden exclamation mark glowing above a sealed parchment scroll |
 | icon-flights | Flight paths category | A gryphon in flight with wings spread wide, seen from the side, against an evening sky |
 | icon-reputation | Reputation tab | A heraldic tabard hanging from a short wooden crossbar, deep green cloth with a gold embroidered border and a bold gold sunburst emblem on the chest, gently folded (added 2026-11-09; green and gold so it's neither Alliance nor Horde and stands apart from the brown journal and the parchment map) |
+| icon-class | Class tab | A knight's kite shield standing upright with a gilded rim, a winding golden road painted across its face from top to bottom, a small glowing star at the road's end (added 2026-11-10; a journey, not any one class) |
 
 Future tabs add one line each (for example icon-dungeons: a dark stone archway with a glowing portal).
+
+## Class tab art (Phase 13; added 2026-11-10)
+
+Design: mockups/DESIGN.md "Class tab", round 3. One tall painted map strip per class and side (18), and one gold coin per class (9). **Test first with Gideon's strip (Alliance Paladin) and the Paladin coin**, check them in game, then write the other 17 strips.
+
+### The journey strip (test: Alliance Paladin) — round 3, painted style (superseded by the antique map test below)
+
+A tall map the road winds down, read top to bottom from the class's first steps to its last. **Paint no road.** The addon draws the road, how far you've levelled along it and your marker on top, so it always lines up with the stops. Leave a **clear winding corridor** of open, plain ground (meadow, sand, ash: whatever the land is) where the road will run, with landmarks beside it, never on it. The corridor runs: from the top centre, curving right, back to the left a third of the way down, right again a little past halfway, and to the bottom centre. Keep the land under the corridor low-contrast and free of detail.
+
+Final size 512×2048 (1:4). Image tools rarely make 1:4, so generate it as **three stacked 3:4 portrait panels**, top to bottom, each with the same style block and the edge notes in its subject so they blend. Save them as `art/source/strip-paladin-alliance-1.png`, `-2.png`, `-3.png`; the art pipeline will stack them (support added when the test images exist).
+
+Style block for strips:
+
+```
+Hand-painted stylized fantasy adventure map seen from high above at a gentle angle, like an
+illuminated journey map, painterly with soft visible brush texture, bold simplified shapes, rich
+saturated colors, warm rim light, soft atmospheric depth, small landmark buildings and landscape
+features drawn in miniature, no road, no path, no trail, no people, no creatures, no text.
+3:4 portrait.
+Subject:
+```
+
+Negative prompt: the zone one, plus `road, path, trail, track, footpath, river running top to bottom, map labels, legend, compass rose, border, frame`.
+
+| File | Subject line |
+|---|---|
+| strip-paladin-alliance-1 | Dawn over a sheltered green valley in a pine forest: a small stone abbey with a bell tower at the top centre glowing in soft golden morning light, rays of light falling from the top edge; below it rolling green meadows and pine groves, and on the right side a third of the way down a grand white stone cathedral with twin spires and a city wall seen in miniature. The bottom edge is gentle green hills in warm afternoon light, so the next panel continues them. A clear plain meadow corridor winds from the top centre down to the right and back toward the left at the bottom |
+| strip-paladin-alliance-2 | Gentle green hills and golden farmland in warm afternoon light continuing from the top edge: on the left side a windmill and a red-roofed farmhouse with a small lighthouse on a coastal cliff far left; in the middle a deep autumn forest of purple-blue trees with a glowing glade on the far left; on the right side a proud stone keep with banners on a hill. The light dims toward the bottom edge into cool late-evening dusk over grey-green fields, so the next panel continues them. A clear plain corridor winds from the left at the top edge, across to the right, and back toward the centre-left at the bottom |
+| strip-paladin-alliance-3 | Cool dusk turning to gloom from the top edge: grey-green plagued fields with dead trees and broken fences, on the right side a small military camp of tents with a banner by a lake, on the left side a grim stone ossuary and a ruined city gate in sickly green mist; toward the bottom centre the land darkens to deep shadow with a faint warm glow in the very bottom centre, as if the end of the journey lies there. A clear plain corridor winds from the left at the top edge, down the middle, to the bottom centre |
+
+### The class coin (test: Paladin)
+
+A finished stop's mark, on its node and in the stop's header (52 px on the map, 80 in the header). One coin per class, shared by Alliance and Horde. Use the **chrome style block** above (flat magenta, symmetrical, no text). Save as `art/source/coin-<class>.png`.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| coin-paladin | 1:1 | A thick round gold coin seen straight on, polished bright gold with a raised beaded rim, struck in the centre with a warhammer standing upright in a radiant burst of holy light, small rays around it, deep crisp relief, warm highlights, the coin filling the frame |
+
+Negative prompt: the chrome one, plus `text, letters, numbers, faces, crown, king's head, currency symbols`.
+
+### Round 4 style test: the antique map (added 2026-11-10)
+
+The owner chose a **hand-drawn antique map** over the painting (mockups/DESIGN.md "Class tab", round 4): quiet parchment, so the gold road and coins are the brightest things on it, and far easier to keep consistent across 18 strips. **Make only the test pieces below**, compare them with the painted strip in game, then write the rest.
+
+Three kinds of piece, each with its own background so the pipeline can cut it out:
+- **The map panel**: a full picture, no background to remove.
+- **Ink pieces** (sketches, dashes, marks): sepia ink drawn on **pure white (#FFFFFF)**, no paper texture, no shading on the white. The pipeline turns the white transparent and keeps the ink, so the marks sit on the map like more ink.
+- **Metal pieces** (gold dashes, the brass ring): on **flat pure magenta (#FF00FF)**, as for the chrome pieces.
+
+Never name a game, artist or studio in a prompt.
+
+#### The map panel (test: the top of Gideon's road)
+
+Style block for map strips:
+
+```
+Hand-drawn antique fantasy map on aged parchment, seen from above with a slight oblique angle,
+fine sepia and dark umber ink linework with delicate cross-hatching for hills and shadows, small
+pictorial mountains, clustered tree glyphs, rivers drawn as fine double lines, thin transparent
+watercolor washes in muted sage green, faded ochre and pale grey-blue, landmarks drawn as small
+inked vignettes all at the same scale and viewpoint, worn paper texture with soft stains and gently
+darkened edges, quiet low contrast, no road, no path, no trail, no text, no letters, no labels,
+no compass rose, no border, no frame.
+3:4 portrait.
+Subject:
+```
+
+Negative prompt: `text, letters, words, labels, place names, calligraphy, numbers, signature, cartouche with writing, compass rose, border, frame, road, path, trail, dotted line, saturated colors, photograph, 3D render, people, creatures`.
+
+| File | Subject line |
+|---|---|
+| strip-antique-test | The top of a long journey map. At the top centre a small stone abbey with a bell tower in a sheltered wooded valley, tiny rays of morning light inked above it; pine forests drawn as clusters of small tree glyphs on both sides; a waterfall and a small pond on the left a third of the way down; on the right a third of the way down a walled city with a grand twin-spired cathedral, drawn in miniature. A wide band of plain, empty parchment winds from the top centre down to the right and back toward the left at the bottom, with nothing drawn in it (a route will be drawn there later). The bottom edge continues into gentle hatched hills |
+
+Save as `art/source/strip-antique-test.png`. (A test only; the real strips will be named per class and side again.)
+
+**Approved (2026-11-10): finish Gideon's antique strip.** The test panel becomes panel 1; make panels 2 and 3 to continue it, with the same style block and negative prompt, giving the tool `strip-antique-test.png` as the style and continuity reference. Each panel's top edge continues the previous panel's bottom edge. Save as `art/source/strip-paladin-alliance-1.png` (a copy of the test panel), `-2.png` and `-3.png`, replacing the painted round-3 panels (keep those as `strip-paladin-alliance-painted-<n>.png` if you want them).
+
+| File | Subject line |
+|---|---|
+| strip-paladin-alliance-2 | The middle of the same long journey map, continuing the gentle hatched hills at the top edge. On the left a third of the way down: a small farmstead with a windmill and fenced fields, and a little lighthouse on a rocky coast at the far left edge; below it on the left a dense autumn wood drawn as many small round tree glyphs with a tiny glowing glade inside; on the right a little past the top third, a proud stone keep with two banners on a rocky hill. A wide band of plain, empty parchment winds from the left at the top edge, across to the right, and back toward the centre-left at the bottom, with nothing drawn in it. Toward the bottom edge the washes turn greyer and the trees sparser |
+| strip-paladin-alliance-3 | The bottom of the same long journey map, continuing grey-washed fields at the top edge. Blighted land: bare dead trees drawn as thin spiky glyphs, broken fences, a sickly pale green wash in places; on the right a third of the way down a small military camp of tents with a banner beside a little lake; on the left a grim stone ossuary and a ruined city gate; the land darkens toward the bottom, where a small radiant star of rays is inked at the bottom centre, as if the end of the journey lies there. A wide band of plain, empty parchment winds from the left at the top edge, down the middle, to the bottom centre, with nothing drawn in it |
+
+#### The unfinished-stop sketch (test: Paladin)
+
+The coin's emblem drawn as a cartographer's sketch: a stop that isn't done yet. When the stop is finished the gold coin replaces it, so it must match `coin-paladin`'s design. Ink piece: **pure white background**.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| sketch-paladin | 1:1 | A hand-drawn ink sketch of a round coin seen straight on, sepia ink line art only on a pure white background: a double circle for the rim with small dots between the lines, and in the centre an upright warhammer in a burst of short straight rays, drawn with confident pen lines and light cross-hatching on the hammer's head, no fill, no colour, no paper texture, the circle filling the frame |
+
+Negative prompt: `color, gold, shading on the background, paper texture, parchment, text, letters, numbers, signature, frame, border, photograph`.
+
+#### Road pieces (test)
+
+Old maps draw routes as dashed lines. The addon places these stamps one after another along the road's curve and turns each to follow it, so each piece is **one short dash, horizontal, centred**, filling the width of a wide frame. Two variants of each, so the line looks hand-drawn.
+
+| File | Aspect | Background | Subject line |
+|---|---|---|---|
+| road-dash-ink-1 | 2:1 | pure white | One single short thick brush-pen dash of dark sepia ink, horizontal and centred, slightly uneven edges and a little ink pooling at one end, like one stroke of a dashed route line on an old map, on a pure white background |
+| road-dash-ink-2 | 2:1 | pure white | The same, a slightly different single dash: a little thinner at one end, a faint dry-brush texture along its length, on a pure white background |
+| road-dash-gold-1 | 2:1 | flat magenta | One single short thick dash of shining gold leaf, horizontal and centred, gently uneven raised edges with warm highlights, like a gilded stroke of a route line on an illuminated map, on a perfectly flat pure magenta (#FF00FF) background |
+| road-dash-gold-2 | 2:1 | flat magenta | The same, a slightly different single gold-leaf dash, a little crackle in the gilding, on a perfectly flat pure magenta (#FF00FF) background |
+| road-dot | 1:1 | pure white | One single small round dot of dark sepia ink, slightly irregular like a pen dot on old paper, centred, on a pure white background |
+
+Negative prompt (ink pieces): `color, paper texture, parchment, shadow, several marks, text, letters, frame, border`. Metal pieces: the chrome one, plus `several marks, text, letters`.
+
+#### The You token's ring (test)
+
+You on the road: the player's own portrait (drawn by the game) inside a small brass ring, like a token pinned to the map. Metal piece: **flat magenta**, the centre empty.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| you-ring | 1:1 | A small round antique brass ring frame seen straight on, polished warm brass with a fine engraved rope pattern around it and a tiny pin head at the top like a map pin, the whole inside of the ring (about 75% of its width) empty flat magenta, on a perfectly flat pure magenta (#FF00FF) background |
+
+Negative prompt: the chrome one, plus `gems, text, letters, face, portrait inside`.

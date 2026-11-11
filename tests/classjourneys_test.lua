@@ -98,6 +98,53 @@ return function(t)
         t.eq(u.next.kind, "unknown")
     end)
 
+    t.test("trainer rules: new abilities and ranks by level, states at your level", function()
+        local R = require("mocks.wow").loadAddonFile("Azerfolio/Systems/ClassTrainerRules.lua", "Azerfolio", {}).ClassTrainerRules
+        -- As the Paladin trainer lists them (probe v2): learned at level 0, ranks repeat names.
+        local services = {
+            { name = "Holy Light", rank = "Rank 1", kind = "used", level = 0, icon = 1 },
+            { name = "Judgement", kind = "used", level = 4, icon = 2 },
+            { name = "Hammer of Justice", rank = "Rank 1", kind = "available", level = 8, icon = 3 },
+            { name = "Purify", kind = "available", level = 8, icon = 4 },
+            { name = "Holy Light", rank = "Rank 3", kind = "unavailable", level = 14, icon = 1 },
+            { name = "Blessing of Wisdom", rank = "Rank 1", kind = "unavailable", level = 14, icon = 5 },
+        }
+        local a = R.Abilities(services, 10)
+        t.eq(#a.levels, 4, "levels 1, 4, 8, 14")
+        t.eq(a.levels[1].level, 1, "level 0 counts as 1")
+        t.eq(a.counts.learned, 2); t.eq(a.counts.available, 2); t.eq(a.counts.later, 2); t.eq(a.counts.new, 5)
+        t.eq(#a.availableNow, 2)
+        -- Marks: levels with a new ability. 14 has a rank (Holy Light 3) and a new one.
+        t.eq(#a.marks, 4)
+        local m8, m14 = a.marks[3], a.marks[4]
+        t.eq(m8.level, 8); t.eq(m8.state, "available"); t.eq(m8.new, 2)
+        t.eq(m14.state, "later"); t.eq(m14.new, 1)
+        t.eq(m14.abilities[1].name, "Holy Light"); t.eq(m14.abilities[1].new, false, "a new rank, not a new ability")
+        -- At level 14 the later ones become available; without a level nothing is guessed.
+        t.eq(R.Abilities(services, 14).counts.available, 4)
+        local u = R.Abilities(services, nil)
+        t.eq(u.counts.unknown, 4); t.eq(u.counts.available, 0)
+        t.eq(#R.Abilities(nil, 10).marks, 0)
+    end)
+
+    t.test("journey rules: your level's place on the road (round 3)", function()
+        local R = loadRules()
+        local roads = { 1, 12, 20, 40, 60 }
+        -- Gideon: level 10 with 273 / 7,600 XP, between the letter (1) and Divinity (12).
+        local i, t2 = R.LevelPos(roads, 10 + 273 / 7600, 60)
+        t.eq(i, 1); t.ok(math.abs(t2 - (9 + 273 / 7600) / 11) < 1e-9, tostring(t2))
+        i, t2 = R.LevelPos(roads, 32.66, 60)
+        t.eq(i, 3); t.ok(math.abs(t2 - 12.66 / 20) < 1e-9)
+        -- The last stop at 60 and the road's end at 60: at 60 you're at the road's end (the end
+        -- of the span after the last stop).
+        i, t2 = R.LevelPos(roads, 60, 60)
+        t.eq(i, 5); t.eq(t2, 1)
+        -- Before the first stop, on it; no level, nothing.
+        i, t2 = R.LevelPos({ 5, 10 }, 3, 60)
+        t.eq(i, 1); t.eq(t2, 0)
+        t.eq(R.LevelPos(roads, nil, 60), nil)
+    end)
+
     t.test("journey rules: next is your road stop's level, then its first open step, then side paths", function()
         local R = loadRules()
         local j = { title = "T", stops = {

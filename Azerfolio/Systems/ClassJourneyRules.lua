@@ -151,6 +151,25 @@ function Rules.Next(r, level)
     return { kind = "step", stop = cur, step = open or first }
 end
 
+-- Pure: where a level puts you on the road (design round 3: the road means levels). levels =
+-- the road stops' levels in road order; the road's end is at `last` (60). level may carry the XP
+-- fraction (10.04). Returns i (the segment from road stop i to the next, or to the end) and t
+-- (0..1 along it), or nil without a level or stops.
+function Rules.LevelPos(levels, level, last)
+    if type(level) ~= "number" or #levels == 0 then return nil end
+    local pts = {}
+    for i, l in ipairs(levels) do pts[i] = type(l) == "number" and l or (pts[i - 1] or 1) end
+    pts[#pts + 1] = math.max(last or 60, pts[#pts])
+    level = math.min(level, pts[#pts])
+    for i = 1, #pts - 1 do
+        if level < pts[i + 1] then
+            local span = pts[i + 1] - pts[i]
+            return i, span > 0 and math.max(0, (level - pts[i]) / span) or 1
+        end
+    end
+    return #pts - 1, 1
+end
+
 -- Pure: the whole road for one character.
 --   journey = Rules.Journey(...); ev, completed as for Rules.Step; raceBit as for Rules.Stop;
 --   level: the character's level (for `next`; nil = not known).

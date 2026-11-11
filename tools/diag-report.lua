@@ -1,7 +1,7 @@
 -- Summarizes the AzerfolioDiag SavedVariables dump.
 -- Usage: luajit tools/diag-report.lua [section] [param]
 -- Sections: summary (default), env, ach, explore, maps, quests, questdb [areas], taxi [nodes], zone, zones, events, art, errors,
---           criteria <achID>, ns <filter>, log [n], skin [tree [filter]], reps
+--           criteria <achID>, ns <filter>, log [n], skin [tree [filter]], reps, spells
 -- Set AZF_DIAG_FILE to read a different dump.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
 
@@ -21,6 +21,67 @@ local function count(t) local n = 0 for _ in pairs(t or {}) do n = n + 1 end ret
 local function s(v) if type(v) == "table" then local o = {} for i, x in ipairs(v) do o[i] = tostring(x) end return "{" .. table.concat(o, ",") .. "}" end return tostring(v) end
 
 local R = {}
+
+-- /azfdiag spells: the spellbook APIs, item types (does the client list spells not learned yet?),
+-- the level each is learned at, and the trainer's list when its window was open.
+function R.spells()
+    local r = DB.spells
+    if not r then p("no spell probe; run /azfdiag spells, then /reload"); return end
+    p("spell probe at %s: %s level %s", os.date("%H:%M:%S", r.t), tostring(r.class), tostring(r.level))
+    local present, missing = {}, {}
+    for _, k in ipairs(keys(r.has)) do
+        if r.has[k] == "function" or r.has[k] == "table" then present[#present + 1] = k else missing[#missing + 1] = k end
+    end
+    p("APIs present (%d): %s", #present, table.concat(present, ", "))
+    p("missing: %s", table.concat(missing, ", "))
+    for name, e in pairs(r.enum or {}) do
+        local parts = {}
+        for _, k in ipairs(keys(e)) do parts[#parts + 1] = k .. "=" .. tostring(e[k]) end
+        p("Enum.%s: %s", name, table.concat(parts, " "))
+    end
+    local types = {}
+    for _, k in ipairs(keys(r.byType)) do types[#types + 1] = k .. "=" .. r.byType[k] end
+    p("spellbook: %d lines, %d items; by itemType: %s", #(r.lines or {}), #(r.items or {}), table.concat(types, " "))
+    for i, l in ipairs(r.lines or {}) do
+        p("  line %d: %s offset=%s items=%s hide=%s", i, tostring(l.name), tostring(l.itemIndexOffset), tostring(l.numSpellBookItems), tostring(l.shouldHide))
+    end
+    for _, it in ipairs(r.items or {}) do
+        p("  #%s %-28s %-10s type=%s id=%s passive=%s learned@%s/%s known=%s", tostring(it.index), tostring(it.name), tostring(it.subName),
+            tostring(it.itemType), tostring(it.spellID), tostring(it.isPassive), tostring(it.levelLearned), tostring(it.spellLevelLearned), tostring(it.known))
+    end
+    if r.levelSpells then
+        local total = 0
+        for lv = 1, 60 do
+            local ls = r.levelSpells[lv]
+            if ls and #ls.list > 0 then
+                local parts = {}
+                for _, e in ipairs(ls.list) do
+                    parts[#parts + 1] = string.format("%s%s (%s, @%s%s)", tostring(e.name), e.sub and e.sub ~= "" and (" " .. e.sub) or "",
+                        tostring(e.id), tostring(e.learnedAt), e.known and ", known" or "")
+                end
+                total = total + #ls.list
+                p("  level %2d: %s", lv, table.concat(parts, "; "))
+            end
+        end
+        p("GetCurrentLevelSpells: %d spells over levels 1-60 (type at level 1: %s)", total, tostring(r.levelSpells[1] and r.levelSpells[1].type))
+    else
+        p("GetCurrentLevelSpells: not probed (probe v1, or the function is missing)")
+    end
+    if r.trainer then
+        -- Every field GetTrainerServiceInfo returned, for the first services (which is the rank?).
+        for i = 1, math.min(3, #r.trainer.services) do
+            local sv, parts = r.trainer.services[i], {}
+            for k = 1, sv.info.n or #sv.info do parts[#parts + 1] = k .. "=" .. tostring(sv.info[k]) end
+            p("  service %d fields: %s | cost %s", i, table.concat(parts, " "), sv.cost and s(sv.cost) or "?")
+        end
+        p("trainer: %d services", r.trainer.count)
+        for i, sv in ipairs(r.trainer.services) do
+            p("  %d %s | %s | %s | level %s", i, tostring(sv.info[1]), tostring(sv.info[2]), tostring(sv.info[3]), tostring(sv.level))
+        end
+    else
+        p("trainer: window not open (open a class trainer and run /azfdiag spells again)")
+    end
+end
 
 -- /azfdiag reps. GetFactionInfo returns (classic order): name, description, standingID, barMin,
 -- barMax, barValue, atWarWith, canToggleAtWar, isHeader, isCollapsed, hasRep, isWatched, isChild, factionID.

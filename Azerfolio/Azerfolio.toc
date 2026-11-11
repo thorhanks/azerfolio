@@ -13,6 +13,7 @@
 
 Core\Init.lua
 Data\Art.lua
+Data\StripPaths.lua
 Data\Exploration.lua
 Data\Zones.lua
 Data\QuestAreas.lua
@@ -34,6 +35,8 @@ Systems\ReputationRules.lua
 Systems\Reputation.lua
 Systems\ClassJourneyRules.lua
 Systems\ClassJourney.lua
+Systems\ClassTrainerRules.lua
+Systems\ClassTrainer.lua
 Systems\FlightPaths.lua
 Systems\Zones.lua
 Systems\Atlas.lua

@@ -17,7 +17,10 @@ local WHY = { prerequisite = "needs the step before it", ["parent quest"] = "com
     ["completed quests not known"] = "your completed quests aren't known yet" }
 
 local function cap(s) s = tostring(s or ""); return (s:gsub("^%l", string.upper)) end
-local function plural(n, word) return n .. " " .. word .. (n == 1 and "" or "s") end
+local function plural(n, word)
+    if n == 1 then return n .. " " .. word end
+    return n .. " " .. (word:match("[^aeiou]y$") and (word:sub(1, -2) .. "ies") or (word .. "s")) -- ability -> abilities
+end
 
 -- "level 12" -> "opens at level 12"; known reasons in words; others as given.
 local function whyText(reason)
@@ -104,20 +107,6 @@ local function travels(stop, subs)
     return out
 end
 
--- One line under a node: what the stop asks of you now; a later stop shows its reward (the seal
--- already shows the level).
-local function stopSub(s)
-    if s.state == "done" then return "All " .. plural(s.count, "quest") .. " done" end
-    if s.state == "progress" then return s.done .. " of " .. plural(s.count, "quest") end
-    if s.state == "ready" then return "Open now  ·  " .. plural(s.count, "quest") end
-    if s.state == "later" then
-        -- The reward, unless it's the stop's own name ("Defensive Stance · Defensive Stance").
-        local reward = s.reward ~= s.name and s.reward or nil
-        return (reward and (reward .. "  ·  ") or "") .. plural(s.count, "quest")
-    end
-    return plural(s.count, "quest") .. "  ·  not known yet"
-end
-
 -- The info line for a stop (title is its name).
 local function stopInfo(s, action)
     local parts = {}
@@ -172,7 +161,49 @@ end
 -- Strip geometry (logical units, Theme.layout.classTab.mapW wide)
 ---------------------------------------------------------------------------------------------
 
+-- The traced road corridor of a painted strip (Data/StripPaths.lua, from tools/trace-strip.ps1):
+-- a polyline with cumulative lengths. Round 4: the road follows the painting's cleared path
+-- (it cut straight across the art, owner 2026-11-10).
+local function newPath(raw)
+    if type(raw) ~= "table" or #raw < 2 then return nil end
+    local pts, acc = {}, { 0 }
+    for i, p in ipairs(raw) do
+        pts[i] = { p[1], p[2] }
+        if i > 1 then acc[i] = acc[i - 1] + math.sqrt((p[1] - pts[i - 1][1]) ^ 2 + (p[2] - pts[i - 1][2]) ^ 2) end
+    end
+    return { pts = pts, acc = acc, len = acc[#acc] }
+end
+
+-- The point at distance s along a path.
+local function pathPoint(P, s)
+    s = math.max(0, math.min(P.len, s))
+    local i = 1
+    while i < #P.pts - 1 and P.acc[i + 1] < s do i = i + 1 end
+    local span = P.acc[i + 1] - P.acc[i]
+    local f = span > 0 and (s - P.acc[i]) / span or 0
+    local a, b = P.pts[i], P.pts[i + 1]
+    return a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f
+end
+
+-- The distance along a path of its point nearest (x, y).
+local function pathProject(P, x, y)
+    local bestS, bestD = 0, math.huge
+    for i = 1, #P.pts - 1 do
+        local a, b = P.pts[i], P.pts[i + 1]
+        local dx, dy = b[1] - a[1], b[2] - a[2]
+        local l2 = dx * dx + dy * dy
+        local f = l2 > 0 and math.max(0, math.min(1, ((x - a[1]) * dx + (y - a[2]) * dy) / l2)) or 0
+        local px, py = a[1] + dx * f, a[2] + dy * f
+        local d = (px - x) ^ 2 + (py - y) ^ 2
+        if d < bestD then bestD, bestS = d, P.acc[i] + f * (P.acc[i + 1] - P.acc[i]) end
+    end
+    return bestS
+end
+
+-- A point on a segment at t (0..1): a cubic curve { p1, p2, p3, p4 }, or a stretch of a traced
+-- path { path, s0, s1 }.
 local function bez(p, t)
+    if p.path then return pathPoint(p.path, p.s0 + (p.s1 - p.s0) * t) end
     local u = 1 - t
     local a, b, c, d = u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t
     return a * p[1][1] + b * p[2][1] + c * p[3][1] + d * p[4][1], a * p[1][2] + b * p[2][2] + c * p[3][2] + d * p[4][2]
@@ -246,10 +277,28 @@ local function layoutFor(journey, classFile, side)
             end
         end
     end
+    -- A painted strip with a traced corridor: road stops (and the end) snap onto it, and each
+    -- road segment is the stretch between them. Otherwise curves between the stops.
+    local key = classFile and side and (classFile:lower() .. "-" .. side:lower())
+    local P = key and ns.Art and ns.Art.strips and ns.Art.strips[key] and ns.StripPaths and newPath(ns.StripPaths[key])
+    local at = {}
+    if P then
+        for _, r in ipairs(road) do
+            at[r.key] = pathProject(P, pos[r.key][1], pos[r.key][2])
+            pos[r.key] = { pathPoint(P, at[r.key]) }
+        end
+        at["end"] = pathProject(P, endPos[1], endPos[2])
+        endPos = { pathPoint(P, at["end"]) }
+    end
     local segs = {}
     for i, r in ipairs(road) do
-        local nxt = road[i + 1] and pos[road[i + 1].key] or endPos
-        segs[r.key] = roadSeg(pos[r.key], nxt)
+        local nk = road[i + 1] and road[i + 1].key or "end"
+        local nxt = road[i + 1] and pos[nk] or endPos
+        if P and at[nk] and at[nk] > at[r.key] then
+            segs[r.key] = { path = P, s0 = at[r.key], s1 = at[nk] }
+        else
+            segs[r.key] = roadSeg(pos[r.key], nxt)
+        end
     end
     for rk, list in pairs(sides) do
         for j, s in ipairs(list) do
@@ -344,28 +393,27 @@ local function pulse(frame, from, to)
     frame.anim = ag
 end
 
--- The quests medal from the celebration (cel-seal-quests inside cel-laurel), owner 2026-11-09:
--- a finished stop's mark on the map and in its header. Returns a handle with :SetSize(px) and
--- :SetShown(on), or nil without the art.
-local function newMedal(parent, layer)
-    local T = ns.Theme
-    local seal, laurel = T.Chrome("cel-seal-quests"), T.Chrome("cel-laurel")
-    if not (seal and laurel) then return nil end
-    local m = {}
-    m.seal = parent:CreateTexture(nil, layer or "ARTWORK", nil, 3)
-    m.seal:SetTexture(seal)
-    m.seal:SetPoint("CENTER")
-    m.laurel = parent:CreateTexture(nil, layer or "ARTWORK", nil, 4)
-    m.laurel:SetTexture(laurel)
-    m.laurel:SetPoint("CENTER")
-    function m:SetSize(px)
-        self.laurel:SetSize(px, px)
-        local s = math.floor(px * T.layout.classTab.medalSeal + 0.5)
-        self.seal:SetSize(s, s)
-    end
-    function m:SetShown(on) self.seal:SetShown(on); self.laurel:SetShown(on) end
-    function m:SetPoint(...) self.seal:ClearAllPoints(); self.laurel:ClearAllPoints(); self.seal:SetPoint(...); self.laurel:SetPoint(...) end
-    return m
+-- The class coin (round 3, owner 2026-11-10): a gold coin struck with the class emblem
+-- (Media\Chrome\coin-<class>.blp), a finished stop's mark on the map and in its header.
+-- Returns a texture handle (sized by the caller), or nil without this class's coin.
+local function newCoin(parent, layer)
+    local cf = ns.character and ns.character.classFile
+    local file = cf and ns.Theme.Chrome("coin-" .. cf:lower())
+    if not file then return nil end
+    local t = parent:CreateTexture(nil, layer or "OVERLAY", nil, 4)
+    t:SetTexture(file)
+    t:SetPoint("CENTER")
+    return t
+end
+
+-- A painted chrome piece as a texture (round 4: the sketch, the ring, road stamps), or nil.
+local function piece(parent, name, layer, sub)
+    local file = ns.Theme.Chrome(name)
+    if not file then return nil end
+    local t = parent:CreateTexture(nil, layer or "ARTWORK", nil, sub or 0)
+    t:SetTexture(file)
+    t:SetPoint("CENTER")
+    return t
 end
 
 -- The class crest (the client's class circle icon), or false.
@@ -403,24 +451,42 @@ local function newNode(parent)
     b.check = b:CreateTexture(nil, "OVERLAY")
     b.check:SetTexture(T.files.checkDone)
     b.check:SetPoint("CENTER")
-    b.medal = newMedal(b, "OVERLAY")
+    b.coin = newCoin(b)
+    -- Round 4: a stop not done yet is the coin sketched in ink; open now, a red cartographer's
+    -- ring of small dots around it (the sketch is see-through, so no solid disc behind it).
+    local cf = ns.character and ns.character.classFile
+    b.sketch = cf and piece(b, "sketch-" .. cf:lower(), "ARTWORK", 2)
+    b.redDots = {}
+    for i = 1, CT.redDots do
+        local d = b:CreateTexture(nil, "ARTWORK", nil, 3)
+        d:SetColorTexture(ns.Theme.RGB("classRedInk"))
+        d:Hide()
+        b.redDots[i] = d
+    end
+    b.lvl = T.Text(b, "xs", "classInk")
+    b.lvl:SetPoint("TOP", b, "BOTTOM", 0, -1)
+    b.lvl:SetShadowColor(ns.Theme.RGB("classParchment")); b.lvl:SetShadowOffset(1, -1)
+    b.lvl:Hide()
     b.text = T.Text(b, "md", "white")
     b.text:SetPoint("CENTER", 0, 0)
 
+    -- Round 3: the stop's name written on the map like the world map's place names (outlined
+    -- text, no plate: the boxes hid the road). The level stays in the seal.
     local lab = CreateFrame("Button", nil, b)
-    lab.bg = T.Solid(lab, "classLabel", "BACKGROUND", 0.82)
-    lab.bg:SetAllPoints()
-    lab.edge = W.Edge(lab, "BORDER")
-    lab.edge:SetColor("cardEdge")
-    lab.lv = T.Text(lab, "xs", "dim")
     lab.name = T.Text(lab, "sm", "white")
-    lab.sub = T.Text(lab, "xs", "text")
-    for _, fs in ipairs({ lab.lv, lab.name, lab.sub }) do fs:SetWordWrap(false) end
+    T.SetFont(lab.name, "sm", "OUTLINE")
+    lab.name:SetShadowOffset(1, -1)
+    lab.name:SetWordWrap(false)
+    lab.name:SetPoint("CENTER")
     b.label = lab
+    -- A left-hand name is the focus target itself, so the chevron points at the name, not into it.
+    function lab:SetFocused(on) b:SetFocused(on) end
 
     function b:Paint()
-        local edge = self.focused and "focus" or (self.selected and "gold" or "cardEdge")
-        lab.edge:SetColor(edge)
+        local c
+        if self.ink then c = self.focused and "classInkFocus" or (self.selected and "classInk" or self.nameColor or "classInk")
+        else c = self.focused and "focus" or (self.selected and "white" or self.nameColor or "white") end
+        lab.name:SetTextColor(ns.Theme.RGB(c))
         self.focusRing:SetShown(self.focused == true)
     end
     function b:SetFocused(on) self.focused = on; self:Paint() end
@@ -433,6 +499,33 @@ local function newNode(parent)
     lab:SetScript("OnClick", function() if b.onClick then b.onClick() end end)
     return b
 end
+
+-- An ability mark on the road (round 4): the level's first new ability's icon in a ring coloured
+-- by its state, "+n" when the level brings more than one. A focus stop; its abilities show on
+-- the right.
+local function newAbilityMark(parent)
+    local T, CT, W = ns.Theme, ns.Theme.layout.classTab, ns.Widgets
+    local b = CreateFrame("Button", nil, parent)
+    b.focusRing = circle(b, "BACKGROUND", 10, 1)
+    b.focusRing:SetPoint("CENTER")
+    tint(b.focusRing, "focus", 0.6)
+    b.focusRing:Hide()
+    b.ring = circle(b, "BORDER", 10)
+    b.ring:SetPoint("CENTER")
+    b.icon = circle(b, "ARTWORK", 10)
+    b.icon:SetPoint("CENTER")
+    b.more = T.Text(b, "xs", "classInk")
+    b.more:SetPoint("LEFT", b, "RIGHT", 1, -4)
+    b.more:SetShadowColor(T.RGB("classParchment")); b.more:SetShadowOffset(1, -1)
+    function b:SetFocused(on) self.focused = on; self.focusRing:SetShown(on or self.selected) end
+    function b:SetSelected(on) self.selected = on; self.focusRing:SetShown(on or self.focused) end
+    W.HoverInfo(b)
+    b:SetScript("OnClick", function(self) if self.onClick then self.onClick() end end)
+    return b
+end
+
+local ABILITY_RING = { learned = "complete", available = "classRedInk", later = "classInkFaded", unknown = "classInkFaded" }
+local ABILITY_STATE = { learned = "Learned", available = "You can train it now", later = "Later", unknown = "Not known" }
 
 -- Seal colours per state: ring, fill, text.
 local SEAL = {
@@ -449,59 +542,83 @@ local function anchorLabel(b, shift)
     local lab = b.label
     lab:ClearAllPoints()
     shift = shift or 0
-    if b.labelSide == "left" then lab:SetPoint("RIGHT", b, "LEFT", -CT.labelGap, -shift)
+    -- A coin is wider than the seal: names keep clear of it.
+    local extra = b.coin and b.coin:IsShown() and math.max(0, ((b.coin:GetWidth() or 0) - (b:GetWidth() or 0)) / 2) or 0
+    if b.labelSide == "left" then lab:SetPoint("RIGHT", b, "LEFT", -CT.labelGap - extra, -shift)
     elseif b.labelSide == "below" then lab:SetPoint("TOP", b, "BOTTOM", 0, -4 - shift)
-    else lab:SetPoint("LEFT", b, "RIGHT", CT.labelGap, -shift) end
+    else lab:SetPoint("LEFT", b, "RIGHT", CT.labelGap + extra, -shift) end
 end
 
--- Paints a node: size, state, seal text, label lines, label side ("left"|"right"|"below").
--- medalSize: the medal's size when done (nil = no medal).
-local function paintNode(b, size, state, text, lines, labelSide, medalSize)
+-- Paints a node: size, state, seal text, its name, the name's side ("left"|"right"|"below").
+-- coinSize: the class coin's size when done (nil = no coin).
+local function paintNode(b, size, state, text, name, labelSide, coinSize, ink)
     local T, CT = ns.Theme, ns.Theme.layout.classTab
     b:SetSize(size, size)
+    b.ink = ink and true or false
     local c = SEAL[state] or SEAL.unknown
-    local medal = state == "done" and medalSize and b.medal ~= nil
+    local coin = state == "done" and coinSize and b.coin ~= nil
+    -- Round 4 on the antique map: an unfinished stop is the coin sketched in ink.
+    local sketch = ink and not coin and state ~= "done" and b.sketch ~= nil and coinSize ~= nil
     b.ring:SetSize(size, size); tint(b.ring, c[1], state == "unknown" and 0.5 or 1)
     b.fill:SetSize(size - 2 * CT.ring, size - 2 * CT.ring); tint(b.fill, c[2])
-    b.ring:SetShown(not medal); b.fill:SetShown(not medal)
+    b.ring:SetShown(not coin and not sketch); b.fill:SetShown(not coin and not sketch)
     b.crest:Hide()
-    local ringSize = medal and medalSize or size
+    local ringSize = coin and coinSize or size
     b.focusRing:SetSize(ringSize + 8, ringSize + 8)
+    tint(b.focusRing, "focus", ink and 0.35 or 1)
     b.glow:SetSize(size + CT.glow, size + CT.glow); tint(b.glow, "classPeach", 0.55)
-    b.glowFrame:SetShown(state == "ready")
+    local glow = state == "ready" and not ink
+    b.glowFrame:SetShown(glow)
     if b.glowFrame.anim then
-        if state == "ready" then b.glowFrame.anim:Play() else b.glowFrame.anim:Stop() end
+        if glow then b.glowFrame.anim:Play() else b.glowFrame.anim:Stop() end
     end
-    if b.medal then b.medal:SetShown(medal); if medal then b.medal:SetSize(medalSize) end end
+    if b.sketch then
+        b.sketch:SetShown(sketch)
+        if sketch then
+            b.sketch:SetSize(size + 2, size + 2)
+            local faint = state == "later" or state == "unknown"
+            b.sketch:SetAlpha(faint and 0.45 or 1)
+            if b.sketch.SetDesaturated then b.sketch:SetDesaturated(faint) end
+        end
+    end
+    local red = sketch and (state == "ready" or state == "progress")
+    local r = size / 2 + 4
+    for i, d in ipairs(b.redDots) do
+        d:SetShown(red)
+        if red then
+            local a = (i - 1) / #b.redDots * math.pi * 2
+            d:SetSize(CT.redDot, CT.redDot)
+            d:ClearAllPoints()
+            d:SetPoint("CENTER", b, "CENTER", r * math.cos(a), r * math.sin(a))
+        end
+    end
+    b.lvl:SetShown(sketch)
+    b.lvl:SetText(state == "unknown" and "?" or (text or ""))
+    if b.coin then b.coin:SetShown(coin); if coin then b.coin:SetSize(coinSize, coinSize) end end
     b.check:SetSize(size * 0.55, size * 0.55)
-    b.check:SetShown(state == "done" and not medal)
+    b.check:SetShown(state == "done" and not coin)
     if state == "done" then b.check:SetVertexColor(0.35, 0.22, 0.02) end
-    b.text:SetShown(state ~= "done")
+    b.text:SetShown(state ~= "done" and not sketch)
     b.text:SetText(state == "unknown" and "?" or (text or ""))
     T.SetFont(b.text, size >= CT.node and "md" or "xs")
     b.text:SetTextColor(T.RGB(c[3]))
-    -- The label plate.
+    -- The name (round 3): gold when done, parchment while later or not known. Round 4 on the
+    -- antique map: ink, deep gold when done, faded when later, a soft paper halo, no outline.
     local lab = b.label
-    lab.lv:SetText(lines[1] or ""); lab.name:SetText(lines[2] or ""); lab.sub:SetText(lines[3] or "")
-    lab.name:SetTextColor(T.RGB(state == "done" and "complete" or ((state == "later" or state == "unknown") and "dim" or "white")))
-    lab.sub:SetTextColor(T.RGB(state == "progress" and "classPeach" or ((state == "later" or state == "unknown") and "dim" or "text")))
-    local w = 0
-    for _, fs in ipairs({ lab.lv, lab.name, lab.sub }) do w = math.max(w, fs:GetStringWidth() or 0) end
-    w = math.min(CT.label, math.ceil(w) + 2 * CT.labelPad)
-    local hasLv = (lines[1] or "") ~= ""
-    local h = 2 * CT.labelPad - 2 + T.size.sm + T.size.xs + 2 + (hasLv and (T.size.xs + 2) or 0)
-    lab:SetSize(w, h)
-    for _, fs in ipairs({ lab.lv, lab.name, lab.sub }) do fs:ClearAllPoints(); fs:SetWidth(w - 2 * CT.labelPad) end
-    local just = labelSide == "left" and "RIGHT" or (labelSide == "below" and "CENTER" or "LEFT")
-    for _, fs in ipairs({ lab.lv, lab.name, lab.sub }) do fs:SetJustifyH(just) end
-    lab.lv:SetShown(hasLv)
-    if hasLv then
-        lab.lv:SetPoint("TOPLEFT", lab, "TOPLEFT", CT.labelPad, -CT.labelPad + 1)
-        lab.name:SetPoint("TOPLEFT", lab.lv, "BOTTOMLEFT", 0, -2)
+    lab.name:SetText(name or "")
+    if ink then
+        T.SetFont(lab.name, "sm")
+        lab.name:SetShadowColor(T.RGB("classParchment")); lab.name:SetShadowOffset(1, -1)
+        b.nameColor = state == "done" and "classInkGold" or ((state == "later" or state == "unknown") and "classInkFaded" or "classInk")
     else
-        lab.name:SetPoint("TOPLEFT", lab, "TOPLEFT", CT.labelPad, -CT.labelPad + 1)
+        T.SetFont(lab.name, "sm", "OUTLINE")
+        lab.name:SetShadowColor(0, 0, 0, 1); lab.name:SetShadowOffset(1, -1)
+        b.nameColor = state == "done" and "complete" or ((state == "later" or state == "unknown") and "classNameDim" or "className")
     end
-    lab.sub:SetPoint("TOPLEFT", lab.name, "BOTTOMLEFT", 0, -2)
+    lab.name:SetJustifyH(labelSide == "left" and "RIGHT" or (labelSide == "below" and "CENTER" or "LEFT"))
+    local w = math.ceil(lab.name:GetStringWidth() or 0) + 4
+    local h = T.size.sm + 6
+    lab:SetSize(w, h)
     b.labelSide = labelSide
     b.labelW, b.labelH = w, h
     anchorLabel(b, 0)
@@ -581,7 +698,7 @@ local function build(parent)
     local CT = L.classTab
     local page = CreateFrame("Frame", nil, parent)
     page.mode = "road"            -- "road" (focus on the strip) | "steps" (focus in the right pane)
-    page.nodes, page.dots, page.beads, page.cairns = {}, {}, {}, {}
+    page.nodes, page.dots, page.edges, page.beads, page.cairns, page.abilities = {}, {}, {}, {}, {}, {}
     page.stepRows, page.headers, page.notes = {}, {}, {}
 
     -- Left: the plaque and the map --------------------------------------------------------------
@@ -609,18 +726,45 @@ local function build(parent)
     rail:SetPoint("TOPRIGHT", plaque, "BOTTOMRIGHT", 0, 0)
     rail:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", -1, 0)
     rail:SetWidth(CT.rail)
-    T.Solid(rail, "black", "BACKGROUND", 0.7):SetAllPoints()
+    rail.bg = T.Solid(rail, "black", "BACKGROUND", 0.5)
+    rail.bg:SetAllPoints()
     local redge = T.Solid(rail, "divider", "BORDER")
     redge:SetPoint("TOPLEFT"); redge:SetPoint("BOTTOMLEFT"); redge:SetWidth(1)
     rail.track = CreateFrame("Frame", nil, rail)
     rail.track:SetPoint("TOPLEFT", 0, -CT.railPad); rail.track:SetPoint("BOTTOMRIGHT", 0, CT.railPad)
-    rail.line = T.Solid(rail.track, "classBead", "BORDER")
-    rail.line:SetPoint("TOP"); rail.line:SetPoint("BOTTOM"); rail.line:SetWidth(CT.railLine)
+    -- Round 4: the map's scale bar. The line sits right of centre; level numbers to its left.
+    rail.line = T.Solid(rail.track, "classRailLine", "BORDER")
+    rail.line:SetPoint("TOP", CT.railLineX, 0); rail.line:SetPoint("BOTTOM", CT.railLineX, 0); rail.line:SetWidth(CT.railLine)
+    -- Round 3: the road you've levelled through is gold down to your mark.
+    rail.fill = T.Solid(rail.track, "complete", "BORDER", 1)
+    rail.fill:SetWidth(CT.railLine)
+    rail.fill:Hide()
+    rail.ticks = {}
+    for i, lv in ipairs(CT.railTicks) do
+        local tick = T.Solid(rail.track, "classRailLine", "ARTWORK")
+        tick:SetSize(CT.railTick, 1)
+        local label = T.Text(rail.track, "xs", "dim")
+        label:SetJustifyH("RIGHT"); label:SetWidth(CT.railLabel); label:SetWordWrap(false)
+        label:SetText(tostring(lv))
+        rail.ticks[i] = { level = lv, tick = tick, label = label }
+    end
+    -- Round 3 (no box): the part in view glows on the line, a brass notch at each end.
     rail.view = CreateFrame("Frame", nil, rail.track)
-    rail.view:SetPoint("LEFT", 2, 0); rail.view:SetPoint("RIGHT", -2, 0)
-    T.Solid(rail.view, "classBeadOn", "BACKGROUND", 0.08):SetAllPoints()
-    rail.viewEdge = W.Edge(rail.view, "BORDER")
-    rail.viewEdge:SetColor("classBeadOn", 0.75)
+    rail.view:SetWidth(CT.railView)
+    -- Bright on the line, fading to each side: two halves with mirrored gradients.
+    for _, half in ipairs({ "LEFT", "RIGHT" }) do
+        local g = rail.view:CreateTexture(nil, "ARTWORK")
+        g:SetPoint("TOP"); g:SetPoint("BOTTOM"); g:SetPoint(half)
+        g:SetWidth(CT.railView / 2)
+        g:SetColorTexture(1, 1, 1, 1)
+        local edge, mid = CreateColor and CreateColor(1, 0.92, 0.67, 0), CreateColor and CreateColor(1, 0.92, 0.67, 0.6)
+        local ok = edge and pcall(g.SetGradient, g, "HORIZONTAL", half == "LEFT" and edge or mid, half == "LEFT" and mid or edge)
+        if not ok then g:SetColorTexture(1, 0.92, 0.67, 0.35) end
+    end
+    rail.view.notchTop = T.Solid(rail.view, "classNotch", "OVERLAY")
+    rail.view.notchTop:SetSize(CT.railNotch[1], CT.railNotch[2]); rail.view.notchTop:SetPoint("CENTER", rail.view, "TOP", 0, 0)
+    rail.view.notchBottom = T.Solid(rail.view, "classNotch", "OVERLAY")
+    rail.view.notchBottom:SetSize(CT.railNotch[1], CT.railNotch[2]); rail.view.notchBottom:SetPoint("CENTER", rail.view, "BOTTOM", 0, 0)
     rail.view:SetFrameLevel(rail.track:GetFrameLevel() + 3)
     rail.dots = {}
     page.rail = rail
@@ -653,7 +797,16 @@ local function build(parent)
     you.tag = CreateFrame("Frame", nil, you)
     you.tag:SetSize(CT.youTag[1], CT.youTag[2])
     you.tag:SetPoint("TOP", you, "BOTTOM", 0, -2)
-    T.Solid(you.tag, "classLabel", "BACKGROUND", 0.9):SetAllPoints()
+    you.tagBg = T.Solid(you.tag, "classLabel", "BACKGROUND", 0.9)
+    you.tagBg:SetAllPoints()
+    -- Round 4: the brass ring (you-ring) around your portrait; its inside is about 56% of the
+    -- piece, its centre a little below the middle (the pin is on top).
+    you.brass = piece(you, "you-ring", "OVERLAY", 2)
+    if you.brass then
+        you.brass:SetSize((CT.you - 4) / 0.56, (CT.you - 4) / 0.56)
+        you.brass:ClearAllPoints(); you.brass:SetPoint("CENTER", you, "CENTER", 0, 2)
+        you.brass:Hide()
+    end
     you.tagEdge = W.Edge(you.tag, "BORDER")
     you.tagText = T.Text(you.tag, "xs", "white")
     you.tagText:SetPoint("CENTER", 0, 0)
@@ -705,9 +858,10 @@ local function build(parent)
     hrule:SetPoint("BOTTOMLEFT"); hrule:SetPoint("BOTTOMRIGHT"); hrule:SetHeight(2)
     hero.score = T.Text(hero, "huge", "classPeach")
     hero.score:SetPoint("BOTTOMRIGHT", hero, "BOTTOMRIGHT", -S.s6, S.s6 + S.s2)
-    hero.medal = newMedal(hero, "OVERLAY")
+    hero.medal = newCoin(hero, "OVERLAY")
     if hero.medal then
-        hero.medal:SetSize(CT.heroMedal)
+        hero.medal:SetSize(CT.heroCoin, CT.heroCoin)
+        hero.medal:ClearAllPoints()
         hero.medal:SetPoint("RIGHT", hero, "RIGHT", -S.s4, 0)
     end
     hero.check = hero:CreateTexture(nil, "OVERLAY")
@@ -795,42 +949,108 @@ local function build(parent)
         local endBottom = lay.endPos[2] * s + CT.endNode / 2 + CT.endLabel
         map:SetHeight(math.floor(math.max(lay.H * s, endBottom) + 0.5))
         local H = lay.H * s
+        -- The painted strip when this class and side has one (Media\Strips, 1:4), else the sky.
+        local c = ns.character or {}
+        local stripKey = c.classFile and c.faction and (c.classFile:lower() .. "-" .. c.faction:lower())
+        local strip = stripKey and ns.Art and ns.Art.strips and ns.Art.strips[stripKey]
+            and (T.mediaDir .. "Strips\\" .. stripKey .. ".blp")
+        if not page.stripArt then page.stripArt = map:CreateTexture(nil, "BACKGROUND", nil, 2) end
+        page.stripArt:ClearAllPoints()
+        page.stripArt:SetPoint("TOPLEFT", map, "TOPLEFT", 0, 0)
+        page.stripArt:SetSize(mapW, H)
+        page.stripArt:SetShown(strip ~= nil)
+        if strip then page.stripArt:SetTexture(strip) end
+        page.painted = strip ~= nil
         for i, t in ipairs(page.sky) do
+            t:SetShown(not strip)
             t:ClearAllPoints()
             t:SetPoint("TOPLEFT", map, "TOPLEFT", 0, -T.classSky[i][1] * H)
             t:SetPoint("TOPRIGHT", map, "TOPRIGHT", 0, -T.classSky[i][1] * H)
             t:SetHeight(math.max(1, (T.classSky[i + 1][1] - T.classSky[i][1]) * H))
         end
         local function at(tex, x, y) tex:SetPoint("CENTER", map, "TOPLEFT", x * s, -y * s) end
-        -- Road and side tracks.
+        -- Round 3: the road means levels. It fills gold from the start to your level (XP
+        -- included; ClassJourneyRules.LevelPos); a side path's dotted track fills when it's done.
+        -- Round 4: the road from painted stamps when the map is painted and the pieces exist.
+        local stamps = page.painted and T.Chrome("road-dash-ink-1") and T.Chrome("road-dash-ink-2")
+            and T.Chrome("road-dash-gold-1") and T.Chrome("road-dash-gold-2") and T.Chrome("road-dot") and true or false
+        local roadIndex, levels = {}, {}
+        for i, r in ipairs(lay.road) do roadIndex[r.key] = i; levels[i] = r.level end
+        local li, lt = ns.ClassJourneyRules.LevelPos(levels, page:LevelNow(), 60)
+        page.levelSeg, page.levelT = li, lt
         for _, st in ipairs(j.stops) do
             local seg = lay.segs[st.key]
             if seg then
                 local side = st.kind == "side" or lay.from[st.key] ~= nil
-                local lit = st.done and st.count > 0 and st.done / st.count or 0
-                for _, p in ipairs(along(seg, side and CT.sideStep or CT.roadStep)) do
+                local ri = roadIndex[st.key]
+                local lit
+                if side then lit = st.done and st.count > 0 and st.done / st.count or 0
+                else lit = not li and 0 or (ri < li and 1 or (ri == li and lt or 0)) end
+                if stamps then
+                    -- Round 4: painted stamps along the curve, turned to follow it: gold-leaf
+                    -- dashes as far as your level, ink after (two variants each, alternated);
+                    -- a side path's ink dots, gilded once it's done.
+                    for k, p in ipairs(along(seg, side and CT.dotStep or CT.stampStep)) do
+                        local tex = take("dots", newTex("BORDER", 1), map)
+                        local on = lit > 0 and p[4] <= lit
+                        tex:SetVertexColor(1, 1, 1)
+                        if side then
+                            tex:SetTexture(on and T.Chrome("road-dash-gold-1") or T.Chrome("road-dot"))
+                            if on then tex:SetTexCoord(0.42, 0.58, 0.3, 0.7) else tex:SetTexCoord(0, 1, 0, 1) end
+                            tex:SetSize(CT.dotSize * s, CT.dotSize * s)
+                            if tex.SetRotation then tex:SetRotation(0) end
+                        else
+                            tex:SetTexture(T.Chrome("road-dash-" .. (on and "gold" or "ink") .. "-" .. ((k % 2) + 1)))
+                            tex:SetTexCoord(0, 1, 0, 1)
+                            tex:SetSize(CT.stampLen * s, CT.stampW * s)
+                            if tex.SetRotation then tex:SetRotation(p[3]) end
+                        end
+                        at(tex, p[1], p[2])
+                    end
+                end
+                local pts = stamps and {} or along(seg, side and CT.sideStep or CT.roadStep)
+                -- A dark edge under the road, so it reads on a busy painting (round 3:
+                -- a plain line got lost, WoWScrnShot_111026_184819).
+                if not side then
+                    for _, p in ipairs(pts) do
+                        local edge = take("edges", newTex("BORDER", 0), map)
+                        local size = (CT.road + CT.roadEdge * 2) * s
+                        edge:SetSize(size, size)
+                        tint(edge, "ink", 0.7)
+                        if edge.SetRotation then edge:SetRotation(p[3]) end
+                        at(edge, p[1], p[2])
+                    end
+                end
+                for _, p in ipairs(pts) do
                     local tex = take("dots", newTex("BORDER", 1), map)
                     local size = (side and CT.sideDot or CT.road) * s
                     tex:SetSize(size, size)
-                    local on = p[4] <= lit and lit > 0
-                    tint(tex, on and "complete" or "classRoad", on and 1 or 0.9)
+                    tex:SetTexCoord(0, 1, 0, 1)
+                    local on = lit > 0 and p[4] <= lit
+                    tint(tex, on and "complete" or "classRoad", on and 1 or 0.95)
                     if tex.SetRotation then tex:SetRotation(side and 0 or p[3]) end
                     at(tex, p[1], p[2])
                 end
-                -- A bead per quest.
-                local n = st.count
-                for k, step in ipairs(st.steps) do
-                    local t = side and (k / (n + 1)) * 0.86 or k / (n + 1)
-                    local bx, by = bez(seg, t)
-                    local size = (side and CT.sideBead or CT.bead)
-                    local ring = take("beads", function() return circle(map, "ARTWORK", size, 1) end, map)
-                    ring:SetSize(size + 2, size + 2); tint(ring, "ink")
-                    at(ring, bx, by)
-                    local dot = take("beads", function() return circle(map, "ARTWORK", size, 2) end, map)
-                    dot:SetSize(size, size)
-                    tint(dot, step.state == "done" and "classBeadOn" or "classBead", step.state == "unknown" and 0.45 or 1)
-                    at(dot, bx, by)
-                end
+            end
+        end
+        -- Quest pips ring each node (round 3: completion lives on the node, not the road).
+        for _, st in ipairs(j.stops) do
+            local side = lay.from[st.key] ~= nil
+            local p = lay.pos[st.key]
+            local r, size = side and CT.sidePipRing or CT.pipRing, side and CT.sidePip or CT.pip
+            local n = #st.steps
+            for k, step in ipairs(st.steps) do
+                local a = -math.pi / 2 + (k - 1) / n * math.pi * 2
+                local px, py = p[1] + r * math.cos(a), p[2] + r * math.sin(a)
+                local ring = take("beads", function() return circle(map, "ARTWORK", size, 1) end, map)
+                ring:SetSize(size + 2, size + 2); tint(ring, page.painted and "classInk" or "ink", page.painted and 0.8 or 1)
+                at(ring, px, py)
+                local dot = take("beads", function() return circle(map, "ARTWORK", size, 2) end, map)
+                dot:SetSize(size, size)
+                -- Round 4 on the antique map: ink dots on paper, gold when done.
+                local todo = page.painted and "classParchment" or "classBead"
+                tint(dot, step.state == "done" and "complete" or todo, step.state == "unknown" and 0.45 or 1)
+                at(dot, px, py)
             end
         end
         -- Cairns under side paths: three stones.
@@ -839,7 +1059,7 @@ local function build(parent)
                 local p = lay.pos[st.key]
                 for _, sz in ipairs({ { 22, 9, 8 }, { 16, 8, 1 }, { 10, 6, -5 } }) do
                     local c = take("cairns", function() return circle(map, "ARTWORK", 10, 3) end, map)
-                    c:SetSize(sz[1], sz[2]); tint(c, "classCairn")
+                    c:SetSize(sz[1], sz[2]); tint(c, page.painted and "classInkFaded" or "classCairn", page.painted and 0.45 or 1)
                     c:SetPoint("CENTER", map, "TOPLEFT", p[1] * s, -(p[2] + 30 + sz[3]) * s)
                 end
             end
@@ -856,37 +1076,60 @@ local function build(parent)
             local side = lay.from[st.key] ~= nil
             local size = side and CT.sideNode or CT.node
             local state = st.state or "unknown"
-            local lines = { "Level " .. tostring(st.level or "?") .. (side and "  ·  side path" or ""), st.name, stopSub(st) }
-            paintNode(b, size, state, tostring(st.level or "?"), lines, p[1] > lay.W * 0.58 and "left" or "right",
-                side and CT.sideMedal or CT.medal)
+            local labelSide = p[1] > lay.W * 0.58 and "left" or "right"
+            paintNode(b, size, state, tostring(st.level or "?"), st.name, labelSide, side and CT.sideCoin or CT.coin, page.painted)
+            -- The name goes where it fits: past the strip's edge on one side, the other side
+            -- ("The Tome of Divinity" ran off the right edge once it sat on the traced path,
+            -- WoWScrnShot_111026_201546).
+            local half, room = size / 2 + CT.labelGap, (b.labelW or 0)
+            local rightEnd, leftStart = p[1] * s + half + room, p[1] * s - half - room
+            if labelSide == "right" and rightEnd > mapW - 4 and leftStart > 4 then labelSide = "left"
+            elseif labelSide == "left" and leftStart < 4 and rightEnd < mapW - 4 then labelSide = "right" end
+            if labelSide ~= b.labelSide then
+                b.labelSide = labelSide
+                b.label.name:SetJustifyH(labelSide == "left" and "RIGHT" or "LEFT")
+                anchorLabel(b, 0)
+            end
             b:SetPoint("CENTER", map, "TOPLEFT", p[1] * s, -p[2] * s)
             b:SetFrameLevel(map:GetFrameLevel() + 5)
             byKey[st.key] = b
             local key = st.key
-            b.item = { key = "n:" .. key, frame = b, title = st.name, detail = stopInfo(st, "A shows the steps."),
-                scroll = mscroll, stopKey = key, actionLabel = "Steps", sidePath = sideOf[key],
-                onActivate = function() page:EnterSteps() end }
+            -- A left-hand name is the focus frame, so the chevron points at the name (round 3).
+            b.item = { key = "n:" .. key, frame = labelSide == "left" and b.label or b, title = st.name,
+                detail = stopInfo(st, "A shows the steps."), scroll = mscroll, stopKey = key, actionLabel = "Steps",
+                sidePath = sideOf[key], onActivate = function() page:EnterSteps() end }
+            b.label.item = b.item
             b.onClick = function() page:SelectStop(key, true) end
             placed[#placed + 1] = { b, p[1] * s, p[2] * s, size }
         end
-        hideRest("dots"); hideRest("beads"); hideRest("cairns"); hideRest("nodes")
+        hideRest("dots"); hideRest("edges"); hideRest("beads"); hideRest("cairns"); hideRest("nodes")
         -- The road's end: the class crest, greyed until the road is walked (round 2: it was an
         -- empty circle in game).
         local e = page.endNode
         local qs = j.quests
         local walked = j.complete == true
         local endState = walked and "done" or (j.complete == nil and "unknown" or "later")
-        paintNode(e, CT.endNode, endState, "", { "", walked and "The road walked" or "The road's end",
-            qs.count .. " quests" .. (j.complete == nil and "  ·  done not known" or ("  ·  " .. qs.done .. " done")) }, "below", nil)
-        e.text:Hide(); e.check:Hide()
-        tint(e.ring, walked and "complete" or "levelRange"); e.ring:Show()
-        tint(e.fill, "ink"); e.fill:Show()
-        e.crest:SetSize(CT.endNode - 2 * CT.ring - 2, CT.endNode - 2 * CT.ring - 2)
-        if setClassIcon(e.crest) then
-            e.crest:Show()
-            if e.crest.SetDesaturated then e.crest:SetDesaturated(not walked) end
-            e.crest:SetAlpha(walked and 1 or 0.55)
+        paintNode(e, CT.endNode, endState, "", walked and "The road walked" or "The road's end", "below", nil, page.painted)
+        e.text:Hide(); e.check:Hide(); e.lvl:Hide()
+        if e.sketch then e.sketch:Hide() end
+        for _, d in ipairs(e.redDots) do d:Hide() end
+        if page.painted then
+            -- Round 4: the painted map has its own star at the road's end; the node only glows
+            -- gold when the road is walked.
+            e.ring:Hide(); e.fill:Hide(); e.crest:Hide()
+        else
+            tint(e.ring, walked and "complete" or "levelRange"); e.ring:Show()
+            tint(e.fill, "ink"); e.fill:Show()
+            e.crest:SetSize(CT.endNode - 2 * CT.ring - 2, CT.endNode - 2 * CT.ring - 2)
+            if setClassIcon(e.crest) then
+                e.crest:Show()
+                if e.crest.SetDesaturated then e.crest:SetDesaturated(not walked) end
+                e.crest:SetAlpha(walked and 1 or 0.55)
+            end
         end
+        e.ink = page.painted
+        e.nameColor = page.painted and (walked and "classInkGold" or "classInk") or e.nameColor
+        e:Paint()
         e.glowFrame:SetShown(walked)
         tint(e.glow, "complete", 0.5)
         if e.glowFrame.anim then if walked then e.glowFrame.anim:Play() else e.glowFrame.anim:Stop() end end
@@ -911,38 +1154,133 @@ local function build(parent)
         local shift = pushApart(rects, CT.labelPush)
         for i, pl in ipairs(placed) do anchorLabel(pl[1], shift[i]) end
         page.labelShift = shift
-        -- "You" (round 2: larger, with a tag): on the first road stop not done, at its last done
-        -- bead (or beside its node). Not drawn while completion isn't known.
+        -- The names where they ended up (map pixels), for ability marks to keep clear of.
+        local nameRects = {}
+        for i, r in ipairs(rects) do nameRects[i] = { r[1], r[2], r[3] + shift[i], r[4] + shift[i] } end
+        -- "You" (round 3): on the road at your level, riding the front of the fill, with
+        -- "You · 10" beside it. Your level is always known, so it shows even when completion isn't.
         you:Hide()
-        if j.complete ~= nil then
-            for _, r in ipairs(lay.road) do
-                if r.state ~= "done" then
-                    local p = lay.pos[r.key]
-                    -- Beside the node on the side away from its label (it sat on the label of a
-                    -- road's first stop, WoWScrnShot_111026_173511).
-                    local labelLeft = p[1] > lay.W * 0.58
-                    local x, y = p[1] + (labelLeft and 44 or -44), p[2] - 6
-                    local last = 0
-                    for k, step in ipairs(r.steps) do if step.state == "done" then last = k end end
-                    if last > 0 and lay.segs[r.key] then x, y = bez(lay.segs[r.key], last / (r.count + 1)) end
-                    you:ClearAllPoints()
-                    you:SetPoint("CENTER", map, "TOPLEFT", x * s, -y * s)
-                    you:SetFrameLevel(map:GetFrameLevel() + 7)
-                    you.tag:SetFrameLevel(map:GetFrameLevel() + 8)
-                    local cf = ns.character and ns.character.classFile
-                    local cc = cf and rawget(_G, "RAID_CLASS_COLORS") and RAID_CLASS_COLORS[cf]
-                    local cr, cg, cb = 1, 1, 1
-                    if type(cc) == "table" and cc.r then cr, cg, cb = cc.r, cc.g, cc.b end
-                    you.ring:SetColorTexture(cr, cg, cb, 1)
-                    for i = 1, 4 do you.tagEdge[i]:SetColorTexture(cr, cg, cb, 1) end
-                    if not setClassIcon(you.icon) then tint(you.icon, "Alliance") end
-                    you:Show()
-                    break
+        page.youX, page.youY = nil, nil
+        local youSeg = li and lay.road[li] and lay.segs[lay.road[li].key]
+        if youSeg then
+            -- Near a stop, You waits just outside its pips instead of covering its seal
+            -- (it sat on Divinity's "12" at 87% of the way, WoWScrnShot_111026_184819).
+            local a = lay.pos[lay.road[li].key]
+            local b2 = lay.road[li + 1] and lay.pos[lay.road[li + 1].key] or lay.endPos
+            local clear = CT.pipRing + CT.you / 2 / s
+            local t0 = lt
+            local function near(t, p) local x, y = bez(youSeg, t); return math.sqrt((x - p[1]) ^ 2 + (y - p[2]) ^ 2) < clear end
+            while t0 > 0 and near(t0, b2) do t0 = t0 - 0.01 end
+            while t0 < 1 and near(t0, a) do t0 = t0 + 0.01 end
+            local x, y = bez(youSeg, math.max(0, math.min(1, t0)))
+            page.youX, page.youY = x, y
+            you:ClearAllPoints()
+            you:SetPoint("CENTER", map, "TOPLEFT", x * s, -y * s)
+            you:SetFrameLevel(map:GetFrameLevel() + 7)
+            you.tag:SetFrameLevel(map:GetFrameLevel() + 8)
+            you.tag:ClearAllPoints()
+            -- The tag on the side away from the nearer stop's name (it covered "The Tome of
+            -- Divinity", WoWScrnShot_111026_184819).
+            local nearKey = lt >= 0.5 and lay.road[li + 1] and lay.road[li + 1].key or lay.road[li].key
+            local nearNode = byKey[nearKey]
+            local nameLeft = nearNode and nearNode.labelSide == "left"
+            if nearNode == nil then nameLeft = x >= lay.W / 2 end
+            if nameLeft then you.tag:SetPoint("LEFT", you, "RIGHT", 3, 0) else you.tag:SetPoint("RIGHT", you, "LEFT", -3, 0) end
+            you.tag:SetWidth(CT.youTagW)
+            you.tagText:SetText("You  ·  " .. tostring(c.level or "?"))
+            -- Round 4: your portrait in the brass ring (a token pinned to the map), an ink tag on
+            -- parchment. No class colour (the pink was the Paladin's).
+            local portrait = type(SetPortraitTexture) == "function" and pcall(SetPortraitTexture, you.icon, "player")
+            if not portrait and not setClassIcon(you.icon) then tint(you.icon, "classParchment") end
+            if you.brass then
+                you.brass:Show(); you.ring:Hide()
+            else
+                you.ring:Show(); tint(you.ring, "classNotch")
+            end
+            tint(you.tagBg, page.painted and "classParchment" or "classLabel", 0.92)
+            you.tagEdge:SetColor(page.painted and "classInk" or "classNotch")
+            you.tagText:SetTextColor(T.RGB(page.painted and "classInk" or "white"))
+            you.tagText:SetShadowOffset(page.painted and 0 or 1, page.painted and 0 or -1)
+            you:Show()
+        end
+        -- Abilities along the road (round 4, the owner's idea): a mark beside the road at each level
+        -- that grants a new ability, from your class trainer's recorded list (Systems/ClassTrainer).
+        local tr = ns.ClassTrainer and ns.ClassTrainer.Get() or { status = "none" }
+        page.trainer = tr
+        local abilityRows = {}
+        page.abilityMarks = {}
+        -- What a mark must keep clear of (logical units): stops with their pips, the road's end,
+        -- You, and the marks placed before it (levels 1-12 crowd the letter and Divinity,
+        -- WoWScrnShot_111026_200313).
+        local blockers = {}
+        for key, pos in pairs(lay.pos) do
+            blockers[#blockers + 1] = { pos[1], pos[2], (lay.from[key] and CT.sidePipRing or CT.pipRing) + 6 }
+        end
+        blockers[#blockers + 1] = { lay.endPos[1], lay.endPos[2], CT.endNode / 2 / s }
+        if page.youX then blockers[#blockers + 1] = { page.youX, page.youY, CT.you / 2 / s + 3 } end
+        local markR = CT.abilityMark / 2 / s + 2
+        local function clear(px, py)
+            for _, b in ipairs(blockers) do
+                if math.sqrt((px - b[1]) ^ 2 + (py - b[2]) ^ 2) < b[3] + markR then return false end
+            end
+            -- Stop names too (a mark sat across "A Strange Artifact", WoWScrnShot_111026_200942).
+            local x, y, r = px * s, py * s, markR * s
+            for _, n in ipairs(nameRects) do
+                if x + r > n[1] and x - r < n[2] and y + r > n[3] and y - r < n[4] then return false end
+            end
+            return px > markR and px < lay.W - markR
+        end
+        if tr.status == "recorded" then
+            for _, mk in ipairs(tr.abilities.marks) do
+                local i, t = ns.ClassJourneyRules.LevelPos(levels, mk.level, 60)
+                local seg = i and lay.road[i] and lay.segs[lay.road[i].key]
+                if seg then
+                    local x, y = bez(seg, t)
+                    local x1, y1 = bez(seg, math.max(0, t - 0.01))
+                    local x2, y2 = bez(seg, math.min(1, t + 0.01))
+                    local len = math.max(1e-6, math.sqrt((x2 - x1) ^ 2 + (y2 - y1) ^ 2))
+                    -- Beside the road (perpendicular to it): the first spot that's clear, right
+                    -- side, left side, then further out.
+                    local nx, ny = -(y2 - y1) / len, (x2 - x1) / len
+                    local mx, my
+                    for _, off in ipairs(CT.abilityOffsets) do
+                        mx, my = x + nx * off, y + ny * off
+                        if clear(mx, my) then break end
+                    end
+                    blockers[#blockers + 1] = { mx, my, markR, mark = true }
+                    local m = take("abilities", newAbilityMark, map)
+                    local first
+                    for _, ab in ipairs(mk.abilities) do if ab.new then first = first or ab end end
+                    m:SetSize(CT.abilityMark, CT.abilityMark)
+                    m.ring:SetSize(CT.abilityMark, CT.abilityMark); tint(m.ring, ABILITY_RING[mk.state] or "classInkFaded")
+                    m.icon:SetSize(CT.abilityMark - 4, CT.abilityMark - 4)
+                    if first and first.icon then m.icon:SetTexture(first.icon) else tint(m.icon, "classParchment") end
+                    if m.icon.SetDesaturated then m.icon:SetDesaturated(mk.state == "later") end
+                    m.icon:SetAlpha(mk.state == "later" and 0.6 or 1)
+                    m.focusRing:SetSize(CT.abilityMark + 6, CT.abilityMark + 6)
+                    m.more:SetText(mk.new > 1 and ("+" .. (mk.new - 1)) or "")
+                    m:ClearAllPoints()
+                    m:SetPoint("CENTER", map, "TOPLEFT", mx * s, -my * s)
+                    m:SetFrameLevel(map:GetFrameLevel() + 6)
+                    local names = {}
+                    for _, ab in ipairs(mk.abilities) do if ab.new then names[#names + 1] = ab.name end end
+                    local level = mk.level
+                    m.item = { key = "a:" .. level, frame = m, title = "Level " .. level .. ": " .. table.concat(names, ", "),
+                        detail = (ABILITY_STATE[mk.state] or "") .. ". From your class trainer. A lists the level's abilities.",
+                        scroll = mscroll, abilityLevel = level, stopKey = "a:" .. level, actionLabel = "Abilities",
+                        onActivate = function() page:EnterSteps() end }
+                    m.onClick = function() page:SelectStop("a:" .. level, true) end
+                    abilityRows[#abilityRows + 1] = { y = my, row = { items = { m.item } } }
+                    page.abilityMarks[level] = m
                 end
             end
         end
+        hideRest("abilities")
         -- Focus rows: one per road stop (its side paths left or right of it by position), then
-        -- the end. Each row is its own section (LT/RT stop to stop).
+        -- the end. Each row is its own section (LT/RT stop to stop). Ability marks are rows of
+        -- their own in road order between the stops, in the section of the stop before them, so
+        -- up/down walks through them and LT/RT skips them.
+        local stopRows = {}
         for i, r in ipairs(lay.road) do
             local items = { { item = byKey[r.key].item, x = lay.pos[r.key][1] } }
             for _, sp in ipairs(lay.sides[r.key] or {}) do items[#items + 1] = { item = byKey[sp.key].item, x = lay.pos[sp.key][1] } end
@@ -952,7 +1290,16 @@ local function build(parent)
                 row.items[ci] = it.item
                 if it.item.stopKey == r.key then row.home = ci end
             end
-            rows[#rows + 1] = row
+            stopRows[#stopRows + 1] = { y = lay.pos[r.key][2], row = row }
+        end
+        local all = {}
+        for _, x in ipairs(stopRows) do all[#all + 1] = x end
+        for _, x in ipairs(abilityRows) do all[#all + 1] = x end
+        table.sort(all, function(a, b) return a.y < b.y end)
+        local section = 1
+        for _, x in ipairs(all) do
+            if x.row.section then section = x.row.section else x.row.section = section end
+            rows[#rows + 1] = x.row
         end
         rows[#rows + 1] = { items = { e.item }, section = #lay.road + 1 }
         page.byKey = byKey
@@ -976,18 +1323,35 @@ local function build(parent)
         local h = rail.track:GetHeight() or 0
         local mapH = map:GetHeight() or 0
         if h <= 1 or mapH <= 1 then return end
+        local x0 = CT.railLineX
         for _, m in ipairs(page.railMarks or {}) do
             m.frame:ClearAllPoints()
-            m.frame:SetPoint("CENTER", rail.track, "TOP", m.dx or 0, -m.frac * h)
+            m.frame:SetPoint("CENTER", rail.track, "TOP", x0 + (m.dx or 0), -m.frac * h)
+        end
+        -- The scale bar's level ticks at their places on the road.
+        for _, tk in ipairs(rail.ticks) do
+            local f = page.tickFracs and page.tickFracs[tk.level]
+            tk.tick:SetShown(f ~= nil); tk.label:SetShown(f ~= nil)
+            if f then
+                tk.tick:ClearAllPoints(); tk.tick:SetPoint("CENTER", rail.track, "TOP", x0, -f * h)
+                tk.label:ClearAllPoints(); tk.label:SetPoint("RIGHT", tk.tick, "LEFT", -1, 0)
+            end
         end
         local viewH = mscroll:GetHeight() or 0
         local off = mscroll:GetVerticalScroll() or 0
         local from = math.max(0, off / mapH)
         local to = math.min(1, (off + viewH) / mapH)
         rail.view:ClearAllPoints()
-        rail.view:SetPoint("TOPLEFT", rail.track, "TOPLEFT", 2, -from * h)
-        rail.view:SetPoint("TOPRIGHT", rail.track, "TOPRIGHT", -2, -from * h)
+        rail.view:SetPoint("TOP", rail.track, "TOP", x0, -from * h)
         rail.view:SetHeight(math.max(6, (to - from) * h))
+        -- The gold down to your mark.
+        local yf = page.youFrac
+        rail.fill:SetShown(yf ~= nil and yf > 0)
+        if yf then
+            rail.fill:ClearAllPoints()
+            rail.fill:SetPoint("TOP", rail.track, "TOP", x0, 0)
+            rail.fill:SetHeight(math.max(1, yf * h))
+        end
     end
     page.PlaceRail = placeRail
     -- One mark per stop (side paths smaller, set off the line), the road's end, your ring.
@@ -1009,15 +1373,24 @@ local function build(parent)
             return f
         end
         local function frac(y) return math.max(0, math.min(1, y * s / math.max(1, mapH))) end
-        -- Your ring (under your stop's dot), in the class colour.
-        local cur = j.next and j.next.stop
-        if cur and j.complete ~= nil and lay.pos[cur.key] then
-            local f = mark(CT.railYou, nil, "white", 1, frac(lay.pos[cur.key][2]), lay.from[cur.key] and CT.railSideOff or 0, 1)
-            f.ring:SetColorTexture(1, 1, 1, 0)
-            local cf = ns.character and ns.character.classFile
-            local cc = cf and rawget(_G, "RAID_CLASS_COLORS") and RAID_CLASS_COLORS[cf]
-            if type(cc) == "table" and cc.r then f.fill:SetColorTexture(cc.r, cc.g, cc.b, 1) end
-            f.fill:SetSize(CT.railYou, CT.railYou)
+        -- The scale bar (round 4): its colours on the parchment, and its level ticks.
+        tint(rail.bg, page.painted and "classParchment" or "black", page.painted and 0.92 or 0.5)
+        tint(rail.line, page.painted and "classInk" or "classRailLine")
+        local levels = {}
+        for i, r in ipairs(lay.road) do levels[i] = r.level end
+        page.tickFracs = {}
+        for _, tk in ipairs(rail.ticks) do
+            local i, t = ns.ClassJourneyRules.LevelPos(levels, tk.level, 60)
+            local seg = i and lay.road[i] and lay.segs[lay.road[i].key]
+            if seg then local _, y = bez(seg, t); page.tickFracs[tk.level] = frac(y) end
+            tint(tk.tick, page.painted and "classInk" or "classRailLine")
+            tk.label:SetTextColor(T.RGB(page.painted and "classInk" or "dim"))
+        end
+        -- Your mark at your level on the road (as on the map): a brass dot (round 4: no class colour).
+        page.youFrac = page.youY and frac(page.youY) or nil
+        if page.youY then
+            local f = mark(CT.railYou, "classInk", "classNotch", 1, page.youFrac, 0, 1)
+            f.fill:SetSize(CT.railYou - 4, CT.railYou - 4)
         end
         for _, st in ipairs(j.stops) do
             local side = lay.from[st.key] ~= nil
@@ -1300,6 +1673,15 @@ local function build(parent)
         end
         stopRows("road", "The road")
         stopRows("side", "Side paths")
+        -- Round 4: your abilities, from your class trainer's list (or why they're missing).
+        local tr = page.trainer or { status = "none" }
+        if tr.status == "recorded" then
+            local cn = tr.abilities.counts
+            y = note(string.format("Abilities from your class trainer: %d learned, %d to train now, %d later. They're marked along the road.",
+                cn.learned, cn.available, cn.later), y, x, colW, cn.available > 0 and "classPeach" or "text")
+        else
+            y = note("Abilities: open your class trainer once and Azerfolio adds them along the road.", y, x, colW, "dim")
+        end
         for _, n in ipairs(j.notes or {}) do y = note(n, y, x, colW, "dim") end
         d.foot:ClearAllPoints()
         d.foot:SetPoint("TOPLEFT", dc, "TOPLEFT", x, -y)
@@ -1313,14 +1695,80 @@ local function build(parent)
         return rows
     end
 
+    -- A level's abilities (round 4): what your class trainer lists at that level, new ones first.
+    local function money(c)
+        if type(c) ~= "number" or c <= 0 then return nil end
+        local g, sv, cu = math.floor(c / 10000), math.floor(c / 100) % 100, c % 100
+        local parts = {}
+        if g > 0 then parts[#parts + 1] = g .. "g" end
+        if sv > 0 then parts[#parts + 1] = sv .. "s" end
+        if cu > 0 then parts[#parts + 1] = cu .. "c" end
+        return table.concat(parts, " ")
+    end
+    local function fillAbilities(level)
+        local rows = {}
+        local w = (dscroll:GetWidth() or 0) > 1 and dscroll:GetWidth() or 560
+        local x, inner = S.s4, w - S.s4 - S.s6
+        local colW = inner >= CT.wideFacts and CT.stepsWide or inner
+        local tr = page.trainer or {}
+        local L
+        for _, lv in ipairs(tr.abilities and tr.abilities.levels or {}) do if lv.level == level then L = lv end end
+        for _, f in ipairs(d.facts) do f.k:Hide(); f.v:Hide() end
+        d.bar:Hide()
+        page.factsBottom = nil
+        local nNew, nRank, nAvail = 0, 0, 0
+        for _, ab in ipairs(L and L.abilities or {}) do
+            if ab.new then nNew = nNew + 1 else nRank = nRank + 1 end
+            if ab.state == "available" then nAvail = nAvail + 1 end
+        end
+        hero.kicker:SetText("Your class trainer")
+        hero.name:SetText("Level " .. level)
+        hero.name:SetTextColor(T.RGB("gold"))
+        hero.sub:SetText(plural(nNew, "new ability") .. (nRank > 0 and ("  ·  " .. plural(nRank, "new rank")) or ""))
+        hero:SetLook(false, nil, false)
+        local lv = charLevel()
+        if nAvail > 0 then hero:SetScore("count", tostring(nAvail), "to train now")
+        elseif lv and level > lv then hero:SetScore("later", tostring(level - lv), level - lv == 1 and "level to go" or "levels to go", "dim")
+        else hero:SetScore("count", tostring(#(L and L.abilities or {})), "learned", "dim") end
+        local y = 0
+        y = header("Abilities", plural(#(L and L.abilities or {}), "ability"), y, x - S.s2, colW + S.s2)
+        for k, ab in ipairs(L and L.abilities or {}) do
+            local row = stepRow(y, x - S.s2, colW + S.s2)
+            local kind = ab.state == "learned" and "done" or ab.state == "available" and "next" or "later"
+            local sub = (ab.rank or "") .. (ab.new and ((ab.rank and "  ·  " or "") .. "new") or "")
+            local cost = money(ab.cost)
+            if cost then sub = sub .. (sub ~= "" and "  ·  " or "") .. cost end
+            paintStepRow(row, kind, nil, ab.name, sub, "Lv " .. level)
+            row.item = { key = "ab:" .. level .. ":" .. k, frame = row, title = ab.name .. (ab.rank and ("  ·  " .. ab.rank) or ""),
+                detail = (ABILITY_STATE[ab.state] or "") .. ". " .. (ab.new and "A new ability." or "A new rank.")
+                    .. (cost and (" Costs " .. cost .. ".") or ""), scroll = dscroll, topGap = L and L.level and (S.s2 + 30) or 30 }
+            rows[#rows + 1] = { items = { row.item } }
+            y = y + CT.stepRow + 2
+        end
+        y = y + S.s3
+        d.foot:ClearAllPoints()
+        d.foot:SetPoint("TOPLEFT", dc, "TOPLEFT", x, -y)
+        d.foot:SetWidth(colW)
+        local when = tr.time and type(date) == "function" and date("%d %b", tr.time)
+        d.foot:SetText("From your class trainer's list" .. (when and (", read " .. when) or "") .. "; open your trainer again to update it. "
+            .. "Abilities a quest teaches (Redemption, the warhorse) aren't on it: they're stops on the road.")
+        d.foot:Show()
+        y = y + math.ceil(d.foot:GetStringHeight() or 14) + S.s4
+        dc:SetHeight(math.max(1, y))
+        page.hasLeadins = false
+        return rows
+    end
+
     -- The right pane for the selected stop.
     local function fillDetail()
         page.used.stepRows, page.used.headers, page.used.notes = 0, 0, 0
         local j = page.journey
         local rows = {}
         if j then
-            local st = page.sel ~= "end" and stopByKey(page.sel)
-            if st then rows = fillStop(st, j) else rows = fillEnd(j) end
+            local abLevel = type(page.sel) == "string" and tonumber(page.sel:match("^a:(%d+)$"))
+            local st = not abLevel and page.sel ~= "end" and stopByKey(page.sel)
+            if abLevel then rows = fillAbilities(abLevel)
+            elseif st then rows = fillStop(st, j) else rows = fillEnd(j) end
         end
         hideRest("stepRows"); hideRest("headers"); hideRest("notes")
         page.detailRows = rows
@@ -1331,7 +1779,7 @@ local function build(parent)
     function page:Redraw()
         local g = ns.ClassJourney.Get()
         self.status = g.status
-        self.used = { dots = 0, beads = 0, cairns = 0, nodes = 0, stepRows = 0, headers = 0, notes = 0 }
+        self.used = { dots = 0, edges = 0, beads = 0, cairns = 0, nodes = 0, abilities = 0, stepRows = 0, headers = 0, notes = 0 }
         local ready = g.status == "ready" and g.journey and #g.journey.stops > 0
         strip:SetShown(ready); d:SetShown(ready)
         self.emptyTitle:SetShown(not ready); self.emptyText:SetShown(not ready)
@@ -1364,6 +1812,11 @@ local function build(parent)
         local known = j.complete ~= nil
         local count = "Road " .. (known and j.road.done or "?") .. " of " .. j.road.count
         if j.side.count > 0 then count = count .. "  ·  Side paths " .. (known and j.side.done or "?") .. " of " .. j.side.count end
+        -- Round 4: abilities waiting at your trainer (from its recorded list).
+        local tr = ns.ClassTrainer and ns.ClassTrainer.Get() or { status = "none" }
+        if tr.status == "recorded" and tr.abilities.counts.available > 0 then
+            count = count .. "  ·  " .. T.Hex("classRedInkLight", tr.abilities.counts.available .. " to train")
+        end
         plaque.count:SetText(count)
         local nt, nc = nextLine(j)
         plaque.next:SetText(nt)
@@ -1371,10 +1824,18 @@ local function build(parent)
         self.drawnWidth = mscroll:GetWidth() or 0
         self.roadRows = drawMap(j, self.layout)
         drawRail(j, self.layout)
-        -- Selection: kept if the stop is still there; else your current stop.
-        if self.sel ~= "end" and not (self.sel and stopByKey(self.sel)) then
+        -- Selection: kept if the stop (or ability mark) is still there; else your current stop.
+        local abSel = type(self.sel) == "string" and tonumber(self.sel:match("^a:(%d+)$")) or nil
+        if abSel and not (self.abilityMarks and self.abilityMarks[abSel]) then self.sel, abSel = nil, nil end
+        local valid = self.sel == "end" or abSel ~= nil or (self.sel ~= nil and stopByKey(self.sel) ~= nil)
+        if not valid then
             self.sel = (j.next and j.next.stop and j.next.stop.key) or "end"
             if self.pendingFocusKey == nil then self.pendingFocusKey = "n:" .. self.sel end
+        end
+        -- Redrawn while another tab shows (a level or XP change): focus the selected stop when
+        -- this tab opens, not the first item.
+        if self.pendingFocusKey == nil and ns.UI.CurrentTab() ~= "class" then
+            self.pendingFocusKey = (self.sel and self.sel:match("^a:")) and self.sel or ("n:" .. (self.sel or "end"))
         end
         fillDetail()
         if self.mode == "steps" and #self.detailRows == 0 then self.mode = "road" end
@@ -1386,6 +1847,7 @@ local function build(parent)
     function page:Paint()
         for key, b in pairs(self.byKey or {}) do b:SetSelected(key == self.sel) end
         self.endNode:SetSelected(self.sel == "end")
+        for level, m in pairs(self.abilityMarks or {}) do m:SetSelected(self.sel == "a:" .. level) end
     end
 
     function page:Refresh()
@@ -1412,13 +1874,22 @@ local function build(parent)
         end
         if focus then
             self.mode = "road"
-            self.pendingFocusKey = "n:" .. key
+            self.pendingFocusKey = key:match("^a:") and key or ("n:" .. key)
             self:Refresh()
         end
     end
 
     -- To a stop on the road (from the road's end list, or /azf shots).
     function page:FocusStop(key) self:SelectStop(key, true) end
+
+    -- Your level with the XP fraction (10.04), from the game; nil when the level isn't known.
+    function page:LevelNow()
+        local c = ns.character or {}
+        if type(c.level) ~= "number" then return nil end
+        local frac = 0
+        if type(c.xp) == "number" and type(c.xpMax) == "number" and c.xpMax > 0 then frac = math.min(0.999, c.xp / c.xpMax) end
+        return c.level + frac
+    end
 
     function page:CurrentStopKey()
         local n = self.journey and self.journey.next
@@ -1484,6 +1955,13 @@ local function build(parent)
         if page.journey and page:IsShown() then fillDetail(); ns.Focus.Rebuild() end
     end
 
+    -- Your level and XP move You and the fill (round 4: also which abilities are trainable).
+    ns.Events.On("AZF_CHARACTER_UPDATED", function()
+        if not page:IsShown() then page.dirty = true; return end
+        local cur = ns.UI.CurrentTab() == "class" and ns.Focus.Current()
+        if cur and page.pendingFocusKey == nil then page.pendingFocusKey = cur.key end
+        page:Redraw()
+    end)
     ns.Events.On("AZF_CLASS_UPDATED", function()
         if not page:IsShown() then page.dirty = true; return end
         local cur = ns.UI.CurrentTab() == "class" and ns.Focus.Current()

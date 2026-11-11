@@ -1137,6 +1137,91 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .cstep.st-next .cicon { border-color: #ffd9a8; color: #ffb35a; }
 .cstep.st-later, .cstep.opt { opacity: .7; }
 .cstep.focused { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
+/* Round 4 (owner, 2026-11-10): the antique map. Stand-ins for the painted ink pieces. */
+.cmapart.antique .inkline { fill: none; stroke: #6b5135; stroke-width: 1.4; opacity: .65; }
+.cmapart.antique .inktree { fill: rgba(127,154,99,.18); stroke: #5a4128; stroke-width: 1; opacity: .7; }
+.cmapart.antique .lm { fill: rgba(90,65,40,.10); stroke: #4a3420; stroke-width: 1.3; }
+.cmapart.antique .lm.dark { fill: rgba(60,45,30,.18); }
+.cmapart.antique .lmline { stroke: #4a3420; stroke-width: 1.6; }
+.cmapart.antique .lmlit { fill: rgba(200,150,60,.35); stroke: #4a3420; stroke-width: 1; }
+.cmapart.antique .lmsick { fill: #7f9a63; opacity: .5; }
+/* The road: a dashed ink route; the stretch you've levelled through in gold leaf. */
+.cmapart.antique .road { stroke: #3b2a1a; stroke-width: 5; stroke-dasharray: 11 8; stroke-linecap: round; opacity: .85; filter: none; }
+.cmapart.antique .road.side { stroke-width: 3.5; stroke-dasharray: 0.5 8; opacity: .8; }
+.cmapart.antique .road.lit { stroke: #d9a531; stroke-width: 6; opacity: 1; filter: drop-shadow(0 0 1.5px #6b4a10); }
+.cmapart.antique .road.side.lit { stroke-dasharray: 0.5 8; }
+.cmapart.antique .bead { fill: #f0e2c0; stroke: #4a3420; stroke-width: 1.2; }
+.cmapart.antique .bead.on { fill: #f2c447; stroke: #7a5208; }
+.cmapart.antique .cairn ellipse { fill: rgba(90,65,40,.15); stroke: #4a3420; stroke-width: 1.2; }
+.cmapart.antique .endstar { fill: rgba(90,65,40,.12); stroke: #3b2a1a; stroke-width: 1.6; }
+.cmapart.antique .endstar-c { fill: none; stroke: #3b2a1a; stroke-width: 1.4; }
+.cmapart.antique .crest.lit .endstar { fill: #f2c447; stroke: #7a5208; }
+/* You: a portrait token in a brass ring (no class colour), an ink tag. */
+.cmapart.antique .you { animation: none; }
+.cmapart .youring { fill: none; stroke: #b8862e; stroke-width: 4; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.6)); }
+.cmapart .youface { fill: #c9a57a; }
+.cmapart .youinit { font: 12px var(--font); fill: #3b2a1a; text-anchor: middle; }
+.cmapart .youpin { fill: #e8c46a; stroke: #6b4a10; stroke-width: 1; }
+.cmapart.antique .you .youtag { fill: rgba(239,225,189,.92); stroke: #3b2a1a; stroke-width: 1; }
+.cmapart.antique .you .youtxt { fill: #3b2a1a; font-size: 10px; }
+/* Unfinished stops: the coin sketched in ink; later stops faint pencil, open now ringed in red. */
+.csketch { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; transform: translate(-50%, -50%); }
+.csketch svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.cnode.side .csketch { width: 36px; height: 36px; }
+.csketch .sk-rim { fill: rgba(239,225,189,.7); stroke: #3b2a1a; stroke-width: 1.6; }
+.csketch .sk-rim.thin { fill: none; stroke-width: .8; stroke-dasharray: 1 2.2; }
+.csketch .sk-ray { fill: none; stroke: #3b2a1a; stroke-width: .8; opacity: .7; }
+.csketch .sk-ham { fill: none; stroke: #3b2a1a; stroke-width: 1.3; }
+.csketch .sk-red { fill: none; stroke: none; }
+.cnode.st-ready .csketch .sk-red, .cnode.st-progress .csketch .sk-red { stroke: #a8352a; stroke-width: 1.6; stroke-dasharray: 9 2 14 3; }
+.cnode.st-later .csketch, .cnode.st-unknown .csketch { opacity: .45; filter: grayscale(1); }
+.cnode .cseal { display: none; }
+.cnode.st-ready .cseal, .cnode.st-ready { animation: none; }
+.cnode .clvl { position: absolute; left: 50%; top: calc(100% + 1px); transform: translateX(-50%); font: 11px var(--font); color: #3b2a1a;
+  text-shadow: 0 0 2px #efe1bd, 0 0 3px #efe1bd; pointer-events: none; }
+.cnode.st-done .clvl { display: none; }
+.cnode.focused .csketch { filter: drop-shadow(0 0 4px rgba(255,230,0,.95)); opacity: 1; }
+/* Names in ink on the parchment, a soft paper halo; done names in deep gold. */
+.cnode .clabel .cname { color: #2e2014 !important; text-shadow: 0 0 2px #efe1bd, 0 0 3px #efe1bd, 0 0 5px #efe1bd; font-weight: 600; }
+.cnode.st-done .clabel .cname { color: #8a5d08 !important; }
+.cnode.st-later .clabel .cname, .cnode.st-unknown .clabel .cname { color: #6b5a44 !important; }
+.cnode.focused .clabel .cname { color: #000 !important; text-decoration: underline; text-decoration-color: #c9a227; text-underline-offset: 3px; }
+/* The rail as a scale bar: an ink ruler with level ticks, gilded down to your brass dot. */
+.crail.scale { background: #e6d3a6; border-left: 1px solid #6b5135; }
+.crail.scale .rline { background: repeating-linear-gradient(180deg, #3b2a1a 0 14px, #efe1bd 14px 28px); width: 5px; border: 1px solid #3b2a1a; border-radius: 0; }
+.crail.scale .rfill { width: 5px; background: linear-gradient(180deg, #f2d27a, #c9962a); border: 1px solid #6b4a10; border-radius: 0; }
+.crail.scale .rtick { position: absolute; left: 50%; width: 12px; height: 1px; background: #3b2a1a; transform: translateX(-50%); }
+.crail.scale .rtick em { position: absolute; right: calc(100% + 1px); top: -6px; font: 9px var(--font); font-style: normal; color: #3b2a1a; }
+.crail.scale .rdot { opacity: .9; }
+.crail.scale .ryou { border: 2px solid #8a5d08; background: #f2c447; width: 10px; height: 10px; box-shadow: 0 0 3px rgba(0,0,0,.5); }
+.crail.scale .rview { background: linear-gradient(90deg, rgba(59,42,26,0), rgba(59,42,26,.18), rgba(59,42,26,0)); box-shadow: none; width: 16px; }
+/* Round 4 with the painted pieces (2026-11-10): coin, sketch, ring, stamps */
+.ccoin img, .csketch img { width: 100%; height: 100%; display: block; }
+.csketch .skred { position: absolute; inset: -5px; border-radius: 50%; border: 2px dashed transparent; }
+.cnode.st-ready .csketch .skred, .cnode.st-progress .csketch .skred { border-color: #a8352a; border-style: solid; border-width: 1.5px;
+  box-shadow: 0 0 0 1px rgba(168,53,42,.25); }
+.cmapart image.gilt { filter: sepia(1) saturate(6) hue-rotate(-10deg) brightness(1.25); }
+.cnode.end .clabel .cname { color: #2e2014 !important; }
+/* Round 3 (owner, 2026-11-10): the class coin; map-style names (no boxes); the level road */
+.ccoin { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; transform: translate(-50%, -50%); filter: drop-shadow(0 2px 4px #000); }
+.ccoin svg { width: 100%; height: 100%; display: block; }
+.cnode.side .ccoin { width: 40px; height: 40px; }
+.chero .ccoin.big { position: relative; left: auto; top: auto; transform: none; display: block; width: 80px; height: 80px; margin-bottom: -4px; }
+.ccoin .ce-ring { fill: none; stroke: #8a5a0e; stroke-width: 1.2; opacity: .7; }
+.ccoin .ce-ray { fill: #fff6cf; opacity: .55; }
+.ccoin .ce-ham { fill: #6b4508; stroke: #fff1b0; stroke-width: .8; }
+.cnode.focused .ccoin { filter: drop-shadow(0 0 0 #ffe600) drop-shadow(0 0 7px rgba(255,230,0,.95)); }
+.cnode .clabel { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.cnode .clabel .cname { font: var(--fs-sm) var(--font); color: #fff3d6; letter-spacing: .02em;
+  text-shadow: 0 0 2px #000, 0 0 3px #000, 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+.cnode.st-done .clabel .cname { color: #ffd257; }
+.cnode.st-later .clabel .cname, .cnode.st-unknown .clabel .cname { color: #d8ccb0; }
+.cnode.selected .clabel { border: 0; background: none; }
+.cnode.selected .clabel .cname { color: #fff; }
+.cnode.focused .clabel .cname { color: #ffe600; }
+.cmapart .youglow { fill: rgba(245,140,186,.35); }
+.cmapart .you .youtag { fill: rgba(14,9,4,.85); }
+.cmapart .you .youtxt { font-size: 10px; }
 /* Item 13: the road overview rail (owner, 2026-11-09) */
 .cstrip .scroll { padding-right: 22px; }
 .crail { position: absolute; right: 0; top: 86px; bottom: 10px; width: 22px; z-index: 7; pointer-events: none;
@@ -1154,8 +1239,17 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .crail .rdot.end { width: 12px; height: 12px; border-radius: 3px; transform: translate(-50%, -50%) rotate(45deg); }
 .crail .ryou { position: absolute; left: 50%; width: 16px; height: 16px; border-radius: 50%; transform: translate(-50%, -50%);
   border: 2px solid #f58cba; box-shadow: 0 0 6px #f58cba; box-sizing: border-box; }
-.crail .rview { position: absolute; left: 2px; right: 2px; border: 1px solid rgba(255,230,160,.75); border-radius: 4px;
-  background: rgba(255,230,160,.08); transition: top .12s, height .12s; }
+/* Round 3 (owner, 2026-11-10): no box. The rail line is dim brown; the road you've levelled
+   through is gold up to your mark; the part in view glows, with a brass notch at each end. */
+.crail { background: linear-gradient(90deg, rgba(10,6,2,.35), rgba(10,6,2,.7)); }
+.crail .rline { background: #3e3222; width: 3px; border-radius: 2px; }
+.crail .rfill { position: absolute; left: 50%; top: 0; width: 3px; transform: translateX(-50%); border-radius: 2px; background: linear-gradient(180deg, #ffe08a, #e0a82a); }
+.crail .rview { position: absolute; left: 50%; width: 7px; transform: translateX(-50%); border-radius: 4px; transition: top .12s, height .12s;
+  background: linear-gradient(90deg, rgba(255,236,170,.0), rgba(255,236,170,.55), rgba(255,236,170,.0)); box-shadow: 0 0 8px rgba(255,214,120,.55); }
+.crail .rview::before, .crail .rview::after { content: ""; position: absolute; left: 50%; width: 14px; height: 3px; transform: translateX(-50%);
+  border-radius: 2px; background: linear-gradient(180deg, #f5d27a, #8a6418); box-shadow: 0 1px 2px #000; }
+.crail .rview::before { top: -2px; } .crail .rview::after { bottom: -2px; }
+.crail .ryou { border-color: #f58cba; background: rgba(245,140,186,.25); }
 /* Design round 2 (2026-11-09, after the in-game review) */
 .cplaque { background: linear-gradient(180deg, #1a0e06, #160c05); }
 /* A finished stop's header: the celebration's quests medal, small (owner, 2026-11-09) */

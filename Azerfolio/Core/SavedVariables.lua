@@ -172,6 +172,25 @@ function SV.CleanFlights(t, fixes)
     return out
 end
 
+-- The class trainer's list: each service needs a name, a level and a known type; anything else
+-- is dropped. Without a services list the record is empty (the trainer not visited yet).
+local KINDS = { used = true, available = true, unavailable = true }
+function SV.CleanTrainer(t, fixes)
+    if type(t) ~= "table" or type(t.services) ~= "table" then return {} end
+    local out, dropped = { time = validTime(t.time) and t.time or nil, class = type(t.class) == "string" and t.class or nil, services = {} }, 0
+    for _, s in ipairs(t.services) do
+        if type(s) == "table" and type(s.name) == "string" and type(s.level) == "number" and KINDS[s.kind] then
+            out.services[#out.services + 1] = { name = s.name, rank = type(s.rank) == "string" and s.rank or nil, kind = s.kind,
+                level = s.level, icon = (type(s.icon) == "number" or type(s.icon) == "string") and s.icon or nil,
+                cost = type(s.cost) == "number" and s.cost or nil }
+        else
+            dropped = dropped + 1
+        end
+    end
+    if dropped > 0 and fixes then fixes[#fixes + 1] = string.format("character trainer: %d invalid entries dropped", dropped) end
+    return out
+end
+
 -- Loads both SavedVariables tables. Returns account, char, fixes.
 function SV.Load(account, char)
     local Config = ns.Config
@@ -189,6 +208,7 @@ function SV.Load(account, char)
 
     char.recentZones = SV.CleanRecentZones(char.recentZones, fixes)
     char.flights = SV.CleanFlights(char.flights, fixes)
+    char.trainer = SV.CleanTrainer(char.trainer, fixes)
     SV.TrimList(account.trace, Config.LIMITS.trace)
     SV.TrimList(char.recentZones, Config.LIMITS.recentZones)
 

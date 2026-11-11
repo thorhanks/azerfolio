@@ -39,6 +39,10 @@ Config.CHAR_DEFAULTS = {
     -- Flight masters' lists, by continent mapID: { time, nodes = { [name] = "known"|"distant" } }
     -- (Systems/FlightPaths.lua). Free-form; checked by SavedVariables.CleanFlights.
     flights = {},
+    -- Your class trainer's list, read whenever you open it (Systems/ClassTrainer.lua):
+    -- { time, class, services = { { name, rank, kind = used|available|unavailable, level, icon, cost } } }.
+    -- Free-form; checked by SavedVariables.CleanTrainer.
+    trainer = {},
 }
 
 -- Allowed values, by dotted path. Anything else resets to the default.

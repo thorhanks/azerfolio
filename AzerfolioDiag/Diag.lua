@@ -953,6 +953,115 @@ local function dumpReps()
 end
 
 ---------------------------------------------------------------------------
+-- Spell probe (/azfdiag spells; Class tab abilities, docs/research/class-spells.md): which spell
+-- and spellbook APIs exist, every spellbook item with its type (does the client list spells you
+-- haven't learned yet, as the modern spellbook does?) and the level it's learned at, and the
+-- trainer's list when a class trainer's window is open.
+---------------------------------------------------------------------------
+
+local function dumpSpells()
+    local SB, SP = C_SpellBook, C_Spell
+    local r = { t = time(), level = UnitLevel and UnitLevel("player"), class = UnitClass and select(2, UnitClass("player")),
+        has = {}, enum = {}, lines = {}, items = {}, byType = {}, trainer = nil }
+    for _, name in ipairs({ "IsSpellKnown", "IsPlayerSpell", "IsSpellKnownOrOverridesKnown", "GetSpellInfo",
+        "GetSpellBookItemInfo", "GetSpellBookItemName", "GetNumSpellTabs", "GetSpellTabInfo", "GetSpellLevelLearned",
+        "GetNumTrainerServices", "GetTrainerServiceInfo", "GetTrainerServiceLevelReq", "GetTrainerServiceSkillLine",
+        "GetTrainerServiceCost", "GetTrainerServiceIcon", "GetTrainerServiceDescription", "SetTrainerServiceTypeFilter",
+        "GetTrainerServiceTypeFilter", "IsTradeskillTrainer" }) do
+        r.has[name] = type(_G[name])
+    end
+    for label, tbl in pairs({ C_SpellBook = SB, C_Spell = SP, C_ClassTrainer = rawget(_G, "C_ClassTrainer") }) do
+        if type(tbl) == "table" then for k, v in pairs(tbl) do r.has[label .. "." .. k] = type(v) end
+        else r.has[label] = "nil" end
+    end
+    if Enum then
+        for _, e in ipairs({ "SpellBookItemType", "SpellBookSpellBank", "SpellBookSkillLineIndex" }) do
+            if type(Enum[e]) == "table" then r.enum[e] = safePlain(Enum[e]) end
+        end
+    end
+    local bank = Enum and Enum.SpellBookSpellBank and Enum.SpellBookSpellBank.Player or 0
+    if SB and SB.GetNumSpellBookSkillLines and SB.GetSpellBookSkillLineInfo and SB.GetSpellBookItemInfo then
+        local n = try("C_SpellBook.GetNumSpellBookSkillLines", SB.GetNumSpellBookSkillLines) or 0
+        for l = 1, n do
+            local line = try("C_SpellBook.GetSpellBookSkillLineInfo", SB.GetSpellBookSkillLineInfo, l)
+            r.lines[l] = safePlain(line)
+            if type(line) == "table" then
+                for i = (line.itemIndexOffset or 0) + 1, (line.itemIndexOffset or 0) + (line.numSpellBookItems or 0) do
+                    if #r.items >= 400 then break end
+                    local it = try("C_SpellBook.GetSpellBookItemInfo", SB.GetSpellBookItemInfo, i, bank)
+                    local rec = safePlain(it) or {}
+                    if type(rec) ~= "table" then rec = { value = rec } end
+                    rec.index, rec.line = i, l
+                    if SB.GetSpellBookItemLevelLearned then
+                        rec.levelLearned = try("C_SpellBook.GetSpellBookItemLevelLearned", SB.GetSpellBookItemLevelLearned, i, bank)
+                    end
+                    local sid = type(it) == "table" and it.spellID
+                    if sid and SP and SP.GetSpellLevelLearned then
+                        rec.spellLevelLearned = try("C_Spell.GetSpellLevelLearned", SP.GetSpellLevelLearned, sid)
+                    end
+                    if sid and IsSpellKnown then rec.known = try("IsSpellKnown", IsSpellKnown, sid) end
+                    if sid and IsPlayerSpell then rec.playerSpell = try("IsPlayerSpell", IsPlayerSpell, sid) end
+                    r.items[#r.items + 1] = rec
+                    local ty = tostring(type(it) == "table" and it.itemType)
+                    r.byType[ty] = (r.byType[ty] or 0) + 1
+                end
+            end
+        end
+    end
+    -- The spells each level grants (the modern C_SpellBook.GetCurrentLevelSpells(level)), with
+    -- their names, ranks and the level the client says they're learned at (probe v2).
+    if SB and SB.GetCurrentLevelSpells then
+        r.levelSpells = {}
+        for lv = 1, 60 do
+            local ids = try("C_SpellBook.GetCurrentLevelSpells", SB.GetCurrentLevelSpells, lv)
+            local list = {}
+            if type(ids) == "table" then
+                for _, id in ipairs(ids) do
+                    local e = { id = id }
+                    if SP and SP.GetSpellName then e.name = try("C_Spell.GetSpellName", SP.GetSpellName, id) end
+                    if SP and SP.GetSpellSubtext then e.sub = try("C_Spell.GetSpellSubtext", SP.GetSpellSubtext, id) end
+                    if SP and SP.GetSpellLevelLearned then e.learnedAt = try("C_Spell.GetSpellLevelLearned", SP.GetSpellLevelLearned, id) end
+                    if IsSpellKnown then e.known = try("IsSpellKnown", IsSpellKnown, id) end
+                    list[#list + 1] = e
+                end
+            end
+            r.levelSpells[lv] = { type = type(ids), list = list }
+        end
+    end
+    -- The trainer's list, when its window is open: with every filter on (available, unavailable,
+    -- used), then the filters put back as they were.
+    if GetNumTrainerServices then
+        local filters, saved = { "available", "unavailable", "used" }, {}
+        if GetTrainerServiceTypeFilter and SetTrainerServiceTypeFilter then
+            for _, f in ipairs(filters) do
+                saved[f] = try("GetTrainerServiceTypeFilter", GetTrainerServiceTypeFilter, f)
+                try("SetTrainerServiceTypeFilter", SetTrainerServiceTypeFilter, f, 1)
+            end
+        end
+        local n = try("GetNumTrainerServices", GetNumTrainerServices)
+        if type(n) == "number" and n > 0 then
+            r.trainer = { count = n, services = {}, filtersBefore = saved }
+            for i = 1, math.min(n, 300) do
+                local s = { info = packArgs(try("GetTrainerServiceInfo", GetTrainerServiceInfo, i)) }
+                if GetTrainerServiceLevelReq then s.level = try("GetTrainerServiceLevelReq", GetTrainerServiceLevelReq, i) end
+                if GetTrainerServiceCost then s.cost = packArgs(try("GetTrainerServiceCost", GetTrainerServiceCost, i)) end
+                r.trainer.services[i] = s
+            end
+        end
+        if SetTrainerServiceTypeFilter then
+            for _, f in ipairs(filters) do
+                if saved[f] ~= nil then try("SetTrainerServiceTypeFilter", SetTrainerServiceTypeFilter, f, saved[f] and 1 or 0) end
+            end
+        end
+    end
+    DB.spells = r
+    local types = {}
+    for k, v in pairs(r.byType) do types[#types + 1] = k .. "=" .. v end
+    msg(string.format("spells: %d spellbook items (types %s), trainer %s. Type /reload to save.",
+        #r.items, table.concat(types, " "), r.trainer and (r.trainer.count .. " services") or "window not open"))
+end
+
+---------------------------------------------------------------------------
 -- Image format / native texture test
 ---------------------------------------------------------------------------
 
@@ -1423,6 +1532,7 @@ local HELP = {
     "/azfdiag questdb - QuestieDB probe: API, read cost, corrections, race masks, quest areas",
     "/azfdiag taxi   - flight paths per zone (also recorded when a flight master's map opens)",
     "/azfdiag reps   - reputation probe: faction APIs, the full faction list, lookups by ID",
+    "/azfdiag spells - spell probe: spellbook APIs, every spellbook item and its level (run again with a class trainer open)",
     "/azfdiag sniff  - toggle logging of every event name",
     "/azfdiag art    - show the image-format test frame",
     "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
@@ -1446,6 +1556,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "questdb" then probeQuestDB()
     elseif cmd == "taxi" then dumpTaxi("command")
     elseif cmd == "reps" then dumpReps()
+    elseif cmd == "spells" then dumpSpells()
     elseif cmd == "sniff" then setSniff(not DB.sniffOn)
     elseif cmd == "art" then showArt()
     elseif cmd == "pad" then togglePad()

@@ -214,4 +214,20 @@ return function(t)
         t.eq(out[947].time, nil, "an implausible time is dropped, the list kept")
         t.eq(#fixes, 1)
     end)
+
+    t.test("saved class trainer list: bad services are dropped, no list is empty", function()
+        local ns = load()
+        local fixes = {}
+        local out = ns.SavedVariables.CleanTrainer({ time = 1794100000, class = "PALADIN", services = {
+            { name = "Purify", kind = "available", level = 8, icon = 135949, cost = 100 },
+            { name = "Bad", kind = "maybe", level = 8 }, { kind = "used", level = 1 }, "x",
+            { name = "Holy Light", rank = "Rank 2", kind = "used", level = 6, icon = "x" } } }, fixes)
+        t.eq(#out.services, 2)
+        t.eq(out.services[1].cost, 100)
+        t.eq(out.services[2].rank, "Rank 2")
+        t.eq(out.class, "PALADIN")
+        t.eq(#fixes, 1)
+        t.same(ns.SavedVariables.CleanTrainer("x"), {})
+        t.same(ns.SavedVariables.CleanTrainer({ time = 5 }), {})
+    end)
 end
