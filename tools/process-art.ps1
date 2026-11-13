@@ -38,17 +38,19 @@ public static class AzfSeam {
     }
     static double[] Profile(Bitmap b, int y0, int y1) {
         int st; var buf = Read(b, out st); int w = b.Width;
+        // How much of each column is lane-coloured: every round 5 lane is the same warm tan
+        // (the tracer measured 233-241, 165-180, 85-107 on all 18 strips). Brightness alone
+        // locked onto snow ridges (Warrior Horde's seam moved 64 px the wrong way).
         var p = new double[w];
         for (int y = y0; y < y1; y++) for (int x = 0; x < w; x++) {
-            int i = y * st + x * 4; p[x] += 0.11 * buf[i] + 0.59 * buf[i + 1] + 0.30 * buf[i + 2];
+            int i = y * st + x * 4;
+            double db = buf[i] - 96, dg = buf[i + 1] - 172, dr = buf[i + 2] - 237;
+            double dist = Math.Sqrt(dr * dr + dg * dg + db * db);
+            p[x] += Math.Max(0, 1 - dist / 60.0);
         }
-        // High-pass: minus a 61-px moving average, so broad light and shade don't count.
+        double mean = 0; for (int x = 0; x < w; x++) mean += p[x]; mean /= w;
         var q = new double[w];
-        for (int x = 0; x < w; x++) {
-            double s = 0; int n = 0;
-            for (int k = Math.Max(0, x - 30); k <= Math.Min(w - 1, x + 30); k++) { s += p[k]; n++; }
-            q[x] = p[x] - s / n;
-        }
+        for (int x = 0; x < w; x++) q[x] = p[x] - mean;
         return q;
     }
     // The shift d (px) such that the lower panel's top rows look like the upper panel's bottom
@@ -63,7 +65,8 @@ public static class AzfSeam {
                 int xb = x + d; if (xb < 0 || xb >= w) continue;
                 s += a[x] * b[xb]; na += a[x] * a[x]; nb += b[xb] * b[xb];
             }
-            double score = (na > 0 && nb > 0) ? s / Math.Sqrt(na * nb) : 0;
+            // A slight preference for small shifts breaks near-ties toward leaving the art alone.
+            double score = ((na > 0 && nb > 0) ? s / Math.Sqrt(na * nb) : 0) - 0.001 * Math.Abs(d);
             if (score > bestScore) { bestScore = score; best = d; }
         }
         return best;

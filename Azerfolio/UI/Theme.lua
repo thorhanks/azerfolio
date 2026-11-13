@@ -420,6 +420,85 @@ Theme.classStrip = {
         Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, stance = { 240, 213 }, shieldsmith = { 100, 484 },
             grimand = { 70, 690 }, klockmort = { 330, 655 }, mathiel = { 300, 750 },
             berserker = { 170, 900 }, whirlwind = { 130, 1010 }, kinship = { 175, 1484 } },
+        -- The spiked-hut camp, the watch tower, the tents and giant bones; the troll village, the
+        -- mesa and the crypt stairs (side paths); the fighting pit, the snowy stone circle, the
+        -- broken standard below the dark gate.
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, stance = { 240, 170 }, giants = { 110, 270 },
+            gauntlets = { 70, 700 }, helm = { 320, 600 }, legguards = { 335, 770 },
+            berserker = { 180, 910 }, whirlwind = { 100, 980 }, kinship = { 200, 1440 } },
+    },
+    -- Round 5 strips (2026-11-12, Codex from art/prompts.md): stops measured on each strip's
+    -- landmarks (art/review/<class>-<side>-path.png); road stops snap onto the traced lane.
+    HUNTER = {
+        -- The lodge, the beast's den under the roots, the hermit's camp on the crimson coast.
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 215, 100 }, pet = { 250, 200 }, charm = { 270, 1400 } },
+        -- The hut camp, the tent village with its water pump, the hermit's camp.
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, pet = { 200, 200 }, charm = { 280, 1400 } },
+    },
+    MAGE = {
+        -- The abbey, the violet lake, the violet-roofed towers, the haunted tower, the stilt hut
+        -- in the swamp (two stops), the arcane tower on the cliffs, the sunken temple.
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 215, 95 }, ten = { 130, 240 }, robe15 = { 230, 280 },
+            robe26 = { 110, 730 }, wand = { 150, 950 }, orb = { 160, 1030 }, morphaz = { 250, 1310 }, krellian = { 150, 1540 } },
+        -- The chapel camp, the snapdragon farm, the green-lit crypt, the violet satyr pools, the
+        -- stilt hut, the arcane tower, the sunken temple.
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 200, 100 }, ten = { 130, 160 }, robe15 = { 110, 250 },
+            robe26 = { 110, 770 }, wand = { 170, 965 }, orb = { 150, 1030 }, morphaz = { 230, 1310 }, krellian = { 150, 1540 } },
+    },
+    PRIEST = {
+        -- The abbey, the village well, the cathedral, the white shrine, the mountain gate, the
+        -- sunken temple, the chapel in a shaft of light.
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, garments = { 180, 150 }, spell10 = { 250, 225 },
+            grace = { 180, 280 }, spell20 = { 240, 660 }, morphaz = { 150, 1200 }, eris = { 250, 1420 } },
+        -- The hut camp, the spiked fort town, the troll shrine, the canyon city, the sunken temple,
+        -- the chapel in the light.
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 205, 95 }, garments = { 150, 165 }, spell10 = { 220, 230 },
+            spell20 = { 60, 670 }, morphaz = { 150, 1220 }, eris = { 240, 1430 } },
+    },
+    ROGUE = {
+        -- The abbey, the harbour, the windmill farm and the lakeside bridge (the lane passes the farm first,
+        -- so the two stops sit in road order between them), the hidden manor, the
+        -- ruined keep, the crimson monastery (side path), the totem huts on the coast.
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 215, 95 }, ten = { 240, 235 }, sixteen = { 241, 342 },
+            zanzil = { 122, 416 }, ravenholdt = { 130, 600 }, syndicate = { 230, 700 }, bhossca = { 60, 725 }, azure = { 230, 1460 } },
+        -- The hut camp, the lantern-lit cleft, the violet dome, the mill village, the manor, the
+        -- keep, the monastery (side path), the totem huts.
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, ten = { 260, 200 }, sixteen = { 250, 320 },
+            zanzil = { 150, 420 }, ravenholdt = { 130, 590 }, syndicate = { 230, 700 }, bhossca = { 60, 720 }, azure = { 200, 1450 } },
+    },
+    SHAMAN = {
+        -- The mountain hall, the stone totem, the dam and brazier, the spring, the stone circle,
+        -- the bramble warren.
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 215, 95 }, earth = { 250, 140 }, fire = { 170, 250 },
+            water = { 140, 750 }, air = { 200, 900 }, tempest = { 120, 960 } },
+        -- The hut camp, the earth totem, the brazier spires, the oasis, the rock needles, the
+        -- brambles, the snowy stone circle, the academy on its island.
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 205, 95 }, earth = { 150, 140 }, fire = { 250, 180 },
+            water = { 120, 660 }, air = { 230, 760 }, tempest = { 120, 870 }, mastery = { 180, 1170 }, darkreaver = { 150, 1430 } },
+    },
+    DRUID = {
+        -- The hollow tree, the moonlit stone ring, the walled garden (side path), the poison bog,
+        -- the cove shrine, the cat statue, the hermit's camp in the crater jungle.
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 230, 90 }, bear = { 260, 215 }, nature = { 75, 160 },
+            poison = { 140, 360 }, aquatic = { 240, 640 }, cat = { 150, 740 }, torwa = { 230, 1480 } },
+        -- The tents on the mesa, the moonlit lake, the totem mesa (side path), the bog, the cove
+        -- shrine, the cat statue, the crater camp.
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, bear = { 200, 215 }, nature = { 60, 130 },
+            poison = { 110, 360 }, aquatic = { 230, 690 }, cat = { 130, 740 }, torwa = { 230, 1480 } },
+    },
+    WARLOCK = {
+        -- The abbey, the cottage, the violet-cellared tavern, the seer's hut, the broken well
+        -- (side), the carved hall, the rune tent and the cliff tower (sides), the port, the green
+        -- forest, the crater (side), the demonic shrine, the ruined elven city (side).
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, imp = { 180, 160 }, void = { 240, 220 },
+            succubus = { 150, 390 }, soranruk = { 330, 410 }, felhunter = { 230, 630 }, robe = { 75, 790 }, orahil = { 360, 760 },
+            felsteed = { 220, 940 }, imps = { 180, 1150 }, kroshius = { 60, 1280 }, dreadsteed = { 260, 1400 }, suppression = { 70, 1450 } },
+        -- The starting camp, the graveyard, the crypt temple, the seer's hut, the well (side), the
+        -- crypt stairs, the tent and the tower (sides), the port, the forest, the crater (side),
+        -- the shrine, the ruins (side).
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, imp = { 160, 160 }, void = { 240, 220 },
+            succubus = { 150, 410 }, soranruk = { 330, 420 }, felhunter = { 230, 620 }, robe = { 80, 735 }, orahil = { 355, 770 },
+            felsteed = { 220, 940 }, imps = { 180, 1150 }, kroshius = { 60, 1280 }, dreadsteed = { 260, 1410 }, suppression = { 70, 1455 } },
     },
     PALADIN = {
         -- The round 5 strip (2026-11-10: the zone art's painting in antique colours, a narrow lane
@@ -429,6 +508,12 @@ Theme.classStrip = {
         -- (20) so twenty levels of milestones get room (WoWScrnShot_111026_200757).
         Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 100 }, divinity = { 250, 215 }, valor = { 190, 680 },
             artifact = { 107, 905 }, nobility = { 200, 1065 }, mightstone = { 300, 1262 }, charger = { 190, 1400 } },
+        -- The chapel among dead pines, the palisade camp, the lakeside fortress and its walled
+        -- garden (side path), the crypt stairs, the shrine and the mausoleum (the lane passes the shrine
+        -- first; the two stops sit in road order between them); open
+        -- country after level 20.
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 215, 95 }, light = { 240, 170 }, keep = { 190, 240 },
+            home = { 70, 250 }, divinity = { 240, 630 }, incident = { 250, 735 }, moonsilver = { 130, 810 } },
     },
 }
 

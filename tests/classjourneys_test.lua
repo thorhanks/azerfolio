@@ -29,7 +29,55 @@ local function set(list)
     return s
 end
 
+-- Distance along a traced path (Data/StripPaths.lua: { {x, y}, ... }) of the point nearest (x, y).
+local function project(path, x, y)
+    local best, bestD, acc = 0, math.huge, 0
+    for i = 1, #path - 1 do
+        local a, b = path[i], path[i + 1]
+        local dx, dy = b[1] - a[1], b[2] - a[2]
+        local l2 = dx * dx + dy * dy
+        local f = l2 > 0 and math.max(0, math.min(1, ((x - a[1]) * dx + (y - a[2]) * dy) / l2)) or 0
+        local d = (a[1] + dx * f - x) ^ 2 + (a[2] + dy * f - y) ^ 2
+        if d < bestD then bestD, best = d, acc + f * math.sqrt(l2) end
+        acc = acc + math.sqrt(l2)
+    end
+    return best
+end
+
 return function(t)
+    t.test("journey strips: every road has its strip, path and stop positions, in road order (round 5)", function()
+        local data = loadData()
+        local mock = require("mocks.wow")
+        local theme = mock.loadAddonFile("Azerfolio/UI/Theme.lua", "Azerfolio", {}).Theme
+        local paths = mock.loadAddonFile("Azerfolio/Data/StripPaths.lua", "Azerfolio", {}).StripPaths
+        local art = mock.loadAddonFile("Azerfolio/Data/Art.lua", "Azerfolio", {}).Art
+        local roads = 0
+        eachJourney(data, function(token, side, j)
+            roads = roads + 1
+            local key = token:lower() .. "-" .. side:lower()
+            t.ok(art.strips and art.strips[key], key .. ": a painted strip")
+            local path = paths[key]
+            t.ok(path and #path > 50, key .. ": a traced lane")
+            local hand = theme.classStrip[token] and theme.classStrip[token][side]
+            t.ok(hand ~= nil, key .. ": stop positions")
+            if not (hand and path) then return end
+            -- Road stops (the first stop per key; race versions share it) must snap onto the
+            -- lane in road order, and the road's end after them, or segments fall back to curves.
+            local seen, last = {}, -1
+            for _, s in ipairs(j.stops) do
+                t.ok(hand[s.key] ~= nil, key .. ": a position for " .. s.key)
+                if hand[s.key] and s.kind == "road" and not seen[s.key] then
+                    seen[s.key] = true
+                    local at = project(path, hand[s.key][1], hand[s.key][2])
+                    t.ok(at > last, key .. ": " .. s.key .. " comes after the stop before it on the lane")
+                    last = at
+                end
+            end
+            t.ok(project(path, hand["end"][1], hand["end"][2]) > last, key .. ": the road's end comes last")
+        end)
+        t.eq(roads, 18)
+    end)
+
     t.test("journey rules: a step is done by any of its quests, left out when none is for you", function()
         local R = loadRules()
         local function ev(id) if id == 2 then return "unavailable", "race or faction" end return "eligible" end

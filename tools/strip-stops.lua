@@ -1,0 +1,50 @@
+-- Prints every class road's stop positions as the Class tab places them on its painted strip
+-- (Theme.classStrip, road stops and the end snapped onto the traced lane in Data/StripPaths.lua;
+-- side paths where they're placed), one line per stop:
+--   <class>-<side>|<key>|road|side|end|<name>|<x>|<y>      (logical units, 420 x 1680)
+-- Used by tools/strip-preview.ps1. Run from the repo root: luajit tools/strip-stops.lua
+package.path = "tests/?.lua;" .. package.path
+local mock = require("mocks.wow")
+local theme = mock.loadAddonFile("Azerfolio/UI/Theme.lua", "Azerfolio", {}).Theme
+local paths = mock.loadAddonFile("Azerfolio/Data/StripPaths.lua", "Azerfolio", {}).StripPaths
+local ns = {}
+assert(loadfile("Azerfolio/Data/ClassJourneys.lua"))(nil, ns)
+
+local function snap(path, x, y)
+    local bestD, bx, by = math.huge, x, y
+    for i = 1, #path - 1 do
+        local a, b = path[i], path[i + 1]
+        local dx, dy = b[1] - a[1], b[2] - a[2]
+        local l2 = dx * dx + dy * dy
+        local f = l2 > 0 and math.max(0, math.min(1, ((x - a[1]) * dx + (y - a[2]) * dy) / l2)) or 0
+        local px, py = a[1] + dx * f, a[2] + dy * f
+        local d = (px - x) ^ 2 + (py - y) ^ 2
+        if d < bestD then bestD, bx, by = d, px, py end
+    end
+    return bx, by
+end
+
+local tokens = {}
+for token, sides in pairs(ns.ClassJourneyData) do if type(sides) == "table" then tokens[#tokens + 1] = token end end
+table.sort(tokens)
+for _, token in ipairs(tokens) do
+    for _, side in ipairs({ "Alliance", "Horde" }) do
+        local j = ns.ClassJourneyData[token][side]
+        local hand = j and theme.classStrip[token] and theme.classStrip[token][side]
+        local key = token:lower() .. "-" .. side:lower()
+        local path = paths[key]
+        if hand and path then
+            local seen = {}
+            for _, s in ipairs(j.stops) do
+                if not seen[s.key] and hand[s.key] then
+                    seen[s.key] = true
+                    local x, y = hand[s.key][1], hand[s.key][2]
+                    if s.kind == "road" then x, y = snap(path, x, y) end
+                    print(string.format("%s|%s|%s|%s|%.1f|%.1f", key, s.key, s.kind, s.name, x, y))
+                end
+            end
+            local x, y = snap(path, hand["end"][1], hand["end"][2])
+            print(string.format("%s|end|end|The road's end|%.1f|%.1f", key, x, y))
+        end
+    end
+end
