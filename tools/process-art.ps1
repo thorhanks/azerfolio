@@ -19,6 +19,82 @@ $ErrorActionPreference = 'Stop'
 
 foreach ($dir in $Source, $Out, $BlpOut, $MockOut, (Split-Path $ArtLua)) { New-Item -ItemType Directory -Force $dir | Out-Null }
 if (-not ('AzfBlp' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'Blp.cs') -ReferencedAssemblies System.Drawing }
+# Strip seams (2026-11-12): a generated panel's lane can start a little sideways of where the panel
+# above ends (Warrior Alliance panel 3 began ~50 px right of panel 2's lane, so the cross-fade
+# showed two half lanes). Offset finds the sideways shift that best matches the two panels' rows
+# at the join (the bright lane dominates: column brightness, high-passed, correlated); Shift bends
+# a panel's rows sideways by a per-row amount (fading out at the edges), so both panels meet halfway.
+if (-not ('AzfSeam' -as [type])) {
+    Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
+using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
+public static class AzfSeam {
+    static byte[] Read(Bitmap b, out int stride) {
+        var d = b.LockBits(new Rectangle(0, 0, b.Width, b.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        stride = d.Stride; var buf = new byte[stride * b.Height];
+        Marshal.Copy(d.Scan0, buf, 0, buf.Length); b.UnlockBits(d); return buf;
+    }
+    static double[] Profile(Bitmap b, int y0, int y1) {
+        int st; var buf = Read(b, out st); int w = b.Width;
+        var p = new double[w];
+        for (int y = y0; y < y1; y++) for (int x = 0; x < w; x++) {
+            int i = y * st + x * 4; p[x] += 0.11 * buf[i] + 0.59 * buf[i + 1] + 0.30 * buf[i + 2];
+        }
+        // High-pass: minus a 61-px moving average, so broad light and shade don't count.
+        var q = new double[w];
+        for (int x = 0; x < w; x++) {
+            double s = 0; int n = 0;
+            for (int k = Math.Max(0, x - 30); k <= Math.Min(w - 1, x + 30); k++) { s += p[k]; n++; }
+            q[x] = p[x] - s / n;
+        }
+        return q;
+    }
+    // The shift d (px) such that the lower panel's top rows look like the upper panel's bottom
+    // rows moved d to the right; band = rows compared on each side.
+    public static int Offset(Bitmap upper, Bitmap lower, int band, int maxShift) {
+        var a = Profile(upper, upper.Height - band, upper.Height);
+        var b = Profile(lower, 0, band);
+        int w = a.Length, best = 0; double bestScore = double.MinValue;
+        for (int d = -maxShift; d <= maxShift; d++) {
+            double s = 0, na = 0, nb = 0;
+            for (int x = 0; x < w; x++) {
+                int xb = x + d; if (xb < 0 || xb >= w) continue;
+                s += a[x] * b[xb]; na += a[x] * a[x]; nb += b[xb] * b[xb];
+            }
+            double score = (na > 0 && nb > 0) ? s / Math.Sqrt(na * nb) : 0;
+            if (score > bestScore) { bestScore = score; best = d; }
+        }
+        return best;
+    }
+    // Moves row y right by shift[y] px (fractional, linear), sampling clamped at the edges.
+    public static void Shift(Bitmap b, double[] shift, int edge) {
+        int st; var src = Read(b, out st); int w = b.Width, h = b.Height;
+        var dst = (byte[])src.Clone();
+        for (int y = 0; y < h; y++) {
+            double s = shift[y]; if (Math.Abs(s) < 0.01) continue;
+            for (int x = 0; x < w; x++) {
+                // The bend fades out toward the left and right edges (over `edge` px), so the
+                // edges stay put and nothing outside the image is sampled (clamping smeared the
+                // edge column into streaks; mirroring showed mirrored trees, owner 2026-11-12).
+                double e = Math.Min(x, w - 1 - x) / (double)edge;
+                e = e >= 1 ? 1 : e * e * (3 - 2 * e);
+                double sx = Math.Max(0, Math.Min(w - 1, x - s * e));
+                int x0 = (int)Math.Floor(sx), x1 = Math.Min(w - 1, x0 + 1); double f = sx - x0;
+                for (int c = 0; c < 4; c++)
+                    dst[y * st + x * 4 + c] = (byte)Math.Round(src[y * st + x0 * 4 + c] * (1 - f) + src[y * st + x1 * 4 + c] * f);
+            }
+        }
+        var d = b.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+        Marshal.Copy(dst, 0, d.Scan0, dst.Length); b.UnlockBits(d);
+    }
+}
+'@
+}
+$SeamTaper = 150   # rows over which a panel's bend at a seam fades out
+$SeamMax = 90      # largest sideways shift looked for at a seam (px of 512)
+$SeamEdge = 80     # px from the left and right edges over which the bend fades out
 
 $focal = @{}
 if (Test-Path $FocalFile) {
@@ -185,6 +261,7 @@ function Convert-Strip([string]$key, [string[]]$panels) {
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
     $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceOver
     $sizes = @()
+    $ps = @()
     for ($i = 0; $i -lt $n; $i++) {
         $src = [System.Drawing.Image]::FromFile($panels[$i])
         $sizes += "$($src.Width)x$($src.Height)"
@@ -196,6 +273,31 @@ function Convert-Strip([string]$key, [string[]]$panels) {
         $attrs.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)
         $pg.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, $W, $ph), 0, 0, $src.Width, $src.Height, [System.Drawing.GraphicsUnit]::Pixel, $attrs)
         $attrs.Dispose(); $pg.Dispose(); $src.Dispose()
+        $ps += $p
+    }
+    # Line up each seam: find the sideways offset, then bend both panels halfway toward each
+    # other over the overlap, fading out over $SeamTaper rows.
+    $shifts = @()
+    for ($i = 0; $i -lt $n; $i++) { $shifts += ,(New-Object 'double[]' $ph) }
+    $seams = @()
+    for ($i = 1; $i -lt $n; $i++) {
+        $d = [AzfSeam]::Offset($ps[$i - 1], $ps[$i], $StripBlend, $SeamMax)
+        $seams += $d
+        for ($y = 0; $y -lt $ph; $y++) {
+            # Lower panel: full -d/2 over the overlap, fading below it.
+            $t = if ($y -lt $StripBlend) { 1 } else { [Math]::Max(0.0, 1.0 - ($y - $StripBlend) / [double]$SeamTaper) }
+            $wt = $t * $t * (3 - 2 * $t)
+            $shifts[$i][$y] += -$d / 2 * $wt
+            # Upper panel: full +d/2 over its bottom overlap, fading above it.
+            $u = $ph - 1 - $y
+            $t = if ($u -lt $StripBlend) { 1 } else { [Math]::Max(0.0, 1.0 - ($u - $StripBlend) / [double]$SeamTaper) }
+            $wt = $t * $t * (3 - 2 * $t)
+            $shifts[$i - 1][$y] += $d / 2 * $wt
+        }
+    }
+    for ($i = 0; $i -lt $n; $i++) {
+        $p = $ps[$i]
+        [AzfSeam]::Shift($p, $shifts[$i], $SeamEdge)
         # Fade in the top $StripBlend rows of every panel after the first.
         if ($i -gt 0) {
             for ($y = 0; $y -lt $StripBlend; $y++) {
@@ -222,7 +324,7 @@ function Convert-Strip([string]$key, [string[]]$panels) {
     New-Item -ItemType Directory -Force $stripDir | Out-Null
     $blp = Join-Path (Resolve-Path $stripDir).Path "$key.blp"
     $info = [AzfBlp]::Convert($png, $blp)
-    return "strip $key ($n panels: $($sizes -join ', '); each ${W}x$ph, $StripBlend-row cross-fades) -> Strips\$key.blp [$info]"
+    return "strip $key ($n panels: $($sizes -join ', '); each ${W}x$ph, $StripBlend-row cross-fades; seams lined up by $(($seams | ForEach-Object { "$_ px" }) -join ', ')) -> Strips\$key.blp [$info]"
 }
 
 # Tinted textures (plaque-fill-*): a generator paints them very low contrast (209..229 for the

@@ -517,3 +517,215 @@ Round 5 tries the coin greyed and tinted bronze in code for unfinished stops. **
 | coin-paladin-dull | 1:1 | flat magenta | The same coin as coin-paladin (give it as the reference): the same design and relief, struck in dull unpolished dark bronze with a soft matte patina and only faint highlights, as if not yet earned, on a perfectly flat pure magenta (#FF00FF) background |
 
 Save every piece as `art/source/<file>.png`; `tools/process-art.ps1` will key and convert them (support for the round 5 pieces is added with the Lua build).
+
+### Round 5: the other 17 strips and the class coins (added 2026-11-10)
+
+Gideon's road (Alliance Paladin) is done and approved in game. Every other class and side gets the same kind of strip: three 3:4 panels in the round 5 style, with a narrow plain lane where the addon draws the road. Each road's stops are listed top to bottom in the order you walk them, with the level each opens at; paint a landmark for each stop **beside** the lane, never on it. The addon places its nodes by those landmarks afterwards (measured on the art), and traces the lane itself (`trace-strip.ps1 -Method lane`).
+
+**Same for every panel:**
+- Use the **round 5 strip style block** and negative prompt (above, "The map strip: zone-art painting in antique-map colours").
+- Give the tool **Gideon's matching panel as the style reference** (`strip-paladin-alliance-1.png` for panel 1, `-2` for panel 2, `-3` for panel 3), and for panels 2 and 3 **the same road's previous panel as the continuity reference** (its bottom edge continues into the new panel's top edge).
+- **The lane** is a narrow winding lane of plain bare ground, about one sixth of the image width, with nothing painted in it and the land coming right up to its edges. It follows the same route on every road so the panels join:
+  - Panel 1: from the **top centre**, winding down, and leaves the **bottom edge near the left side** (about one tenth of the width in).
+  - Panel 2: enters at the **top edge near the left side** (about one tenth in), winds across, and leaves the **bottom edge about a third of the way in from the left**.
+  - Panel 3: enters at the **top edge about a third of the way in from the left**, winds down, and ends at the **bottom centre**, where a small radiant star is painted on the ground (the road's end).
+- Keep the landmarks small and all at one scale, like Gideon's, with open ground between them, so the stops don't crowd. No people, no creatures, no lettering.
+- The light changes down the road: the top of panel 1 is the morning of the journey; the colours follow the places named, and the bottom of panel 3 is the road's last, most dramatic place.
+- A road's first stop is the class letter from the trainer at home, and home differs by race, so its landmark is a **modest starting place** (a small chapel, hall or hut camp) rather than any one race's town.
+
+Save as `art/source/strip-<class>-<side>-<n>.png` (class and side in lower case: `strip-warrior-horde-2.png`). The pipeline stacks and traces them. Make one road's three panels together; after the first road, let the owner check it in the mockup before the rest.
+
+Subject lines start with "The top / middle / bottom of a long journey map." as for Gideon; each line below is what follows.
+
+Where a row says **"The same as `<file>`"**, the two roads share that part of the world: reuse that panel's subject line word for word, give that finished panel as an extra reference, and still continue this road's own previous panel at the top edge.
+
+#### Warrior, Alliance (`strip-warrior-alliance-<n>`)
+
+Stops: start (1) · Defensive Stance, a city tavern (10) · The Shieldsmith, a cave in red hills (20; side paths: three armourers in three cities) · The Affray, a fighting ring in the savanna (30) · Whirlwind Weapon, a windswept mountain camp (30) · Voodoo Feathers, the gate of a blasted red wasteland (50).
+
+| File | Subject (after "The top / middle / bottom of a long journey map.") |
+|---|---|
+| strip-warrior-alliance-1 | At the top centre a small walled training yard with wooden sparring posts and a stone bell tower, morning light; a third of the way down on the right a cobbled city square with a crooked timber tavern; the land turns to red rocky hills toward the bottom, where a dark cave mouth opens in a red cliff on the left. The lane as described. The bottom edge continues into red hills |
+| strip-warrior-alliance-2 | Red rocky hills continuing from the top edge. Near the top: on the left a blacksmith's forge with a glowing chimney, on the right a dwarven gate carved into a mountainside with a forge's fire inside, and a little lower on the right a moonlit elven arbour of pale wood (three armourers). Below, the land opens into golden dry savanna with a ring of sharpened wooden stakes around a sandy fighting pit on the right, and toward the bottom snowy foothills with a windswept stone circle and torn banners on the left. The bottom edge continues into snowy foothills |
+| strip-warrior-alliance-3 | Snowy foothills turning to grey marsh and then cracked red wasteland from the top edge. Two thirds of the way down on the right, a broken battle standard and a small stone cairn at the mouth of a red canyon pass; beyond it on the horizon the silhouette of an enormous dark stone gate under a red sky. The ground darkens toward the bottom centre, where a small radiant star is painted. The lane as described |
+
+#### Warrior, Horde (`strip-warrior-horde-<n>`)
+
+Stops: start (1) · Defensive Stance, a watch post on the savanna (10) · Trial at the Field of Giants, a camp of tents in the plains (20; side paths: a troll village by the sea, a mesa city of totems, a ruined city's crypt) · The Affray (30) · Whirlwind Weapon (30) · Voodoo Feathers (50).
+
+| File | Subject |
+|---|---|
+| strip-warrior-horde-1 | At the top centre a rugged red-rock valley with a small camp of spiked huts and a burning brazier, morning light; a third of the way down on the right a wooden watch tower on a cliff above golden savanna; toward the bottom on the left a camp of hide tents and tall carved totems beside enormous old bones lying in the grass. The lane as described. The bottom edge continues into golden savanna |
+| strip-warrior-horde-2 | Golden savanna continuing from the top edge. Near the top: on the left a troll village of thatched stilt huts by a turquoise shore, on the right tall flat-topped mesas with totem poles and longhouses on their tops, and a little lower on the right the sunken stone stairs of a ruined city's crypt among dead pines (three armourers). Below, a ring of sharpened wooden stakes around a sandy fighting pit on the right, and toward the bottom snowy foothills with a windswept stone circle and torn banners on the left. The bottom edge continues into snowy foothills |
+| strip-warrior-horde-3 | The same as `strip-warrior-alliance-3`: snowy foothills turning to grey marsh and cracked red wasteland, a broken battle standard and cairn at a red canyon pass two thirds down on the right, an enormous dark stone gate on the horizon, the star at the bottom centre |
+
+#### Hunter, Alliance (`strip-hunter-alliance-<n>`)
+
+Stops: start (1) · Taming the Beast, a forest glade (10) · The Green Drake, a hermit's camp on a crimson coast (50). Few stops: let the wilds between them be wide and open.
+
+| File | Subject |
+|---|---|
+| strip-hunter-alliance-1 | At the top centre a small timber lodge with antlers over the door in a frosty pine valley, morning light; a little past a third of the way down on the right, a sunlit glade in a giant forest with a beast's den under huge roots and a little archery target; below it rolling wild woodland and a river ford. The lane as described. The bottom edge continues into open woodland |
+| strip-hunter-alliance-2 | Open woodland continuing from the top edge into wide grassy plains with distant herds drawn as tiny shapes, a winding river with a wooden footbridge beside the lane, rocky outcrops, then dense dark forest toward the bottom. No buildings. The bottom edge continues into dark forest turning autumn red |
+| strip-hunter-alliance-3 | Dark forest from the top edge turning into a crimson and violet autumn forest by a deep blue sea, ancient pale elven ruins half in the trees; two thirds of the way down on the right, a lone hermit's camp with a small fire and a lean-to on a sea cliff. The bottom centre glows warmly around a small radiant star painted on the ground |
+
+#### Hunter, Horde (`strip-hunter-horde-<n>`)
+
+Stops: start (1) · Taming the Beast, a tauren village on the plains (10) · The Green Drake (50).
+
+| File | Subject |
+|---|---|
+| strip-hunter-horde-1 | At the top centre a small camp of spiked huts and hide tents in a red-rock valley, morning light; a little past a third of the way down on the right, a village of tall hide tents and a windmill-like water pump on rolling golden-green plains, with tall birds' tracks in the grass; below it wild grassland and a river ford. The lane as described. The bottom edge continues into open grassland |
+| strip-hunter-horde-2 | The same as `strip-hunter-alliance-2`: open grassland, tiny distant herds, a river with a footbridge, rocky outcrops, dark forest toward the bottom, no buildings |
+| strip-hunter-horde-3 | The same as `strip-hunter-alliance-3`: the crimson and violet autumn forest by the sea, elven ruins, the hermit's camp on a sea cliff two thirds down on the right, the star at the bottom centre |
+
+#### Mage, Alliance (`strip-mage-alliance-<n>`)
+
+Stops: start (1) · First Errand, a still lake (10) · Manaweave Robe, a city's mage quarter (15) · Astral Knot Garment, a haunted ruined tower (26) · Mage's Wand and Celestial Power, a stilt hut in a swamp (30, 35) · Destroy Morphaz and Fragmented Magic, an arcane tower on sea cliffs and a sunken temple (50, 60).
+
+| File | Subject |
+|---|---|
+| strip-mage-alliance-1 | At the top centre a small stone abbey in a sheltered green valley, morning light; a third of the way down on the left a perfectly still lake with a faint violet shimmer on its mirror surface; a little lower on the right, a walled city's quarter of slender towers with violet roofs and arcane lanterns. The lane as described. The bottom edge continues into darkening woods |
+| strip-mage-alliance-2 | Darkening woods from the top edge: on the left a third of the way down, a crooked ruined stone tower in a gloomy haunted forest of black twisted trees, a pale glow in its window; further down the land sinks into misty green swamp, and on the right toward the bottom a lone wooden hut on stilts with a violet arcane lantern. The bottom edge continues into misty marsh |
+| strip-mage-alliance-3 | Misty marsh from the top edge turning into a crimson autumn coast by a deep blue sea; two thirds of the way down on the right a tall slender arcane tower glowing violet on the top of sea cliffs; a little lower on the left the half-sunken ruins of a temple in the surf. The bottom centre glows around a small radiant star painted on the ground |
+
+#### Mage, Horde (`strip-mage-horde-<n>`)
+
+Stops: start (1) · First Errand, a farmstead's flower fields (10) · Spellfire Robes, a ruined city's crypt quarter (15) · Nether-lace Garment, a forest stream with glowing pools (26) · Mage's Wand and Celestial Power (30, 35) · Destroy Morphaz and Fragmented Magic (50, 60).
+
+| File | Subject |
+|---|---|
+| strip-mage-horde-1 | At the top centre a small rugged starting camp of huts and a ruined chapel among dark pines, morning light; a third of the way down on the left a little farmstead with fields of bright snapdragon flowers on a hillside; a little lower on the right the sunken entrance of a ruined city's crypts lit by green-glowing arcane lamps. The lane as described. The bottom edge continues into ashen forest |
+| strip-mage-horde-2 | Ashen grey-green forest from the top edge: on the left a third of the way down a forest stream with pools glowing violet among broken satyr-carved stones; further down the land sinks into misty green swamp, and on the right toward the bottom a lone wooden hut on stilts with a violet arcane lantern. The bottom edge continues into misty marsh |
+| strip-mage-horde-3 | The same as `strip-mage-alliance-3`: the crimson autumn coast, the violet arcane tower on sea cliffs two thirds down on the right, the half-sunken temple ruins on the left, the star at the bottom centre |
+
+#### Priest, Alliance (`strip-priest-alliance-<n>`)
+
+Stops: start (1) · Garments of the Light, a village guard post (5) · Desperate Prayer, a cathedral (10) · Divine Grace, a glowing shrine (10) · A Lack of Fear, a mountain city gate (20) · Blood of Morphaz, a sunken jungle temple (50) · The Balance of Light and Shadow, a burning plagued village (60).
+
+| File | Subject |
+|---|---|
+| strip-priest-alliance-1 | At the top centre a small stone abbey in a sheltered valley, morning light; just below on the left a little village with a well and a wooden guard post; a third of the way down on the right a grand white cathedral with tall spires, and opposite it on the left a small open-air shrine of white stone with a soft golden glow; toward the bottom, snowy mountains begin. The lane as described. The bottom edge continues into snowy foothills |
+| strip-priest-alliance-2 | Snowy foothills from the top edge: near the top on the right a great stone gate carved into a mountainside with a warm glow inside; then a long descent through pine hills into misty lowlands, and toward the bottom the edge of a steaming swamp. No other buildings. The bottom edge continues into misty swamp |
+| strip-priest-alliance-3 | Misty swamp from the top edge: a third of the way down on the left a half-sunken stepped jungle temple overgrown with vines in dark water; below, the land turns to pale plagued fields with dead trees, and two thirds of the way down on the right a small village of cottages with smoke rising and a shaft of golden light falling on a chapel. The ground darkens toward the bottom centre, where a small radiant star is painted |
+
+#### Priest, Horde (`strip-priest-horde-<n>`)
+
+Stops: start (1) · Garments of Spirituality, a spiked wooden fort town (5) · Hex of Weakness, a troll shrine (10) · Shadowguard, a canyon city (20) · Blood of Morphaz (50) · The Balance of Light and Shadow (60).
+
+| File | Subject |
+|---|---|
+| strip-priest-horde-1 | At the top centre a small camp of spiked huts in a red-rock valley, morning light; just below on the left a small fort town of spiked wooden walls on red earth; a third of the way down on the right a troll shrine of carved masks and smoking braziers under palms; toward the bottom, great red canyon walls rise. The lane as described. The bottom edge continues into red canyon country |
+| strip-priest-horde-2 | Red canyon country from the top edge: near the top on the left a great canyon city with spiked walls, banners and smoke rising behind its gate; then a long descent through dry hills and scrub into misty lowlands, the edge of a steaming swamp at the bottom. The bottom edge continues into misty swamp |
+| strip-priest-horde-3 | The same as `strip-priest-alliance-3`: the half-sunken jungle temple a third down on the left, the plagued fields, the village and chapel in a shaft of golden light two thirds down on the right, the star at the bottom centre |
+
+#### Rogue, Alliance (`strip-rogue-alliance-<n>`)
+
+Stops: start (1) · Thieves' Errand, a harbour (10) · Lockpicking Trial, a lakeside town (16) · The Touch of Zanzil, farmland (20) · The Manor, Ravenholdt, a hidden manor (24) · The Syndicate Sting, a ruined keep (24) · The Eye of Bhossca, a monastery (25, side path) · The Azure Key, a crimson coast (50).
+
+| File | Subject |
+|---|---|
+| strip-rogue-alliance-1 | At the top centre a small stone abbey with a stable behind it in a green valley, morning light; a third of the way down on the right a city harbour with wooden docks, moored sailing ships and crates; lower on the left a lakeside town with a long stone bridge among red hills; toward the bottom on the right golden farmland with a lone windmill and a ruined farmhouse. The lane as described. The bottom edge continues into wooded hills |
+| strip-rogue-alliance-2 | Wooded green hills from the top edge: near the top on the left a dark gabled manor hidden among tall trees on a hillside, a single lit window; a little lower on the right a ruined stone keep on a hill with broken walls; on the far left, a little lower, a grand monastery cathedral with crimson banners. Below, a long journey through quiet hills and a river gorge. The bottom edge continues into hills turning autumn red |
+| strip-rogue-alliance-3 | Autumn hills from the top edge turning into a crimson and violet forest by a deep blue sea, ancient pale ruins in the trees; two thirds of the way down on the right a camp of round huts with carved totems at the edge of the forest, and on the sea cliffs beyond it a slender arcane tower. The bottom centre glows around a small radiant star painted on the ground |
+
+#### Rogue, Horde (`strip-rogue-horde-<n>`)
+
+Stops: start (1) · The Shattered Hand, a shadowy cleft in a canyon city (10) · Lockpicking Trial, a walled city under a violet dome (16) · Hinott's Assistance, a hill village with a mill (20) · The Manor, Ravenholdt (24) · The Syndicate Sting (24) · The Eye of Bhossca (25, side path) · The Azure Key (50).
+
+| File | Subject |
+|---|---|
+| strip-rogue-horde-1 | At the top centre a small camp of spiked huts in a red-rock valley, morning light; a third of the way down on the right a shadowy cleft in red canyon walls with hanging lanterns and a hidden door; lower on the left, beyond dark pine hills, a walled city covered by a huge translucent violet dome of magic; toward the bottom on the right a hill village with a big wooden mill. The lane as described. The bottom edge continues into wooded hills |
+| strip-rogue-horde-2 | The same as `strip-rogue-alliance-2`: the hidden manor on the left near the top, the ruined keep a little lower on the right, the crimson-bannered monastery on the far left, then quiet hills and a river gorge |
+| strip-rogue-horde-3 | The same as `strip-rogue-alliance-3`: the crimson forest by the sea, the camp of huts with totems and the arcane tower on the cliffs two thirds down on the right, the star at the bottom centre |
+
+#### Shaman, Alliance (`strip-shaman-alliance-<n>`)
+
+Stops: start (1) · Call of Earth, snowy foothills (4) · Call of Fire, a mountain lake and dam (10) · Call of Water, misty wetlands (20) · Call of Air, a stone circle on windswept highlands (30) · The Tempest's Weapons, a bramble warren (30).
+
+| File | Subject |
+|---|---|
+| strip-shaman-alliance-1 | At the top centre a sturdy stone hall built into a snowy mountainside, morning light; just below on the right, snowy foothills with a tall carved earth totem of stacked stones; a third of the way down on the left a mountain lake held by a huge stone dam, with a burning brazier on a rock above the water; toward the bottom the snow gives way to green valleys. The lane as described. The bottom edge continues into green valleys |
+| strip-shaman-alliance-2 | Green valleys from the top edge sinking into misty wetlands of reeds and pools; a third of the way down on the left a clear spring pouring from mossy rocks into a pool; lower on the right windswept highland moors with a ring of standing stones under swirling storm clouds; just below on the left a warren of enormous thorny brambles in dry grass. The bottom edge continues into dry plains |
+| strip-shaman-alliance-3 | Dry plains from the top edge: a long open journey past rock outcrops, a river and distant mountains, with no buildings; the land grows wild and stormy toward the bottom centre, where a small radiant star is painted on the ground |
+
+#### Shaman, Horde (`strip-shaman-horde-<n>`)
+
+Stops: start (1) · Call of Earth, a hill with an earth totem (4) · Call of Fire, a brazier on red rock spires (10) · Call of Water, a savanna oasis (20) · Call of Air, towering rock needles (30) · The Tempest's Weapons, a bramble warren (30) · Da Voodoo, a windswept mountain stone circle (50) · The Darkreaver Menace, a gloomy academy on a lake island (58).
+
+| File | Subject |
+|---|---|
+| strip-shaman-horde-1 | At the top centre a small camp of spiked huts in a red-rock valley, morning light; just below on the left a rocky hill crowned by a tall carved earth totem; a third of the way down on the right tall red rock spires with a burning brazier on the highest; toward the bottom, golden savanna. The lane as described. The bottom edge continues into golden savanna |
+| strip-shaman-horde-2 | Golden savanna from the top edge: near the top on the left a palm-ringed oasis pool fed by a spring from a rock; a third of the way down on the right a forest of towering thin rock needles rising from a dry canyon floor; a little lower on the left a warren of enormous thorny brambles. Toward the bottom, the land climbs into snowy mountains. The bottom edge continues into snowy foothills |
+| strip-shaman-horde-3 | Snowy foothills from the top edge: a third of the way down on the right a windswept stone circle with streaming banners on a mountain shoulder; below, the land falls to a dark lake, and two thirds of the way down on the left a grim gothic academy on a rocky island in the lake, its windows faintly green. The ground darkens toward the bottom centre, where a small radiant star is painted |
+
+#### Druid, Alliance (`strip-druid-alliance-<n>`)
+
+Stops: start (1) · Body and Heart, a moonlit glade (10) · Child of Nature, a city garden (10, side path) · Power over Poison, a bog of poison blooms (14) · Aquatic Form, a coastal cove (16) · The Great Cat Spirit, a cat statue at a jungle's edge (20) · A Better Ingredient, a volcanic crater jungle (50).
+
+| File | Subject |
+|---|---|
+| strip-druid-alliance-1 | At the top centre a colossal ancient hollow tree with lanterns among violet-tinted night forest, early morning light; a third of the way down on the right a moonlit glade by a still lake ringed by standing stones; across from it on the far left a small walled garden of a stone city; toward the bottom on the left a misty bog of glowing purple and green poisonous blooms. The lane as described. The bottom edge continues into forest by the sea |
+| strip-druid-alliance-2 | Forest by the sea from the top edge: near the top on the right a moonlit coastal cove with a small shrine of pale stone half in the shallows and shells on the sand; a third of the way down on the left a great stone cat statue at the edge of a lush jungle; below, a long journey through wild forest and hills. The bottom edge continues into warm wild hills |
+| strip-druid-alliance-3 | Warm wild hills from the top edge sinking into a vast steaming crater of jungle with giant ferns and a smoking volcano; two thirds of the way down on the right a small hermit's camp under a huge fern beside a hot spring. The bottom centre glows around a small radiant star painted on the ground |
+
+#### Druid, Horde (`strip-druid-horde-<n>`)
+
+Stops: start (1) · Body and Heart (10) · Child of Nature, a mesa city of totems (10, side path) · Power over Poison (14) · Aquatic Form (16) · The Great Cat Spirit (20) · A Better Ingredient (50).
+
+| File | Subject |
+|---|---|
+| strip-druid-horde-1 | At the top centre a camp of tall hide tents on a grassy mesa top, early morning light; a third of the way down on the right a moonlit glade by a still lake ringed by standing stones; across from it on the far left tall flat-topped mesas with totem poles and longhouses; toward the bottom on the left a misty bog of glowing purple and green poisonous blooms. The lane as described. The bottom edge continues into forest by the sea |
+| strip-druid-horde-2 | The same as `strip-druid-alliance-2`: the moonlit cove with its half-sunken shrine near the top on the right, the great stone cat statue at the jungle's edge a third down on the left, then wild forest and hills |
+| strip-druid-horde-3 | The same as `strip-druid-alliance-3`: the steaming volcanic crater jungle, the hermit's camp by a hot spring two thirds down on the right, the star at the bottom centre |
+
+#### Warlock, Alliance (`strip-warlock-alliance-<n>`)
+
+The busiest road: 7 stops and 6 side paths. Keep every landmark small.
+
+Stops: start (1) · First Lessons, a gloomy cottage (1) · Summon Voidwalker, a crooked city tavern (10) · Summon Succubus, a seer's hut on the savanna (20; side path: a broken stone well with violet orb shards) · Summon Felhunter, a carved mountain library (30; side paths: a tailor's tent with violet runes, a lone tower on a cliff) · Summon Felsteed, a port town (40) · Trolls of a Feather, a corrupted green forest (50; side path: a burning crater) · Dreadsteed of Xoroth, a volcanic wasteland shrine (60; side path: an overgrown ruined elven city).
+
+| File | Subject |
+|---|---|
+| strip-warlock-alliance-1 | At the top centre a small stone abbey in a green valley, morning light; just below on the left a gloomy little cottage with a dark cellar door; a third of the way down on the right a crooked city tavern with violet light glowing from its cellar windows; toward the bottom on the left a lone seer's hut on a hill in golden savanna, and on the right a broken stone well with faint violet shards around it. The lane as described. The bottom edge continues into savanna rising to mountains |
+| strip-warlock-alliance-2 | Savanna from the top edge rising to mountains: near the top on the right a great hall carved into a mountainside with tall bookcase-like stone pillars at its entrance; a third of the way down on the left a dark tent embroidered with violet runes; lower down a small port town of wooden shacks with a pier and a crane on the coast, and above it on the right a lone narrow tower on a sea cliff. The bottom edge continues into sickly green forest |
+| strip-warlock-alliance-3 | Sickly corrupted green forest with fel-lit pools from the top edge; a third of the way down on the left a smouldering crater with a black stone at its heart; below, the land burns into a volcanic wasteland of black rock and glowing lava rivers, and two thirds of the way down on the right a demonic shrine of jagged black spires; on the far left a little lower, an overgrown ruined elven city in jungle. The ground glows red toward the bottom centre, where a small radiant star is painted |
+
+#### Warlock, Horde (`strip-warlock-horde-<n>`)
+
+Stops: start (1) · First Lessons, a graveyard (1) · Summon Voidwalker, a crypt temple (10) · Summon Succubus (20; side path: the broken well) · Summon Felhunter, a ruined city's crypts (30; side paths: the tailor's tent, the cliff tower) · Summon Felsteed, the port town (40) · Trolls of a Feather (50; side path: the burning crater) · Dreadsteed of Xoroth (60; side path: the ruined elven city).
+
+| File | Subject |
+|---|---|
+| strip-warlock-horde-1 | At the top centre a small rugged starting camp among dark pines, morning light; just below on the left a little graveyard of leaning stones and a broken fence; a third of the way down on the right a sunken crypt temple with green-lit braziers at its stairs; toward the bottom on the left a lone seer's hut on a hill in golden savanna, and on the right a broken stone well with faint violet shards around it. The lane as described. The bottom edge continues into savanna |
+| strip-warlock-horde-2 | Savanna from the top edge: near the top on the right the sunken stairs of a ruined city's crypts with green-glowing lamps; a third of the way down on the left a dark tent embroidered with violet runes; lower down a small port town of wooden shacks with a pier and a crane on the coast, and above it on the right a lone narrow tower on a sea cliff. The bottom edge continues into sickly green forest |
+| strip-warlock-horde-3 | The same as `strip-warlock-alliance-3`: the corrupted forest, the smouldering crater a third down on the left, the volcanic wasteland with the demonic shrine two thirds down on the right, the ruined elven city on the far left, the star at the bottom centre |
+
+#### Paladin, Horde (`strip-paladin-horde-<n>`)
+
+Stops (all by level 20; the rest of the road is open country to the star): start, a small chapel (1) · Rediscovering the Light, a palisade camp (2) · Bandarion Keep, a lakeside fortress (7; side path: a walled garden inside the keep) · A Lesson in Divinity, a ruined city's crypts (12) · Diplomatic Incident, a mausoleum in a dark pine forest (18) · The Moonsilver Blade, a moonlit shrine with a silver sword (20).
+
+| File | Subject |
+|---|---|
+| strip-paladin-horde-1 | At the top centre a small ruined chapel with a faint golden light in its doorway, in a gloomy village of dead pines and old graves, morning light breaking through grey cloud; just below on the right a wooden palisade camp with tents; a third of the way down on the left a stone fortress on the shore of a grey lake, and beside it on the far left a small walled garden with a fountain; toward the bottom, dark pine forest. The lane as described. The bottom edge continues into dark pine forest |
+| strip-paladin-horde-2 | Dark pine forest from the top edge: near the top on the right the sunken stone stairs of a ruined city's crypts with green-glowing lamps; a third of the way down on the left a stone mausoleum among black pines; a little lower on the right a moonlit clearing with a small shrine where a silver sword stands in a stone, glowing softly. Below, the forest thins into open hills. The bottom edge continues into open hills |
+| strip-paladin-horde-3 | Open hills from the top edge: a long quiet journey through grassland, a river and rocky rises toward distant mountains, with no buildings; warm light gathers toward the bottom centre, where a small radiant star is painted on the ground |
+
+#### The class coins
+
+A finished stop's mark (52 px on the map, 80 in the header): one gold coin per class, shared by Alliance and Horde, with the same rim, metal and lighting as `coin-paladin` (give it as the reference). Unfinished stops use the same coin greyed in code, so no other version is needed. Use the **chrome style block** (flat magenta, symmetrical, no text); save as `art/source/coin-<class>.png`.
+
+| File | Aspect | Subject line |
+|---|---|---|
+| coin-warrior | 1:1 | A thick round gold coin seen straight on, the same raised beaded rim and polished gold as the reference coin, struck in the centre with two crossed swords behind a round shield, deep crisp relief, warm highlights, the coin filling the frame |
+| coin-hunter | 1:1 | The same gold coin, struck with a drawn longbow and an arrow pointing upward across it, with a small paw print below, deep crisp relief |
+| coin-mage | 1:1 | The same gold coin, struck with a radiant eight-pointed star inside a ring of small runic dots, deep crisp relief |
+| coin-priest | 1:1 | The same gold coin, struck with a radiant chalice under a small sunburst, deep crisp relief |
+| coin-rogue | 1:1 | The same gold coin, struck with two crossed daggers point down and a small hood shape above them, deep crisp relief |
+| coin-shaman | 1:1 | The same gold coin, struck with a carved totem pole between a small lightning bolt and a flame, deep crisp relief |
+| coin-warlock | 1:1 | The same gold coin, struck with a horned skull above a small flame, deep crisp relief |
+| coin-druid | 1:1 | The same gold coin, struck with a bear's paw print framed by two oak leaves, deep crisp relief |
+
+Negative prompt: the chrome one, plus `text, letters, numbers, faces, crown, king's head, currency symbols, colours other than gold`.
+
+Not needed: a sketch per class (unfinished stops use the dull coin, round 5) and any other road pieces (the road band, cartouche, rune stones and focus ring are shared by every class).

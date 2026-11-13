@@ -412,6 +412,15 @@ Theme.classSky = { { 0, hex("f7dc9a") }, { 0.12, hex("d9b46a") }, { 0.3, hex("7f
 -- a painted strip (Media\Strips\<class>-<side>.blp, 1:4, so H = 4 * mapW) they sit in its corridor
 -- beside their landmarks, measured on the art. A road without its own table is laid out by the page.
 Theme.classStrip = {
+    WARRIOR = {
+        -- Round 5 strip (2026-11-12, made with Codex from art/prompts.md): the training yard, the
+        -- city tavern, the cave in red hills; the forge, the dwarven gate and the elven arbour
+        -- (the three armourers' side paths); the fighting pit, the windswept stone circle, the
+        -- broken standard at the red canyon pass, the star.
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, stance = { 240, 213 }, shieldsmith = { 100, 484 },
+            grimand = { 70, 690 }, klockmort = { 330, 655 }, mathiel = { 300, 750 },
+            berserker = { 170, 900 }, whirlwind = { 130, 1010 }, kinship = { 175, 1484 } },
+    },
     PALADIN = {
         -- The round 5 strip (2026-11-10: the zone art's painting in antique colours, a narrow lane
         -- traced into Data/StripPaths.lua): the abbey, the cathedral city, the farm, the autumn

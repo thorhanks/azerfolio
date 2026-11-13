@@ -121,5 +121,6 @@ ns.Art = {
     },
     strips = {
         ["paladin-alliance"] = true,
+        ["warrior-alliance"] = true,
     },
 }
