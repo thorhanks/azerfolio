@@ -23,7 +23,8 @@ param(
     [ValidateSet('lane', 'rows')][string]$Method = 'rows',
     [double]$ColorTol = 38,   # lane: how far (RGB) a cell's colour may be from the lane's colour
     [string]$MaskDir = '',    # lane: write each strip's lane mask here (debugging)
-    [int]$LaneSmooth = 2      # lane: smoothing half width (the path already keeps to the middle)
+    [int]$LaneSmooth = 2,      # lane: smoothing half width (the path already keeps to the middle)
+    [int]$OffLaneWarn = 40    # report a trace that leaves the lane for longer than this (px)
 )
 Add-Type -AssemblyName System.Drawing
 $ErrorActionPreference = 'Stop'
@@ -39,6 +40,8 @@ public static class AzfStripPath {
     public static double ColorTol = 38;
     public static string MaskOut = null;
     public static string Info = "";
+    public static double WarmMin = 80;   // red minus blue for a cell to set a stretch's lane colour
+    public static int LaneBand = 128;   // rows (cells) per stretch with its own lane colour
     // Returns x,y pairs (strip pixels) of the corridor's centre every `step` rows.
     // Lane method: plain (low detail) and light pixels form the lane mask; a distance transform
     // inside it makes the middle cheapest; Dijkstra (8-connected, on a grid of `cell` px) finds
@@ -87,21 +90,40 @@ public static class AzfStripPath {
             }
             sd.Sort(); sl.Sort();
             double dThr = sd[(int)(sd.Count * 0.30)] * 1.6, lThr = sl[(int)(sl.Count * 0.55)];
-            // The lane's colour: the median of the lightest fifth of the plain cells; the lane is the cells
-            // close to it in colour and not busy (foliage of a similar lightness differs in hue).
-            var pr = new System.Collections.Generic.List<double>(); var pg = new System.Collections.Generic.List<double>(); var pb = new System.Collections.Generic.List<double>();
-            var pl = new System.Collections.Generic.List<double>();
-            for (int i = 0; i < n; i++) if (dv[i] <= dThr && lv[i] >= lThr) pl.Add(lv[i]);
-            pl.Sort();
-            double lTop = pl[(int)(pl.Count * 0.80)];
-            for (int i = 0; i < n; i++) if (dv[i] <= dThr && lv[i] >= lTop) { pr.Add(rv[i]); pg.Add(gv[i]); pb.Add(bv[i]); }
-            pr.Sort(); pg.Sort(); pb.Sort();
-            double mr = pr[pr.Count / 2], mg = pg[pg.Count / 2], mb = pb[pb.Count / 2];
-            Info = string.Format("lane colour {0:F0},{1:F0},{2:F0}", mr, mg, mb);
+            // The lane's colour, per stretch of the strip (blended between stretches): the median
+            // of the lightest fifth of the plain cells in that stretch. The light changes down a
+            // road (Warrior Horde's lane turns orange in the red wasteland and the trace cut across
+            // the ground to the star, owner 2026-11-12), so one colour for the whole strip fails.
+            // Only warm cells (red well above blue) can set the colour: every lane is a warm tan,
+            // and in snowy stretches the lightest plain ground is snow. The lane is the cells
+            // close to their stretch's colour and not busy.
+            int bands = Math.Max(1, gh / LaneBand);
+            var br = new double[bands]; var bg = new double[bands]; var bb = new double[bands];
+            for (int k = 0; k < bands; k++) {
+                int y0 = k * gh / bands, y1 = (k + 1) * gh / bands;
+                var pl = new System.Collections.Generic.List<double>();
+                for (int y = y0; y < y1; y++) for (int x = 0; x < gw; x++) { int i = y * gw + x; if (dv[i] <= dThr && lv[i] >= lThr && rv[i] - bv[i] >= WarmMin) pl.Add(lv[i]); }
+                if (pl.Count < 20) { pl.Clear(); for (int y = y0; y < y1; y++) for (int x = 0; x < gw; x++) { int i = y * gw + x; if (dv[i] <= dThr) pl.Add(lv[i]); } }
+                pl.Sort();
+                double lTop = pl.Count > 0 ? pl[(int)(pl.Count * 0.80)] : 0;
+                var pr = new System.Collections.Generic.List<double>(); var pg = new System.Collections.Generic.List<double>(); var pb = new System.Collections.Generic.List<double>();
+                for (int y = y0; y < y1; y++) for (int x = 0; x < gw; x++) { int i = y * gw + x; if (dv[i] <= dThr * 1.5 && lv[i] >= lTop && rv[i] - bv[i] >= WarmMin) { pr.Add(rv[i]); pg.Add(gv[i]); pb.Add(bv[i]); } }
+                pr.Sort(); pg.Sort(); pb.Sort();
+                br[k] = pr.Count > 0 ? pr[pr.Count / 2] : 0; bg[k] = pg.Count > 0 ? pg[pg.Count / 2] : 0; bb[k] = pb.Count > 0 ? pb[pb.Count / 2] : 0;
+            }
+            Info = "lane colours";
+            for (int k = 0; k < bands; k++) Info += string.Format(" {0:F0},{1:F0},{2:F0}", br[k], bg[k], bb[k]);
             var lane = new bool[n];
-            for (int i = 0; i < n; i++) {
-                double d = Math.Sqrt((rv[i] - mr) * (rv[i] - mr) + (gv[i] - mg) * (gv[i] - mg) + (bv[i] - mb) * (bv[i] - mb));
-                lane[i] = d <= ColorTol && dv[i] <= dThr * 1.5;
+            for (int y = 0; y < gh; y++) {
+                // Blend the two nearest stretches' colours by row.
+                double fb = Math.Max(0, Math.Min(bands - 1, (y + 0.5) * bands / gh - 0.5));
+                int k0 = (int)Math.Floor(fb), k1 = Math.Min(bands - 1, k0 + 1); double f = fb - k0;
+                double mr = br[k0] * (1 - f) + br[k1] * f, mg = bg[k0] * (1 - f) + bg[k1] * f, mb = bb[k0] * (1 - f) + bb[k1] * f;
+                for (int x = 0; x < gw; x++) {
+                    int i = y * gw + x;
+                    double d = Math.Sqrt((rv[i] - mr) * (rv[i] - mr) + (gv[i] - mg) * (gv[i] - mg) + (bv[i] - mb) * (bv[i] - mb));
+                    lane[i] = d <= ColorTol && dv[i] <= dThr * 1.5;
+                }
             }
             if (!string.IsNullOrEmpty(MaskOut)) {
                 using (var m = new Bitmap(gw, gh)) { for (int i = 0; i < n; i++) m.SetPixel(i % gw, i / gw, lane[i] ? Color.White : Color.Black); m.Save(MaskOut); }
@@ -152,6 +174,20 @@ public static class AzfStripPath {
             var cells = new System.Collections.Generic.List<int>();
             for (int i = end; i >= 0; i = from[i]) cells.Add(i);
             cells.Reverse();
+            // The painted lane often begins just below the first landmark (a door, a chapel), not
+            // at the top edge: drop the leading run before the path reaches the lane for good
+            // (at least 85% of the next 60 cells on the lane; a bright sky patch at the top edge
+            // counts as lane too, so a short run isn't enough), so the road doesn't cut through
+            // the art to get there (Druid Alliance's trace ran down through the great tree,
+            // 2026-11-12). Starts only in the top quarter of the strip.
+            int startAt = 0;
+            for (int k = 0; k + 60 < cells.Count && cells[k] / gw < gh / 4; k++) {
+                if (!lane[cells[k]]) continue;
+                int on = 0;
+                for (int q = k; q < k + 60; q++) if (lane[cells[q]]) on++;
+                if (on >= 51) { startAt = k; break; }
+            }
+            if (startAt > 0) cells.RemoveRange(0, startAt);
             // Resample every `step` px of arc length, then smooth.
             var xs = new System.Collections.Generic.List<double>(); var ys = new System.Collections.Generic.List<double>();
             double acc = step, lx = 0, ly = 0;
@@ -193,6 +229,37 @@ public static class AzfStripPath {
                 outp[2 * i + 1] = i == 0 || i == xs.Count - 1 ? ys[i] : sy / m;
             }
             return outp;
+        }
+    }
+
+    // A check on a traced path (strip pixels, x,y pairs): walks it every 4 px and returns the
+    // longest stretch (px) over ground that isn't lane-like (warm: red at least 80 above blue;
+    // light: luminance 140+, averaged over a 5x5 patch). The top and bottom 60 rows are left out.
+    public static int LongestOffLane(string path, double[] pts) {
+        using (var src = new Bitmap(path)) {
+            int w = src.Width, h = src.Height;
+            var data = src.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+            var buf = new byte[data.Stride * h];
+            Marshal.Copy(data.Scan0, buf, 0, buf.Length);
+            src.UnlockBits(data);
+            int run = 0, longest = 0;
+            for (int i = 2; i < pts.Length; i += 2) {
+                double ax = pts[i - 2], ay = pts[i - 1], bx = pts[i], by = pts[i + 1];
+                double len = Math.Sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay));
+                int steps = Math.Max(1, (int)(len / 4));
+                for (int s = 0; s < steps; s++) {
+                    int x = (int)(ax + (bx - ax) * s / steps), y = (int)(ay + (by - ay) * s / steps);
+                    if (y < 60 || y > h - 60 || x < 3 || x > w - 4) continue;
+                    double r = 0, g = 0, b = 0;
+                    for (int dy = -2; dy <= 2; dy++) for (int dx = -2; dx <= 2; dx++) {
+                        int k = (y + dy) * data.Stride + (x + dx) * 3; b += buf[k]; g += buf[k + 1]; r += buf[k + 2];
+                    }
+                    r /= 25; g /= 25; b /= 25;
+                    bool lane = r - b >= 80 && 0.3 * r + 0.59 * g + 0.11 * b >= 140;
+                    if (lane) run = 0; else { run += 4; if (run > longest) longest = run; }
+                }
+            }
+            return longest;
         }
     }
 
@@ -289,7 +356,11 @@ foreach ($png in (Get-ChildItem $StripDir -Filter *.png | Where-Object { $_.Base
     $lua += "    [""$($png.BaseName)""] = { " + ($items -join ', ') + ' },'
     $js += "  ""$($png.BaseName)"": [" + (($items | ForEach-Object { $_ -replace '\{', '[' -replace '\}', ']' }) -join ', ') + '],'
     if ($MaskDir) { Write-Output ([AzfStripPath]::Info) }
-    Write-Output "$($png.BaseName): $($pts.Count / 2) points -> review $($png.BaseName)-path.png"
+    # The check: the longest stretch of the trace over ground that isn't lane-like. More than
+    # ~40 px means it leaves the painted lane somewhere: look at the review image.
+    $off = [AzfStripPath]::LongestOffLane($png.FullName, $pts)
+    $warn = if ($off -gt $OffLaneWarn) { "  CHECK: leaves the lane for $off px" } else { '' }
+    Write-Output "$($png.BaseName): $($pts.Count / 2) points, longest off-lane $off px -> review $($png.BaseName)-path.png$warn"
 }
 $lua += '}'
 $js += '};'

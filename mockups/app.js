@@ -1591,6 +1591,30 @@
           [7647, "Judgment and Redemption", "Lord Grayson Shadowbreaker", "Stratholme, Eastern Plaguelands", 60]] },
     ],
   };
+  // Every road's strip and coin (2026-11-12): the dev bar's Road switch loads another class and
+  // side from strip-art/roads.js (tools/strip-stops.lua js: the addon's own stops, levels, side
+  // paths, quest counts and positions). Gideon's road keeps its real quests; the others get
+  // sample steps (their quest names come from QuestieDB in the addon).
+  CLASS_ROAD.pathKey = "paladin-alliance";
+  const GIDEON_ROAD = { ...CLASS_ROAD, end: { ...CLASS_ROAD.end }, stops: CLASS_ROAD.stops };
+  const GIDEON_HOME = CLASS_ROAD.stops.map(s => ({ s, x: s.x, y: s.y }));
+  function setClassRoad(key) {
+    GIDEON_HOME.forEach(h => { h.s.x = h.x; h.s.y = h.y; });
+    const D = (window.AZF_CLASS_ROADS || {})[key];
+    if (!D || key === "paladin-alliance") { Object.assign(CLASS_ROAD, GIDEON_ROAD, { end: { ...GIDEON_ROAD.end }, side: undefined }); }
+    else {
+      Object.assign(CLASS_ROAD, {
+        cls: D.cls, side: D.side, title: D.title, W: 420, H: 1680, end: { ...D.end }, art: `strip-art/${key}.png`, pathKey: key, last: 60, endName: null,
+        stops: D.stops.map((s, i) => ({
+          id: s.id, kind: s.kind, from: s.from || undefined, x: s.x, y: s.y, lv: s.lv, name: s.name, art: null,
+          reward: s.reward || "Not known yet (read from the quest in game)",
+          start: "Sample stop · the addon names its starter from QuestieDB",
+          steps: Array.from({ length: s.n }, (_, k) => [900000 + i * 100 + k, `${s.name}, step ${k + 1}`, "Sample step", "Sample place", s.lv]),
+        })),
+      });
+    }
+    ui.classSel = null;
+  }
   // Quests done per scenario (sample data, invented except "today": Gideon has the letter).
   const CLASS_DONE = { today: [3101], almost: [3101], veteran: [3101, 2998, 1641, 1642, 1643, 1644, 1780, 1781, 1786, 1787, 1788,
     1793, 1649, 1650, 1651, 1652, 1653, 1654, 1442, 1655, 1806, 78088, 78089], fresh: [] };
@@ -1867,9 +1891,14 @@
       // One edge of the road; the other edge only where a stop sits on this one.
       // Further out when a stop's coin covers both edges.
       const spots = [[1, MILE_OFF], [-1, MILE_OFF], [1, 2.2 * MILE_OFF], [-1, 2.2 * MILE_OFF]];
-      const clear = ([s, d]) => m.stops.every(o => Math.hypot(o.x - (g.p.x + g.p.nx * d * s), o.y - (g.p.y + g.p.ny * d * s)) > 34);
-      const [side, dist] = spots.find(clear) || spots[0];
-      g.x = g.p.x + g.p.nx * dist * side; g.y = g.p.y + g.p.ny * dist * side; g.side = side;
+      // Always inside the strip (a stone on Priest Horde sat half off the left edge, owner
+      // 2026-11-12): clear of stops and inside; else the first spot inside; else pulled in.
+      const R = CLASS_ROAD.W || 420, half = 15;
+      const at = ([s, d]) => [g.p.x + g.p.nx * d * s, g.p.y + g.p.ny * d * s];
+      const inside = (sp) => { const [x] = at(sp); return x > half && x < R - half; };
+      const clear = (sp) => { const [x, y] = at(sp); return inside(sp) && m.stops.every(o => Math.hypot(o.x - x, o.y - y) > 34); };
+      const [side, dist] = spots.find(clear) || spots.find(inside) || spots[0];
+      [g.x, g.y] = at([side, dist]); g.x = Math.max(half, Math.min(R - half, g.x)); g.side = side;
     }
     return out;
   }
@@ -1936,10 +1965,44 @@
         <div class="cmap" style="aspect-ratio:${CLASS_ROAD.W} / ${CLASS_ROAD.H}">${classStrip(m)}${classNodes(m)}</div></div></div>
       <div class="cdetailpane" id="detailpane"></div></div>`;
     renderStopInto($("#detailpane"), m, ui.classSel);
+    requestAnimationFrame(fitClassLabels);
   }
-  // The header: the stop's zone art behind it (round 2), dimmed and greyed while the stop is later.
+  // The addon's label rules (Class.lua drawMap), measured on the page: a name goes on the side of
+  // its coin where it fits; one too wide for either side goes where it overflows less and is
+  // nudged back inside the strip ("The Balance of Light and Shadow" ran off the narrow strip,
+  // owner 2026-11-12); names that would overlap are pushed down, top to bottom.
+  function fitClassLabels() {
+    const map = $(".cmap"); if (!map) return;
+    const M = map.getBoundingClientRect(), k = map.offsetWidth / Math.max(1, M.width), pad = 4, gap = 4, gapX = 10;
+    const labels = [];
+    for (const n of $$(".cnode", map)) {
+      const lab = n.querySelector(".clabel"); if (!lab || lab.classList.contains("below")) continue;
+      lab.style.marginLeft = lab.style.marginRight = lab.style.marginTop = "";
+      const N = n.getBoundingClientRect(), w = lab.getBoundingClientRect().width;
+      const overR = N.right + gapX + w - (M.right - pad), overL = M.left + pad - (N.left - gapX - w);
+      let left = n.classList.contains("lab-left");
+      if (!left && overR > 0 && overL < overR) left = true;
+      else if (left && overL > 0 && overR < overL) left = false;
+      n.classList.toggle("lab-left", left);
+      const over = left ? overL : overR;
+      if (over > 0) lab.style[left ? "marginRight" : "marginLeft"] = `${-over * k}px`;
+      labels.push(lab);
+    }
+    const placed = [];
+    labels.map(l => ({ l, r: l.getBoundingClientRect() })).sort((a, b) => a.r.top - b.r.top).forEach(({ l, r }) => {
+      let dy = 0, moved = true;
+      while (moved) {
+        moved = false;
+        for (const o of placed) {
+          if (r.left < o.right && o.left < r.right && r.top + dy < o.bottom + gap && o.top < r.bottom + dy + gap) { dy = o.bottom + gap - r.top; moved = true; }
+        }
+      }
+      if (dy) l.style.marginTop = `${dy * k}px`;
+      placed.push({ left: r.left, right: r.right, top: r.top + dy, bottom: r.bottom + dy });
+    });
+  }  // The header: the stop's zone art behind it (round 2), dimmed and greyed while the stop is later.
   function heroHtml(cls, art, kicker, title, sub, score) {
-    return `<div class="chero ${cls}"><img class="cheroart" src="zone-art/${art}.png" alt="" onerror="this.remove()"><div class="chshade"></div>
+    return `<div class="chero ${cls}">${art ? `<img class="cheroart" src="zone-art/${art}.png" alt="" onerror="this.remove()">` : ""}<div class="chshade"></div>
       <div class="chinfo"><div><div class="ckicker">${kicker}</div><h1>${title}</h1><div class="csubline">${sub}</div></div><div class="cscore">${score}</div></div></div>`;
   }
   // A finished stop (or the road walked) wears the quests medal from the celebration (owner,
@@ -1952,8 +2015,8 @@
     if (id === "end") {
       const pct = m.quests && !m.unknown ? m.questsDone / m.quests : 0;
       const score = m.complete ? doneMedal() : m.unknown ? `<b class="dim">?</b><small>of ${m.quests} quests, not known</small>` : `<b>${m.questsDone}</b><small>of ${m.quests} quests</small>`;
-      box.innerHTML = heroHtml(m.complete ? "done" : "", CLASS_ROAD.stops[0].art, `Paladin · ${esc(CHAR.race)}`,
-        m.complete ? "The Paladin's Road, walked" : CLASS_ROAD.title, m.complete ? "Every class quest you can do is done" : "Every class quest you can do, stop by stop", score)
+      box.innerHTML = heroHtml(m.complete ? "done" : "", CLASS_ROAD.stops[0].art, `${esc(CLASS_ROAD.cls)} · ${esc(CLASS_ROAD.side || CHAR.race)}`,
+        m.complete ? `${CLASS_ROAD.title}, walked` : CLASS_ROAD.title, m.complete ? "Every class quest you can do is done" : "Every class quest you can do, stop by stop", score)
         + `<div class="cbody"><div class="scroll" id="detailscroll">
         <div class="cbar ${m.complete ? "complete" : ""}"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
         <h2 class="section" data-group>The road <small>${m.unknown ? "?" : m.roadDone} of ${m.road.length} stops</small></h2>${m.road.map(s => stopRow(s, nx)).join("")}
@@ -2411,6 +2474,13 @@
     ui.repOpen = null;
     fit(); render(); if (ui.tab === "zones") restoreCatalog(); else if (ui.tab === "reputation") restoreRep(); else if (ui.tab === "class") restoreClass(); else focusFirst(); e.target.blur();
   });
+  // The Road switch: every class and side with a painted strip (strip-art/roads.js).
+  const roadSel = $("#classRoad");
+  if (roadSel) {
+    const keys = Object.keys(window.AZF_CLASS_ROADS || {}).sort();
+    roadSel.innerHTML = keys.map(k => { const r = window.AZF_CLASS_ROADS[k]; return `<option value="${k}" ${k === "paladin-alliance" ? "selected" : ""}>${r.cls} · ${r.side}${k === "paladin-alliance" ? " (Gideon)" : ""}</option>`; }).join("");
+    roadSel.addEventListener("change", (e) => { setClassRoad(e.target.value); if (ui.tab !== "class") setTab("class"); else { render(); restoreClass(); } e.target.blur(); });
+  }
   $("#classSel").addEventListener("change", (e) => { ui.classPreview = e.target.value; ui.classSel = null; render(); if (ui.tab === "class") restoreClass(); e.target.blur(); });
   let currentScale = 1;
   function fit() {

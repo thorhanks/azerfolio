@@ -423,7 +423,7 @@ Theme.classStrip = {
         -- The spiked-hut camp, the watch tower, the tents and giant bones; the troll village, the
         -- mesa and the crypt stairs (side paths); the fighting pit, the snowy stone circle, the
         -- broken standard below the dark gate.
-        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, stance = { 240, 170 }, giants = { 110, 270 },
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 211, 75 }, stance = { 184, 150 }, giants = { 110, 270 },
             gauntlets = { 70, 700 }, helm = { 320, 600 }, legguards = { 335, 770 },
             berserker = { 180, 910 }, whirlwind = { 100, 980 }, kinship = { 200, 1440 } },
     },
@@ -443,13 +443,14 @@ Theme.classStrip = {
         -- The chapel camp, the snapdragon farm, the green-lit crypt, the violet satyr pools, the
         -- stilt hut, the arcane tower, the sunken temple.
         Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 200, 100 }, ten = { 130, 160 }, robe15 = { 110, 250 },
-            robe26 = { 110, 770 }, wand = { 170, 965 }, orb = { 150, 1030 }, morphaz = { 230, 1310 }, krellian = { 150, 1540 } },
+            robe26 = { 110, 770 }, wand = { 107, 961 }, orb = { 147, 1078 }, morphaz = { 230, 1310 }, krellian = { 150, 1540 } },
     },
     PRIEST = {
         -- The abbey, the village well, the cathedral, the white shrine, the mountain gate, the
-        -- sunken temple, the chapel in a shaft of light.
-        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, garments = { 180, 150 }, spell10 = { 250, 225 },
-            grace = { 180, 280 }, spell20 = { 240, 660 }, morphaz = { 150, 1200 }, eris = { 250, 1420 } },
+        -- sunken temple, the chapel in a shaft of light. The first four are spread 60-85 units apart
+        -- along the lane (Garments and Desperate Prayer snapped onto one spot, owner 2026-11-12).
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 175, 85 }, garments = { 210, 145 }, spell10 = { 138, 215 },
+            grace = { 192, 305 }, spell20 = { 240, 660 }, morphaz = { 150, 1200 }, eris = { 250, 1420 } },
         -- The hut camp, the spiked fort town, the troll shrine, the canyon city, the sunken temple,
         -- the chapel in the light.
         Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 205, 95 }, garments = { 150, 165 }, spell10 = { 220, 230 },
@@ -469,7 +470,7 @@ Theme.classStrip = {
     SHAMAN = {
         -- The mountain hall, the stone totem, the dam and brazier, the spring, the stone circle,
         -- the bramble warren.
-        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 215, 95 }, earth = { 250, 140 }, fire = { 170, 250 },
+        Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 224, 74 }, earth = { 201, 147 }, fire = { 170, 250 },
             water = { 140, 750 }, air = { 200, 900 }, tempest = { 120, 960 } },
         -- The hut camp, the earth totem, the brazier spires, the oasis, the rock needles, the
         -- brambles, the snowy stone circle, the academy on its island.
@@ -512,7 +513,7 @@ Theme.classStrip = {
         -- garden (side path), the crypt stairs, the shrine and the mausoleum (the lane passes the shrine
         -- first; the two stops sit in road order between them); open
         -- country after level 20.
-        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 215, 95 }, light = { 240, 170 }, keep = { 190, 240 },
+        Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 215, 102 }, light = { 184, 154 }, keep = { 243, 250 },
             home = { 70, 250 }, divinity = { 240, 630 }, incident = { 250, 735 }, moonsilver = { 130, 810 } },
     },
 }

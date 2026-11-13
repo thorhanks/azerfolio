@@ -30,19 +30,24 @@ local function set(list)
 end
 
 -- Distance along a traced path (Data/StripPaths.lua: { {x, y}, ... }) of the point nearest (x, y).
+-- Also returns the snapped point.
 local function project(path, x, y)
-    local best, bestD, acc = 0, math.huge, 0
+    local best, bestD, acc, bx, by = 0, math.huge, 0, x, y
     for i = 1, #path - 1 do
         local a, b = path[i], path[i + 1]
         local dx, dy = b[1] - a[1], b[2] - a[2]
         local l2 = dx * dx + dy * dy
         local f = l2 > 0 and math.max(0, math.min(1, ((x - a[1]) * dx + (y - a[2]) * dy) / l2)) or 0
-        local d = (a[1] + dx * f - x) ^ 2 + (a[2] + dy * f - y) ^ 2
-        if d < bestD then bestD, best = d, acc + f * math.sqrt(l2) end
+        local px, py = a[1] + dx * f, a[2] + dy * f
+        local d = (px - x) ^ 2 + (py - y) ^ 2
+        if d < bestD then bestD, best, bx, by = d, acc + f * math.sqrt(l2), px, py end
         acc = acc + math.sqrt(l2)
     end
-    return best
+    return best, bx, by
 end
+-- Stops nearer than this (logical units) crowd each other's names (Priest Alliance's Garments and
+-- Desperate Prayer snapped onto one spot, owner 2026-11-12).
+local MIN_STOP_GAP = 55
 
 return function(t)
     t.test("journey strips: every road has its strip, path and stop positions, in road order (round 5)", function()
@@ -63,17 +68,30 @@ return function(t)
             if not (hand and path) then return end
             -- Road stops (the first stop per key; race versions share it) must snap onto the
             -- lane in road order, and the road's end after them, or segments fall back to curves.
-            local seen, last = {}, -1
+            local seen, last, placed = {}, -1, {}
             for _, s in ipairs(j.stops) do
                 t.ok(hand[s.key] ~= nil, key .. ": a position for " .. s.key)
-                if hand[s.key] and s.kind == "road" and not seen[s.key] then
+                if hand[s.key] and not seen[s.key] then
                     seen[s.key] = true
-                    local at = project(path, hand[s.key][1], hand[s.key][2])
-                    t.ok(at > last, key .. ": " .. s.key .. " comes after the stop before it on the lane")
-                    last = at
+                    local x, y = hand[s.key][1], hand[s.key][2]
+                    if s.kind == "road" then
+                        local at
+                        at, x, y = project(path, x, y)
+                        t.ok(at > last, key .. ": " .. s.key .. " comes after the stop before it on the lane")
+                        last = at
+                    end
+                    placed[#placed + 1] = { s.key, x, y }
                 end
             end
-            t.ok(project(path, hand["end"][1], hand["end"][2]) > last, key .. ": the road's end comes last")
+            local at, ex, ey = project(path, hand["end"][1], hand["end"][2])
+            t.ok(at > last, key .. ": the road's end comes last")
+            placed[#placed + 1] = { "end", ex, ey }
+            for a = 1, #placed do
+                for b = a + 1, #placed do
+                    local d = math.sqrt((placed[a][2] - placed[b][2]) ^ 2 + (placed[a][3] - placed[b][3]) ^ 2)
+                    t.ok(d >= MIN_STOP_GAP, string.format("%s: %s and %s are %d apart", key, placed[a][1], placed[b][1], d))
+                end
+            end
         end)
         t.eq(roads, 18)
     end)

@@ -1304,10 +1304,18 @@ local function build(parent)
             -- At the road's edge (across it): the first spot that's clear, one edge, the other,
             -- then further out.
             local nx, ny = -(y2 - y1) / len, (x2 - x1) / len
+            -- Always inside the strip: when no spot is clear, the first spot inside it, else pulled
+            -- in from the edge (the mockup showed a stone half off Priest Horde's left edge).
             local mx, my
+            local inX, inY
             for _, off in ipairs(CT.mileOffsets) do
-                mx, my = x + nx * off, y + ny * off
-                if clear(mx, my) then break end
+                local px, py = x + nx * off, y + ny * off
+                if clear(px, py) then mx, my = px, py; break end
+                if not inX and px > markR and px < lay.W - markR then inX, inY = px, py end
+            end
+            if not mx then
+                mx, my = inX or (x + nx * CT.mileOffsets[1]), inY or (y + ny * CT.mileOffsets[1])
+                mx = math.max(markR, math.min(lay.W - markR, mx))
             end
             blockers[#blockers + 1] = { mx, my, markR, mark = true }
             local m = take("abilities", newMilestone, map)
