@@ -682,6 +682,33 @@ local function build(parent)
         b:SetScript("OnClick", function() page:SetFilter(f) end)
         page.chips[#page.chips + 1] = b
     end
+    -- Search within the filter's results (owner, 2026-11-14), at the toolbar's right: a plain
+    -- edit box in a control frame, as the Zones catalogue's. A focuses it; Enter, Escape or B
+    -- leaves. The filter counts stay the filter's.
+    local search = W.Control(tb)
+    search.text:Hide()
+    local sbox = CreateFrame("EditBox", nil, search)
+    sbox:SetPoint("TOPLEFT", L.controlPad, 0); sbox:SetPoint("BOTTOMRIGHT", -L.controlPad, 0)
+    if sbox.SetAutoFocus then sbox:SetAutoFocus(false) end
+    if sbox.SetMaxLetters then sbox:SetMaxLetters(40) end
+    T.SetFont(sbox, "sm")
+    if sbox.SetTextColor then sbox:SetTextColor(T.RGB("white")) end
+    sbox.hint = T.Text(search, "sm", "dim")
+    sbox.hint:SetPoint("LEFT", L.controlPad, 0)
+    sbox.hint:SetText("Search")
+    sbox:SetScript("OnTextChanged", function(self)
+        local text = self:GetText() or ""
+        self.hint:SetShown(text == "")
+        if text ~= (page.searchText or "") then
+            page.searchText = text
+            ns.Events.Debounce("professions-search", 0.15, function() if page:IsShown() then page:Redraw() end end)
+        end
+    end)
+    sbox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    sbox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    search:SetScript("OnClick", function() sbox:SetFocus() end)
+    page.search, page.searchBox = search, sbox
+    page.searchText = ""
     -- The recipe summary sits on the view switch's bar, where "Y switches the view" is in the
     -- other views (owner, 2026-11-14: the red filter buttons left it no room; the legend shows Y).
     page.recSum = T.Text(sw, "xs", "dim")
@@ -1132,6 +1159,16 @@ local function build(parent)
                 onActivate = function() page:SetFilter(f) end }
             chipItems[#chipItems + 1] = b.item
         end
+        -- The search box takes the room left at the toolbar's right.
+        local tbw = tb:GetWidth() or 0
+        local sw = L.searchWidth
+        if tbw > 0 then sw = math.max(L.searchMinWidth, math.min(L.searchWidth, tbw - x - 2 * S.s4)) end
+        page.search:SetWidth(sw)
+        page.search:ClearAllPoints(); page.search:SetPoint("RIGHT", tb, "RIGHT", -S.s4, 0)
+        page.search.item = { key = "search", frame = page.search, title = "Search",
+            detail = "Type part of a recipe's name to search this filter's recipes. Enter or Escape to finish.",
+            actionLabel = "Type", onActivate = function() page.searchBox:SetFocus() end }
+        chipItems[#chipItems + 1] = page.search.item
         page.recSum:SetText(rec and string.format("|cffffffff%d|r known · |cffffffff%d|r with a known source%s", rec.counts.known, rec.counts.all,
             rec.counts.nosource > 0 and (" · " .. rec.counts.nosource .. " not counted") or "") or "")
         local child = page.rlist.scroll.child
@@ -1147,7 +1184,7 @@ local function build(parent)
             page.recipeSel = nil
             return { { items = chipItems, section = 1 } }, nil
         end
-        local shown = ns.ProfessionRules.Filter(rec, page.filter, m.skill)
+        local shown = ns.ProfessionRules.Search(ns.ProfessionRules.Filter(rec, page.filter, m.skill), page.searchText)
         local first, selRow
         local section = 1
         rows[#rows + 1] = { items = chipItems, section = 1 }
@@ -1193,7 +1230,8 @@ local function build(parent)
         end
         if #shown == 0 then
             note:ClearAllPoints(); note:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -S.s6); note:SetWidth(width)
-            note:SetText("None here.")
+            local q = page.searchText or ""
+            note:SetText(q:find("%S") and ("No recipe here matches \"" .. q .. "\". Try another name, or clear the search.") or "None here.")
             note:Show()
             y = y + 60
         end
@@ -1386,6 +1424,11 @@ local function build(parent)
     function page:Select(line)
         if self.sel == line then return end
         self.sel = line
+        -- A search belongs to one profession's recipes: another profession starts clear.
+        if (self.searchText or "") ~= "" then
+            self.searchText = ""
+            if self.searchBox and self.searchBox.SetText then self.searchBox:SetText("") end
+        end
         self:Redraw()
     end
 
@@ -1520,6 +1563,8 @@ local function build(parent)
 
     -- B: from a recipe's detail back to its row; from the page back to the rail.
     function page:Back()
+        local box = self.searchBox
+        if box and box.HasFocus and box:HasFocus() then box:ClearFocus(); return true end
         if self.mode ~= "page" then return false end
         if self.view == "recipes" and self.recipeFocus == "detail" then
             self.recipeFocus = "list"

@@ -203,6 +203,16 @@ return function(t)
         t.ok(c.foryou < 40, "For you now stays short (" .. c.foryou .. ")")
     end)
 
+    t.test("rules: search narrows a list by name, case ignored, order kept", function()
+        local list = { { name = "Copper Chain Pants" }, { name = "Rough Copper Vest" }, { name = "Linen Bandage" }, { name = "copper axe" } }
+        local hit = R.Search(list, "  COPPER ")
+        t.eq(#hit, 3); t.eq(hit[1].name, "Copper Chain Pants"); t.eq(hit[3].name, "copper axe")
+        t.eq(#R.Search(list, "chain pants"), 1)
+        t.eq(#R.Search(list, "("), 0, "plain text: no pattern characters")
+        t.eq(R.Search(list, ""), list, "empty: the whole list")
+        t.eq(R.Search(list, nil), list)
+    end)
+
     t.test("rules: a Season of Discovery category is known by its name too", function()
         local rec = R.Recipes({ { id = 1, name = "Cooking SoD dish", learned = false, grey = 300, category = 2700, categoryName = "SEASON OF DISCOVERY" },
             { id = 2, name = "Mixed case", learned = false, grey = 300, category = 2701, categoryName = "Season of Discovery" },
@@ -679,8 +689,18 @@ return function(t)
         t.eq(p.filter, "foryou")
         local keys = {}
         for _, row in ipairs(p.pageFocus) do for _, it in ipairs(row.items) do keys[#keys + 1] = it.key end end
-        t.eq(table.concat(keys, ","), "chip:foryou,chip:all,chip:known,chip:now,chip:later,chip:nosource,r:1244431,r:3276,r:3275",
-            "chips, then For you now: two to learn and Linen Bandage (still gives skill)")
+        t.eq(table.concat(keys, ","), "chip:foryou,chip:all,chip:known,chip:now,chip:later,chip:nosource,search,r:1244431,r:3276,r:3275",
+            "chips and the search box, then For you now: two to learn and Linen Bandage (still gives skill)")
+        -- Search within the filter: "bandage" keeps the two bandages, in order; the counts stay the filter's.
+        local before = p.chips[1].GetText and p.chips[1]:GetText()
+        p.searchText = "bandage"; p:Redraw()
+        keys = {}
+        for _, row in ipairs(p.pageFocus) do for _, it in ipairs(row.items) do if it.recipe then keys[#keys + 1] = it.key end end end
+        t.eq(table.concat(keys, ","), "r:3276,r:3275", "search keeps the filter's bandages")
+        if before then t.eq(p.chips[1]:GetText(), before, "the filter's count is unchanged") end
+        p.searchText = "zzz"; p:Redraw()
+        t.ok(p.rlist.note:GetText():find("No recipe here matches", 1, true) ~= nil, p.rlist.note:GetText())
+        p.searchText = ""; p:Redraw()
         n.Focus.FocusKey("r:3276")
         t.eq(p.recipeSel, 3276, "the detail follows focus")
         p:EnterDetail()

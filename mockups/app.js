@@ -809,6 +809,16 @@
     ($(".split") || $("#scroll")).style.top = tb + "px";
     wireSearch();
   }
+  // The Recipes search (Professions tab): typed text narrows the filter's list; Enter or Escape leaves.
+  document.addEventListener("input", (e) => {
+    if (e.target.id !== "profSearchInput") return;
+    ui.profSearch = e.target.value; const pos = e.target.selectionStart; render();
+    const i = $("#profSearchInput"); if (i) { i.focus(); i.setSelectionRange(pos, pos); }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.target.id !== "profSearchInput" || (e.key !== "Escape" && e.key !== "Enter")) return;
+    e.stopPropagation(); e.target.blur(); setFocus($("[data-psearch]"));
+  }, true);
   function wireSearch() {
     const input = $("#searchInput");
     if (!input) return;
@@ -2411,12 +2421,15 @@
         const n = (k) => k === "foryou" ? list.filter(r => forYou(p, r)).length : k === "all" ? p.counted : list.filter(r => r.state === k).length;
         const chips = [["foryou", "For you now"], ["all", "All"], ["known", "Known"], ["now", "Learn now"], ["later", "Later"], ["nosource", "No known source"]]
           .map(([k, l]) => `<button class="pchip pvtab btn focusable ${f === k ? "on" : ""}" data-pfilter="${k}" data-tip="<b>${l}</b>${k === "foryou" ? "What you can learn now, what still gives you skill, and what opens in the next 25 skill points." : k === "nosource" ? "Recipes the game lists that no trainer you've visited or recipe item is known to teach. Not counted." : "Show these recipes."}">${l} <small>${n(k)}</small></button>`).join("");
-        const shown = recipeFilter(p);
+        // Owner (2026-11-14): search within the filter's results by name (case ignored); counts stay the filter's.
+        const q = (ui.profSearch || "").trim().toLowerCase();
+        const shown = recipeFilter(p).filter(r => !q || r.name.toLowerCase().includes(q));
         if (!shown.find(r => r.id === ui.recipeSel)) ui.recipeSel = shown.length ? shown[0].id : null;
         const bands = [[0, 75, "Apprentice"], [75, 150, "Journeyman"], [150, 225, "Expert"], [225, 999, "Artisan"]];
         const rows = bands.map(([a, b, nm]) => { const rs = shown.filter(r => r.order >= a && r.order < b); return rs.length ? `<h2 class="section" data-group>${nm} <small>skill ${a || 1}–${Math.min(b, PMAX)} · ${rs.filter(r => r.known).length} of ${rs.length} known</small></h2><div class="precipes">${rs.map(r => recipeRow(p, r)).join("")}</div>` : ""; }).join("")
-          || `<div class="pnote">None here.</div>`;
-        body = `<div class="prtool"><div class="pfilters">${chips}</div></div>
+          || `<div class="pnote">${q ? `No recipe here matches "${esc(ui.profSearch.trim())}". Try another name, or clear the search.` : "None here."}</div>`;
+        body = `<div class="prtool"><div class="pfilters">${chips}</div>
+          <label class="search focusable" data-psearch data-tip="<b>Search</b>Type part of a recipe's name to search this filter's recipes.">🔍<input id="profSearchInput" placeholder="Search" value="${esc(ui.profSearch || "")}" tabindex="-1"></label></div>
           <div class="prsplit"><div class="prlist"><div class="scroll" id="precscroll">${rows}
             ${!PTRAINER[p.name] && p.nosource ? `<div class="pnote">You haven't opened a ${esc(p.name)} trainer's list yet: visiting one shows which recipes it teaches and the skill each needs.</div>` : ""}</div></div>
             <aside class="prdetail" id="precdetail">${recipeDetail(p, list.find(r => r.id === ui.recipeSel))}</aside></div>`;
@@ -2497,7 +2510,7 @@
   function keyOf(el) {
     if (!el) return null;
     const d = el.dataset, parts = [];
-    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "rep", "rq", "tab", "cycle", "status", "view", "go", "faction", "src", "rfilter", "stop", "step", "goto", "prof", "goprof", "pfilter", "pstop", "pnext", "recipe", "gather", "pview", "ptrack"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
+    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "rep", "rq", "tab", "cycle", "status", "view", "go", "faction", "src", "rfilter", "stop", "step", "goto", "prof", "goprof", "pfilter", "pstop", "pnext", "recipe", "gather", "pview", "ptrack", "psearch"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
     for (const a of ["search", "back", "map", "atlas", "qtoggle"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
     if (el.id) parts.push("#" + el.id);
     return parts.length ? "." + [...el.classList].filter(c => !["focused", "on", "new", "selected"].includes(c))[0] + parts.join("") : null;
@@ -2645,6 +2658,7 @@
     if (d.view) { ui.view = d.view; render(); return restoreCatalog(); }
     if (d.cycle) return openFlyout(d.cycle, el);
     if (d.search !== undefined) return $("#searchInput").focus();
+    if (d.psearch !== undefined) return $("#profSearchInput").focus();
     if (d.map !== undefined) return toast(`Would open the world map at ${esc(ui.detail || ui.selected)}`);
     if (d.qtoggle !== undefined) { ui.showUnavailable = !ui.showUnavailable; return rerenderKeepFocus(); }
     if (d.page) { ui.detailPage = d.page; render(); return setFocus($("#content .detail .scroll .focusable") || $("#content .detail [data-back]")); }
@@ -2826,7 +2840,7 @@
   // =====================================================================================
   document.addEventListener("keydown", (e) => {
     if ($("#window").hidden) { if (e.key === "Enter") reopen(); return; }
-    if (document.activeElement && document.activeElement.id === "searchInput") return;
+    if (document.activeElement && (document.activeElement.id === "searchInput" || document.activeElement.id === "profSearchInput")) return;
     if (e.target.closest && e.target.closest(".devbar")) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     const map = {

@@ -314,6 +314,19 @@ function Rules.Filter(recipes, filter, skill)
     return out
 end
 
+-- Pure: the recipes whose name holds `query` (case ignored, plain text, spaces at the ends
+-- trimmed), in the same order; the whole list for an empty query. Owner, 2026-11-14: search
+-- within the filter's results.
+function Rules.Search(list, query)
+    local q = type(query) == "string" and query:gsub("^%s+", ""):gsub("%s+$", ""):lower() or ""
+    if q == "" then return list end
+    local out = {}
+    for _, r in ipairs(list or {}) do
+        if type(r.name) == "string" and r.name:lower():find(q, 1, true) then out[#out + 1] = r end
+    end
+    return out
+end
+
 -- Pure: the one status tag, most urgent first:
 --   mastered > atcap > trainnow > learn (n recipes) > unread (window not read yet) > nil.
 -- recipes: Rules.Recipes' result, or nil when the profession's window hasn't been read.
