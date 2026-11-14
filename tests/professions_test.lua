@@ -605,6 +605,13 @@ return function(t)
         t.eq(p.mode, "rail")
         n.Focus.FocusKey("p:129")
         t.eq(p.sel, 129, "the page follows the rail's focus")
+        -- The selected trade is lit (a halo behind its coin), with no box; only it.
+        local lit = 0
+        for _, row in ipairs(p.railRows) do
+            if row:IsShown() and row.halo[1]:IsShown() then lit = lit + 1; t.eq(row.item.prof, 129) end
+            t.eq(row.frame, nil, "no edge box on rail rows")
+        end
+        t.eq(lit, 1)
         t.eq(n.Focus.Current().key, "p:129")
         t.eq(#p.views, 2, "First Aid: Journey and Recipes")
         p:EnterPage()

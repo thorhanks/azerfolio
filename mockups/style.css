@@ -1523,7 +1523,10 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .prail .pcoin.rl { width: 40px; height: 40px; }
 .prail .prn { font: var(--fs-xs) var(--font); color: var(--white); text-align: center; line-height: 1.15; }
 .prail .prs { font-size: 11px; color: var(--dim); } .prail .prs b { color: var(--text); font-weight: 400; }
-.prail.selected { border-color: var(--frame-gold); background: linear-gradient(180deg, rgba(74,48,20,.75), rgba(30,16,6,.75)); }
+/* Owner (2026-11-14): no box on the selected trade; it's lit instead: a warm halo behind its coin
+   and its name in gold. */
+.prail.selected { border-color: transparent; background: radial-gradient(circle at 50% 27px, rgba(255,200,110,.5), rgba(255,170,60,.2) 22px, rgba(255,150,40,0) 38px); }
+.prail.selected .prn { color: var(--wow-gold); }
 .prail.focused { box-shadow: 0 0 0 1px rgba(255,230,0,.65), 0 0 10px rgba(255,230,0,.25); }
 .prail.mastered .prn { color: var(--st-complete); }
 .pdot { position: absolute; top: 6px; right: 14px; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #000; }

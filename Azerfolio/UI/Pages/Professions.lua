@@ -261,16 +261,34 @@ end
 local function newRailRow(parent)
     local T, PT, W = ns.Theme, ns.Theme.layout.profTab, ns.Widgets
     local r = W.FocusRow(parent, PT.railRow)
+    -- Owner (2026-11-14): no box on the selected trade (the gold edge and grey fill went); it's
+    -- lit instead: a warm halo behind its coin, its name in gold. Focus keeps the chevron and the
+    -- row highlight.
+    local setFocused = r.SetFocused
+    function r:SetSelected(on)
+        self.selected = on
+        for _, h in ipairs(self.halo) do h:SetShown(on and true or false) end
+        self.name:SetTextColor(T.RGB(on and "gold" or "white"))
+        self:SetFocused(self.focused)
+    end
+    function r:SetFocused(on) self.focused = on; local s = self.selected; self.selected = nil; setFocused(self, on); self.selected = s end
     r.coin = newCoin(r)
     r.coin:SetPoint("TOP", r, "TOP", 0, -6)
+    r.halo = {}
+    for i, h in ipairs(PT.railHalo) do
+        local c = circle(r, "BACKGROUND", h[1])
+        c:SetPoint("CENTER", r.coin, "CENTER", 0, 0)
+        tint(c, "classPeach", h[2])
+        c:Hide()
+        r.halo[i] = c
+    end
     r.name = T.Text(r, "xs", "white")
-    r.name:SetPoint("TOP", r.coin, "BOTTOM", 0, -2)
+    r.name:SetPoint("TOP", r.coin, "BOTTOM", 0, -3)
     r.name:SetWordWrap(false)
     r.skill = T.Text(r, "xs", "dim")
-    r.skill:SetPoint("TOP", r.name, "BOTTOM", 0, -1)
+    r.skill:SetPoint("TOP", r.name, "BOTTOM", 0, -2)
     r.dot = circle(r, "OVERLAY", 10)
     r.dot:SetPoint("TOPRIGHT", r.coin, "TOPRIGHT", 4, 2)
-    r.frame = W.Edge(r, "BORDER")
     r:SetScript("OnClick", function(self) if self.onClick then self.onClick() end end)
     return r
 end
@@ -745,7 +763,6 @@ local function build(parent)
             local dot = dotColor(m)
             r.dot:SetShown(dot ~= nil)
             if dot then tint(r.dot, dot) end
-            r.frame:SetColor(m.skillLine == page.sel and "complete" or "divider", m.skillLine == page.sel and 0.9 or 0)
             r:SetSelected(m.skillLine == page.sel)
             local line = m.skillLine
             r.item = { key = "p:" .. line, frame = r, title = m.name, detail = railInfo(m), prof = line,
