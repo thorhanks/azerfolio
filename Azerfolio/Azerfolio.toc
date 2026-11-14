@@ -39,6 +39,7 @@ Systems\ClassJourneyRules.lua
 Systems\ClassJourney.lua
 Systems\ClassTrainerRules.lua
 Systems\ClassTrainer.lua
+Systems\ProfessionRules.lua
 Systems\FlightPaths.lua
 Systems\Zones.lua
 Systems\Atlas.lua
