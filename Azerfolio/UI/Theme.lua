@@ -554,7 +554,7 @@ Theme.layout.profTab = {
     road = 112,          -- the parchment strip in the banner's foot
     roadFrame = 18, roadFrameOut = 5, -- its gilded card frame: corner size, how far outside the strip
     roadGap = 14,        -- between Next up / Tracked and the road strip under them (owner, 2026-11-14)
-    roadFoot = 12,       -- from the page's bottom edge to the road strip (pinned to the foot, owner 2026-11-14)
+    roadFoot = 20,       -- from the page's bottom edge to the road strip (pinned to the foot; 12 read tight, owner 2026-11-14)
     roadArt = { 2048, 256 }, -- the painted skill road (Media\ProfRoads), shown cover-fit
     roadArtLane = 150,   -- the art's lane row (process-art.ps1 $RoadLaneRow puts it there)
     roadLaneAt = 0.36,   -- where the bar sits on the painted road: its share of the strip's height from the bottom
