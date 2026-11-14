@@ -263,15 +263,24 @@ function R.professions()
     for _, e in ipairs(trace) do
         if e.kind == "professions" and not e.report then
             any = true
-            p("  %7.1f %-7s line %-4s %s recipes/services%s%s", e.t or 0, tostring(e.event), tostring(e.skillLine), tostring(e.count),
-                e.learned and (", learned " .. e.learned) or "", e.ms and string.format(", %.1f ms", e.ms) or "")
+            if e.event == "track" then
+                p("  %7.1f track   recipe %s: asked %s, the game says %s", e.t or 0, tostring(e.recipeID), tostring(e.asked), tostring(e.tracked))
+            elseif e.event == "sources" then
+                p("  %7.1f sources %s%s; trainers %s, work %s ms, max step %s ms, %s steps", e.t or 0, tostring(e.status),
+                    e.reason and (" (" .. e.reason .. ")") or "", tostring(e.trainers), num(e.workMs), num(e.maxStepMs), tostring(e.steps))
+            else
+                p("  %7.1f %-7s line %-4s %s recipes/services%s%s", e.t or 0, tostring(e.event), tostring(e.skillLine), tostring(e.count),
+                    e.learned and (", learned " .. e.learned) or "", e.ms and string.format(", %.1f ms", e.ms) or "")
+            end
         end
     end
     if not any then p("no profession window or trainer recorded in the trace (debug on, open one)") end
     local d, di = latest(function(e) return e.kind == "professions" and e.report end)
     if not d then p("no /azf debug professions report in the trace (debug on, /azf debug professions, then /reload)"); return end
     p("report #%d at %.1f: %s of %s mastered, built in %s ms", di, d.t, tostring(d.mastered), tostring(d.total), num(d.ms))
+    if d.sources then p("  sources: %s", tostring(d.sources)) end
     for _, k in ipairs(keys(d.profs or {})) do p("  %s", tostring(d.profs[k])) end
+    for _, k in ipairs(keys(d.tracked or {})) do p("  tracked %s", tostring(d.tracked[k])) end
 end
 
 local fn = R[section]

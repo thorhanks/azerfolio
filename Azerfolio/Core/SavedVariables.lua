@@ -210,7 +210,8 @@ function SV.CleanProfessions(t, fixes)
             for _, r in ipairs(rec.rows) do
                 if type(r) == "table" and type(r.id) == "number" and type(r.name) == "string" then
                     rows[#rows + 1] = { id = r.id, name = r.name, learned = r.learned == true,
-                        grey = type(r.grey) == "number" and r.grey or nil, category = type(r.category) == "number" and r.category or 0 }
+                        grey = type(r.grey) == "number" and r.grey or nil, category = type(r.category) == "number" and r.category or 0,
+                        item = type(r.item) == "number" and r.item or nil }
                 else
                     dropped = dropped + 1
                 end

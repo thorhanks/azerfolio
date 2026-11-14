@@ -49,7 +49,6 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | ID | Check | When | How |
 |---|---|---|---|
 | G1 | The skill each gathering node needs on Forever, where the guides disagree (Bruiseweed 85 or 100, Small Thorium 245 or 250, Rich Thorium 275 or 295) and for Forever's new nodes (Heavy Thorium, Marefoil, Demonsage, Death Lotus...); also whether a node stops giving skill 100 points past its requirement (`greyAfter`, a Classic rule) | Mousing over such a node or herb; gathering a node well past its skill | `/azf shot` of its tooltip ("Requires Mining (n)"); update `Data/Gathering.lua` and `docs/research/professions.md` § Gathering table |
-| G3 | Whether the game tracks a recipe you haven't learned yet (`SetRecipeTracked` on an unlearned recipe, then the objective tracker) | When Track on a recipe row is built | `/run C_TradeSkillUI.SetRecipeTracked(3276, true)` (Heavy Linen Bandage, not learned), then `/azf shot` the tracker; untrack with `false` |
 | G2 | A learned recipe's tooltip says "Already known" (vendor and bag), so known state can be read for recipe items too | Any vendor recipe or recipe item you already know | `/azfdiag profs` with the vendor open or the item in your bags, `/reload`, `luajit tools/diag-report.lua profs` |
 
 ## Celebrations (Phase 10)
@@ -73,6 +72,8 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | P1 | Which work caused the 39.5 ms peak frame seen in Phase 8 (window open, a page build, or shots) | Any session with debug on | `/azf debug perf`, `/reload`, `luajit tools/trace-report.lua perf` |
 
 ## Done
+
+- 2026-11-14: G3, the game tracks a recipe you haven't learned: `/azf debug professions track 3276` (Heavy Linen Bandage, not learned) put "Heavy Linen Bandage · Linen Cloth: 4/2" in the objective tracker (`WoWScrnShot_111426_115828`); the game reported tracked, then not tracked after the second call (trace-report professions). `SetRecipeTracked` needs three arguments here (recipeID, tracked, isRecraft).
 
 - 2026-11-09: J1, a done class quest reads as done: Gideon's 3101 Consecrated Letter completed, the road's first stop "done", road 1/5, 1/37 quests, completed list known (`/azf debug class 3101 1641`, trace-report class, report #100).
 - 2026-11-09: J2, all 653 curated quest IDs exist in QuestieDB's in-game view (corrections applied), 142 of them newer IDs (78xxx, 9xxxx). Same report.

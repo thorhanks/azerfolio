@@ -76,9 +76,13 @@ local function readWindow()
         if i > MAX_RECIPES then break end
         local info = type(T.GetRecipeInfo) == "function" and try("GetRecipeInfo", T.GetRecipeInfo, id)
         if type(info) == "table" and type(info.name) == "string" then
+            -- The crafted item from the recipe's hyperlink ("|Hitem:227684:..." [verified-ingame,
+            -- probe run 4]), so an ingredient can say "Craft it: <recipe>".
+            local item = type(info.hyperlink) == "string" and tonumber(info.hyperlink:match("item:(%d+)")) or nil
             rows[#rows + 1] = { id = id, name = info.name, learned = info.learned and true or false,
                 grey = type(info.maxTrivialLevel) == "number" and info.maxTrivialLevel or nil,
-                category = type(info.categoryID) == "number" and info.categoryID or 0 }
+                category = type(info.categoryID) == "number" and info.categoryID or 0,
+                item = item and item > 0 and item or nil }
             local cat = info.categoryID
             if type(cat) == "number" and cat > 0 and cats[cat] == nil and type(T.GetCategoryInfo) == "function" then
                 local c = try("GetCategoryInfo", T.GetCategoryInfo, cat)
@@ -186,11 +190,17 @@ end
 
 -- Everything the tab and the Overview panel show:
 --   { professions = { { model (ProfessionRules.Profession), status, stones, recipes (nil = window
---       not read), recipesTime, trainerTime, gather (nil = no gathering), nextUp } ... } in rail
---     order, summary = { mastered, total } }
+--       not read), recipesTime, trainerTime, gatherRows (nil = no gathering), nextUp, trainers
+--       (for the next rank) } ... } in rail order, summary = { mastered, total },
+--     sources = ProfessionSources.State().status, tracked = { [recipeID] = true } }
+-- Rebuilt when something changes (events), or when the game's tracked recipes differ.
 function Prof.Get()
-    if cache then return cache end
+    local tracked, trackedSig = Prof.Tracked()
+    if cache and cache.trackedSig == trackedSig then return cache end
     local R = ns.ProfessionRules
+    local Src = ns.ProfessionSources
+    local sourcesReady = Src.State().status == "ready"
+    local side = ns.character and ns.character.faction == "Horde" and "H" or (ns.character and ns.character.faction == "Alliance" and "A") or nil
     local p = store() or { windows = {}, trainers = {} }
     local list = {}
     for _, s in ipairs(Prof.Skills()) do
@@ -203,13 +213,19 @@ function Prof.Get()
         -- open the window before one has been seen.
         if type(win) == "table" and type(win.rows) == "table" and #win.rows > 0 then m.hasRecipes = true end
         if m.hasRecipes and type(win) == "table" and type(win.rows) == "table" then
-            local rows = {}
+            local rows, itemsByName, output = {}, {}, {}
             for i, r in ipairs(win.rows) do
                 rows[i] = { id = r.id, name = r.name, learned = r.learned, grey = r.grey, category = r.category,
                     categoryName = type(win.categories) == "table" and win.categories[r.category] or nil }
+                output[r.id] = r.item
+                if sourcesReady then itemsByName[r.name] = Src.RecipeItem(s.skillLine, r.name) end
             end
-            recipes = R.Recipes(rows, { skill = m.skill, trainer = trainerSkills(tr), known = isPlayerSpell })
+            recipes = R.Recipes(rows, { skill = m.skill, trainer = trainerSkills(tr), known = isPlayerSpell,
+                items = itemsByName, tracked = tracked })
+            -- Output item for each recipe, for "Craft it" (rows recorded before step 5 have none).
+            for _, r in ipairs(recipes.list) do r.item = output[r.id] end
         end
+        if m.next and sourcesReady then m.trainers = R.TrainersFor(Src.Trainers(s.skillLine), m.next.name, side) end
         local gather
         if m.gather then gather = R.Gather(m.gather, m.skill, ns.ZoneData and ns.ZoneData.levels) end
         m.status = R.Status(m, recipes)
@@ -222,8 +238,121 @@ function Prof.Get()
         list[#list + 1] = m
     end
     list = R.Order(list)
-    cache = { professions = list, summary = R.Summary(list) }
+    cache = { professions = list, summary = R.Summary(list), sources = Src.State().status,
+        tracked = tracked, trackedSig = trackedSig }
     return cache
+end
+
+---------------------------------------------------------------------------------------------
+-- The game's recipe tracking (owner, 2026-11-14: no tracker of our own). GetRecipesTracked(false)
+-- lists the tracked recipe IDs with the window shut [verified-ingame, probe run 8: {3275}].
+---------------------------------------------------------------------------------------------
+
+-- { [recipeID] = true }, and a signature to notice changes.
+function Prof.Tracked()
+    local T = rawget(_G, "C_TradeSkillUI")
+    local out, ids = {}, {}
+    if type(T) == "table" and type(T.GetRecipesTracked) == "function" then
+        local ok, list = pcall(T.GetRecipesTracked, false)
+        if ok and type(list) == "table" then
+            for _, id in ipairs(list) do
+                if type(id) == "number" then out[id] = true; ids[#ids + 1] = id end
+            end
+        end
+    end
+    table.sort(ids)
+    return out, table.concat(ids, ",")
+end
+
+-- Can the game track recipes at all on this client?
+function Prof.CanTrack()
+    local T = rawget(_G, "C_TradeSkillUI")
+    return type(T) == "table" and type(T.SetRecipeTracked) == "function" and type(T.GetRecipesTracked) == "function"
+end
+
+-- The player's X: track or untrack a recipe in the game's objective tracker. Returns the
+-- recipe's tracked state as the game reports it afterwards (true/false), or nil when the call
+-- failed. Never called by Azerfolio on its own.
+function Prof.SetTracked(recipeID, on)
+    if not Prof.CanTrack() or type(recipeID) ~= "number" then return nil end
+    local T = C_TradeSkillUI
+    -- (recipeID, tracked, isRecraft): the third is required on this client [verified-ingame:
+    -- "Usage: C_TradeSkillUI.SetRecipeTracked(recipeID, tracked, isRecraft)", 2026-11-14].
+    local ok, err = pcall(T.SetRecipeTracked, recipeID, on and true or false, false)
+    if not ok then ns.Debug.Error("SetRecipeTracked", err); return nil end
+    local now = Prof.Tracked()
+    local state = now[recipeID] and true or false
+    ns.Debug.Trace("professions", { event = "track", recipeID = recipeID, asked = on and true or false, tracked = state })
+    changed("tracked")
+    return state
+end
+
+---------------------------------------------------------------------------------------------
+-- Ingredients: GetRecipeSchematic answers with the window shut, for any recipe [verified-ingame,
+-- probe runs 7-8]; have = C_Item.GetItemCount (bags). Names: QuestieDB's item name first (no
+-- server query), else the client's (nil until cached: asked for, and GET_ITEM_INFO_RECEIVED
+-- refreshes).
+---------------------------------------------------------------------------------------------
+
+local schematics = {} -- [recipeID] = { output, reagents = { { itemID, need } } } or false
+local waitingItems = {} -- item IDs whose names we asked the client for
+
+local function schematic(recipeID)
+    if schematics[recipeID] ~= nil then return schematics[recipeID] or nil end
+    local T = rawget(_G, "C_TradeSkillUI")
+    local s = type(T) == "table" and type(T.GetRecipeSchematic) == "function" and try("GetRecipeSchematic", T.GetRecipeSchematic, recipeID, false)
+    if type(s) ~= "table" then schematics[recipeID] = false; return nil end
+    local out = { output = s.outputItemID, reagents = {} }
+    for _, slot in ipairs(type(s.reagentSlotSchematics) == "table" and s.reagentSlotSchematics or {}) do
+        local first = type(slot.reagents) == "table" and slot.reagents[1]
+        if type(first) == "table" and type(first.itemID) == "number" and slot.required ~= false then
+            out.reagents[#out.reagents + 1] = { itemID = first.itemID, need = type(slot.quantityRequired) == "number" and slot.quantityRequired or 1 }
+        end
+    end
+    schematics[recipeID] = out
+    return out
+end
+
+local function itemName(itemID)
+    local n = ns.ProfessionSources.State().status == "ready" and rawget(_G, "LibQuestieDB")
+    if n and type(n.Item) == "table" and type(n.Item.name) == "function" then
+        local ok, v = pcall(n.Item.name, itemID)
+        if ok and type(v) == "string" then return v end
+    end
+    if C_Item and type(C_Item.GetItemNameByID) == "function" then
+        local ok, v = pcall(C_Item.GetItemNameByID, itemID)
+        if ok and type(v) == "string" and v ~= "" then return v end
+        if type(C_Item.RequestLoadItemDataByID) == "function" then pcall(C_Item.RequestLoadItemDataByID, itemID) end
+        waitingItems[itemID] = true
+    end
+    return nil
+end
+
+local function count(itemID)
+    if not (C_Item and type(C_Item.GetItemCount) == "function") then return nil end
+    local ok, v = pcall(C_Item.GetItemCount, itemID, false)
+    return ok and type(v) == "number" and v or nil
+end
+
+-- A recipe's ingredients: ProfessionRules.Reagents' result plus { output = itemID } and each
+-- item's name, or nil when the game gives no schematic. m = the profession (Prof.Find).
+function Prof.Reagents(recipeID, m)
+    local s = schematic(recipeID)
+    if not s then return nil end
+    local R = ns.ProfessionRules
+    local craftedBy, have, sources = {}, {}, {}
+    for _, r in ipairs(m and m.recipes and m.recipes.list or {}) do
+        if r.item and r.id ~= recipeID then craftedBy[r.item] = r end
+    end
+    local reagents = {}
+    for i, g in ipairs(s.reagents) do
+        reagents[i] = { itemID = g.itemID, need = g.need, name = itemName(g.itemID) }
+        have[g.itemID] = count(g.itemID)
+        sources[g.itemID] = ns.ProfessionSources.Item(g.itemID)
+    end
+    local out = R.Reagents(reagents, { craftedBy = craftedBy, nodes = R.NodesByItem(), sources = sources, have = have })
+    out.output = s.output
+    return out
 end
 
 -- One profession by skill line, or nil.
@@ -231,14 +360,45 @@ function Prof.Find(skillLine)
     for _, m in ipairs(Prof.Get().professions) do if m.skillLine == skillLine then return m end end
 end
 
--- /azf debug professions: what Get sees, in chat and in the trace (trace-report.lua professions).
-function Prof.DebugReport()
+-- One reagent line for the debug report: "Linen Cloth 4/1 gather|craft|vendor|drop|unknown".
+local function reagentText(g)
+    local parts = {}
+    for _, it in ipairs(g.items) do
+        local w = it.where
+        local detail = w.kind == "craft" and w.recipe.name or w.kind == "gather" and w.node.name
+            or w.kind == "vendor" and (w.vendor.npc .. (w.more > 0 and (" +" .. w.more) or "")) or w.kind == "drop" and tostring(w.n) or ""
+        parts[#parts + 1] = string.format("%s %s/%d %s %s", tostring(it.name or it.itemID), it.have == nil and "?" or tostring(it.have),
+            it.need, w.kind, detail)
+    end
+    return table.concat(parts, "; ") .. (g.ready and " READY" or (" missing " .. g.missing .. (g.unknown and " (counts unknown)" or "")))
+end
+
+-- /azf debug professions [track <recipeID>]: what Get sees, in chat and in the trace
+-- (trace-report.lua professions). "track <id>" switches the game's tracking of that recipe (the
+-- player's own command; open check G3: an unlearned recipe).
+function Prof.DebugReport(args)
+    args = args or {}
+    if args[1] == "track" then
+        local id = tonumber(args[2])
+        if not id then ns.Print("Usage: /azf debug professions track <recipeID>"); return end
+        local now = Prof.Tracked()
+        local state = Prof.SetTracked(id, not now[id])
+        ns.Printf("Recipe %d: asked to %s; the game now says %s.", id, now[id] and "untrack" or "track",
+            state == nil and "the call failed" or (state and "tracked" or "not tracked"))
+        return
+    end
+    ns.ProfessionSources.Start()
     local started = clock()
     cache = nil
     local g = Prof.Get()
     local ms = started and clock() and (clock() - started) or nil
-    local entry = { report = true, mastered = g.summary.mastered, total = g.summary.total, ms = ms, profs = {} }
-    ns.Printf("Professions: %d of %d mastered (%s ms)", g.summary.mastered, g.summary.total, ms and string.format("%.1f", ms) or "?")
+    local src = ns.ProfessionSources.State()
+    local entry = { report = true, mastered = g.summary.mastered, total = g.summary.total, ms = ms, profs = {},
+        sources = string.format("%s%s, trainers %s, work %s ms, max step %s ms, steps %s, elapsed %s ms", tostring(src.status),
+            src.reason and (" (" .. src.reason .. ")") or "", tostring(src.trainers), tostring(src.workMs), tostring(src.maxStepMs),
+            tostring(src.steps), tostring(src.elapsedMs)), tracked = {} }
+    ns.Printf("Professions: %d of %d mastered (%s ms); sources %s", g.summary.mastered, g.summary.total,
+        ms and string.format("%.1f", ms) or "?", entry.sources)
     for _, m in ipairs(g.professions) do
         local c = m.recipes and m.recipes.counts
         local line = string.format("%s %s/%s %s; status %s; next %s", tostring(m.name), tostring(m.skill), tostring(m.cap),
@@ -260,8 +420,45 @@ function Prof.DebugReport()
             local cur, nx = m.gatherRows.current, m.gatherRows.nextRow
             line = line .. string.format("; gather %s -> %s", cur and (cur.name or cur.mapID) or "-", nx and (nx.name or nx.mapID) or "-")
         end
+        if m.trainers then
+            local names = {}
+            for i, t in ipairs(m.trainers) do
+                if i > 3 then break end
+                names[#names + 1] = string.format("%s (%s, %s)", t.name, t.rank or "trainer", t.place or tostring(t.mapID))
+            end
+            line = line .. string.format("; %s trainers %d: %s", m.next.name, #m.trainers, table.concat(names, ", "))
+        end
+        if m.recipes then
+            -- Sources by kind, and a sample of each kind (recipe: source).
+            local kinds, sample = {}, {}
+            for _, r in ipairs(m.recipes.list) do
+                local k = r.sources[1] and r.sources[1].kind
+                if k then
+                    kinds[k] = (kinds[k] or 0) + 1
+                    if not sample[k] then
+                        local s = r.sources[1]
+                        sample[k] = r.name .. ": " .. (s.npc and (s.npc .. " " .. tostring(s.maps and s.maps[1])) or s.n and (s.n .. "") or s.skill and ("skill " .. s.skill) or k)
+                    end
+                end
+            end
+            local ks = {}
+            for k, n in pairs(kinds) do ks[#ks + 1] = k .. " " .. n .. " [" .. sample[k] .. "]" end
+            table.sort(ks)
+            line = line .. "; first sources " .. table.concat(ks, ", ")
+        end
         ns.Print("  " .. line)
         entry.profs[tostring(m.name)] = line
+    end
+    -- The game's tracked recipes, with their ingredients.
+    for id in pairs(g.tracked) do
+        local owner, name
+        for _, m in ipairs(g.professions) do
+            for _, r in ipairs(m.recipes and m.recipes.list or {}) do if r.id == id then owner, name = m, r.name end end
+        end
+        local rg = Prof.Reagents(id, owner)
+        local text = string.format("%s (%s): %s", tostring(name or id), owner and owner.name or "?", rg and reagentText(rg) or "no schematic")
+        ns.Print("  Tracked " .. text)
+        entry.tracked[tostring(id)] = text
     end
     ns.Debug.Trace("professions", entry)
 end
@@ -278,3 +475,16 @@ end)
 ns.Events.Register("SKILL_LINES_CHANGED", function() changed("skill") end)
 ns.Events.Register("NEW_RECIPE_LEARNED", function() changed("learned") end)
 ns.Events.On("AZF_REFRESH_REQUESTED", function() changed("refresh") end)
+ns.Events.On("AZF_PROFESSION_SOURCES", function() changed("sources") end)
+-- An item name we asked for has arrived.
+ns.Events.Register("GET_ITEM_INFO_RECEIVED", function(itemID)
+    if waitingItems[itemID] then
+        waitingItems[itemID] = nil
+        changed("item")
+    end
+end)
+-- The game's own tracking changes (its window's Track box): the event's name isn't confirmed on
+-- this client, so only registered when the client knows it; Get also compares the tracked list.
+if C_EventUtils and type(C_EventUtils.IsEventValid) == "function" and C_EventUtils.IsEventValid("TRACKED_RECIPE_UPDATE") then
+    ns.Events.Register("TRACKED_RECIPE_UPDATE", function() changed("tracked") end)
+end

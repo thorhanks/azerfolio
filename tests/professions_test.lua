@@ -224,6 +224,34 @@ return function(t)
         t.eq(#s, 1); t.eq(s[1].kind, "item", "a recipe item with no known place")
     end)
 
+    t.test("rules: trainers from NPC subNames, and which to name for a rank", function()
+        local bs, fa = R.Info(164), R.Info(129)
+        t.eq(R.TrainerOf("Journeyman Blacksmith", bs).rank, "Journeyman")
+        t.eq(R.TrainerOf("Artisan Blacksmith", bs).level, 4)
+        t.eq(R.TrainerOf("Junior Blacksmithing Trainer", bs).rank, "Junior")
+        local plain = R.TrainerOf("First Aid Trainer", fa)
+        t.ok(plain and plain.rank == nil, "rank not stated")
+        t.eq(R.TrainerOf("Expert Blacksmith", fa), nil, "another profession")
+        t.eq(R.TrainerOf("Dragonscale Leatherworking Trainer", R.Info(165)), nil, "a specialisation trainer")
+        t.eq(R.TrainerOf("Blacksmithing Supplies", bs), nil)
+        t.eq(R.TrainerOf("Master Leatherworking Trainer", R.Info(165)).level, 5)
+        t.ok(R.TrainerOf("Fishing Trainer & Supplies", R.Info(356)), "a fishing trainer who also sells")
+        t.ok(R.TrainerOf("Physician", fa), "Goldshire's First Aid trainer")
+        t.eq(R.TrainerOf("Physician", bs), nil)
+        local list = {
+            { name = "Snarl", rank = "Expert", level = 3, mapID = 1454, side = "H" },
+            { name = "Therum Deepforge", rank = "Expert", level = 3, mapID = 1453, side = "A" },
+            { name = "Smith Argus", rank = "Journeyman", level = 2, mapID = 1429, side = "A" },
+            { name = "Jason Stonepike", rank = "Junior", level = 1, mapID = 1429, side = "A" },
+            { name = "Nowhere", rank = "Artisan", level = 4, side = "A" },
+            { name = "Plain", mapID = 1453, side = "AH" },
+        }
+        local j = R.TrainersFor(list, "Journeyman", "A")
+        t.eq(#j, 3); t.eq(j[1].name, "Smith Argus"); t.eq(j[2].name, "Therum Deepforge"); t.eq(j[3].name, "Plain")
+        t.eq(#R.TrainersFor(list, "Expert", "H"), 2, "Snarl, and the plain trainer")
+        t.eq(R.RecipeItemNames("Heavy Silk Bandage")[6], "Manual: Heavy Silk Bandage")
+    end)
+
     t.test("rules: ingredients, have / need, where to get each", function()
         local nodes = R.NodesByItem()
         t.eq(nodes[2770].name, "Copper Vein")
@@ -313,7 +341,22 @@ return function(t)
                 GetAllRecipeIDs = function() local o = {}; for i, r in ipairs(state.window.rows) do o[i] = r.recipeID end; return o end,
                 GetRecipeInfo = function(id) for _, r in ipairs(state.window.rows) do if r.recipeID == id then return r end end end,
                 GetCategoryInfo = function(id) return id == 7 and { name = "Bandages", categoryID = 7 } or nil end,
+                GetRecipesTracked = function()
+                    local o = {}
+                    for id in pairs(state.tracked or {}) do o[#o + 1] = id end
+                    return o
+                end,
+                SetRecipeTracked = function(id, on, isRecraft)
+                    if isRecraft == nil then error("Usage: C_TradeSkillUI.SetRecipeTracked(recipeID, tracked, isRecraft)") end
+                    if state.trackRefuses then return end
+                    state.tracked = state.tracked or {}
+                    state.tracked[id] = on or nil
+                end,
+                GetRecipeSchematic = function(id) return state.schematics and state.schematics[id] end,
             },
+            C_Item = { GetItemCount = function(id) return (state.bags or {})[id] or 0 end,
+                GetItemNameByID = function() return nil end },
+            LibQuestieDB = state.qdb,
             IsTradeskillTrainer = function() return state.trainer ~= nil end,
             GetNumTrainerServices = function() return state.trainer and #state.trainer or 0 end,
             GetTrainerServiceInfo = function(i) local s = state.trainer[i]; return s[1], s[2] end,
@@ -324,6 +367,7 @@ return function(t)
             SetTrainerServiceTypeFilter = function() state.filterSets = (state.filterSets or 0) + 1 end,
         }
         wow.install(env)
+        _G.LibQuestieDB = state.qdb -- nil clears a previous test's
         _G.AzerfolioDB, _G.AzerfolioCharDB = nil, nil
         local n = wow.loadToc("Azerfolio", "Azerfolio")
         wow.fire("ADDON_LOADED", "Azerfolio")
@@ -416,6 +460,88 @@ return function(t)
         local sets = state.filterSets
         for _ = 1, 3 do wow.fire("TRAINER_UPDATE"); wow.runTimers() end
         t.eq(state.filterSets, sets, "no loop at the class trainer")
+    end)
+
+    -- A small LibQuestieDB: the readers Systems/Quests and Systems/ProfessionSources use.
+    local function mockQuestieDB()
+        local npcs = {
+            [514] = { name = "Smith Argus", zoneID = 12, subName = "Journeyman Blacksmith", friendlyToFaction = "A" },
+            [5511] = { name = "Therum Deepforge", zoneID = 1519, subName = "Expert Blacksmith", friendlyToFaction = "A" },
+            [1383] = { name = "Snarl", zoneID = 1637, subName = "Expert Blacksmith", friendlyToFaction = "H" },
+            [2327] = { name = "Shaina Fuller", zoneID = 1519, subName = "First Aid Trainer", friendlyToFaction = "A" },
+            [247221] = { name = "Harold Justice", subName = "Junior First Aid Trainer" },
+            [2843] = { name = "Deneb Walker", zoneID = 45, subName = "Medic", friendlyToFaction = "A" },
+            [100] = { name = "Defias Thug", zoneID = 12 },
+        }
+        local itemsDB = {
+            [16112] = { name = "Manual: Heavy Silk Bandage", class = 9, subClass = 7, vendors = { 2843 } },
+            [99001] = { name = "Recipe: Heavy Silk Bandage", class = 9, subClass = 6, vendors = { 1383 } }, -- Alchemy: not First Aid
+            [2589] = { name = "Linen Cloth", class = 7, subClass = 5, npcDrops = { 100 } },
+            [2770] = { name = "Copper Ore", class = 7, subClass = 7 },
+        }
+        local byName = {}
+        for id, it in pairs(itemsDB) do byName[it.name] = byName[it.name] or {}; table.insert(byName[it.name], id) end
+        local function entity(rows, fields)
+            local E = { GetAllIds = function() local o = {}; for id in pairs(rows) do o[#o + 1] = id end; table.sort(o); return o end }
+            for _, f in ipairs(fields) do E[f] = function(id) return rows[id] and rows[id][f] end end
+            return E
+        end
+        local lib = { RequireContract = function() return true end, contractVersion = 4,
+            Quest = { GetAllIds = function() return {} end, zoneOrSort = function() end, specialFlags = function() end },
+            Npc = entity(npcs, { "name", "zoneID", "subName", "friendlyToFaction" }),
+            Item = entity(itemsDB, { "name", "class", "subClass", "vendors", "npcDrops", "objectDrops", "itemDrops", "questRewards" }) }
+        lib.Item.BuildNameIndexAsync = function() coroutine.yield() end
+        lib.Item.IdsByName = function(n) return byName[n] end
+        return lib
+    end
+
+    t.test("system: recipe sources, trainers, ingredients and tracking (mock QuestieDB)", function()
+        local state = probeState()
+        state.qdb = mockQuestieDB()
+        state.schematics = { [3275] = { outputItemID = 1251, reagentSlotSchematics = { { reagents = { { itemID = 2589 } }, quantityRequired = 1 } } },
+            [3276] = { outputItemID = 2581, reagentSlotSchematics = { { reagents = { { itemID = 2589 } }, quantityRequired = 2 },
+                { reagents = { { itemID = 1251 } }, quantityRequired = 1 } } } }
+        state.bags = { [2589] = 1 }
+        local n = boot(state)
+        t.eq(n.ProfessionSources.State().status, "ready", "built after the quest index")
+        state.window = { line = 129, rows = {
+            { recipeID = 3275, name = "Linen Bandage", learned = true, maxTrivialLevel = 60, categoryID = 7, hyperlink = "|Hitem:1251::|h[Linen Bandage]|h" },
+            { recipeID = 3276, name = "Heavy Linen Bandage", learned = false, maxTrivialLevel = 100, categoryID = 7, hyperlink = "|Hitem:2581::|h[x]|h" },
+            { recipeID = 7929, name = "Heavy Silk Bandage", learned = false, maxTrivialLevel = 240, categoryID = 7 },
+        } }
+        wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
+        local fa = n.Professions.Find(129)
+        local silk = find(fa.recipes.list, "Heavy Silk Bandage")
+        t.eq(silk.state, "later"); t.eq(#silk.sources, 1, "the Alchemy recipe item of the same name is left out")
+        t.eq(silk.sources[1].kind, "vendor"); t.eq(silk.sources[1].npc, "Deneb Walker")
+        t.eq(fa.trainers[1].name, "Shaina Fuller", "First Aid's plain trainer for Journeyman; the Junior one has no zone")
+        local bs = n.Professions.Find(164)
+        t.eq(bs.trainers[1].name, "Smith Argus"); t.eq(bs.trainers[2].name, "Therum Deepforge")
+        for _, tr in ipairs(bs.trainers) do t.ok(tr.name ~= "Snarl", "a Horde trainer isn't named for an Alliance character") end
+        -- Ingredients: Heavy Linen Bandage needs 2 Linen Cloth (1 in the bags, drops) and a Linen Bandage (crafted).
+        local rg = n.Professions.Reagents(3276, fa)
+        t.eq(#rg.items, 2)
+        t.eq(rg.items[1].name, "Linen Cloth"); t.eq(rg.items[1].have, 1); t.ok(not rg.items[1].ok)
+        t.eq(rg.items[1].where.kind, "drop")
+        t.eq(rg.items[2].where.kind, "craft"); t.eq(rg.items[2].where.recipe.name, "Linen Bandage")
+        t.eq(rg.missing, 2); t.ok(not rg.ready)
+        t.eq(n.Professions.Reagents(99999, fa), nil, "no schematic")
+        -- Tracking through the game.
+        t.eq(n.Professions.SetTracked(3276, true), true)
+        t.ok(n.Professions.Get().tracked[3276]); t.ok(find(n.Professions.Find(129).recipes.list, "Heavy Linen Bandage").tracked)
+        state.tracked = { [3275] = true } -- changed in the game's own window
+        t.ok(n.Professions.Get().tracked[3275] and not n.Professions.Get().tracked[3276], "Get notices the game's change")
+        state.trackRefuses = true
+        t.eq(n.Professions.SetTracked(3276, true), false, "reports what the game says, not what was asked")
+    end)
+
+    t.test("system: without QuestieDB, sources are unavailable and only trainers count", function()
+        local state = probeState()
+        local n = boot(state)
+        n.ProfessionSources.Start()
+        t.eq(n.ProfessionSources.State().status, "unavailable")
+        t.eq(n.ProfessionSources.RecipeItem(129, "Heavy Silk Bandage"), nil)
+        t.eq(n.Professions.Find(164).trainers, nil)
     end)
 
     t.test("system: a gathering profession's recorded window shows its recipes", function()

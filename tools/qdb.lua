@@ -8,6 +8,7 @@
 --   name <text>            quests whose name contains text (case-insensitive)
 --   stats                  rows, areas and sorts, repeatables
 --   npc <id> [id...]       every field of the NPCs
+--   npcs <text>            NPCs whose subName (title) contains text, with area and side
 --   rares [areaID|all]     rare, rare elite and boss NPCs (rank 4, 2, 3; cmangos ranks), by spawn area
 --   objects <text|*> [areaID] game objects whose name contains text (* = all), spawn points per area
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
@@ -233,6 +234,22 @@ elseif cmd == "npc" then
             end
         end
     end
+elseif cmd == "npcs" then
+    -- NPCs whose subName (the title under the name) contains text, case-insensitive.
+    local q = assert(arg[2], "npcs <subName text>"):lower()
+    local rows, tabs = load(function(_, f) return f == 7 or f == 9 or f == 13 or f == 14 end, "Npc")
+    local ids = {}
+    for id, row in pairs(rows) do
+        local sub = field(row, tabs[id], 14)
+        if type(sub) == "string" and sub:lower():find(q, 1, true) then ids[#ids + 1] = id end
+    end
+    table.sort(ids)
+    for _, id in ipairs(ids) do
+        local row, tab = rows[id], tabs[id]
+        print(string.format("%7d %-28s <%s> area %s side %s", id, tostring(field(row, tab, 1)), tostring(field(row, tab, 14)),
+            tostring(field(row, tab, 9)), tostring(field(row, tab, 13))))
+    end
+    print(#ids .. " NPCs")
 elseif cmd == "rares" then
     local only = tonumber(arg[2])
     local RANKS = { [2] = "rare elite", [3] = "boss", [4] = "rare" }

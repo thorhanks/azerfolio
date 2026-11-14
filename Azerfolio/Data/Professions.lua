@@ -54,8 +54,11 @@ ns.ProfessionData = {
                   recipeSubclass = 2 },
         [185] = { key = "cooking", name = "Cooking", kind = "secondary", role = "crafting", noun = "Cook",
                   recipeSubclass = 5 },
+        -- trainerTitles: other NPC titles of this profession's trainers (rank not stated):
+        -- "<Physician>" Michelle Belle in Goldshire teaches First Aid [verified-ingame,
+        -- WoWScrnShot_111426_115510]; QuestieDB has two (`qdb.lua npcs physician`).
         [129] = { key = "firstaid", name = "First Aid", kind = "secondary", role = "crafting", noun = "First Aid",
-                  recipeSubclass = 7 },
+                  recipeSubclass = 7, trainerTitles = { "Physician" } },
         [356] = { key = "fishing", name = "Fishing", kind = "secondary", role = "gathering", noun = "Fisherman",
                   recipeSubclass = 9, gather = "fishing" },
     },

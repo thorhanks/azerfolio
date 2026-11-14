@@ -45,7 +45,7 @@ Config.CHAR_DEFAULTS = {
     trainer = {},
     -- Professions (Systems/Professions.lua): each profession window's recipe list and the
     -- profession trainers' services, by skill line:
-    -- { windows = { [line] = { time, rows = { { id, name, learned, grey, category } }, categories = { [id] = name } } },
+    -- { windows = { [line] = { time, rows = { { id, name, learned, grey, category, item } }, categories = { [id] = name } } },
     --   trainers = { [line] = { time, services = { [name] = { kind, skill, cost } } } } }.
     -- Free-form; checked by SavedVariables.CleanProfessions.
     professions = {},

@@ -101,6 +101,64 @@ function Rules.Stones(skill, cap)
     return out
 end
 
+-- The words before a recipe item's name in QuestieDB (`qdb.lua gather check`): one of these,
+-- then ": ", then the recipe's name.
+Rules.RECIPE_ITEM_WORDS = { "Plans", "Pattern", "Recipe", "Formula", "Schematic", "Manual", "Blueprint" }
+
+-- Pure: the recipe item names that could teach `recipeName`.
+function Rules.RecipeItemNames(recipeName)
+    local out = {}
+    for i, w in ipairs(Rules.RECIPE_ITEM_WORDS) do out[i] = w .. ": " .. recipeName end
+    return out
+end
+
+-- Trainer ranks from QuestieDB NPC subNames (`qdb.lua profs`): "<Journeyman Blacksmith>",
+-- "<Expert Blacksmith>", "<Artisan Blacksmith>", "<Master Blacksmith>", Forever's "<Junior
+-- Blacksmithing Trainer>" and the plain "<First Aid Trainer>" (rank not stated).
+Rules.TRAINER_RANKS = { Junior = 1, Apprentice = 1, Journeyman = 2, Expert = 3, Artisan = 4, Master = 5 }
+
+-- Pure: is an NPC subName a trainer of this profession, and of which rank? Returns
+-- { rank = "Expert" | nil (not stated), level = 1-5 | nil } or nil. Specialisation trainers
+-- ("Dragonscale Leatherworking Trainer") aren't rank trainers and return nil.
+function Rules.TrainerOf(subName, info)
+    if type(subName) ~= "string" or not info then return nil end
+    if subName == info.name .. " Trainer" or subName == info.name .. " Trainer & Supplies" then return { rank = nil, level = nil } end
+    for _, title in ipairs(info.trainerTitles or {}) do
+        if subName == title then return { rank = nil, level = nil } end
+    end
+    if subName == "Junior " .. info.name .. " Trainer" then return { rank = "Junior", level = 1 } end
+    local word, rest = subName:match("^(%a+) (.+)$")
+    local level = word and Rules.TRAINER_RANKS[word]
+    -- "Expert Blacksmith", "Journeyman Blacksmithing", "Master Leatherworking Trainer"
+    if level and word ~= "Junior" and (rest == info.noun or rest == info.name or rest == info.name .. " Trainer") then
+        return { rank = word, level = level }
+    end
+    return nil
+end
+
+-- Pure: the trainers to name for a rank, most useful first.
+--   trainers = { { name, rank, level, mapID, place, side = "A"|"H"|"AH"|nil } ... }
+--   rankName = the rank to train ("Journeyman"); side = "A" | "H" (yours)
+-- Keeps trainers of your side (or both) with a zone, whose stated rank reaches it (or isn't
+-- stated: "First Aid Trainer"); ranked ones that reach it first, then by name. A Junior trainer
+-- only teaches Apprentice.
+function Rules.TrainersFor(trainers, rankName, side)
+    local want = Rules.TRAINER_RANKS[rankName] or 1
+    local out = {}
+    for _, t in ipairs(trainers or {}) do
+        local sideOk = t.side == nil or t.side == "AH" or t.side == side
+        local rankOk = t.level == nil or t.level >= want
+        if sideOk and rankOk and t.mapID then out[#out + 1] = t end
+    end
+    table.sort(out, function(a, b)
+        local ra, rb = a.level and 0 or 1, b.level and 0 or 1
+        if ra ~= rb then return ra < rb end
+        if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) < (b.level or 0) end -- the closest rank first
+        return (a.name or "") < (b.name or "")
+    end)
+    return out
+end
+
 -- Pure: a recipe item's recipe name: "Plans: Copper Chain Belt" -> "Copper Chain Belt" (any
 -- one word before the colon; qdb.lua gather check). nil for a name without one.
 function Rules.RecipeNameOfItem(itemName)
