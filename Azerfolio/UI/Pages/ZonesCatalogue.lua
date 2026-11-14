@@ -433,8 +433,8 @@ function Catalogue.New(page)
         return x
     end
 
-    local function layoutToolbar(available)
-        -- Right side first: view toggle (not in the split view); search goes to its left.
+    -- The view toggle at the right (not in the split view); returns the room it takes.
+    local function layoutViews()
         local right = S.s4
         for i = #cat.views, 1, -1 do
             local b = cat.views[i]
@@ -447,14 +447,27 @@ function Catalogue.New(page)
                 right = right + b:GetWidth() + (i == 1 and S.s3 or 0)
             end
         end
+        return right
+    end
+
+    local function layoutToolbar(available)
+        -- Right side first: view toggle; search goes to its left.
+        local function compact(on) for _, b in ipairs(cat.controls) do if b.SetCompact then b:SetCompact(on) end end end
+        compact(false)
+        local right = layoutViews()
         local width = tb:GetWidth() or 0
         if width <= 1 then local f = ns.UI.GetFrame(); width = (f and f:GetWidth() or 1160) - 2 * L.edgeInset end
-        -- Narrow windows: short labels if the full ones leave no room for the smallest search
-        -- box (WoWScrnShot_110726_213029: at 1000 wide, Sort ran into Cards), then drop the
+        -- Narrow windows: short labels on the game's small button font if the full ones leave no
+        -- room for the smallest search box (WoWScrnShot_110726_213029: at 1000 wide, Sort ran
+        -- into Cards; WoWScrnShot_111426_155718: the red buttons' font is wider), then drop the
         -- count, then shrink the search box.
         local x = layoutLeft(available, false)
         cat.shortLabels = width - right - x - S.s2 < L.searchMinWidth
-        if cat.shortLabels then x = layoutLeft(available, true) end
+        if cat.shortLabels then
+            compact(true)
+            right = layoutViews()
+            x = layoutLeft(available, true)
+        end
         cat.count:ClearAllPoints()
         cat.count:SetPoint("LEFT", tb, "LEFT", x + S.s1, 0)
         local countEnd = x + S.s1 + (cat.count:GetStringWidth() or 0)

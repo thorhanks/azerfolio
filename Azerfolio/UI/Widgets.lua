@@ -186,6 +186,19 @@ function W.PanelButton(parent)
     local native = b.GetFontString and b:GetFontString()
     b.text = native or ns.Theme.Text(b, "sm", "gold")
     if not native then b.text:SetPoint("CENTER", 0, 0) end
+    -- :SetCompact(on): the game's small button fonts, for a toolbar that runs out of room (the
+    -- Zones toolbar at the minimum width, WoWScrnShot_111426_155718). Call SetLabel after it.
+    function b:SetCompact(on)
+        on = on and true or false
+        if self.compact == on then return end
+        self.compact = on
+        local fonts = on and { "GameFontNormalSmall", "GameFontHighlightSmall", "GameFontDisableSmall" }
+            or { "GameFontNormal", "GameFontHighlight", "GameFontDisable" }
+        for i, set in ipairs({ "SetNormalFontObject", "SetHighlightFontObject", "SetDisabledFontObject" }) do
+            local obj = _G[fonts[i]]
+            if obj and self[set] then pcall(self[set], self, obj) end
+        end
+    end
     function b:SetLabel(text, pad, minWidth)
         if native and self.SetText then self:SetText(text) else self.text:SetText(text) end
         local fs = self.GetFontString and self:GetFontString()
