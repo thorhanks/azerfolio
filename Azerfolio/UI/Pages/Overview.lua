@@ -514,8 +514,10 @@ local function build(parent)
         local lines = (cs.count and 1 or 0) + 1 + (cs.train and 1 or 0)
         local ph = 1 + L.classMini + 1 + S.s2 + lines * L.classMiniLine + S.s3
         p:SetHeight(ph)
-        local detail = (cs.count and (cs.count .. ". ") or "") .. (cs.next or "")
-            .. (cs.train and (" " .. p.train:GetText() .. ".") or "") .. " A opens the Class tab at your stop."
+        -- Sentences (the info line ran "Stormwind City 9 abilities waiting", WoWScrnShot_111326_200956).
+        local function sentence(t) return (t and t ~= "") and (t:gsub("[%.%s]+$", "") .. ". ") or "" end
+        local detail = sentence(cs.count) .. sentence(cs.next) .. sentence(cs.train and p.train:GetText())
+            .. "A opens the Class tab at your stop."
         rows[#rows + 1] = { items = { item(p, "classroad", cs.title or "Class road", detail,
             function() openClass() end, "R", "Class tab", L.plate + S.s3 + S.s3) }, section = 4 }
         y = y + ph + S.s2
