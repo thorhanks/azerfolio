@@ -1,7 +1,7 @@
 -- Summarizes the AzerfolioDiag SavedVariables dump.
 -- Usage: luajit tools/diag-report.lua [section] [param]
 -- Sections: summary (default), env, ach, explore, maps, quests, questdb [areas], taxi [nodes], zone, zones, events, art, errors,
---           criteria <achID>, ns <filter>, log [n], skin [tree [filter]], reps, spells
+--           criteria <achID>, ns <filter>, log [n], skin [tree [filter]], reps, spells, profs [run]
 -- Set AZF_DIAG_FILE to read a different dump.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
 
@@ -21,6 +21,86 @@ local function count(t) local n = 0 for _ in pairs(t or {}) do n = n + 1 end ret
 local function s(v) if type(v) == "table" then local o = {} for i, x in ipairs(v) do o[i] = tostring(x) end return "{" .. table.concat(o, ",") .. "}" end return tostring(v) end
 
 local R = {}
+
+-- /azfdiag profs: one block per run (profession window, trainer, vendor, bags). arg2 = run number
+-- for every recipe and service line instead of the summary.
+function R.profs()
+    local runs = DB.profRuns
+    if not runs or #runs == 0 then p("no profession probe; run /azfdiag profs, then /reload"); return end
+    local only = tonumber(arg2)
+    for n, r in ipairs(runs) do
+        if not only or only == n then
+            p("== run %d at %s, level %s", n, os.date("%m-%d %H:%M:%S", r.t), tostring(r.level))
+            local missing = {}
+            for _, k in ipairs(keys(r.has)) do if r.has[k] ~= "function" and r.has[k] ~= "table" then missing[#missing + 1] = k end end
+            p("  missing: %s", #missing > 0 and table.concat(missing, ", ") or "none")
+            p("  GetProfessions: %s", s(r.slots))
+            for _, pr in ipairs(r.profs or {}) do
+                local i, b = pr.info or {}, pr.bySkillLine
+                p("  slot %s: %s rank %s/%s line %s spells %s offset %s spec %s | bySkillLine %s", tostring(pr.slot), tostring(i[1]),
+                    tostring(i[3]), tostring(i[4]), tostring(i[7]), tostring(i[5]), tostring(i[6]), tostring(i[9]),
+                    type(b) == "table" and string.format("%s %s/%s parent %s", tostring(b.professionName), tostring(b.skillLevel), tostring(b.maxSkillLevel), tostring(b.parentProfessionID)) or tostring(b))
+            end
+            for _, sk in ipairs(r.skills or {}) do
+                if type(sk) == "table" then
+                    p("  skill %s%-22s %s/%s id %s cat %s parent %s", sk.isHeader and "# " or "  ", tostring(sk.name), tostring(sk.rank), tostring(sk.maxRank),
+                        tostring(sk.skillID), tostring(sk.skillLineCategoryID), tostring(sk.parentSkillLineID))
+                end
+            end
+            for _, l in ipairs(r.lines or {}) do
+                local b = l.info
+                p("  trade line %s: %s", tostring(l.id), type(b) == "table" and string.format("%s %s/%s parent %s", tostring(b.professionName), tostring(b.skillLevel), tostring(b.maxSkillLevel), tostring(b.parentProfessionID)) or tostring(b))
+            end
+            for _, c in ipairs(r.spellCheck or {}) do
+                p("  spell %-6d %-30s IsPlayerSpell %-5s C_SpellBook.IsSpellKnown %s", c.id, tostring(c.name), tostring(c.player), tostring(c.known))
+            end
+            local w = r.window
+            if w then
+                local b = type(w.base) == "table" and w.base or {}
+                local c = type(w.child) == "table" and w.child or {}
+                p("  window: %s / %s %s/%s; showLearned %s showUnlearned %s; all %s->%s filtered %s->%s; learned %d unlearned %d; IsPlayerSpell agrees %d, differs %d",
+                    tostring(b.professionName), tostring(c.professionName), tostring(c.skillLevel), tostring(c.maxSkillLevel),
+                    tostring(w.showLearned), tostring(w.showUnlearned), tostring(w.allBefore), tostring(w.all), tostring(w.filteredBefore), tostring(w.filtered),
+                    w.learned or 0, w.unlearned or 0, w.playerAgree or 0, w.playerDisagree or 0)
+                if w.sample and w.sample[1] then p("  recipe fields: %s", table.concat(keys(w.sample[1]), " ")) end
+                local srcs = {}
+                for _, e in ipairs(w.recipes or {}) do srcs[tostring(e.src)] = (srcs[tostring(e.src)] or 0) + 1 end
+                local o = {} for k, v in pairs(srcs) do o[#o + 1] = k .. "=" .. v end
+                p("  sourceType counts: %s; categories %d", table.concat(o, " "), #(w.categories or {}))
+                for _, c in ipairs(w.categories or {}) do
+                    local i = type(c) == "table" and type(c.info) == "table" and c.info or {}
+                    p("    category %s: %s parent %s", tostring(c.id), tostring(i.name), tostring(i.parentCategoryID))
+                end
+                for k, e in ipairs(w.recipes or {}) do
+                    if only or k <= 8 then
+                        p("    %7d %-36s learned %-5s player %-5s src %s cat %s diff %s trivial %s item %s", e.id, tostring(e.name), tostring(e.learned),
+                            tostring(e.player), tostring(e.src), tostring(e.cat), tostring(e.diff), tostring(e.trivial), tostring(e.item))
+                    end
+                end
+                for k, e in ipairs(w.sources or {}) do
+                    if only or k <= 6 then p("    source %7d %s", e.id, tostring(e.text):gsub("\n", " | ")) end
+                end
+            end
+            local t = r.trainer
+            if t then
+                p("  trainer: %d services", t.count or 0)
+                for k, sv in ipairs(t.services or {}) do
+                    if only or k <= 8 then
+                        local i, sk = sv.info or {}, sv.skill or {}
+                        p("    %-34s %-10s skill %s %s level %s cost %s line %s", tostring(i[1]), tostring(i[3]), tostring(sk[1]), tostring(sk[2]),
+                            tostring(sv.level), tostring(sv.cost), tostring(sv.line))
+                    end
+                end
+            end
+            for label, list in pairs({ vendor = r.vendor and r.vendor.items, bags = r.bags }) do
+                for _, e in ipairs(list or {}) do
+                    p("  %s %6d %-34s sub %s spell %s | %s", label, e.id, tostring(e.name), tostring(e.sub), s(e.spell), table.concat(e.tip or {}, " / "))
+                    if e.byID then p("      by ID: %s", table.concat(e.byID, " / ")) end
+                end
+            end
+        end
+    end
+end
 
 -- /azfdiag spells: the spellbook APIs, item types (does the client list spells not learned yet?),
 -- the level each is learned at, and the trainer's list when its window was open.

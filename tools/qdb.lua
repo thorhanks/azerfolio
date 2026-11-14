@@ -306,6 +306,42 @@ elseif cmd == "recipes" then
         "alchemy", "first aid", "enchanting", "fishing", "jewelcrafting" }
     local only = tonumber(arg[2])
     local rows = load(nil, "Item")
+    if arg[2] == "match" then
+        -- The profession windows recorded by /azfdiag profs, matched by name to recipe items
+        -- ("Plans: X", "Recipe: X", "Pattern: X", "Schematic: X", "Formula: X", "Manual: X").
+        local diag = os.getenv("AZF_DIAG_FILE") or "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
+        local chunk = assert(loadfile(diag)); local env = {}; setfenv(chunk, env); chunk()
+        local byName = {}
+        for id, row in pairs(rows) do
+            if row[12] == 9 and type(row[1]) == "string" then
+                local n = row[1]:match("^%a+: (.+)$")
+                if n then byName[n] = byName[n] or {}; table.insert(byName[n], id) end
+            end
+        end
+        local seen = {}
+        for _, run in ipairs(env.AzerfolioDiagDB.profRuns or {}) do
+            local w = run.window
+            local prof = w and type(w.base) == "table" and w.base.professionName
+            if prof and not seen[prof] then
+                seen[prof] = true
+                local cats = {}
+                for _, c in ipairs(w.categories or {}) do if type(c.info) == "table" then cats[c.id] = c.info.name end end
+                local n, item, learned, sod, list = 0, 0, 0, 0, {}
+                for _, r in ipairs(w.recipes or {}) do
+                    n = n + 1
+                    if r.learned then learned = learned + 1 end
+                    local isSod = cats[r.cat] == "SEASON OF DISCOVERY"
+                    if isSod then sod = sod + 1 end
+                    local m = byName[r.name]
+                    if m then item = item + 1 elseif not r.learned and not isSod then list[#list + 1] = r.name .. " (" .. tostring(r.trivial) .. ")" end
+                end
+                print(string.format("%-15s %d recipes: learned %d, Season of Discovery category %d, a recipe item by name %d, neither %d",
+                    prof, n, learned, sod, item, #list))
+                if arg[3] then table.sort(list); print("    " .. table.concat(list, ", ")) end
+            end
+        end
+        return
+    end
     local want = {}
     for id, row in pairs(rows) do if row[12] == 9 then want[id] = true end end
     local _, tabs = load(function(id) return want[id] end, "Item")
@@ -360,6 +396,77 @@ elseif cmd == "recipes" then
                 end
             end
         end
+    end
+elseif cmd == "profs" then
+    -- Profession survey: trainers (NPC subName "<Profession> Trainer" or "...Trainer"), quests with a
+    -- requiredSkill ({skillID, rank}), per skill line. Skill IDs per the classic SkillLine table [unverified on Forever].
+    local SKILL = { [164] = "Blacksmithing", [165] = "Leatherworking", [171] = "Alchemy", [182] = "Herbalism",
+        [185] = "Cooking", [186] = "Mining", [197] = "Tailoring", [202] = "Engineering", [333] = "Enchanting",
+        [356] = "Fishing", [393] = "Skinning", [129] = "First Aid", [40] = "Poisons", [633] = "Lockpicking", [762] = "Riding" }
+    local filter = arg[2] and arg[2]:lower()
+    local npcRows = load(nil, "Npc")
+    local trainers, other = {}, {}
+    -- Trainer subNames: "<Profession> Trainer" or "<Rank> <noun>" ("Journeyman Blacksmith", "Expert Chef").
+    local NOUN = { Blacksmith = "Blacksmithing", Leatherworker = "Leatherworking", Alchemist = "Alchemy",
+        Herbalist = "Herbalism", Chef = "Cooking", Cook = "Cooking", Miner = "Mining", Tailor = "Tailoring",
+        Engineer = "Engineering", Enchanter = "Enchanting", Fisherman = "Fishing", Skinner = "Skinning",
+        Physician = "First Aid", Surgeon = "First Aid", Trauma = "First Aid" }
+    local RANKS = { Apprentice = true, Journeyman = true, Expert = true, Artisan = true, Master = true, Grand = true }
+    for id, row in pairs(npcRows) do
+        local sub = row[14]
+        local prof
+        if type(sub) == "string" then
+            local rank, noun = sub:match("^(%a+) (%a+)$")
+            if rank and RANKS[rank] and NOUN[noun] then prof = NOUN[noun] end
+        end
+        if type(sub) == "string" and (prof or sub:find("Trainer")) then
+            if not prof then for _, n in pairs(SKILL) do if sub:find(n, 1, true) then prof = n end end end
+            if prof then
+                trainers[prof] = trainers[prof] or {}
+                table.insert(trainers[prof], { id = id, name = row[1], sub = sub, area = row[9] })
+            elseif not sub:find("Trainer$") or sub:find("Profession") then
+                other[#other + 1] = id .. " " .. tostring(row[1]) .. " <" .. sub .. ">"
+            end
+        end
+    end
+    local qrows, qtabs = load(function(_, f) return f == 18 end)
+    local quests = {}
+    for id, row in pairs(qrows) do
+        local rs = field(row, qtabs[id], 18)
+        if type(rs) == "table" and rs[1] then
+            local n = SKILL[rs[1]] or ("skill " .. rs[1])
+            quests[n] = quests[n] or {}
+            table.insert(quests[n], { id = id, name = row[1], rank = rs[2], zone = row[17] })
+        end
+    end
+    local names = {}
+    for _, n in pairs(SKILL) do names[#names + 1] = n end
+    for n in pairs(quests) do if n:find("^skill ") then names[#names + 1] = n end end
+    table.sort(names)
+    for _, n in ipairs(names) do
+        local t, q = trainers[n] or {}, quests[n] or {}
+        if (#t > 0 or #q > 0) and (not filter or n:lower():find(filter, 1, true)) then
+            local ranks = {}
+            for _, e in ipairs(t) do
+                local r = e.sub:match("^(%a+) ") or "-"
+                ranks[r] = (ranks[r] or 0) + 1
+            end
+            local rs = {}
+            for r, c in pairs(ranks) do rs[#rs + 1] = r .. " " .. c end
+            table.sort(rs)
+            print(string.format("%-15s trainers %-3d (%s)  quests needing the skill %d", n, #t, table.concat(rs, ", "), #q))
+            if filter then
+                table.sort(t, function(a, b) return a.id < b.id end)
+                for _, e in ipairs(t) do print(string.format("    T %6d %-28s <%s> area %s", e.id, tostring(e.name), e.sub, tostring(e.area))) end
+                table.sort(q, function(a, b) return (a.rank or 0) < (b.rank or 0) end)
+                for _, e in ipairs(q) do print(string.format("    Q %6d %-40s rank %-4s zone %s", e.id, tostring(e.name), tostring(e.rank), tostring(e.zone))) end
+            end
+        end
+    end
+    if not filter and #other > 0 then
+        table.sort(other)
+        print("other trainer subNames with 'Profession' or not ending in Trainer: " .. #other)
+        for i = 1, math.min(#other, 15) do print("    " .. other[i]) end
     end
 elseif cmd == "class" then
     -- Class-restricted quests (requiredClasses set, not every class). Masks are tested with

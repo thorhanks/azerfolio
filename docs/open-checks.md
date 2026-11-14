@@ -44,6 +44,13 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | J7 | Whether the newer-ID quests are offered in game (A Strange Artifact 78088 for Gideon) | Gideon at 22, in Ashenvale | Find the object and take the quest; QuestieDB having them (J2) doesn't prove the game does |
 | J8 | The other 16 roads look right in game: the strip, the road along its lane, stops by their landmarks, the class coin, milestones once the trainer is opened (seen so far: Paladin Alliance on Gideon, Warrior Horde on Thragor; the rest only in the mockup's Road switch and the tests) | A character of another class and side | `/reload`, wait a few seconds, `/azf shots class`; open the class trainer once first for the milestones |
 
+## Professions (research, 2026-11-13)
+
+| ID | Check | When | How |
+|---|---|---|---|
+| G1 | The skill each gathering node needs on Forever, where the guides disagree (Bruiseweed 85 or 100, Small Thorium 245 or 250, Rich Thorium 275 or 295) and for Forever's new nodes (Heavy Thorium, Marefoil, Demonsage, Death Lotus...) | Mousing over such a node or herb | `/azf shot` of its tooltip ("Requires Mining (n)"); update `docs/research/professions.md` § Gathering table |
+| G2 | A learned recipe's tooltip says "Already known" (vendor and bag), so known state can be read for recipe items too | Any vendor recipe or recipe item you already know | `/azfdiag profs` with the vendor open or the item in your bags, `/reload`, `luajit tools/diag-report.lua profs` |
+
 ## Celebrations (Phase 10)
 
 | ID | What to confirm | When it comes up | How to check |

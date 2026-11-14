@@ -1062,6 +1062,217 @@ local function dumpSpells()
 end
 
 ---------------------------------------------------------------------------
+-- Profession probe (/azfdiag profs; Professions tab, docs/research/professions.md): the
+-- character's professions and skill ranks, whether recipe state is readable with the window shut
+-- (IsPlayerSpell), and, depending on what's open when it runs:
+--   profession window: every recipe the client lists, with "show unlearned" on, then restored;
+--   trainer: its services with skill requirements;   vendor: recipe items with tooltip lines
+--   ("Already known", "Requires Tailoring (125)");   always: recipe items in the bags.
+---------------------------------------------------------------------------
+
+local function tooltipLines(data)
+    if type(data) ~= "table" or type(data.lines) ~= "table" then return nil end
+    local out = {}
+    for i, line in ipairs(data.lines) do
+        if i > 14 then break end
+        local text = line.leftText
+        if type(text) == "string" and text ~= "" then
+            local c = line.leftColor
+            local red = type(c) == "table" and c.r and c.r > 0.9 and (c.g or 1) < 0.2
+            out[#out + 1] = (red and "[red] " or "") .. text
+        end
+    end
+    return out
+end
+
+local function recipeItem(itemID, tip)
+    local e = { id = itemID }
+    if C_Item and C_Item.GetItemInfoInstant then
+        local _, _, _, _, _, classID, subClassID = try("C_Item.GetItemInfoInstant", C_Item.GetItemInfoInstant, itemID)
+        e.class, e.sub = classID, subClassID
+    end
+    if C_Item and C_Item.GetItemNameByID then e.name = try("C_Item.GetItemNameByID", C_Item.GetItemNameByID, itemID) end
+    if C_Item and C_Item.GetItemSpell then e.spell = packArgs(try("C_Item.GetItemSpell", C_Item.GetItemSpell, itemID)) end
+    e.tip = tooltipLines(tip)
+    return e
+end
+
+local function dumpProfessions()
+    local T, S, SB = C_TradeSkillUI, C_SkillInfo, C_SpellBook
+    local r = { t = time(), level = UnitLevel and UnitLevel("player"), has = {}, profs = {}, skills = {}, lines = {} }
+    for _, name in ipairs({ "GetProfessions", "GetProfessionInfo", "IsPlayerSpell", "IsSpellKnown", "GetNumTradeSkills",
+        "GetTradeSkillInfo", "GetTradeSkillLine", "GetNumSkillLines", "GetSkillLineInfo", "GetMerchantNumItems",
+        "GetMerchantItemID", "GetTrainerServiceSkillReq", "GetTrainerServiceSkillLine", "IsTradeskillTrainer" }) do
+        r.has[name] = type(_G[name])
+    end
+    r.has.C_TooltipInfo = type(rawget(_G, "C_TooltipInfo"))
+    r.has.C_ProfSpecs = type(rawget(_G, "C_ProfSpecs"))
+
+    -- The character's professions (the book's source) and every skill line (secondary ones too).
+    if GetProfessions then
+        r.slots = packArgs(try("GetProfessions", GetProfessions))
+        for i = 1, r.slots.n or 0 do
+            local slot = r.slots[i]
+            if type(slot) == "number" and GetProfessionInfo then
+                local p = { slot = slot, info = packArgs(try("GetProfessionInfo", GetProfessionInfo, slot)) }
+                local line = p.info[7]
+                if type(line) == "number" and T and T.GetProfessionInfoBySkillLineID then
+                    p.bySkillLine = safePlain(try("GetProfessionInfoBySkillLineID", T.GetProfessionInfoBySkillLineID, line))
+                end
+                r.profs[#r.profs + 1] = p
+            end
+        end
+    end
+    if S and S.GetNumSkillLines and S.GetSkillLineInfo then
+        for i = 1, math.min(try("C_SkillInfo.GetNumSkillLines", S.GetNumSkillLines) or 0, 80) do
+            r.skills[i] = safePlain(try("C_SkillInfo.GetSkillLineInfo", S.GetSkillLineInfo, i))
+        end
+    end
+    if T and T.GetAllProfessionTradeSkillLines then
+        local ids = try("GetAllProfessionTradeSkillLines", T.GetAllProfessionTradeSkillLines)
+        if type(ids) == "table" then
+            for _, id in ipairs(ids) do
+                r.lines[#r.lines + 1] = { id = id, info = T.GetProfessionInfoBySkillLineID
+                    and safePlain(try("GetProfessionInfoBySkillLineID", T.GetProfessionInfoBySkillLineID, id)) }
+            end
+        end
+    end
+    -- Known-state with the window shut: classic recipe spells (Linen Bandage 3275, Heavy Linen
+    -- Bandage 3276, Rough Sharpening Stone 2660, Smelt Copper 2657, Minor Healing Potion 2330,
+    -- Linen Cloak 2387, Brown Linen Vest 2385, Charred Wolf Meat 2538, Enchant Bracer - Minor Health 7418).
+    r.spellCheck = {}
+    for _, id in ipairs({ 3275, 3276, 2660, 2657, 2330, 2387, 2385, 2538, 7418 }) do
+        r.spellCheck[#r.spellCheck + 1] = { id = id,
+            player = IsPlayerSpell and try("IsPlayerSpell", IsPlayerSpell, id),
+            known = SB and SB.IsSpellKnown and try("C_SpellBook.IsSpellKnown", SB.IsSpellKnown, id),
+            name = C_Spell and C_Spell.GetSpellName and try("C_Spell.GetSpellName", C_Spell.GetSpellName, id) }
+    end
+
+    -- An open profession window: its recipe list with learned and unlearned shown.
+    if T and T.IsTradeSkillReady and try("IsTradeSkillReady", T.IsTradeSkillReady) then
+        local w = { base = safePlain(T.GetBaseProfessionInfo and try("GetBaseProfessionInfo", T.GetBaseProfessionInfo)),
+            child = safePlain(T.GetChildProfessionInfo and try("GetChildProfessionInfo", T.GetChildProfessionInfo)),
+            showLearned = T.GetShowLearned and try("GetShowLearned", T.GetShowLearned),
+            showUnlearned = T.GetShowUnlearned and try("GetShowUnlearned", T.GetShowUnlearned),
+            recipes = {}, sources = {} }
+        local function ids(fn) local v = fn and try("recipeIDs", fn); return type(v) == "table" and v or nil end
+        local all, filtered = ids(T.GetAllRecipeIDs), ids(T.GetFilteredRecipeIDs)
+        w.allBefore, w.filteredBefore = all and #all, filtered and #filtered
+        if T.SetShowUnlearned then try("SetShowUnlearned", T.SetShowUnlearned, true) end
+        if T.SetShowLearned then try("SetShowLearned", T.SetShowLearned, true) end
+        all, filtered = ids(T.GetAllRecipeIDs), ids(T.GetFilteredRecipeIDs)
+        w.all, w.filtered = all and #all, filtered and #filtered
+        local learned, unlearned, agree, disagree = 0, 0, 0, 0
+        for i, id in ipairs(all or {}) do
+            if i > 1200 then break end
+            local info = T.GetRecipeInfo and try("GetRecipeInfo", T.GetRecipeInfo, id)
+            if i <= 3 then w.sample = w.sample or {}; w.sample[i] = safePlain(info) end
+            if type(info) == "table" then
+                local e = { id = id, name = info.name, learned = info.learned, src = info.sourceType,
+                    cat = info.categoryID, sla = info.skillLineAbilityID, diff = info.relativeDifficulty,
+                    trivial = info.maxTrivialLevel, ups = info.numSkillUps, item = info.hyperlink and info.hyperlink:match("item:(%d+)") }
+                if IsPlayerSpell then
+                    e.player = try("IsPlayerSpell", IsPlayerSpell, id)
+                    if e.player == info.learned then agree = agree + 1 else disagree = disagree + 1 end
+                end
+                if T.GetRecipeRequirements and i <= 40 then e.req = safePlain(try("GetRecipeRequirements", T.GetRecipeRequirements, id)) end
+                if info.learned then learned = learned + 1 else
+                    unlearned = unlearned + 1
+                    if T.GetRecipeSourceText and #w.sources < 80 then
+                        w.sources[#w.sources + 1] = { id = id, text = try("GetRecipeSourceText", T.GetRecipeSourceText, id) }
+                    end
+                end
+                w.recipes[#w.recipes + 1] = e
+            end
+        end
+        w.learned, w.unlearned, w.playerAgree, w.playerDisagree = learned, unlearned, agree, disagree
+        -- Category names: GetCategories listed none on First Aid (run 2026-11-13), so look up each
+        -- recipe's categoryID and its parents.
+        w.categories = {}
+        if T.GetCategoryInfo then
+            local seen, queue = {}, {}
+            for _, e in ipairs(w.recipes) do if e.cat then queue[#queue + 1] = e.cat end end
+            while #queue > 0 do
+                local c = table.remove(queue)
+                if not seen[c] then
+                    seen[c] = true
+                    local info = try("GetCategoryInfo", T.GetCategoryInfo, c)
+                    w.categories[#w.categories + 1] = { id = c, info = safePlain(info) }
+                    if type(info) == "table" and info.parentCategoryID and info.parentCategoryID ~= 0 then queue[#queue + 1] = info.parentCategoryID end
+                end
+            end
+        end
+        if T.SetShowUnlearned and w.showUnlearned ~= nil then try("SetShowUnlearned", T.SetShowUnlearned, w.showUnlearned) end
+        if T.SetShowLearned and w.showLearned ~= nil then try("SetShowLearned", T.SetShowLearned, w.showLearned) end
+        r.window = w
+    end
+
+    -- An open trainer: its services, with every filter on, then restored.
+    if GetNumTrainerServices and IsTradeskillTrainer and try("IsTradeskillTrainer", IsTradeskillTrainer) then
+        local filters, saved = { "available", "unavailable", "used" }, {}
+        for _, f in ipairs(filters) do
+            if GetTrainerServiceTypeFilter and SetTrainerServiceTypeFilter then
+                saved[f] = try("GetTrainerServiceTypeFilter", GetTrainerServiceTypeFilter, f)
+                try("SetTrainerServiceTypeFilter", SetTrainerServiceTypeFilter, f, 1)
+            end
+        end
+        local n = try("GetNumTrainerServices", GetNumTrainerServices) or 0
+        r.trainer = { count = n, services = {} }
+        for i = 1, math.min(n, 300) do
+            local s = { info = packArgs(try("GetTrainerServiceInfo", GetTrainerServiceInfo, i)) }
+            if GetTrainerServiceSkillReq then s.skill = packArgs(try("GetTrainerServiceSkillReq", GetTrainerServiceSkillReq, i)) end
+            if GetTrainerServiceLevelReq then s.level = try("GetTrainerServiceLevelReq", GetTrainerServiceLevelReq, i) end
+            if GetTrainerServiceCost then s.cost = try("GetTrainerServiceCost", GetTrainerServiceCost, i) end
+            if GetTrainerServiceSkillLine then s.line = try("GetTrainerServiceSkillLine", GetTrainerServiceSkillLine, i) end
+            r.trainer.services[i] = s
+        end
+        for _, f in ipairs(filters) do
+            if saved[f] ~= nil then try("SetTrainerServiceTypeFilter", SetTrainerServiceTypeFilter, f, saved[f] and 1 or 0) end
+        end
+    end
+
+    -- An open vendor: its recipe items (class 9) with tooltip lines.
+    local TI = rawget(_G, "C_TooltipInfo")
+    if GetMerchantNumItems and GetMerchantItemID then
+        local n = try("GetMerchantNumItems", GetMerchantNumItems) or 0
+        if n > 0 then
+            r.vendor = { count = n, items = {} }
+            for i = 1, math.min(n, 120) do
+                local id = try("GetMerchantItemID", GetMerchantItemID, i)
+                if id then
+                    local e = recipeItem(id, TI and TI.GetMerchantItem and try("GetMerchantItem", TI.GetMerchantItem, i))
+                    if e.class == 9 then r.vendor.items[#r.vendor.items + 1] = e end
+                end
+            end
+        end
+    end
+    -- Recipe items in the bags, and each one's tooltip by item ID (does "Already known" show there too?).
+    r.bags = {}
+    if C_Container and C_Container.GetContainerNumSlots and C_Container.GetContainerItemID then
+        for bag = 0, 4 do
+            for slot = 1, (try("GetContainerNumSlots", C_Container.GetContainerNumSlots, bag) or 0) do
+                local id = try("GetContainerItemID", C_Container.GetContainerItemID, bag, slot)
+                if id and #r.bags < 30 then
+                    local e = recipeItem(id, TI and TI.GetBagItem and try("GetBagItem", TI.GetBagItem, bag, slot))
+                    if e.class == 9 then
+                        e.byID = TI and TI.GetItemByID and tooltipLines(try("GetItemByID", TI.GetItemByID, id))
+                        r.bags[#r.bags + 1] = e
+                    end
+                end
+            end
+        end
+    end
+    -- Each run is kept (window, trainer and vendor are usually separate runs).
+    DB.profs = nil
+    DB.profRuns = DB.profRuns or {}
+    push(DB.profRuns, r, 8)
+    msg(string.format("professions: %d professions, %d skill lines; window %s, trainer %s, vendor %s, %d recipe items in bags. Type /reload to save.",
+        #r.profs, #r.skills, r.window and ((r.window.all or 0) .. " recipes") or "not open",
+        r.trainer and (r.trainer.count .. " services") or "not open",
+        r.vendor and (#r.vendor.items .. " recipes") or "not open", #r.bags))
+end
+
+---------------------------------------------------------------------------
 -- Image format / native texture test
 ---------------------------------------------------------------------------
 
@@ -1533,6 +1744,7 @@ local HELP = {
     "/azfdiag taxi   - flight paths per zone (also recorded when a flight master's map opens)",
     "/azfdiag reps   - reputation probe: faction APIs, the full faction list, lookups by ID",
     "/azfdiag spells - spell probe: spellbook APIs, every spellbook item and its level (run again with a class trainer open)",
+    "/azfdiag profs - profession probe: skills, recipe known-state (run with a profession window, trainer or recipe vendor open)",
     "/azfdiag sniff  - toggle logging of every event name",
     "/azfdiag art    - show the image-format test frame",
     "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
@@ -1557,6 +1769,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "taxi" then dumpTaxi("command")
     elseif cmd == "reps" then dumpReps()
     elseif cmd == "spells" then dumpSpells()
+    elseif cmd == "profs" then dumpProfessions()
     elseif cmd == "sniff" then setSniff(not DB.sniffOn)
     elseif cmd == "art" then showArt()
     elseif cmd == "pad" then togglePad()
