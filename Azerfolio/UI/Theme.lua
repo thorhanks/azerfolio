@@ -544,12 +544,12 @@ Theme.layout.profTab = {
     railCoin = 40,
     railGroup = 26,      -- "Primary" / "Secondary"
     switch = 38,         -- the view switch (Journey · Recipes · Gather)
-    bannerMax = 330,     -- the banner with the road in its foot (mockup min 330 px: room for the scene)
-    bannerMin = 250,     -- at the window's minimum size
+    bannerMax = 220,     -- the banner (the road strip sits below it since 2026-11-14; mockup 220 px)
+    bannerMin = 130,     -- at the window's minimum size
     listsMin = 200,      -- Next up | Tracked keep at least this much
     road = 112,          -- the parchment strip in the banner's foot
     roadFrame = 18, roadFrameOut = 5, -- its gilded card frame: corner size, how far outside the strip
-    roadWash = 0.8, roadWashAbove = 90, -- the dark wash rising from the banner's foot: its alpha there, how far above the strip it fades out
+    roadGap = 14,        -- between the banner and the road strip below it (owner, 2026-11-14: the strip left the banner)
     roadArt = { 2048, 256 }, -- the painted skill road (Media\ProfRoads), shown cover-fit
     roadArtLane = 150,   -- the art's lane row (process-art.ps1 $RoadLaneRow puts it there)
     roadLaneAt = 0.36,   -- where the bar sits on the painted road: its share of the strip's height from the bottom
