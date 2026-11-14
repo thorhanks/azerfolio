@@ -30,7 +30,7 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 
 | ID | What to confirm | When it comes up | How to check |
 |---|---|---|---|
-| O1 | The new Overview on Thragor (Horde strip) and in the wide window. Gideon at the normal size is confirmed (2026-11-13, `WoWScrnShot_111326_200950`, `200956`: fits without scrolling, You centred, only The Tome of Divinity named, caption with 9 abilities to train; owner: looks great) | Any time on Thragor; the wide window whenever it's used | `/reload`, wait a few seconds, `/azf shots` (the "overview" and "overview, class road" shots); then A on the window |
+| O1 | The new Overview in the wide window. Confirmed 2026-11-13: Gideon (`WoWScrnShot_111326_200950`, `200956`; a smaller window `210844`: fits, the caption's Next line ellipsized, full text in the info line) and Thragor (`211156`: The Warrior's Road on the Horde strip, his portrait on the road, only Simple Parchment named, no trainer line while nothing can be trained) | Whenever the wide window is used | `/azf shots` with the window wide (the "overview" and "overview, class road" shots) |
 
 ## Class tab (Phase 13)
 
