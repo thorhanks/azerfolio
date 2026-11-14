@@ -668,8 +668,10 @@ local function build(parent)
         b:SetScript("OnClick", function() page:SetFilter(f) end)
         page.chips[#page.chips + 1] = b
     end
-    page.recSum = T.Text(tb, "xs", "dim")
-    page.recSum:SetPoint("RIGHT", tb, "RIGHT", -S.s4, 0)
+    -- The recipe summary sits on the view switch's bar, where "Y switches the view" is in the
+    -- other views (owner, 2026-11-14: the red filter buttons left it no room; the legend shows Y).
+    page.recSum = T.Text(sw, "xs", "dim")
+    page.recSum:SetPoint("RIGHT", sw, "RIGHT", -S.s4, 0)
     local det = CreateFrame("Frame", nil, recipes)
     det:SetPoint("TOPRIGHT", tb, "BOTTOMRIGHT"); det:SetPoint("BOTTOMRIGHT")
     det:SetWidth(PT.detail)
@@ -1117,9 +1119,6 @@ local function build(parent)
         end
         page.recSum:SetText(rec and string.format("|cffffffff%d|r known · |cffffffff%d|r with a known source%s", rec.counts.known, rec.counts.all,
             rec.counts.nosource > 0 and (" · " .. rec.counts.nosource .. " not counted") or "") or "")
-        -- The wider native buttons can reach the summary in a narrow window: it gives way.
-        local tbw = tb:GetWidth() or 0
-        page.recSum:SetShown(tbw <= 0 or x + S.s4 + (page.recSum:GetStringWidth() or 0) <= tbw - S.s4)
         local child = page.rlist.scroll.child
         local width = math.max(1, (child:GetWidth() or 400) - L.listInset - S.s2)
         local y = S.s1
@@ -1291,6 +1290,8 @@ local function build(parent)
             end
         end
         self.viewHint:SetText(#views > 1 and "Y switches the view" or "")
+        self.viewHint:SetShown(self.view ~= "recipes")
+        self.recSum:SetShown(self.view == "recipes")
         self.views = views
 
         self.railFocus = paintRail(list)

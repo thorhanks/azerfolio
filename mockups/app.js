@@ -2384,7 +2384,10 @@
     if (!views.includes(ui.profView)) ui.profView = "journey";
     const v = ui.profView;
     const tabs = `<div class="pvswitch">${views.map(k => `<button class="pvtab btn focusable ${k === v ? "on" : ""}" data-pview="${k}" data-tip="<b>${PVIEWS[k]}</b>${k === "journey" ? "Your road, what to do next and what you're tracking." : k === "recipes" ? "Every recipe, its sources and ingredients." : p.fish ? "Where to fish for your skill." : "Where to gather for your skill."}">${k === "gather" && p.fish ? "Fish" : PVIEWS[k]}</button>`).join("")}
-      <span class="pvhint"><span class="glyph Y">Y</span>View</span></div>`;
+      ${v === "recipes" && !p.rec.unread
+        // Owner (2026-11-14): in Recipes the summary takes the Y hint's place (the red filters left it no room).
+        ? `<span class="pvhint psum"><b>${p.known}</b> known · <b>${p.counted}</b> with a known source${p.nosource ? ` · ${p.nosource} not counted` : ""}</span>`
+        : `<span class="pvhint"><span class="glyph Y">Y</span>View</span>`}</div>`;
     let body = "";
     if (v === "journey") {
       const score = p.mastered ? profCoin(p, "big") : `<b>${p.skill}</b><small>of ${p.cap}</small>`;
@@ -2413,7 +2416,7 @@
         const bands = [[0, 75, "Apprentice"], [75, 150, "Journeyman"], [150, 225, "Expert"], [225, 999, "Artisan"]];
         const rows = bands.map(([a, b, nm]) => { const rs = shown.filter(r => r.order >= a && r.order < b); return rs.length ? `<h2 class="section" data-group>${nm} <small>skill ${a || 1}–${Math.min(b, PMAX)} · ${rs.filter(r => r.known).length} of ${rs.length} known</small></h2><div class="precipes">${rs.map(r => recipeRow(p, r)).join("")}</div>` : ""; }).join("")
           || `<div class="pnote">None here.</div>`;
-        body = `<div class="prtool"><div class="pfilters">${chips}</div><div class="psum"><b>${p.known}</b> known · <b>${p.counted}</b> with a known source${p.nosource ? ` · ${p.nosource} not counted` : ""}</div></div>
+        body = `<div class="prtool"><div class="pfilters">${chips}</div></div>
           <div class="prsplit"><div class="prlist"><div class="scroll" id="precscroll">${rows}
             ${!PTRAINER[p.name] && p.nosource ? `<div class="pnote">You haven't opened a ${esc(p.name)} trainer's list yet: visiting one shows which recipes it teaches and the skill each needs.</div>` : ""}</div></div>
             <aside class="prdetail" id="precdetail">${recipeDetail(p, list.find(r => r.id === ui.recipeSel))}</aside></div>`;
