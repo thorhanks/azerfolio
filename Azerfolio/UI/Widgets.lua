@@ -179,6 +179,11 @@ function W.PanelButton(parent)
         local on = self.on or self.focused
         local f = on and self.LockHighlight or self.UnlockHighlight
         if f then pcall(f, self) end
+        -- A compact button keeps its small font through the highlight change.
+        if self.compact and self.text and self.text.SetFontObject then
+            local obj = _G[on and "GameFontHighlightSmall" or "GameFontNormalSmall"]
+            if obj and self.text ~= nil and self.GetFontString and self:GetFontString() == self.text then pcall(self.text.SetFontObject, self.text, obj) end
+        end
     end
     function b:SetOn(on) self.on = on; lit(self) end
     function b:SetFocused(on) self.focused = on; lit(self) end
@@ -198,6 +203,11 @@ function W.PanelButton(parent)
             local obj = _G[fonts[i]]
             if obj and self[set] then pcall(self[set], self, obj) end
         end
+        -- The button's font objects only reach its label on the next state change (in game the
+        -- labels kept their size, WoWScrnShot_111426_160113): set the label's font directly too,
+        -- the highlight one while it's lit.
+        local obj = _G[(self.on or self.focused) and fonts[2] or fonts[1]]
+        if native and obj and self.text.SetFontObject then pcall(self.text.SetFontObject, self.text, obj) end
     end
     function b:SetLabel(text, pad, minWidth)
         if native and self.SetText then self:SetText(text) else self.text:SetText(text) end
