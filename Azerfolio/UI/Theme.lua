@@ -549,6 +549,7 @@ Theme.layout.profTab = {
     listsMin = 200,      -- Next up | Tracked keep at least this much
     road = 112,          -- the parchment strip in the banner's foot
     roadArt = { 2048, 256 }, -- the painted skill road (Media\ProfRoads), shown cover-fit
+    roadArtTop = 0.2,    -- of what cover-fit crops off the art's height, the share taken from the top
     roadBar = 22,        -- the gilded road's height
     roadPadL = 30,       -- 1 sits here
     roadPadR = 80,       -- room for the coin after 300

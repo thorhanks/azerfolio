@@ -793,14 +793,20 @@ local function build(parent)
         -- The painted road fills the strip (cover, centred) and the bar runs on its lane at half height.
         local painted = m.key and ns.Art and ns.Art.profRoads and ns.Art.profRoads[m.key] and true or false
         road.paper:SetShown(not painted); road.art:SetShown(painted)
+        local barY = 30 -- from the strip's bottom to the bar's centre
         if painted then
             road.art:SetTexture(T.mediaDir .. "ProfRoads\\" .. m.key .. ".blp")
             local h = road:GetHeight() or PT.road
             if h <= 0 then h = PT.road end
+            -- Cover-fit, but where the strip is wider than the art, crop from the plain ground
+            -- below rather than the landmarks above (in game they lost their roofs), and put
+            -- the bar where the art's lane (half its height) lands.
             local l, r, t, b = T.CoverCoords(w, h, PT.roadArt[1], PT.roadArt[2])
+            local cut = t + (1 - b) -- share of the art's height cropped
+            t, b = cut * PT.roadArtTop, 1 - cut * (1 - PT.roadArtTop)
             road.art:SetTexCoord(l, r, t, b)
+            barY = h * (b - 0.5) / (b - t)
         end
-        local barY = painted and PT.road / 2 or 30 -- from the strip's bottom to the bar's centre
         road.bar:ClearAllPoints()
         road.bar:SetPoint("LEFT", road, "BOTTOMLEFT", x0 - PT.roadBar * 0.45, barY)
         road.bar:SetWidth(x1 - x0 + PT.roadBar * 0.9)
