@@ -783,6 +783,44 @@ function Theme.CoverCoords(w, h, tw, th)
     return 0.5 - f / 2, 0.5 + f / 2, 0, 1
 end
 
+-- A painted cartouche (chrome "cartouche": two notched end caps and a stretched middle, the Class
+-- tab's ribbon) holding one line of dark ink, sized to its text by :SetText. Without the art, a
+-- parchment tag with a sepia edge stands in.
+function Theme.Cartouche(parent, sizeKey)
+    local CT = Theme.layout.classTab
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetHeight(CT.cartH)
+    local file = Theme.Chrome("cartouche")
+    if file then
+        local tw, th = CT.cartTex[1], CT.cartTex[2]
+        local v0, v1 = CT.cartRows[1] / th, CT.cartRows[2] / th
+        local capU = CT.cartCapPx / tw
+        local function part(u0, u1)
+            local t = f:CreateTexture(nil, "BACKGROUND")
+            t:SetTexture(file); t:SetTexCoord(u0, u1, v0, v1)
+            return t
+        end
+        local l, m, r = part(0, capU), part(capU, 1 - capU), part(1 - capU, 1)
+        l:SetPoint("TOPLEFT"); l:SetPoint("BOTTOMLEFT"); l:SetWidth(CT.cartCap)
+        r:SetPoint("TOPRIGHT"); r:SetPoint("BOTTOMRIGHT"); r:SetWidth(CT.cartCap)
+        m:SetPoint("TOPLEFT", l, "TOPRIGHT"); m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
+    else
+        local edge = Theme.Solid(f, "classInkFaded", "BACKGROUND", 0.9)
+        edge:SetAllPoints()
+        local fill = Theme.Solid(f, "classParchment", "BORDER", 0.92)
+        fill:SetPoint("TOPLEFT", 1, -1); fill:SetPoint("BOTTOMRIGHT", -1, 1)
+    end
+    f.text = Theme.Text(f, sizeKey or "sm", "classInk")
+    f.text:SetShadowOffset(0, 0)
+    f.text:SetWordWrap(false)
+    f.text:SetPoint("CENTER", f, "CENTER", 0, 0)
+    function f:SetText(s)
+        self.text:SetText(s)
+        self:SetWidth(math.max(CT.cartH, (self.text:GetStringWidth() or 0) + 2 * CT.cartCap + CT.cartPad * 2))
+    end
+    return f
+end
+
 function Theme.Solid(parent, colorName, layer, alpha)
     local tex = parent:CreateTexture(nil, layer or "BACKGROUND")
     local r, g, b = Theme.RGB(colorName)

@@ -1558,8 +1558,15 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 /* The painted skill road (2048x256 map): cover, centred on the lane. */
 /* The painted road (2048x256, its lane at row 150): cover; this strip shows the art's whole height. */
 .pbanner .proad.painted { background-size: cover; background-position: center; background-repeat: no-repeat; }
-.proadart .pstag { fill: rgba(239,225,189,.9); stroke: #5a4128; stroke-width: 1; }
-.proad.painted .ptick text { paint-order: stroke; stroke: #efe1bd; stroke-width: 3px; }
+/* Owner (2026-11-14): rank names and scale numbers on the painted cartouche (as the Class tab's names). */
+.proad .pcart { position: absolute; z-index: 1; pointer-events: none; white-space: nowrap; line-height: 16px; padding: 3px 2px;
+  border-style: solid; border-width: 0 13px; border-image: url("chrome-art/cartouche.png") 33 48 fill / 0 13px stretch;
+  font: 600 13px var(--font); color: #2e2014; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+.proad .pcart.prk { transform: translateY(-50%); }
+.proad .pcart.prk.passed { color: #8a5d08; }
+.proad .pcart.prk.now { color: #a8352a; }
+.proad .pcart.prk.later { color: #6b5a44; }
+.proad .pcart.ptk { transform: translateX(-50%); font-size: 11px; line-height: 13px; padding: 2px 1px; }
 .proadart .pssub { font: 11px var(--font); fill: #6b5236; paint-order: stroke; stroke: #efe1bd; stroke-width: 3px; }
 .proadart .pslabel { text-anchor: start; }
 .pjcols { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--s6); padding: var(--s3) var(--s6) 0; }

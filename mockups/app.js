@@ -2237,27 +2237,28 @@
   // (closed until you train). A milestone stone at each rank's training skill (gold rune trained,
   // red rune trainable now, plain later); the profession coin at 300, dull until mastered; You at your skill.
   function profRoad(p) {
-    // The painted skill road (art/prompts.md "Skill roads"), when this trade has one: cover, centred,
-    // the road on its lane at half height, each stone's label on a parchment tag.
+    // The painted skill road (art/prompts.md "Skill roads"), when this trade has one: cover, the road
+    // straight on its lane. Owner (2026-11-14): each rank's name alone on a cartouche (no "from 50";
+    // gold ink trained, red ink train now, faded later) and the scale's numbers on cartouches too.
     const rkey = p.name.toLowerCase().replace(/[^a-z]/g, "");
     const painted = ((window.AZF_ART || {}).profRoads || []).includes(rkey) && !ui.plainRoad;
     // The art's lane is at row 150 of 256 (process-art.ps1 $RoadLaneRow); this strip (7.6:1) shows its whole height.
     const W = 1000, H = 132, x0 = 30, x1 = W - 56, y = painted ? Math.round(H * 150 / 256) : 74;
     const X = (s) => x0 + (Math.max(1, Math.min(PMAX, s)) - 1) / (PMAX - 1) * (x1 - x0);
-    const yAt = (x) => y + Math.sin(x / 90) * 6;
+    const yAt = (x) => painted ? y : y + Math.sin(x / 90) * 6;
     const wave = (a, b) => { let d = ""; for (let x = a; x <= b; x += 8) d += `${d ? " L" : "M"}${x.toFixed(1)} ${yAt(x).toFixed(1)}`; return d; };
     const xs = X(p.skill), xc = X(p.cap);
-    const ticks = [1, 75, 150, 225, 300].map(s => `<g class="ptick"><path d="M${X(s)} ${y + 20} v6"/><text x="${X(s)}" y="${y + 40}">${s}</text></g>`).join("");
+    const pct = (v, of) => (v / of * 100).toFixed(2) + "%";
+    const ticks = [1, 75, 150, 225, 300].map(s => `<g class="ptick"><path d="M${X(s)} ${y + 13} v3"/></g>`).join("");
+    const tickCarts = [1, 75, 150, 225, 300].map(s => `<span class="pcart ptk" style="left:${pct(X(s), W)};top:${pct(y + 16, H)}">${s}</span>`).join("");
+    const rankCarts = [];
     const stones = PRANKS.slice(1).map(r => {
       const passed = p.cap >= r.cap, now = !passed && p.next === r && p.skill >= r.at;
       const img = passed ? "milestone-rune-gold" : now ? "milestone-rune-red" : "milestone";
       const sx = X(r.at), sy = yAt(sx) - 32;
-      const sub = passed ? "trained" : now ? "train now" : `from ${r.at}`;
-      const tagW = Math.max(r.name.length * 7.6, sub.length * 6) + 12;
-      const tag = painted ? `<rect class="pstag" x="17" y="-16" width="${tagW.toFixed(0)}" height="34" rx="3"/>` : "";
+      rankCarts.push(`<span class="pcart prk ${passed ? "passed" : now ? "now" : "later"}" style="left:${pct(sx + 18, W)};top:${pct(sy, H)}">${r.name}</span>`);
       return `<g class="pstone ${passed ? "passed" : now ? "now" : "later"}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})">
-        ${tag}<image href="chrome-art/${img}.png" x="-16" y="-19" width="32" height="36"/><text x="22" y="-2" class="pslabel">${r.name}</text>
-        <text x="22" y="13" class="pssub">${passed ? "trained" : now ? "train now" : `from ${r.at}`}</text></g>`;
+        <image href="chrome-art/${img}.png" x="-16" y="-19" width="32" height="36"/></g>`;
     }).join("");
     const you = `<g class="you" transform="translate(${xs.toFixed(1)} ${yAt(xs).toFixed(1)})"><circle r="14" class="youface"/><text y="5" class="youinit">${esc(CHAR.name[0])}</text>
       <image href="chrome-art/you-ring.png" x="-23" y="-25" width="46" height="46"/></g>`;
@@ -2270,7 +2271,7 @@
         <path d="${wave(x0, x1)}" class="band-edge bmain"/><path d="${wave(x0, xc)}" class="band-earth bmain"/>
         ${xc < x1 ? `<path d="${wave(xc, x1)}" class="band-closed" stroke="url(#phatch)"/>` : ""}
         <path d="${wave(x0, xs)}" class="band-gold bmain"/>
-        ${ticks}${gate}${stones}${p.mastered ? "" : you}</svg>
+        ${ticks}${gate}${stones}${p.mastered ? "" : you}</svg>${tickCarts}${rankCarts.join("")}
       <div class="pendcoin" style="left:${((x1 + 22) / W * 100).toFixed(2)}%">${profCoin(p)}</div>
       ${PRANKS.slice(1).map(r => hit(r.at, rankTip(p, r), r.name)).join("")}${hit(PMAX, coinTip, "end", 54)}</div>`;
   }

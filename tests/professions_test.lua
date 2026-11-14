@@ -636,11 +636,13 @@ return function(t)
         local road = p.road
         t.eq(road.art:IsShown(), true); t.eq(road.paper:IsShown(), false)
         t.ok(road.art:GetTexture():find("ProfRoads\\blacksmithing.blp", 1, true) ~= nil, road.art:GetTexture())
-        t.eq(road.stones[1].tag:IsShown(), true, "the stone's name on a parchment tag")
+        local cart = road.stones[1].cart
+        t.eq(cart:IsShown(), true); t.eq(cart.text:GetText(), "Journeyman", "the rank's name alone on its cartouche, no \"from 50\"")
+        t.eq(road.ticks[2].cart.text:GetText(), "75", "the scale's numbers on cartouches")
         n.Art.profRoads = {}
         n.Focus.FocusKey("p:186")
         t.eq(road.art:IsShown(), false); t.eq(road.paper:IsShown(), true)
-        t.eq(road.stones[1].tag:IsShown(), false)
+        t.eq(road.stones[1].cart:IsShown(), true, "cartouches on the plain parchment too")
         t.eq(#n.Debug.errors, 0)
     end)
 

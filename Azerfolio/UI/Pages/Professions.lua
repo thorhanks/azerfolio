@@ -9,7 +9,8 @@ local _, ns = ...
 
 local VIEW_LABEL = { journey = "Journey", recipes = "Recipes", gather = "Gather" }
 local MILESTONE_ART = { trained = "milestone-rune-gold", now = "milestone-rune-red", later = "milestone" }
-local STONE_SUB = { trained = "trained", now = "train now" }
+-- A rank's name on its cartouche: gold ink once trained, red ink when you can train it now.
+local STONE_INK = { trained = "classInkGold", now = "classRedInk", later = "classInkFaded" }
 
 local function plural(n, one, many) return n == 1 and one or (many or (one .. "s")) end
 
@@ -521,8 +522,10 @@ local function build(parent)
     for i = 1, 4 do road.gate[i] = T.Solid(road.over, "classNotch", "OVERLAY") end -- brass on the darkened road
     road.ticks = {}
     for i, s in ipairs({ 1, 75, 150, 225, 300 }) do
-        local tk = { line = T.Solid(road, "classInk", "ARTWORK", 0.7), text = T.Text(road, "xs", "classInk"), skill = s }
-        tk.text:SetText(tostring(s))
+        -- Owner (2026-11-14): the scale's numbers on cartouches, like the ranks' names.
+        local tk = { line = T.Solid(road, "classInk", "ARTWORK", 0.7), cart = T.Cartouche(road, "xs"), skill = s }
+        tk.cart:SetFrameLevel(base + 2)
+        tk.cart:SetText(tostring(s))
         road.ticks[i] = tk
     end
     road.stones = {}
@@ -539,16 +542,12 @@ local function build(parent)
         b.focusRing = circle(b, "BACKGROUND", PT.stone[2] + 10, 1)
         b.focusRing:SetPoint("CENTER")
         tint(b.focusRing, "classRedInk", 0.6)
-        b.label = T.Text(road, "sm", "classInk")
-        b.label:SetPoint("LEFT", b, "RIGHT", 4, 6)
-        b.sub = T.Text(road, "xs", "classInkFaded")
-        b.sub:SetPoint("TOPLEFT", b.label, "BOTTOMLEFT", 0, -1)
-        -- On the painted road the name sits on a parchment tag (sepia edge), so it reads over the art.
-        b.tagEdge = T.Solid(road, "classInkFaded", "BORDER", 0.9)
-        b.tag = T.Solid(road, "classParchment", "ARTWORK", 0.92)
-        b.tag:SetPoint("TOPLEFT", b.tagEdge, "TOPLEFT", 1, -1)
-        b.tag:SetPoint("BOTTOMRIGHT", b.tagEdge, "BOTTOMRIGHT", -1, 1)
-        b.tagEdge:Hide(); b.tag:Hide()
+        -- The rank's name on a cartouche beside its stone (owner, 2026-11-14: no "from 50" line;
+        -- the stone's rune and the name's ink say trained / train now / later).
+        b.cart = T.Cartouche(road, "sm")
+        b.cart:SetFrameLevel(base + 3)
+        b.cart:SetPoint("LEFT", b, "RIGHT", 2, 0)
+        b.label = b.cart.text
         function b:SetFocused(on)
             self.focused = on
             if self.focusArt then self.focusArt:SetShown(on and true or false); self.focusRing:Hide()
@@ -793,7 +792,7 @@ local function build(parent)
         -- The painted road fills the strip (cover, centred) and the bar runs on its lane at half height.
         local painted = m.key and ns.Art and ns.Art.profRoads and ns.Art.profRoads[m.key] and true or false
         road.paper:SetShown(not painted); road.art:SetShown(painted)
-        local barY = 30 -- from the strip's bottom to the bar's centre
+        local barY = math.floor(PT.road * PT.roadLaneAt + 0.5) -- from the strip's bottom to the bar's centre (room for the scale's cartouches)
         if painted then
             road.art:SetTexture(T.mediaDir .. "ProfRoads\\" .. m.key .. ".blp")
             local h = road:GetHeight() or PT.road
@@ -832,8 +831,8 @@ local function build(parent)
         end
         for _, tk in ipairs(road.ticks) do
             local x = X(tk.skill)
-            tk.line:ClearAllPoints(); tk.line:SetPoint("TOP", road, "BOTTOMLEFT", x, barY - PT.roadBar / 2 - 1); tk.line:SetSize(1, 5)
-            tk.text:ClearAllPoints(); tk.text:SetPoint("TOP", tk.line, "BOTTOM", 0, -1)
+            tk.line:ClearAllPoints(); tk.line:SetPoint("TOP", road, "BOTTOMLEFT", x, barY - PT.roadBar / 2 - 1); tk.line:SetSize(1, 3)
+            tk.cart:ClearAllPoints(); tk.cart:SetPoint("TOP", tk.line, "BOTTOM", 0, 0)
         end
         local items = {}
         for i, st in ipairs(m.stones or {}) do
@@ -844,26 +843,16 @@ local function build(parent)
                 if file then b.stone:SetTexture(file) else tint(b.disc, st.state == "trained" and "complete" or st.state == "now" and "classRedInk" or "classInkFaded") end
                 b:ClearAllPoints()
                 b:SetPoint("BOTTOM", road, "BOTTOMLEFT", X(st.at), barY + PT.roadBar / 2 + 4)
-                b.label:SetText(st.rank.name)
-                b.label:SetTextColor(T.RGB(st.state == "later" and "classInkFaded" or "classInk"))
-                b.sub:SetText(STONE_SUB[st.state] or ("from " .. st.at))
-                b.sub:SetTextColor(T.RGB(st.state == "now" and "classRedInk" or "classInkFaded"))
+                b.cart:SetText(st.rank.name)
+                b.label:SetTextColor(T.RGB(STONE_INK[st.state] or "classInkFaded"))
                 b.item = { key = "stone:" .. st.rank.name, frame = b, title = rankTitle(m, st.rank), detail = stoneInfo(m, st) }
-                b:Show(); b.label:Show(); b.sub:Show()
-                b.tagEdge:SetShown(painted); b.tag:SetShown(painted)
-                if painted then
-                    local tw = math.max(b.label:GetStringWidth() or 0, b.sub:GetStringWidth() or 0)
-                    local th = (b.label:GetStringHeight() or 12) + (b.sub:GetStringHeight() or 10) + 1
-                    b.tagEdge:ClearAllPoints()
-                    b.tagEdge:SetPoint("TOPLEFT", b.label, "TOPLEFT", -4, 3)
-                    b.tagEdge:SetSize(tw + 8, th + 6)
-                end
+                b:Show(); b.cart:Show()
                 items[#items + 1] = b.item
             end
         end
         for i = #(m.stones or {}) + 1, #road.stones do
             local b = road.stones[i]
-            b:Hide(); b.label:Hide(); b.sub:Hide(); b.tagEdge:Hide(); b.tag:Hide()
+            b:Hide(); b.cart:Hide()
         end
         road.you:SetShown(not m.mastered and m.skill ~= nil)
         if m.skill and not m.mastered then
