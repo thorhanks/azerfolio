@@ -2401,9 +2401,9 @@
       body = `<div class="pbanner tone-${p.tone} ${p.mastered ? "done" : ""}"><div class="pheroart">${profCoin({ ...p, mastered: true }, "ghost")}</div>
           <div class="pbtitle"><div><div class="ckicker">${p.kind === "primary" ? "Primary" : "Secondary"} profession${p.gather ? " · gathering" : ""}</div>
             <h1>${p.mastered ? esc(p.name) + ", mastered" : esc(p.name)}</h1><div class="csubline">${esc(p.title)}</div></div><div class="cscore">${score}</div></div></div>
-        <div class="pjroad">${profRoad(p)}</div>
         <div class="pjcols"><section class="pjcol"><h2 class="section" data-group>Next up</h2><div class="scroll pjscroll"><div class="pnexts">${nu}</div></div></section>
-          <section class="pjcol"><h2 class="section" data-group>Tracked <small>${trackedRecipes.length ? "also in the game's objective tracker" : ""}</small></h2><div class="scroll pjscroll">${tracked}</div></section></div>`;
+          <section class="pjcol"><h2 class="section" data-group>Tracked <small>${trackedRecipes.length ? "also in the game's objective tracker" : ""}</small></h2><div class="scroll pjscroll">${tracked}</div></section></div>
+        <div class="pjroad">${profRoad(p)}</div>`; // owner (2026-11-14): the road pinned to the page's foot; the lists scroll above it
     } else if (v === "recipes") {
       if (p.rec.unread) body = `<div class="pnote big">Open your ${esc(p.name)} window once (from your spellbook) and Azerfolio reads every recipe from it, with its ingredients.</div>`;
       else {

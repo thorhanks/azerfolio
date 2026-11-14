@@ -528,13 +528,14 @@ local function build(parent)
     brule:SetPoint("BOTTOMLEFT"); brule:SetPoint("BOTTOMRIGHT"); brule:SetHeight(2)
     page.banner = banner
 
-    -- The skill road on its strip, below the banner in the page's body (owner, 2026-11-14: it was
-    -- set into the banner's foot; on the dark page it stands out and the banner shows its scene).
+    -- The skill road on its strip, pinned to the page's foot under Next up / Tracked (owner,
+    -- 2026-11-14: it was in the banner's foot, then right under the banner; at the foot it stays
+    -- put and the lists above it scroll).
     local road = CreateFrame("Frame", nil, journey)
     -- Its gilded frame lines up with the Next up plate's left edge and the Tracked plate's right
-    -- edge below it (owner, 2026-11-14): inset like the plates (S.s4), plus the frame's overhang.
-    road:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", S.s4 + PT.roadFrameOut, -PT.roadGap)
-    road:SetPoint("TOPRIGHT", banner, "BOTTOMRIGHT", -(S.s4 + PT.roadFrameOut), -PT.roadGap)
+    -- edge (owner, 2026-11-14): inset like the plates (S.s4), plus the frame's overhang.
+    road:SetPoint("BOTTOMLEFT", journey, "BOTTOMLEFT", S.s4 + PT.roadFrameOut, PT.roadFoot)
+    road:SetPoint("BOTTOMRIGHT", journey, "BOTTOMRIGHT", -(S.s4 + PT.roadFrameOut), PT.roadFoot)
     road:SetHeight(PT.road)
     road.paper = T.Solid(road, "classParchment", "BACKGROUND", 0.92)
     road.paper:SetAllPoints()
@@ -630,8 +631,8 @@ local function build(parent)
 
     -- Next up | Tracked, each scrolling on its own.
     local cols = CreateFrame("Frame", nil, journey)
-    cols:SetPoint("TOPLEFT", road, "BOTTOMLEFT", -(S.s4 + PT.roadFrameOut), -(PT.roadFrameOut + S.s3))
-    cols:SetPoint("BOTTOMRIGHT", journey, "BOTTOMRIGHT", 0, S.s1)
+    cols:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, -S.s2)
+    cols:SetPoint("BOTTOMRIGHT", road, "TOPRIGHT", S.s4 + PT.roadFrameOut, PT.roadFrameOut + PT.roadGap)
     local function column(title)
         local c = CreateFrame("Frame", nil, cols)
         c.plate = T.Plate(c, L.plate)
@@ -1250,7 +1251,7 @@ local function build(parent)
     -- minimum size, so the road below it and Next up / Tracked (listsMin) still fit.
     local function sizeBanner()
         local h = (body:GetHeight() or 0)
-        local below = PT.roadGap + PT.road + PT.roadFrameOut + S.s3 + PT.listsMin
+        local below = S.s2 + PT.listsMin + PT.roadGap + PT.roadFrameOut + PT.road + PT.roadFoot
         local bh = math.max(PT.bannerMin, math.min(PT.bannerMax, h - below))
         banner:SetHeight(bh)
     end
@@ -1303,15 +1304,17 @@ local function build(parent)
             sizeBanner()
             paintBanner(m)
             local roadItems = paintRoad(m)
-            pageRows[#pageRows + 1] = { items = roadItems, section = 1 }
             local nexts, tracks = paintNext(m), paintTracked(m)
-            -- Next up (left) and Tracked (right) side by side; up/down stay in a column.
+            -- Top to bottom as drawn (owner, 2026-11-14: the road sits at the page's foot):
+            -- Next up (left) and Tracked (right) side by side, up/down staying in a column; then
+            -- the road. LT/RT jump between the two sections.
             for i = 1, math.max(#nexts, #tracks) do
                 local its = {}
                 if nexts[i] then its[#its + 1] = nexts[i] end
                 if tracks[i] then its[#its + 1] = tracks[i] end
-                pageRows[#pageRows + 1] = { items = its, section = 2 }
+                pageRows[#pageRows + 1] = { items = its, section = 1 }
             end
+            pageRows[#pageRows + 1] = { items = roadItems, section = #pageRows > 0 and 2 or 1 }
         elseif self.view == "recipes" then
             local rows, sel = paintRecipes(m)
             pageRows = rows

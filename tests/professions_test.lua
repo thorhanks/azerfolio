@@ -616,7 +616,7 @@ return function(t)
         t.eq(#p.views, 2, "First Aid: Journey and Recipes")
         p:EnterPage()
         t.eq(p.mode, "page")
-        t.eq(n.Focus.Current().key, "stone:Journeyman", "into the road's first stone")
+        t.eq(n.Focus.Current().key, "next:1:rank", "into Next up's first line (the road is at the page's foot)")
         local cards = 0
         for _, row in ipairs(p.pageFocus) do for _, it in ipairs(row.items) do if it.recipeID then cards = cards + 1 end end end
         t.eq(cards, 1, "Linen Bandage's Tracked card")

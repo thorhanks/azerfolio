@@ -1558,7 +1558,7 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .pbanner .pheroart { position: absolute; right: 90px; top: -30px; } .pbanner .pcoin.ghost { width: 260px; height: 260px; }
 .pbtitle { margin-bottom: 10px !important; }
 /* Owner (2026-11-14): the skill road below the banner, in the page's body (the banner shows its whole scene). */
-.pjroad { flex: none; margin: 14px calc(var(--s6) + 5px) 6px; }
+.pjroad { flex: none; margin: 14px calc(var(--s6) + 5px) 12px; } /* at the page's foot, under Next up / Tracked */
 .pbtitle { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: end; gap: var(--s4); margin-bottom: 4px; }
 .pbtitle h1 { margin: 0; font: var(--fs-xxl) var(--font); color: var(--wow-gold); font-weight: 400; line-height: 1.05; text-shadow: 0 2px 4px #000; }
 .pbanner.done h1 { color: #fff1b0; }
