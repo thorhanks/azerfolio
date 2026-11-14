@@ -48,7 +48,7 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 
 | ID | Check | When | How |
 |---|---|---|---|
-| G1 | The skill each gathering node needs on Forever, where the guides disagree (Bruiseweed 85 or 100, Small Thorium 245 or 250, Rich Thorium 275 or 295) and for Forever's new nodes (Heavy Thorium, Marefoil, Demonsage, Death Lotus...) | Mousing over such a node or herb | `/azf shot` of its tooltip ("Requires Mining (n)"); update `docs/research/professions.md` § Gathering table |
+| G1 | The skill each gathering node needs on Forever, where the guides disagree (Bruiseweed 85 or 100, Small Thorium 245 or 250, Rich Thorium 275 or 295) and for Forever's new nodes (Heavy Thorium, Marefoil, Demonsage, Death Lotus...); also whether a node stops giving skill 100 points past its requirement (`greyAfter`, a Classic rule) | Mousing over such a node or herb; gathering a node well past its skill | `/azf shot` of its tooltip ("Requires Mining (n)"); update `Data/Gathering.lua` and `docs/research/professions.md` § Gathering table |
 | G3 | Whether the game tracks a recipe you haven't learned yet (`SetRecipeTracked` on an unlearned recipe, then the objective tracker) | When Track on a recipe row is built | `/run C_TradeSkillUI.SetRecipeTracked(3276, true)` (Heavy Linen Bandage, not learned), then `/azf shot` the tracker; untrack with `false` |
 | G2 | A learned recipe's tooltip says "Already known" (vendor and bag), so known state can be read for recipe items too | Any vendor recipe or recipe item you already know | `/azfdiag profs` with the vendor open or the item in your bags, `/reload`, `luajit tools/diag-report.lua profs` |
 

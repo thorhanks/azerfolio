@@ -23,6 +23,7 @@ local FILES = {
     "tests/reputation_test.lua",
     "tests/completion_test.lua",
     "tests/classjourneys_test.lua",
+    "tests/professions_test.lua",
     "tests/tools_test.lua",
 }
 

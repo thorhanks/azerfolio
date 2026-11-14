@@ -19,6 +19,8 @@ Data\Zones.lua
 Data\QuestAreas.lua
 Data\FlightPaths.lua
 Data\ClassJourneys.lua
+Data\Professions.lua
+Data\Gathering.lua
 Core\Config.lua
 Core\SavedVariables.lua
 Core\Debug.lua

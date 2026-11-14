@@ -11,6 +11,7 @@
 --   rares [areaID|all]     rare, rare elite and boss NPCs (rank 4, 2, 3; cmangos ranks), by spawn area
 --   objects <text|*> [areaID] game objects whose name contains text (* = all), spawn points per area
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
+--   gather check           Data/Gathering.lua item IDs and Data/Professions.lua recipe prefixes (run from repo root)
 --   class [name]           class-restricted quests: counts per class by level and side; with a class
 --                          name, its quests grouped into chains with starters (run from repo root)
 --   class <name> <race>    the same, only quests that race can take (race mask unset or has its bit);
@@ -556,6 +557,51 @@ elseif cmd == "recipes" then
             end
         end
     end
+elseif cmd == "gather" then
+    -- `gather check`: Azerfolio/Data/Gathering.lua's item IDs against QuestieDB item names (a
+    -- node's items must exist and be named like the node, its ore, or a stone), and
+    -- Data/Professions.lua's recipe subclasses (each must have recipe items; prefixes shown).
+    assert(arg[2] == "check", "gather check")
+    local gns, pns = {}, {}
+    assert(loadfile("Azerfolio/Data/Gathering.lua"))("Azerfolio", gns)
+    assert(loadfile("Azerfolio/Data/Professions.lua"))("Azerfolio", pns)
+    local rows = load(nil, "Item")
+    local bad = 0
+    for _, kind in ipairs({ "mining", "herbalism" }) do
+        for _, node in ipairs(gns.GatheringData[kind]) do
+            local names = {}
+            for _, id in ipairs(node.items) do
+                local row = rows[id]
+                local n = row and row[1]
+                names[#names + 1] = id .. " " .. tostring(n)
+                if type(n) ~= "string" then bad = bad + 1; print("MISSING " .. node.name .. ": item " .. id) end
+            end
+            print(string.format("%-26s %-5s %s", node.name, tostring(node.skill), table.concat(names, ", ")))
+        end
+    end
+    -- Recipe item prefixes per subclass, as QuestieDB names them.
+    local seen = {}
+    for _, row in pairs(rows) do
+        if row[12] == 9 and type(row[1]) == "string" then
+            local p = row[1]:match("^(%a+): ")
+            local k = tostring(row[13] or 0) .. "|" .. tostring(p)
+            seen[k] = (seen[k] or 0) + 1
+        end
+    end
+    for line, d in pairs(pns.ProfessionData.skills) do
+        if d.recipeSubclass then
+            local parts = {}
+            for k, n in pairs(seen) do
+                local sub, p = k:match("^(%d+)|(.+)$")
+                if tonumber(sub) == d.recipeSubclass then parts[#parts + 1] = p .. " " .. n end
+            end
+            table.sort(parts)
+            if #parts == 0 then bad = bad + 1 end
+            print(string.format("%-15s line %-4d subclass %d: %s", d.name, line, d.recipeSubclass,
+                #parts > 0 and table.concat(parts, ", ") or "NO RECIPE ITEMS"))
+        end
+    end
+    print(bad == 0 and "OK" or (bad .. " problems"))
 elseif cmd == "profs" then
     -- Profession survey: trainers (NPC subName "<Profession> Trainer" or "...Trainer"), quests with a
     -- requiredSkill ({skillID, rank}), per skill line. Skill IDs per the classic SkillLine table [unverified on Forever].
