@@ -203,6 +203,17 @@ return function(t)
         t.ok(c.foryou < 40, "For you now stays short (" .. c.foryou .. ")")
     end)
 
+    t.test("rules: a Season of Discovery category is known by its name too", function()
+        local rec = R.Recipes({ { id = 1, name = "Cooking SoD dish", learned = false, grey = 300, category = 2700, categoryName = "SEASON OF DISCOVERY" },
+            { id = 2, name = "Mixed case", learned = false, grey = 300, category = 2701, categoryName = "Season of Discovery" },
+            { id = 3, name = "Everyday", learned = false, grey = 50, category = 2702, categoryName = "Everyday Meals" } },
+            { skill = 20, trainer = { ["Cooking SoD dish"] = 10, ["Everyday"] = 10 } })
+        t.eq(rec.counts.sod, 2)
+        t.eq(find(rec.list, "Cooking SoD dish").state, "nosource", "never counted, even with a trainer")
+        t.eq(find(rec.list, "Mixed case").state, "nosource")
+        t.eq(rec.counts.now, 1)
+    end)
+
     t.test("rules: recipe items and their sources", function()
         t.eq(R.RecipeNameOfItem("Plans: Copper Chain Belt"), "Copper Chain Belt")
         t.eq(R.RecipeNameOfItem("Formula: Enchant Bracer - Minor Health"), "Enchant Bracer - Minor Health")
@@ -278,6 +289,157 @@ return function(t)
         t.eq(items[1].kind, "mastered")
         local fish = R.NextUp(prof(356, 20, 75), nil, R.Gather("fishing", 20))
         for _, it in ipairs(fish) do t.ok(it.kind ~= "gather", "fishing shows only the next bracket") end
+    end)
+
+    -- Systems/Professions against a mock client (Gideon's probe values) ---------------------
+    local function boot(state)
+        local env = {
+            UnitName = function() return "Gideon" end, GetRealmName = function() return "Test Realm" end,
+            UnitRace = function() return "Human", "Human", 1 end, UnitClass = function() return "Paladin", "PALADIN", 2 end,
+            UnitFactionGroup = function() return "Alliance", "Alliance" end, UnitLevel = function() return 10 end,
+            GetMaxPlayerLevel = function() return 60 end, UnitXP = function() return 0 end, UnitXPMax = function() return 1 end,
+            GetZoneText = function() return "Elwynn Forest" end, GetSubZoneText = function() return "" end,
+            C_Map = { GetBestMapForUnit = function() return 1429 end, GetMapInfo = function() return nil end },
+            GetProfessions = function() return 6, 8, nil, 9, 7, 5 end,
+            GetProfessionInfo = function(slot)
+                local s = state.slots[slot]
+                if s then return s[1], 100 + slot, s[2], s[3], 1, 0, s[4] end
+            end,
+            IsPlayerSpell = function(id) return state.known[id] == true end,
+            C_TradeSkillUI = {
+                IsTradeSkillReady = function() return state.window ~= nil end,
+                IsTradeSkillLinked = function() return state.linked == true end,
+                GetBaseProfessionInfo = function() return state.window and { professionID = state.window.line } end,
+                GetAllRecipeIDs = function() local o = {}; for i, r in ipairs(state.window.rows) do o[i] = r.recipeID end; return o end,
+                GetRecipeInfo = function(id) for _, r in ipairs(state.window.rows) do if r.recipeID == id then return r end end end,
+                GetCategoryInfo = function(id) return id == 7 and { name = "Bandages", categoryID = 7 } or nil end,
+            },
+            IsTradeskillTrainer = function() return state.trainer ~= nil end,
+            GetNumTrainerServices = function() return state.trainer and #state.trainer or 0 end,
+            GetTrainerServiceInfo = function(i) local s = state.trainer[i]; return s[1], s[2] end,
+            GetTrainerServiceSkillLine = function(i) return state.trainer[i][3] end,
+            GetTrainerServiceSkillReq = function(i) return state.trainer[i][3], state.trainer[i][4], true end,
+            GetTrainerServiceCost = function() return 100 end,
+            GetTrainerServiceTypeFilter = function() return true end,
+            SetTrainerServiceTypeFilter = function() state.filterSets = (state.filterSets or 0) + 1 end,
+        }
+        wow.install(env)
+        _G.AzerfolioDB, _G.AzerfolioCharDB = nil, nil
+        local n = wow.loadToc("Azerfolio", "Azerfolio")
+        wow.fire("ADDON_LOADED", "Azerfolio")
+        wow.fire("PLAYER_LOGIN")
+        wow.runTimers()
+        return n
+    end
+    local function probeState()
+        return {
+            -- slot -> name, skill, cap, skill line (Gideon, /azfdiag profs run 4)
+            slots = { [6] = { "Blacksmithing", 33, 75, 164 }, [8] = { "Mining", 59, 75, 186 }, [5] = { "First Aid", 42, 75, 129 },
+                [9] = { "Fishing", 20, 75, 356 }, [7] = { "Cooking", 23, 75, 185 } },
+            known = { [3275] = true },
+        }
+    end
+    local firstAidWindow = { line = 129, rows = {
+        { recipeID = 3275, name = "Linen Bandage", learned = true, maxTrivialLevel = 60, categoryID = 7 },
+        { recipeID = 3276, name = "Heavy Linen Bandage", learned = false, maxTrivialLevel = 100, categoryID = 7 },
+        { recipeID = 1244431, name = "Minor Healing Potion", learned = false, maxTrivialLevel = 95, categoryID = 0 },
+    } }
+    local firstAidTrainer = { { "Journeyman First Aid", "unavailable", "First Aid", 50 },
+        { "Heavy Linen Bandage", "available", "First Aid", 40 }, { "Minor Healing Potion", "available", "First Aid", 1 } }
+
+    t.test("system: skills from the game, nothing recorded yet", function()
+        local state = probeState()
+        local n = boot(state)
+        local g = n.Professions.Get()
+        t.eq(#g.professions, 5)
+        t.eq(g.professions[1].name, "Blacksmithing"); t.eq(g.professions[2].name, "Mining")
+        local mining = n.Professions.Find(186)
+        t.eq(mining.status.kind, "trainnow")
+        t.eq(n.Professions.Find(129).status.kind, "unread", "First Aid's window not read yet")
+        t.eq(n.Professions.Find(129).recipes, nil)
+        t.eq(n.Professions.Find(356).status, nil, "Fishing has no window to read")
+        t.eq(g.summary.total, 5); t.eq(g.summary.mastered, 0)
+    end)
+
+    t.test("system: records the window and a trainer, learned stays live", function()
+        local state = probeState()
+        local n = boot(state)
+        state.window = firstAidWindow
+        wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
+        local rec = _G.AzerfolioCharDB.professions.windows[129]
+        t.eq(#rec.rows, 3); t.eq(rec.categories[7], "Bandages")
+        local fa = n.Professions.Find(129)
+        t.eq(fa.recipes.counts.total, 3); t.eq(fa.recipes.counts.known, 1)
+        t.eq(fa.recipes.counts.nosource, 2, "no trainer seen yet")
+        state.window = nil
+        state.trainer = firstAidTrainer
+        wow.fire("TRAINER_SHOW"); wow.runTimers()
+        local tr = _G.AzerfolioCharDB.professions.trainers[129]
+        t.eq(tr.services["Heavy Linen Bandage"].skill, 40)
+        t.eq(tr.services["Journeyman First Aid"].skill, 50)
+        t.eq(_G.AzerfolioCharDB.trainer.services, nil, "a profession trainer isn't the class trainer")
+        fa = n.Professions.Find(129)
+        t.eq(fa.recipes.counts.now, 2); t.eq(fa.status.kind, "learn")
+        state.known[3276] = true
+        wow.fire("NEW_RECIPE_LEARNED", 3276); wow.runTimers()
+        fa = n.Professions.Find(129)
+        t.eq(fa.recipes.counts.known, 2, "IsPlayerSpell read again after learning")
+        t.eq(fa.recipes.counts.now, 1)
+    end)
+
+    t.test("system: a trainer list that arrives after TRAINER_SHOW, and no re-read loop", function()
+        local state = probeState()
+        boot(state)
+        state.trainer = {} -- the list isn't there yet when the window opens
+        wow.fire("TRAINER_SHOW"); wow.runTimers()
+        t.eq((_G.AzerfolioCharDB.professions.trainers or {})[129], nil)
+        state.trainer = firstAidTrainer
+        wow.fire("TRAINER_UPDATE"); wow.runTimers()
+        t.eq(_G.AzerfolioCharDB.professions.trainers[129].services["Heavy Linen Bandage"].skill, 40, "read when the list arrives")
+        local sets = state.filterSets
+        -- The client's TRAINER_UPDATEs for our own filter changes, a frame later: nothing new.
+        for _ = 1, 3 do wow.fire("TRAINER_UPDATE"); wow.runTimers() end
+        t.eq(state.filterSets, sets, "no re-read on an unchanged list")
+        wow.fire("TRAINER_SHOW"); wow.runTimers()
+        t.ok(state.filterSets > sets, "opening the trainer again reads again")
+    end)
+
+    t.test("system: the class trainer isn't re-read on its own updates", function()
+        local state = probeState()
+        boot(state)
+        _G.IsTradeskillTrainer = function() return false end
+        _G.GetTrainerServiceInfo = function(i) return "Seal of Might " .. i, "available" end
+        _G.GetNumTrainerServices = function() return 3 end
+        _G.GetTrainerServiceLevelReq = function() return 4 end
+        wow.fire("TRAINER_SHOW"); wow.runTimers()
+        t.eq(#_G.AzerfolioCharDB.trainer.services, 3)
+        local sets = state.filterSets
+        for _ = 1, 3 do wow.fire("TRAINER_UPDATE"); wow.runTimers() end
+        t.eq(state.filterSets, sets, "no loop at the class trainer")
+    end)
+
+    t.test("system: a gathering profession's recorded window shows its recipes", function()
+        local state = probeState()
+        local n = boot(state)
+        t.eq(n.Professions.Find(356).recipes, nil)
+        state.window = { line = 356, rows = { { recipeID = 1229745, name = "Fish Bowl", learned = true, maxTrivialLevel = 20, categoryID = 2715 },
+            { recipeID = 1262990, name = "Fishing Rack", learned = false, maxTrivialLevel = 140, categoryID = 2715 } } }
+        state.known[1229745] = true
+        wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
+        local fish = n.Professions.Find(356)
+        t.ok(fish.hasRecipes); t.eq(fish.recipes.counts.total, 2); t.eq(fish.recipes.counts.known, 1)
+    end)
+
+    t.test("system: a linked window or an unknown profession isn't recorded", function()
+        local state = probeState()
+        boot(state)
+        state.window = firstAidWindow; state.linked = true
+        wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
+        t.eq((_G.AzerfolioCharDB.professions.windows or {})[129], nil)
+        state.linked = false
+        state.window = { line = 2933, rows = firstAidWindow.rows } -- "Test Profession [DNT]"
+        wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
+        t.eq((_G.AzerfolioCharDB.professions.windows or {})[2933], nil)
     end)
 
     t.test("rules: rail order and the Overview summary", function()

@@ -81,11 +81,37 @@ return function(t)
         local char = { schemaVersion = 1, milestones = { { kind = "area", mapID = 1429, id = 1 } },
             baseline = { taken = true, exploration = { [1150] = true } }, recentZones = { 1429 } }
         local _, out, fixes = SV.Load(nil, char)
-        t.eq(out.schemaVersion, 2)
+        t.eq(out.schemaVersion, 3, "migrated through to the current schema")
         t.eq(out.milestones, nil)
         t.eq(out.baseline, nil)
         t.same(out.recentZones, { 1429 }, "other character data kept")
         t.ok(has(fixes, "migrated to schema 2"))
+    end)
+
+    t.test("profession records are cleaned entry by entry", function()
+        local _, SV = load()
+        local _, out, fixes = SV.Load(nil, { schemaVersion = 3, professions = {
+            windows = {
+                [129] = { time = 1763100000, rows = { { id = 3275, name = "Linen Bandage", learned = true, grey = 60, category = 7 },
+                    { id = "x", name = "Bad" }, { id = 3276, name = "Heavy Linen Bandage" } }, categories = { [7] = "Bandages", bad = 1 } },
+                [164] = { rows = { "junk" } },
+                ["Mining"] = { rows = {} },
+            },
+            trainers = {
+                [129] = { time = -5, services = { ["Heavy Linen Bandage"] = { kind = "available", skill = 40, cost = 100 },
+                    ["Odd"] = { kind = "weird" } } },
+            },
+        } })
+        local w = out.professions.windows[129]
+        t.eq(#w.rows, 2); t.eq(w.rows[2].learned, false); t.eq(w.rows[2].category, 0)
+        t.eq(w.categories[7], "Bandages"); t.eq(w.categories.bad, nil)
+        t.eq(out.professions.windows[164], nil, "a window with no valid rows counts as not read")
+        local tr = out.professions.trainers[129]
+        t.eq(tr.services["Heavy Linen Bandage"].skill, 40); t.eq(tr.services.Odd, nil); t.eq(tr.time, nil)
+        t.ok(has(fixes, "professions: %d+ invalid entries dropped"))
+        local _, fresh = SV.Load(nil, { schemaVersion = 2 })
+        t.same(fresh.professions, {}, "schema 2 gets an empty record")
+        t.eq(fresh.schemaVersion, 3)
     end)
 
     t.test("damaged recent zones are cleaned entry by entry", function()

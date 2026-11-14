@@ -101,6 +101,9 @@ SV.CHAR_MIGRATIONS = {
         char.milestones = nil
         char.baseline = nil
     end,
+    -- 3: the Professions tab's records (Phase 14). Nothing to convert: the default adds an
+    -- empty `professions`, filled the next time a profession window or trainer opens.
+    [3] = function() end,
 }
 
 -- Applies migrations up to `target`. Data from a newer, unknown schema is discarded
@@ -191,6 +194,59 @@ function SV.CleanTrainer(t, fixes)
     return out
 end
 
+-- Profession records: windows and trainers keyed by skill line (a number). A window row needs
+-- a numeric id and a name; a trainer service a name and a known type. Anything else is dropped,
+-- and a record left with nothing is dropped too (that window or trainer counts as not seen).
+function SV.CleanProfessions(t, fixes)
+    local out, dropped = {}, 0 -- windows / trainers only when something is kept (Systems/Professions adds them)
+    if type(t) ~= "table" then return out end
+    local function put(key, line, rec)
+        out[key] = out[key] or {}
+        out[key][line] = rec
+    end
+    for line, rec in pairs(type(t.windows) == "table" and t.windows or {}) do
+        local rows = {}
+        if type(line) == "number" and type(rec) == "table" and type(rec.rows) == "table" then
+            for _, r in ipairs(rec.rows) do
+                if type(r) == "table" and type(r.id) == "number" and type(r.name) == "string" then
+                    rows[#rows + 1] = { id = r.id, name = r.name, learned = r.learned == true,
+                        grey = type(r.grey) == "number" and r.grey or nil, category = type(r.category) == "number" and r.category or 0 }
+                else
+                    dropped = dropped + 1
+                end
+            end
+        else
+            dropped = dropped + 1
+        end
+        if #rows > 0 then
+            local cats = {}
+            for id, name in pairs(type(rec.categories) == "table" and rec.categories or {}) do
+                if type(id) == "number" and type(name) == "string" then cats[id] = name end
+            end
+            put("windows", line, { time = validTime(rec.time) and rec.time or nil, rows = rows, categories = cats })
+        end
+    end
+    for line, rec in pairs(type(t.trainers) == "table" and t.trainers or {}) do
+        local services, n = {}, 0
+        if type(line) == "number" and type(rec) == "table" and type(rec.services) == "table" then
+            for name, s in pairs(rec.services) do
+                if type(name) == "string" and type(s) == "table" and KINDS[s.kind] then
+                    services[name] = { kind = s.kind, skill = type(s.skill) == "number" and s.skill or 0,
+                        cost = type(s.cost) == "number" and s.cost or nil }
+                    n = n + 1
+                else
+                    dropped = dropped + 1
+                end
+            end
+        else
+            dropped = dropped + 1
+        end
+        if n > 0 then put("trainers", line, { time = validTime(rec.time) and rec.time or nil, services = services }) end
+    end
+    if dropped > 0 and fixes then fixes[#fixes + 1] = string.format("character professions: %d invalid entries dropped", dropped) end
+    return out
+end
+
 -- Loads both SavedVariables tables. Returns account, char, fixes.
 function SV.Load(account, char)
     local Config = ns.Config
@@ -209,6 +265,7 @@ function SV.Load(account, char)
     char.recentZones = SV.CleanRecentZones(char.recentZones, fixes)
     char.flights = SV.CleanFlights(char.flights, fixes)
     char.trainer = SV.CleanTrainer(char.trainer, fixes)
+    char.professions = SV.CleanProfessions(char.professions, fixes)
     SV.TrimList(account.trace, Config.LIMITS.trace)
     SV.TrimList(char.recentZones, Config.LIMITS.recentZones)
 

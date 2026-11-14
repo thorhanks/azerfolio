@@ -8,6 +8,7 @@
 --   perf                the latest /azf debug perf: memory, profiler peaks, busiest callbacks
 --   reputation          zone factions built (per zone, rivals) and the latest standing read
 --   class               the latest /azf debug class: the road's stops, extras, inferred links, probes
+--   professions         profession windows and trainers recorded, the latest /azf debug professions
 --   kind <name> [n]     the latest n entries of one kind, one line each
 -- Set AZF_SV_FILE to read a different file.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/Azerfolio.lua"
@@ -255,9 +256,27 @@ function R.class()
     end
 end
 
+-- Professions (Systems/Professions, /azf debug professions): windows and trainers recorded,
+-- then the latest report, one line per profession.
+function R.professions()
+    local any = false
+    for _, e in ipairs(trace) do
+        if e.kind == "professions" and not e.report then
+            any = true
+            p("  %7.1f %-7s line %-4s %s recipes/services%s%s", e.t or 0, tostring(e.event), tostring(e.skillLine), tostring(e.count),
+                e.learned and (", learned " .. e.learned) or "", e.ms and string.format(", %.1f ms", e.ms) or "")
+        end
+    end
+    if not any then p("no profession window or trainer recorded in the trace (debug on, open one)") end
+    local d, di = latest(function(e) return e.kind == "professions" and e.report end)
+    if not d then p("no /azf debug professions report in the trace (debug on, /azf debug professions, then /reload)"); return end
+    p("report #%d at %.1f: %s of %s mastered, built in %s ms", di, d.t, tostring(d.mastered), tostring(d.total), num(d.ms))
+    for _, k in ipairs(keys(d.profs or {})) do p("  %s", tostring(d.profs[k])) end
+end
+
 local fn = R[section]
 if not fn then
-    p("unknown section %q; sections: summary, last [n], quests, zone <mapID>, perf, reputation, class, kind <name> [n]", section)
+    p("unknown section %q; sections: summary, last [n], quests, zone <mapID>, perf, reputation, class, professions, kind <name> [n]", section)
     os.exit(1)
 end
 fn(arg2, arg3)

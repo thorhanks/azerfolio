@@ -159,6 +159,7 @@ end
 function Rules.Recipes(rows, opts)
     opts = opts or {}
     local sodCats = pdata().seasonCategories or {}
+    local sodName = pdata().seasonCategoryName
     local skill = opts.skill
     local trainer, items, tracked = opts.trainer or {}, opts.items or {}, opts.tracked or {}
     local list = {}
@@ -171,6 +172,7 @@ function Rules.Recipes(rows, opts)
         end
         local grey = type(row.grey) == "number" and row.grey > 0 and row.grey or nil
         local sod = sodCats[row.category] and true or false
+        if not sod and sodName and type(row.categoryName) == "string" and row.categoryName:upper() == sodName then sod = true end
         local sources = {}
         local tSkill = trainer[row.name]
         if type(tSkill) == "number" then sources[1] = { kind = "trainer", skill = tSkill } end

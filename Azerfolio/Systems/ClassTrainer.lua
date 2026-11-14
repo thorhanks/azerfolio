@@ -12,6 +12,7 @@ ns.ClassTrainer = Trainer
 
 local FILTERS = { "available", "unavailable", "used" }
 local reading = false -- our own filter changes fire TRAINER_UPDATE: don't read again from them
+local lastSignature     -- Trainer.Signature() at the last read; cleared when a trainer opens
 
 local function try(label, fn, ...) return ns.Debug.Try(label, fn, ...) end
 
@@ -30,9 +31,9 @@ local function setFilter(f, on)
     return pcall(SetTrainerServiceTypeFilter, f, on and 1 or 0)
 end
 
--- Reads the open trainer's whole list. Returns the services, or nil.
-function Trainer.Read()
-    if not classTrainer() then return nil end
+-- Runs fn(n) with every service-type filter on (n = the number of services), then puts the
+-- filters back. Shared with Systems/Professions (profession trainers). Returns fn's result.
+function Trainer.WithAllFilters(fn)
     reading = true
     local saved = {}
     local canFilter = type(GetTrainerServiceTypeFilter) == "function" and type(SetTrainerServiceTypeFilter) == "function"
@@ -43,29 +44,57 @@ function Trainer.Read()
             setFilter(f, true)
         end
     end
-    local services = {}
     local n = try("GetNumTrainerServices", GetNumTrainerServices)
-    for i = 1, (type(n) == "number" and math.min(n, 400) or 0) do
-        -- name, type, icon, ?, rank text [verified-ingame, probe v2]
-        local name, kind, icon, _, rank = try("GetTrainerServiceInfo", GetTrainerServiceInfo, i)
-        if type(name) == "string" and (kind == "used" or kind == "available" or kind == "unavailable") then
-            local level = type(GetTrainerServiceLevelReq) == "function" and try("GetTrainerServiceLevelReq", GetTrainerServiceLevelReq, i)
-            local cost = type(GetTrainerServiceCost) == "function" and try("GetTrainerServiceCost", GetTrainerServiceCost, i)
-            services[#services + 1] = { name = name, kind = kind, icon = icon, level = type(level) == "number" and level or 0,
-                rank = type(rank) == "string" and rank ~= "" and rank or nil, cost = type(cost) == "number" and cost or nil }
-        end
-    end
+    local ok, result = pcall(fn, type(n) == "number" and math.min(n, 400) or 0)
+    if not ok then ns.Debug.Error("trainer read", result); result = nil end
     if canFilter then
         for _, f in ipairs(FILTERS) do
             if saved[f] ~= nil then setFilter(f, saved[f]) end
         end
     end
     reading = false
-    return services
+    return result
+end
+
+-- True while a read is changing the filters.
+function Trainer.IsReading() return reading end
+
+-- The open trainer's list as it stands (the player's own filters, nothing changed): count and
+-- the first and last service names. The client sends the TRAINER_UPDATEs for our own filter
+-- changes a frame or two after a read, and reading again on them looped every 0.3 s while the
+-- window stayed open (trace, Gideon 2026-11-14); an unchanged signature means nothing new.
+function Trainer.Signature()
+    local n = try("GetNumTrainerServices", GetNumTrainerServices)
+    if type(n) ~= "number" then return "?" end
+    local first = n > 0 and try("GetTrainerServiceInfo", GetTrainerServiceInfo, 1) or ""
+    local last = n > 0 and try("GetTrainerServiceInfo", GetTrainerServiceInfo, n) or ""
+    return n .. "|" .. tostring(first) .. "|" .. tostring(last)
+end
+
+-- Reads the open trainer's whole list. Returns the services, or nil.
+function Trainer.Read()
+    if not classTrainer() then return nil end
+    return Trainer.WithAllFilters(function(n)
+        local services = {}
+        for i = 1, n do
+            -- name, type, icon, ?, rank text [verified-ingame, probe v2]
+            local name, kind, icon, _, rank = try("GetTrainerServiceInfo", GetTrainerServiceInfo, i)
+            if type(name) == "string" and (kind == "used" or kind == "available" or kind == "unavailable") then
+                local level = type(GetTrainerServiceLevelReq) == "function" and try("GetTrainerServiceLevelReq", GetTrainerServiceLevelReq, i)
+                local cost = type(GetTrainerServiceCost) == "function" and try("GetTrainerServiceCost", GetTrainerServiceCost, i)
+                services[#services + 1] = { name = name, kind = kind, icon = icon, level = type(level) == "number" and level or 0,
+                    rank = type(rank) == "string" and rank ~= "" and rank or nil, cost = type(cost) == "number" and cost or nil }
+            end
+        end
+        return services
+    end)
 end
 
 local function record()
-    if reading then return end
+    if reading or not classTrainer() then return end
+    local sig = Trainer.Signature()
+    if sig == lastSignature then return end
+    lastSignature = sig
     local services = Trainer.Read()
     if not services or #services == 0 or not ns.charDB then return end
     ns.charDB.trainer = { time = time and time() or nil, class = ns.character and ns.character.classFile, services = services }
@@ -84,5 +113,8 @@ function Trainer.Get()
     return { status = "recorded", time = t.time, abilities = ns.ClassTrainerRules.Abilities(t.services, c.level) }
 end
 
-ns.Events.Register("TRAINER_SHOW", record)
-ns.Events.Register("TRAINER_UPDATE", function() ns.Events.Debounce("trainer", 0.3, record) end)
+ns.Events.Register("TRAINER_SHOW", function() lastSignature = nil; record() end)
+ns.Events.Register("TRAINER_UPDATE", function()
+    if reading then return end
+    ns.Events.Debounce("trainer", 0.3, record)
+end)

@@ -5,7 +5,7 @@ local Config = {}
 ns.Config = Config
 
 Config.ACCOUNT_SCHEMA = 4
-Config.CHAR_SCHEMA = 2
+Config.CHAR_SCHEMA = 3
 
 -- Account-wide settings (AzerfolioDB).
 -- Window size is in UIParent units. 1160x740 is the size the approved design is laid out at
@@ -43,6 +43,12 @@ Config.CHAR_DEFAULTS = {
     -- { time, class, services = { { name, rank, kind = used|available|unavailable, level, icon, cost } } }.
     -- Free-form; checked by SavedVariables.CleanTrainer.
     trainer = {},
+    -- Professions (Systems/Professions.lua): each profession window's recipe list and the
+    -- profession trainers' services, by skill line:
+    -- { windows = { [line] = { time, rows = { { id, name, learned, grey, category } }, categories = { [id] = name } } },
+    --   trainers = { [line] = { time, services = { [name] = { kind, skill, cost } } } } }.
+    -- Free-form; checked by SavedVariables.CleanProfessions.
+    professions = {},
 }
 
 -- Allowed values, by dotted path. Anything else resets to the default.

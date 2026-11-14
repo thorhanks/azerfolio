@@ -1,7 +1,7 @@
 -- Profession facts the client doesn't give in one place (plan §8 provenance per field).
 -- Keyed by skill line ID: GetProfessionInfo's 7th return. Lines 164, 185, 186, 129, 356 were
--- read on Gideon [verified-ingame, /azfdiag profs run 1]; the rest are the Classic-era IDs
--- [external: warcraft.wiki.gg SkillLine IDs], to confirm when a character has them.
+-- read from Gideon's professions; all 12 are in the client's own list,
+-- C_TradeSkillUI.GetAllProfessionTradeSkillLines (with the names) [verified-ingame, /azfdiag profs].
 -- kind: primary / secondary (C_SkillInfo category 11 / 9 [verified-ingame]); role: crafting,
 -- gathering or both. noun: the rank title's second word ("Journeyman Blacksmith").
 -- recipeSubclass: the recipe item subclass (item class 9) in QuestieDB [verified-files:
@@ -26,10 +26,12 @@ ns.ProfessionData = {
         { name = "Artisan", cap = 300, at = 200 },
     },
 
-    -- The profession window's category for Season of Discovery recipes (58 in Blacksmithing):
-    -- listed by the client, not known to be obtainable on Forever, so never counted
-    -- [verified-ingame, run 6: GetCategoryInfo(2593) = "SEASON OF DISCOVERY"].
-    seasonCategories = { [2593] = true },
+    -- The profession window's Season of Discovery categories: listed by the client, not known to
+    -- be obtainable on Forever, so never counted (owner, 2026-11-14). Each profession has its own
+    -- category ID (Blacksmithing 2593 with 65 recipes, Cooking 2594 with 7 [verified-ingame,
+    -- Gideon 2026-11-14]), so the name decides too (GetCategoryInfo's name, compared upper-case).
+    seasonCategories = { [2593] = true, [2594] = true },
+    seasonCategoryName = "SEASON OF DISCOVERY",
 
     skills = {
         [171] = { key = "alchemy", name = "Alchemy", kind = "primary", role = "crafting", noun = "Alchemist",
