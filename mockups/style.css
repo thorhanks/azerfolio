@@ -1536,7 +1536,7 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .pvhint { margin-left: auto; font-size: var(--fs-xs); color: var(--dim); display: flex; align-items: center; gap: 6px; padding-bottom: 6px; }
 .pvbody { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* Journey: the banner with the road, then Next up | Tracked */
-.pbanner { position: relative; flex: none; display: flex; flex-direction: column; justify-content: flex-end; min-height: 330px; margin: var(--s3) var(--s6) 0; padding: 12px 18px 8px; border-radius: var(--r-card); border: 1px solid #5a4128; overflow: hidden; box-shadow: inset 0 0 0 1px #000, 0 2px 8px rgba(0,0,0,.6); }
+.pbanner { position: relative; flex: none; display: flex; flex-direction: column; justify-content: flex-start; min-height: 220px; margin: var(--s3) var(--s6) 0; padding: 12px 18px 8px; border-radius: var(--r-card); border: 1px solid #5a4128; overflow: hidden; box-shadow: inset 0 0 0 1px #000, 0 2px 8px rgba(0,0,0,.6); }
 .pbanner.tone-forge { background: radial-gradient(ellipse at 75% 30%, rgba(255,140,40,.45), transparent 55%), linear-gradient(160deg, #3a2414, #120a05 70%); }
 .pbanner.tone-mine { background: radial-gradient(ellipse at 70% 30%, rgba(255,200,110,.25), transparent 55%), linear-gradient(160deg, #2f2a26, #0d0b09 70%); }
 .pbanner.tone-aid { background: radial-gradient(ellipse at 75% 20%, rgba(255,240,215,.3), transparent 55%), linear-gradient(160deg, #3d2a22, #140c09 70%); }
@@ -1546,6 +1546,8 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .pbanner.done { background: radial-gradient(ellipse at 80% 0%, rgba(255,240,180,.6), transparent 60%), linear-gradient(160deg, #6e4f1a, #2a1a08 70%); border-color: var(--st-complete-2); }
 .pbanner .pheroart { position: absolute; right: 90px; top: -30px; } .pbanner .pcoin.ghost { width: 260px; height: 260px; }
 .pbtitle { margin-bottom: 10px !important; }
+/* Owner (2026-11-14): the skill road below the banner, in the page's body (the banner shows its whole scene). */
+.pjroad { flex: none; margin: 14px calc(var(--s6) + 5px) 6px; }
 .pbtitle { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: end; gap: var(--s4); margin-bottom: 4px; }
 .pbtitle h1 { margin: 0; font: var(--fs-xxl) var(--font); color: var(--wow-gold); font-weight: 400; line-height: 1.05; text-shadow: 0 2px 4px #000; }
 .pbanner.done h1 { color: #fff1b0; }
@@ -1554,15 +1556,15 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .pbtitle .cscore { text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
 .pbtitle .cscore b { font: 40px var(--font); line-height: 1; color: #ffd9a8; font-weight: 400; text-shadow: 0 2px 6px #000; }
 .pbtitle .cscore small { font-size: var(--fs-xs); color: var(--text); }
-.pbanner .proad { border-radius: 6px; background: linear-gradient(180deg, rgba(239,225,189,.93), rgba(220,196,147,.93)); }
+.pjroad .proad { border-radius: 6px; background: linear-gradient(180deg, rgba(239,225,189,.93), rgba(220,196,147,.93)); }
 /* The painted skill road (2048x256 map): cover, centred on the lane. */
-/* Owner (2026-11-14): the road strip framed so it stands out from the banner: the gilded card frame
+/* Owner (2026-11-14): the road strip framed so it stands out: the gilded card frame
    (frame-card) 5 px outside its edge, over a soft dark shadow. */
-.pbanner .proad { overflow: visible; border-color: transparent; box-shadow: 0 0 0 3px rgba(0,0,0,.45), 0 4px 14px 4px rgba(0,0,0,.6); }
-.pbanner .proad::after { content: ""; position: absolute; inset: -5px; z-index: 3; pointer-events: none;
+.pjroad .proad { overflow: visible; border-color: transparent; box-shadow: 0 0 0 3px rgba(0,0,0,.45), 0 4px 14px 4px rgba(0,0,0,.6); }
+.pjroad .proad::after { content: ""; position: absolute; inset: -5px; z-index: 3; pointer-events: none;
   border: 18px solid transparent; border-image: url(chrome-art/frame-card.png) var(--card-slice) / 18px stretch; }
 /* The painted road (2048x256, its lane at row 150): cover; this strip shows the art's whole height. */
-.pbanner .proad.painted { background-size: cover; background-position: center; background-repeat: no-repeat; }
+.pjroad .proad.painted { background-size: cover; background-position: center; background-repeat: no-repeat; }
 /* Owner (2026-11-14): rank names and scale numbers on the painted cartouche (as the Class tab's names). */
 .proad .pcart { position: absolute; z-index: 1; pointer-events: none; white-space: nowrap; line-height: 16px; padding: 3px 2px;
   border-style: solid; border-width: 0 13px; border-image: url("chrome-art/cartouche.png") 33 48 fill / 0 13px stretch;
