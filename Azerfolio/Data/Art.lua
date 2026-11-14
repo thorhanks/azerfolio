@@ -164,4 +164,7 @@ ns.Art = {
         ["skinning"] = true,
         ["tailoring"] = true,
     },
+    profRoads = {
+        ["blacksmithing"] = true,
+    },
 }

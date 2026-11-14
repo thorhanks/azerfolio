@@ -2237,7 +2237,11 @@
   // (closed until you train). A milestone stone at each rank's training skill (gold rune trained,
   // red rune trainable now, plain later); the profession coin at 300, dull until mastered; You at your skill.
   function profRoad(p) {
-    const W = 1000, H = 132, x0 = 30, x1 = W - 56, y = 74;
+    // The painted skill road (art/prompts.md "Skill roads"), when this trade has one: cover, centred,
+    // the road on its lane at half height, each stone's label on a parchment tag.
+    const rkey = p.name.toLowerCase().replace(/[^a-z]/g, "");
+    const painted = ((window.AZF_ART || {}).profRoads || []).includes(rkey) && !ui.plainRoad;
+    const W = 1000, H = 132, x0 = 30, x1 = W - 56, y = painted ? 66 : 74;
     const X = (s) => x0 + (Math.max(1, Math.min(PMAX, s)) - 1) / (PMAX - 1) * (x1 - x0);
     const yAt = (x) => y + Math.sin(x / 90) * 6;
     const wave = (a, b) => { let d = ""; for (let x = a; x <= b; x += 8) d += `${d ? " L" : "M"}${x.toFixed(1)} ${yAt(x).toFixed(1)}`; return d; };
@@ -2247,8 +2251,11 @@
       const passed = p.cap >= r.cap, now = !passed && p.next === r && p.skill >= r.at;
       const img = passed ? "milestone-rune-gold" : now ? "milestone-rune-red" : "milestone";
       const sx = X(r.at), sy = yAt(sx) - 32;
+      const sub = passed ? "trained" : now ? "train now" : `from ${r.at}`;
+      const tagW = Math.max(r.name.length * 7.6, sub.length * 6) + 12;
+      const tag = painted ? `<rect class="pstag" x="17" y="-16" width="${tagW.toFixed(0)}" height="34" rx="3"/>` : "";
       return `<g class="pstone ${passed ? "passed" : now ? "now" : "later"}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})">
-        <image href="chrome-art/${img}.png" x="-16" y="-19" width="32" height="36"/><text x="22" y="-2" class="pslabel">${r.name}</text>
+        ${tag}<image href="chrome-art/${img}.png" x="-16" y="-19" width="32" height="36"/><text x="22" y="-2" class="pslabel">${r.name}</text>
         <text x="22" y="13" class="pssub">${passed ? "trained" : now ? "train now" : `from ${r.at}`}</text></g>`;
     }).join("");
     const you = `<g class="you" transform="translate(${xs.toFixed(1)} ${yAt(xs).toFixed(1)})"><circle r="14" class="youface"/><text y="5" class="youinit">${esc(CHAR.name[0])}</text>
@@ -2256,7 +2263,8 @@
     const gate = p.cap < PMAX ? `<g class="pgate" transform="translate(${xc.toFixed(1)} ${yAt(xc).toFixed(1)})"><path d="M-3 -14 V14 M3 -14 V14 M-7 -8 H7 M-7 0 H7 M-7 8 H7"/></g>` : "";
     const hit = (s, tip, key, w = 44) => `<button class="phit focusable" data-pstop="${key}" style="left:${(X(s) / W * 100).toFixed(2)}%;width:${w}px" data-tip="${tip}"></button>`;
     const coinTip = p.mastered ? `<b>${esc(p.name)} mastered</b>Skill ${PMAX} of ${PMAX}.` : `<b>${esc(p.name)} mastered</b>At skill ${PMAX}. ${PMAX - p.skill} to go.`;
-    return `<div class="proad" style="aspect-ratio:${W} / ${H}"><svg viewBox="0 0 ${W} ${H}" class="cmapart proadart" aria-hidden="true">
+    const bg = painted ? `;background-image:url('prof-art/road-${rkey}.png')` : "";
+    return `<div class="proad${painted ? " painted" : ""}" style="aspect-ratio:${W} / ${H}${bg}"><svg viewBox="0 0 ${W} ${H}" class="cmapart proadart" aria-hidden="true">
         <defs><pattern id="phatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#c4ab7c"/><path d="M0 0 V7" stroke="#5a4128" stroke-width="2.4" opacity=".8"/></pattern></defs>
         <path d="${wave(x0, x1)}" class="band-edge bmain"/><path d="${wave(x0, xc)}" class="band-earth bmain"/>
         ${xc < x1 ? `<path d="${wave(xc, x1)}" class="band-closed" stroke="url(#phatch)"/>` : ""}

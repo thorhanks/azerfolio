@@ -4,6 +4,8 @@
 #   art/source/fallback*.(png|jpg|jpeg)       ->  fallback.png / fallback.blp
 #   art/source/prof-<key>.(png|jpg|jpeg)      ->  mockups/prof-art/<key>.png and Azerfolio/Media/Professions/<key>.blp
 #                                                 (the Professions tab's banners, cropped like zone art; focal key "prof-<key>")
+#   art/source/profroad-<key>-<1..3>.png       ->  mockups/prof-art/road-<key>.png and Azerfolio/Media/ProfRoads/<key>.blp
+#                                                 (the Journey's skill road: three panels side by side, 2048x256)
 # Regenerates Azerfolio/Data/Art.lua and mockups/zone-art/index.js from what exists.
 # Optional focal points: art/focal.json  { "1429": { "x": 0.45, "y": 0.55 } }  (0..1; default 0.5, 0.5)
 param(
@@ -323,6 +325,57 @@ function Convert-Strip([string]$key, [string[]]$panels) {
     return "strip $key ($n panels: $($sizes -join ', '); each ${W}x$ph, $StripBlend-row cross-fades; seams lined up by $(($seams | ForEach-Object { "$_ px" }) -join ', ')) -> Strips\$key.blp [$info]"
 }
 
+# The Professions tab's skill roads (art/prompts.md "Skill roads"): profroad-<key>-<n>, three 3:2
+# panels left to right, joined side by side (neighbours overlap by $RoadBlend columns and cross-fade),
+# then the middle $RoadSize[1] rows kept (the lane runs at half height) -> one opaque 2048x256 DXT1
+# Media\ProfRoads\<key>.blp (mockup: mockups/prof-art/road-<key>.png).
+$RoadSize = @(2048, 256)
+$RoadBlend = 32
+function Convert-ProfRoad([string]$key, [string[]]$panels) {
+    $W, $H = $RoadSize
+    $n = $panels.Count
+    $pw = [int][Math]::Ceiling(($W + ($n - 1) * $RoadBlend) / $n)
+    $sizes = @(); $ph = 0
+    $imgs = @()
+    foreach ($path in $panels) { $src = [System.Drawing.Image]::FromFile($path); $sizes += "$($src.Width)x$($src.Height)"; $ph = [Math]::Max($ph, [int][Math]::Round($pw * $src.Height / $src.Width)); $imgs += $src }
+    $canvas = New-Object System.Drawing.Bitmap $W, $ph, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+    $g = [System.Drawing.Graphics]::FromImage($canvas)
+    $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceOver
+    for ($i = 0; $i -lt $n; $i++) {
+        $p = New-Object System.Drawing.Bitmap $pw, $ph, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+        $pg = [System.Drawing.Graphics]::FromImage($p)
+        $pg.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $pg.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $attrs = New-Object System.Drawing.Imaging.ImageAttributes
+        $attrs.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)
+        $pg.DrawImage($imgs[$i], (New-Object System.Drawing.Rectangle 0, 0, $pw, $ph), 0, 0, $imgs[$i].Width, $imgs[$i].Height, [System.Drawing.GraphicsUnit]::Pixel, $attrs)
+        $attrs.Dispose(); $pg.Dispose(); $imgs[$i].Dispose()
+        if ($i -gt 0) {
+            for ($x = 0; $x -lt $RoadBlend; $x++) {
+                $a = [int][Math]::Round(255 * ($x + 0.5) / $RoadBlend)
+                for ($y = 0; $y -lt $ph; $y++) { $c = $p.GetPixel($x, $y); $p.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($a, $c.R, $c.G, $c.B)) }
+            }
+        }
+        $left = [Math]::Min($W - $pw, $i * ($pw - $RoadBlend))
+        $g.DrawImage($p, $left, 0, $pw, $ph)
+        $p.Dispose()
+    }
+    $g.Dispose()
+    $top = [int][Math]::Floor(($ph - $H) / 2)
+    $flat = New-Object System.Drawing.Bitmap $W, $H, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+    $fg = [System.Drawing.Graphics]::FromImage($flat)
+    $fg.DrawImage($canvas, (New-Object System.Drawing.Rectangle 0, 0, $W, $H), 0, $top, $W, $H, [System.Drawing.GraphicsUnit]::Pixel)
+    $fg.Dispose(); $canvas.Dispose()
+    $mockDir = Join-Path $PieceMockRoot 'prof-art'
+    New-Item -ItemType Directory -Force $mockDir | Out-Null
+    $png = Join-Path (Resolve-Path $mockDir).Path "road-$key.png"
+    $flat.Save($png, [System.Drawing.Imaging.ImageFormat]::Png); $flat.Dispose()
+    $roadDir = Join-Path $MediaRoot 'ProfRoads'
+    New-Item -ItemType Directory -Force $roadDir | Out-Null
+    $info = [AzfBlp]::Convert($png, (Join-Path (Resolve-Path $roadDir).Path "$key.blp"))
+    return "skill road $key ($n panels: $($sizes -join ', '); joined ${W}x$ph, $RoadBlend-column cross-fades; rows $top-$($top + $H - 1) kept) -> ProfRoads\$key.blp [$info]"
+}
+
 # Tinted textures (plaque-fill-*): a generator paints them very low contrast (209..229 for the
 # first cloth), and multiplied onto a dark tint the pattern vanishes. Stretch the luminance range
 # to $lo..255, the same mapping on every channel, so a grey texture stays grey.
@@ -426,6 +479,21 @@ foreach ($key in ($strips.Keys | Sort-Object)) {
     $processed++
 }
 $files = @($files | Where-Object { $_.BaseName -notmatch '^strip-' })
+# Skill roads: a road is converted once all three of its panels exist.
+$roads = @{}
+foreach ($f in $files) {
+    if ($f.BaseName -match '^profroad-([a-z]+)-([1-3])$') {
+        if (-not $roads.ContainsKey($Matches[1])) { $roads[$Matches[1]] = @() }
+        $roads[$Matches[1]] += , @([int]$Matches[2], $f.FullName)
+    }
+}
+foreach ($key in ($roads.Keys | Sort-Object)) {
+    if ($roads[$key].Count -lt 3) { Write-Output "Skip skill road ${key}: $($roads[$key].Count) of 3 panels"; continue }
+    $panels = @($roads[$key] | Sort-Object { $_[0] } | ForEach-Object { $_[1] })
+    Write-Output (Convert-ProfRoad $key $panels)
+    $processed++
+}
+$files = @($files | Where-Object { $_.BaseName -notmatch '^profroad-' })
 foreach ($f in $files) {
     $kind = Get-PieceKind $f.BaseName
     if ($kind) {
@@ -509,6 +577,12 @@ $profDir = Join-Path $MediaRoot 'Professions'
 $profNames = if (Test-Path $profDir) { @(Get-ChildItem $profDir -Filter *.blp | ForEach-Object { $_.BaseName } | Sort-Object) } else { @() }
 $lua += '    professions = {'
 foreach ($p in $profNames) { $lua += "        [""$p""] = true," }
+$lua += '    },'
+# The Professions tab's skill roads in Media\ProfRoads, by profession key.
+$roadDir = Join-Path $MediaRoot 'ProfRoads'
+$roadNames = if (Test-Path $roadDir) { @(Get-ChildItem $roadDir -Filter *.blp | ForEach-Object { $_.BaseName } | Sort-Object) } else { @() }
+$lua += '    profRoads = {'
+foreach ($p in $roadNames) { $lua += "        [""$p""] = true," }
 $lua += @('    },', '}')
 [IO.File]::WriteAllLines((Resolve-Path (Split-Path $ArtLua)).Path + '\' + (Split-Path $ArtLua -Leaf), $lua, (New-Object System.Text.UTF8Encoding $false))
 
@@ -521,7 +595,8 @@ $bannerJs = ($pieces | ForEach-Object { $q + $_ + $q }) -join ','
 $iconsJs = ($icons | ForEach-Object { $q + ($_ -replace '^icon-', '') + $q }) -join ','
 $js = '// Generated by tools/process-art.ps1. Do not edit.' + "`n" + 'window.AZF_ART = { fallback: ' + $hasFallback.ToString().ToLower() +
     ', ids: [' + ($ids -join ',') + '], banner: [' + $bannerJs + '], chrome: { ' + $chromeJs + ' }, icons: [' + $iconsJs + '], strips: [' +
-    (($stripNames | ForEach-Object { $q + $_ + $q }) -join ',') + '] };' + "`n"
+    (($stripNames | ForEach-Object { $q + $_ + $q }) -join ',') + '], profRoads: [' +
+    (($roadNames | ForEach-Object { $q + $_ + $q }) -join ',') + '] };' + "`n"
 [IO.File]::WriteAllText((Join-Path (Resolve-Path $MockOut).Path 'index.js'), $js, (New-Object System.Text.UTF8Encoding $false))
 
 Write-Output "Processed $processed image(s). Art available for $($ids.Count) zone(s); fallback: $hasFallback; banner pieces: $($pieces.Count); chrome: $($chrome.Count); icons: $($icons.Count); strips: $($stripNames.Count)."

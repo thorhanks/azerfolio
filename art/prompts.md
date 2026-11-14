@@ -624,6 +624,49 @@ Use the **zone art style block and negative prompt** (`art/prompts.md` § Zone a
 | prof-firstaid | A field medic's tent interior, rolled linen bandages and small clay jars of salve on a wooden chest, a cot with a folded blanket, lantern light, a red teardrop sigil sewn on a hanging cloth (no cross symbol) |
 | prof-fishing | A quiet wooden pier on a calm lake at golden hour, a fishing rod leaning against a post, a bobber floating on still water, reeds and distant hills |
 
+### Skill roads (12, three panels each; owner's choice 2026-11-14, in review)
+
+The Journey's skill road (1 to 300, left to right, in the banner's foot) on a painted map per profession, in the Class tab strips' antique-map style, so it reads as a map laid over the banner's scene. Left is the trade's humble start, right its mastery; the addon draws the road band, scale, rank stones, gate, You and the coin on top. The road is straight, so **paint no road**: leave a straight plain lane at half height across the whole width, with landmarks beside it, never on it.
+
+Final size 2048×256 (8:1). Image tools make at most 3:2, so each road is **three 3:2 landscape panels side by side** (4.5:1); the pipeline scales them to 2048 wide and keeps the middle 256 rows, centred on the lane. So **everything that matters sits in the middle half of the height**; above it soft distant land fading into parchment, below it plain low ground. The page shows a window of it (about 7:1 to 10:1 by window size), cropping a little top and bottom.
+
+Where the stones fall (default window): Journeyman (50) about halfway across panel 1; Expert (125) a fifth of the way into panel 2; Artisan (200) four fifths across panel 2; the coin (300) at about seven tenths of panel 3. Landmarks need not sit exactly there; the stages just read left to right.
+
+Style block for skill roads (the strips' block, turned on its side):
+
+```
+Hand-painted stylized fantasy journey map seen from high above at a gentle angle, a long
+panorama read from left to right, painterly with soft visible brush texture, bold simplified
+shapes and chunky silhouettes, small landmark buildings and landscape features painted in
+miniature, coloured like an antique map: aged parchment ground, sepia and warm umber, muted
+sage and olive greens, faded slate blues, soft ochre, fine dark ink outlines around shapes,
+subtle paper grain over everything, quiet low saturation, no road, no path, no trail, no people,
+no creatures, no text. Everything important sits in the middle half of the image height; the top
+quarter is soft distant land fading into pale parchment, the bottom quarter plain low ground.
+A narrow straight horizontal lane of plain bare ground, about one tenth of the image height,
+runs straight across the whole width at exactly half the image height, from the left edge to the
+right edge, with nothing painted in it and the land coming right up to its edges.
+Keep the landmarks small and all at one scale, mostly just above the lane, with open ground
+between them. 3:2 landscape.
+Subject:
+```
+
+Negative prompt: the strips' (`text, letters, words, labels, place names, calligraphy, numbers, signature, compass rose, border, frame, road, path, trail, dotted line, wide empty band, saturated colors, neon, photograph, 3D render, people, creatures`) plus `curved lane, diagonal lane`.
+
+**Same for every panel:**
+- **References.** Blacksmithing is the set's model; make it first. Its panel 1 takes `art/source/strip-paladin-alliance-1.png` as the style reference. Every other road's panel takes Blacksmithing's matching panel as the style reference. Panels 2 and 3 also take **the same road's previous panel** as the continuity reference: its right edge, the lane at the same height, continues into the new panel's left edge.
+- The light changes along the road: morning at the left of panel 1, the most dramatic place at the right of panel 3. Keep the last fifth of panel 3 calm and a little darker (the coin sits there).
+
+Save as `art/source/profroad-<key>-<n>.png` (n = 1 left, 2 middle, 3 right). Subject lines start with "The left / middle / right part of a long journey map."; each line below is what follows.
+
+#### Blacksmithing (`profroad-blacksmithing-<n>`)
+
+| File | Subject line |
+|---|---|
+| profroad-blacksmithing-1 | At the far left a small thatched village smithy with a smoking chimney beside a few cottages, soft morning light; a charcoal burners' clearing with smouldering mounds in a little wood; a small stone bridge over a stream; just right of the middle a stone forge workshop with a turning waterwheel on the stream. The lane as described. The right edge continues into rocky foothills |
+| profroad-blacksmithing-2 | Rocky foothills continuing from the left edge: a quarry and a small mine entrance with an ore cart a fifth of the way across; a walled market town with a tall smiths' guild hall and banners in the middle; four fifths across, great forge halls carved into a grey mountain cliff, glowing orange doorways and tall chimneys. The lane as described. The right edge continues into dark volcanic land |
+| profroad-blacksmithing-3 | Dark volcanic land continuing from the left edge: black rock, a river of glowing lava in a gorge below the lane, smoking vents; in the middle a mighty fortress forge built against a fiery mountain, an enormous anvil shape on its terrace, molten light; to the right the land quiets into dark ash plains under a smouldering red dusk. The lane as described |
+
 ### Coins (12)
 
 Use the **chrome style block** (flat magenta, symmetrical, no text) and the class coins' negative prompt, and give `coin-paladin` as the reference so rim, metal and lighting match the class coins. Save as `art/source/coin-prof-<key>.png`.
