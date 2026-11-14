@@ -1556,6 +1556,11 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .pbtitle .cscore small { font-size: var(--fs-xs); color: var(--text); }
 .pbanner .proad { border-radius: 6px; background: linear-gradient(180deg, rgba(239,225,189,.93), rgba(220,196,147,.93)); }
 /* The painted skill road (2048x256 map): cover, centred on the lane. */
+/* Owner (2026-11-14): the road strip framed so it stands out from the banner: the gilded card frame
+   (frame-card) 5 px outside its edge, over a soft dark shadow. */
+.pbanner .proad { overflow: visible; border-color: transparent; box-shadow: 0 0 0 3px rgba(0,0,0,.45), 0 4px 14px 4px rgba(0,0,0,.6); }
+.pbanner .proad::after { content: ""; position: absolute; inset: -5px; z-index: 3; pointer-events: none;
+  border: 18px solid transparent; border-image: url(chrome-art/frame-card.png) var(--card-slice) / 18px stretch; }
 /* The painted road (2048x256, its lane at row 150): cover; this strip shows the art's whole height. */
 .pbanner .proad.painted { background-size: cover; background-position: center; background-repeat: no-repeat; }
 /* Owner (2026-11-14): rank names and scale numbers on the painted cartouche (as the Class tab's names). */

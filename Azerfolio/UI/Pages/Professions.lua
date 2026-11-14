@@ -511,6 +511,20 @@ local function build(parent)
     road.edge = W.Edge(road, "BORDER")
     road.edge:SetColor("divider")
     local base = road:GetFrameLevel()
+    -- Owner (2026-11-14): the strip framed so it stands out from the banner: the gilded card
+    -- frame just outside its edge (on top of everything on the road), over a soft dark shadow.
+    road.rim = CreateFrame("Frame", nil, road)
+    road.rim:SetAllPoints()
+    road.rim:SetFrameLevel(base + 6)
+    road.frame = T.CardFrame(road.rim, PT.roadFrame, PT.roadFrameOut)
+    if road.frame then road.edge:SetColor("black", 0.8) end -- a dark inner line under the gilt
+    road.shadow = {}
+    for i, sh in ipairs({ { 3, 0.45 }, { 7, 0.25 }, { 12, 0.12 } }) do
+        local t = T.Solid(banner, "black", "OVERLAY", sh[2])
+        t:SetPoint("TOPLEFT", road, "TOPLEFT", -sh[1], sh[1] - 3)
+        t:SetPoint("BOTTOMRIGHT", road, "BOTTOMRIGHT", sh[1], -sh[1] - 3)
+        road.shadow[i] = t
+    end
     road.bar = T.GildedBar(road, PT.roadBar)
     road.bar:SetFrameLevel(base + 1)
     -- Past your cap: the road darkened behind a gate (on a frame above the gilded bar).
