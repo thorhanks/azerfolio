@@ -591,24 +591,10 @@
     const hero = cur && cur.tracked ? cur : inProgress[0] || nextForLevel(cur);
     const heroKicker = hero === cur ? (cur.state === "complete" ? "Your zone · claimed" : cur.state === "untouched" ? "Start · your zone" : "Continue · your zone")
       : "Continue exploring";
-    const goal = inProgress.find(z => z !== hero); // never repeat the Continue card
-    const next = nextForLevel(hero);
-    const p = totals.done / totals.areas;
-    const W = (n) => (n / tracked.length * 100).toFixed(2);
-
-    // Suggestions grouped by zone (step 6): each zone's picks mix areas, ready quests and
-    // flight paths, the same picks as its Next up (Zones.NextUp).
-    const leftText = (z) => z.cats.filter(c => c.done < c.total).map(c => `${c.total - c.done} ${c.unit}`).join(" · ");
-    const groups = [];
-    const addGroup = (z, why) => { if (!z || groups.some(g => g.z === z)) return; const items = nextItems(z, questsFor(z));
-      if (items.length) groups.push({ z, why: `${why} · ${leftText(z)} left`, items }); };
-    if (hero && hero.state !== "complete") addGroup(hero, hero === cur ? "Current zone" : "Continue");
-    inProgress.filter(z => z !== hero).slice(0, 1).forEach(z => addGroup(z, "Closest to complete"));
-    if (next) addGroup(next, "Next for your level");
+    // Overview round 3 (owner, 2026-11-13): Next goal and Suggested next are gone; the left column
+    // is Continue + Tracked completion, the right the Atlas and a window onto your class road.
     const tc = totals.cats;
     const pct1 = (p) => p == null ? "—" : `${(p * 100).toFixed(p > 0 && p < 0.1 ? 1 : 0)}%`;
-
-    const CHIPS = 6;
 
     content.innerHTML = `<div class="scroll" id="scroll"><div class="overview">
       <div class="col">
@@ -619,17 +605,7 @@
             <div class="left">${hero.cats.filter(c => c.done < c.total).map(c => `<b>${c.total - c.done}</b> ${c.unit}`).join(" · ")} to go</div>
             </div>
           <div class="score mini">${progressArt(hero, { mini: true })}<b>${pctText(hero.pct)}</b></div></button>` : ""}
-        ${goal ? `<button class="goal framed focusable" data-open="${esc(goal.name)}" data-tip="<b>Next goal</b>The in-progress zone closest to complete.">
-          <span class="flag">Next goal</span>
-<span>Finish <b>${esc(goal.name)}</b> — ${goal.left} to go</span>${catbars(goal, "sm")}</button>` : ""}
-        <div class="plate ovplate" data-group><span>Suggested next</span></div>
-        ${groups.length ? groups.map(g => `<div class="zonegroup framed"><header><b>${esc(g.z.name)}</b><span class="why">${g.why}</span></header>
-          <div class="sitems">${g.items.slice(0, CHIPS).map(it => `<button class="sitem focusable" data-open="${esc(g.z.name)}" data-next="${esc(it.key)}"
-            data-tip="<b>${esc(it.name)}</b>${esc(it.sub)} in ${esc(g.z.name)}. A opens it.">${catIcon(it.cat, "cimg sm")}<span class="sname ${it.diff ? `d-${it.diff}` : ""}">${esc(it.name)}</span>${it.cat === "quests" ? `<span class="slv">${esc(it.sub.replace("Quest · level ", "Lv "))}</span>` : ""}</button>`).join("")}</div></div>`).join("")
-          : `<div class="note">Nothing to suggest: every area, quest and flight path you can do in your zones is done.</div>`}
-      </div>
-      <div class="col">
-        <div class="tracked framed" data-tip-none>
+        <div class="tracked framed" data-group data-tip-none>
           <div class="thead"><span>Tracked completion</span><b>${pct1(tc.pct)}</b></div>
           ${tc.list.map(c => `<button class="trow focusable ${c.pending ? "pending" : ""}" data-go="zones" data-tip="<b>${c.label}</b>${c.pending ? esc(c.pending) : `${c.done} of ${c.total} ${c.unit} the game confirms done, across ${c.zones} zones you can do.`}${c.note ? " " + esc(c.note) + "." : ""}">
             ${catIcon(c.key, "cimg sm")}<span class="tl">${c.label}</span>
@@ -643,10 +619,15 @@
           <div class="tfoot">${["Each category counts equally" + (tc.list.some(c => c.pending) ? "; those without data are left out" : ""),
             ...tc.list.filter(c => c.note).map(c => c.key === "quests" ? `${c.unchecked} quests can't be checked yet` : esc(c.note))].join(" · ")}.</div>
         </div>
+      </div>
+      <div class="col">
         <div class="plate ovplate" data-group><span>Atlas</span></div>
         ${miniAtlas()}
+        <div class="plate ovplate" data-group><span>${esc(CLASS_ROAD.title)}</span></div>
+        ${classMini()}
       </div>
     </div></div>`;
+    requestAnimationFrame(centerClassMini);
   }
 
   // ---- The Atlas (DESIGN.md "Zones: Atlas", Phase 10) ----
@@ -1958,6 +1939,35 @@
     renderStopInto($("#detailpane"), m, ui.classSel);
     requestAnimationFrame(fitClassLabels);
   }
+  // Overview round 3 (owner, 2026-11-13): a window onto your class road, cropped around You. The
+  // same strip, road, coins and stones as the Class tab at about the same scale; only the next
+  // stop keeps its name. One focus stop: A opens the Class tab on your current stop. The caption
+  // says the one thing to do next and what's waiting at your trainer.
+  function classMini() {
+    const m = classModel(), nx = classNext(m);
+    const count = m.unknown ? `Road ? of ${m.road.length} · Side paths ? of ${m.side.length}` : `Road ${m.roadDone} of ${m.road.length} · Side paths ${m.sideDone} of ${m.side.length}`;
+    const strip = classStrip(m); // snaps the stops onto the traced road first
+    const lp = levelPos(m), yp = bez(roadSegs(m)[m.road[lp.i].id], lp.t);
+    const keep = nx.stop ? nx.stop.id : "end";
+    // Not focus stops of their own (and no buttons inside the window's button).
+    const nodes = classNodes(m).replace(/\bfocusable\b/g, "").replace(/\bselected\b/g, "").replace(/ data-tip="[^"]*"/g, "")
+      .replace(/<button\b/g, "<span").replace(/<\/button>/g, "</span>");
+    const train = m.unknown ? null : Object.keys(CLASS_ABILITIES).map(Number).filter(l => abilityState(l) === "available").reduce((a, l) => a + CLASS_ABILITIES[l].length, 0);
+    return `<button class="classmini framed focusable ${m.complete ? "done" : ""}" data-classroad data-you="${(yp.y / CLASS_ROAD.H).toFixed(4)}" data-keep="${keep}"
+        data-tip="<b>${esc(CLASS_ROAD.title)}</b>${count}. Press A to open the Class tab at your stop.">
+      <div class="cmwin"><div class="cmap" style="aspect-ratio:${CLASS_ROAD.W} / ${CLASS_ROAD.H}">${strip}${nodes}</div></div>
+      <div class="cmcap"><span class="ccount">${count}</span>
+        <span class="cnext ${nx.done ? "done" : ""} ${m.unknown ? "unk" : ""}">${esc(nx.text)}</span>
+        ${train ? `<span class="ctrain">${train} abilit${train === 1 ? "y" : "ies"} waiting at your trainer</span>` : ""}</div></button>`;
+  }
+  // Centre the window on You, clamped so it never shows past the strip's ends.
+  function centerClassMini() {
+    const box = $(".classmini"); if (!box) return;
+    const win = box.querySelector(".cmwin"), map = box.querySelector(".cmap");
+    const H = map.offsetHeight, h = win.clientHeight, y = Number(box.dataset.you) * H;
+    map.style.top = `${-Math.max(0, Math.min(H - h, y - h / 2))}px`;
+    box.querySelectorAll(".cnode").forEach(n => n.classList.toggle("keep", n.dataset.stop === box.dataset.keep));
+  }
   // The addon's label rules (Class.lua drawMap), measured on the page: a name goes on the side of
   // its coin where it fits; one too wide for either side goes where it overflows less and is
   // nudged back inside the strip ("The Balance of Light and Shadow" ran off the narrow strip,
@@ -2200,6 +2210,7 @@
       const first = $("#detailpane .cstep"); if (!first) return;
       setHints("classSteps"); return setFocus(first);
     }
+    if (d.classroad !== undefined) { ui.classSel = null; return setTab("class"); }
     if (d.goto) { ui.classSel = d.goto; renderStopInto($("#detailpane"), classModel(), d.goto); setHints("class"); return restoreClass(); }
     if (d.step) return; // a quest step: details in the info line
     if (d.rfilter) { ui.repFilter = d.rfilter; render(); return setFocus($(`[data-rfilter="${d.rfilter}"]`)); }

@@ -859,6 +859,24 @@ body.chrome .gbar.progress i { filter: hue-rotate(-16deg) saturate(1.25) brightn
 .overview .minimap .mg { grid-auto-rows: 8px; } .ovplate { height: 30px; margin: var(--s2) -6px var(--s2); } .overview .col > .ovplate:first-of-type { margin-top: var(--s3); }
 .trow .stack { height: 12px; } .trow .stack .u { background: #5c4d3b; }
 
+/* Overview round 3 (owner, 2026-11-13): Continue + Tracked completion on the left; the Atlas and a
+   window onto your class road on the right. The window is the Class tab's strip at about the same
+   scale, cropped around You; only the next stop keeps its name. */
+.overview .hero + .tracked { margin-top: var(--s4); }
+.classmini { display: block; width: 100%; padding: 0 !important; text-align: left; cursor: pointer; color: var(--text); font: inherit; overflow: hidden; }
+.classmini .cmwin { position: relative; height: 190px; overflow: hidden; border-bottom: 1px solid rgba(138,109,59,.45); }
+.classmini .cmap { position: absolute; left: 0; right: 0; top: 0; pointer-events: none; }
+.classmini .cnode .clabel.cartlab { display: none; }
+.classmini .cnode.keep .clabel.cartlab { display: flex; }
+.classmini .cnode .cfocus { display: none; }
+.classmini .cmcap { display: flex; flex-direction: column; gap: 2px; padding: var(--s2) var(--s4) var(--s3); }
+.classmini .ccount { font-size: var(--fs-xs); color: var(--dim); }
+.classmini .cnext { font-size: var(--fs-sm); color: #ffd9a8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.classmini .cnext.done { color: var(--st-complete); }
+.classmini .cnext.unk { color: var(--dim); font-style: italic; }
+.classmini .ctrain { font-size: var(--fs-xs); color: #ff9a7a; }
+.focused.classmini { box-shadow: 0 0 0 2px var(--focus), 0 0 14px 2px rgba(255,230,0,.45) !important; }
+
 /* Celebrations (DESIGN.md "Celebrations"): a dark, warm overlay with slow rays and motes; the
    card in the painted frame; A or B continues. */
 .celebrate { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; overflow: hidden; border-radius: 2px;
