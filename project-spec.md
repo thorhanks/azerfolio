@@ -302,6 +302,19 @@ Approved 2026-11-09 to 11-13 (owner, five design rounds); layout, art and gamepa
 - **The pane:** the selected stop: its zone art, reward, where it starts, level, the places it travels to, lead-ins (not counted), numbered steps (sub-quests in place, not counted), done or not from the game; the road's end lists every stop; a milestone lists its levels' abilities (learned / train now / later, cost).
 - **Gamepad:** up and down walk the road (stops and stones in road order), left and right reach a stop's side paths, LT/RT jump stop to stop, A opens the steps, B goes back.
 
+### 7.11 Professions tab (v1.6)
+
+Approved 2026-11-13 to 11-14 (owner, two design rounds); layout and gamepad map in mockups/DESIGN.md "Professions tab". This character's professions only. A profession is **Mastered at skill 300**; recipes are a **collection that never counts** toward it, and nothing here is part of zone completion.
+
+- **The rail:** Primary, then Secondary; per profession its coin, name, "skill / cap" and a dot for the most urgent state. The status, most urgent first: Mastered (gold) > At cap · train <rank> (red: skill-ups are lost) > Train <rank> now (orange) > n recipes to learn (orange) > Open your <profession> window once (grey).
+- **Views** (Y cycles; only those a profession has): **Journey**, **Recipes**, **Gather** (Mining, Herbalism, Skinning, Fishing).
+- **Journey** (one screen, no scroll): the banner with rank title and skill, and the **skill road** in its foot: 1 to 300, gilded to the skill, hatched past the current cap behind a closed gate, a stone at each rank's training skill (Journeyman 50, Expert 125, Artisan 200: trained, train now, later), You at the skill, the profession coin at 300 (dull until mastered). Below, **Next up** (up to 5: the next rank and its trainers, recipes waiting at a trainer, known recipes that still give skill, the node you're on and the next, "Open your window once") and **Tracked** (the game's tracked recipes with ingredients).
+- **Recipes:** filters with counts, **For you now** by default (learn now, known and still giving skill, opening in the next 25 points), then All, Known, Learn now, Later, No known source; in levelling order. A list and the focused recipe beside it: state, learn at / gives skill until, every known source, ingredients with have / need and where to get each, Track / Untrack in the game's objective tracker (X).
+- **Counts:** only recipes with a known source (seen at a trainer, or a recipe item in QuestieDB) are counted; the rest, Season of Discovery included, are listed under No known source and not counted. No % for recipes.
+- **Gather:** the hand-curated node table, labelled as a guide, not game data.
+- **Overview:** a Professions panel ("n of m mastered", one row per profession with its skill bar and status; A opens the tab on it).
+- **Gamepad:** the rail, A into the page, Y view, LT/RT sections, X Track, B back.
+
 ### 7.6 Map actions
 
 Where supported: open the world map to this zone, show where an exploration objective is, tooltips on objectives.
@@ -362,6 +375,16 @@ Research and probe: `docs/research/reputation.md`.
 - **The rules** (Systems/ClassJourneyRules, pure): a step is done by any of its quests and left out when none is for the character; a stop's state (done, in progress, open now, later, not known); the road's counts and the next thing to do; where a level sits on the road.
 - **Abilities:** the class trainer lists every service with its level and learned / available / later state, but only while its window is open; Azerfolio reads it on TRAINER_SHOW / TRAINER_UPDATE (all filters on, restored after) and keeps it per character (AzerfolioCharDB.trainer). The spellbook lists no future spells in this client (docs/research/class-spells.md). Systems/ClassTrainerRules (pure) sorts new abilities from new ranks and gives each level's state.
 - **The art:** each strip's lane is traced into Data/StripPaths.lua (	ools/trace-strip.ps1); stop positions per road are Theme.classStrip.
+
+### 8.12 Professions data (v1.6)
+
+- **Skills:** GetProfessions / GetProfessionInfo (skill, cap, skill line) at any time; GetProfessionInfoBySkillLineID reads 0/0 until a window opens and isn't used. Ranks: Apprentice cap 75, Journeyman 150 (train at 50), Expert 225 (125), Artisan 300 (200) (Warcraft Tavern's Forever guide; training skills match the trainers seen). Character-level requirements aren't shown: the trainer reports 0.
+- **Recipes:** each profession window's whole list (recipe, name, learned, grey-at skill, category), read when it opens and kept per character; learned state kept live with IsPlayerSpell. Until a profession's window has been opened once, its recipes are unknown.
+- **Learn-at skill and trainer recipes:** a profession trainer's list (GetTrainerServiceSkillReq), recorded per character when its window opens.
+- **Sources** (Systems/ProfessionRules decides, Systems/Professions reads): seen at a trainer; or a QuestieDB recipe item matched by name and profession subclass (vendors with zone, drops, containers, quests); otherwise No known source. Without QuestieDB only trainer sources are known.
+- **Ingredients:** GetRecipeSchematic (window shut, any recipe), have from C_Item.GetItemCount; where to get each: another recipe of the profession, a gathering node, QuestieDB vendors or drops, or unknown.
+- **Tracking:** the game's own (GetRecipesTracked, SetRecipeTracked). Azerfolio changes it only on the player's X.
+- **Gathering:** Data/Gathering.lua, hand-curated and unofficial, with provenance per row (like Data/Zones.lua); conflicting or unknown skills stay marked as such (open check G1).
 
 ### 8.6 Aggregation output
 
