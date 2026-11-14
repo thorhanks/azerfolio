@@ -182,11 +182,15 @@ function W.PanelButton(parent)
     end
     function b:SetOn(on) self.on = on; lit(self) end
     function b:SetFocused(on) self.focused = on; lit(self) end
+    -- b.text: the button's own label (as W.Control's), or a stand-in where the client gives none.
+    local native = b.GetFontString and b:GetFontString()
+    b.text = native or ns.Theme.Text(b, "sm", "gold")
+    if not native then b.text:SetPoint("CENTER", 0, 0) end
     function b:SetLabel(text, pad, minWidth)
-        if self.SetText then self:SetText(text) end
+        if native and self.SetText then self:SetText(text) else self.text:SetText(text) end
         local fs = self.GetFontString and self:GetFontString()
         local w = fs and fs.GetStringWidth and fs:GetStringWidth() or (#text * 7)
-        self:SetWidth(math.max(minWidth or L.panelButtonMin, math.floor(w + 2 * (pad or L.panelButtonPad) + 0.5)))
+        self:SetWidth(math.max(minWidth or self.minWidth or L.panelButtonMin, math.floor(w + 2 * (pad or L.panelButtonPad) + 0.5)))
     end
     hoverInfo(b)
     return b

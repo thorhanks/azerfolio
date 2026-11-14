@@ -261,8 +261,11 @@ function Catalogue.New(page)
     rule:SetPoint("BOTTOMLEFT"); rule:SetPoint("BOTTOMRIGHT"); rule:SetHeight(1)
     cat.toolbar = tb
 
-    local function control(key, title, detail, onActivate, actionLabel)
-        local b = W.Control(tb)
+    -- Toolbar buttons are the game's red panel buttons (owner, 2026-11-14), sized to their text;
+    -- the search box stays a dark control (`plain`), as it holds typed text.
+    local function control(key, title, detail, onActivate, actionLabel, plain)
+        local b
+        if plain then b = W.Control(tb) else b = W.PanelButton(tb); b.minWidth = 0 end
         b.item = { key = key, frame = b, title = title, detail = detail, onActivate = onActivate,
             actionLabel = actionLabel }
         b:SetScript("OnClick", function() onActivate(b.item) end)
@@ -290,7 +293,7 @@ function Catalogue.New(page)
 
     -- Search: a plain edit box in a control frame. A or X focuses it; Enter or Escape leaves.
     local search = control("tb:search", "Search", "Type part of a zone's name. Enter or Escape to finish.",
-        function() cat:FocusSearch() end, "Type")
+        function() cat:FocusSearch() end, "Type", true)
     search:SetWidth(L.searchWidth)
     search.text:Hide()
     local box = CreateFrame("EditBox", nil, search)
@@ -421,7 +424,7 @@ function Catalogue.New(page)
             if o.needs and not available[o.needs] then
                 b:Hide()
             else
-                local value = "|cffffd100" .. label(o, s[o.key]) .. "|r"
+                local value = "|cffffffff" .. label(o, s[o.key]) .. "|r" -- white on the red button's gold label
                 b:SetLabel(short and value or (o.label .. ": " .. value), pad)
                 b.item.detail = label(o, s[o.key]) .. ". Press A to choose."
                 place(b)

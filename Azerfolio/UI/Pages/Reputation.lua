@@ -404,7 +404,8 @@ local function build(parent)
     T.Solid(tb, "black", "BACKGROUND", 0.28):SetAllPoints()
     local controls = {}
     local function control(key, title, detail, onActivate, actionLabel)
-        local b = W.Control(tb)
+        local b = W.PanelButton(tb) -- the game's red panel buttons (owner, 2026-11-14), sized to their text
+        b.minWidth = 0
         b.item = { key = key, frame = b, title = title, detail = detail, onActivate = onActivate, actionLabel = actionLabel }
         b:SetScript("OnClick", function() onActivate(b.item) end)
         controls[#controls + 1] = b
@@ -569,7 +570,7 @@ local function build(parent)
             x = x + b:GetWidth() + S.s2
         end
         x = x + S.s2
-        page.sortBtn:SetLabel("Sort: |cffffd100" .. SORT_LABEL[s.sort] .. "|r")
+        page.sortBtn:SetLabel("Sort: |cffffffff" .. SORT_LABEL[s.sort] .. "|r")
         page.sortBtn.item.detail = SORT_LABEL[s.sort] .. ". Y cycles it."
         page.sortBtn:ClearAllPoints(); page.sortBtn:SetPoint("LEFT", tb, "LEFT", x, 0)
         local sum = data and data.summary

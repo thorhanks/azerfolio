@@ -227,6 +227,16 @@ h2.section small { font-size: var(--fs-xs); color: var(--dim); }
 .viewtoggle { display: flex; border: 1px solid #5f5141; border-radius: var(--r-ctl); overflow: hidden; }
 .viewtoggle button { background: linear-gradient(180deg, #2e261d, #1a140e); color: var(--dim); border: 0; padding: var(--s1) var(--s3); font: var(--fs-sm) var(--font); cursor: pointer; }
 .viewtoggle button.on { background: linear-gradient(180deg, #5a3d1c, #3b2817); color: var(--wow-gold); }
+/* Owner (2026-11-14): the Zones and Reputation toolbars use the game's red panel buttons (as the
+   Professions tab); the selected one keeps the hover highlight. The search box stays dark. */
+.toolbar .seg, .toolbar .viewtoggle { border: 0; overflow: visible; gap: 4px; }
+.toolbar .seg button, .toolbar .viewtoggle button, .toolbar .select, .toolbar .btn {
+  background: linear-gradient(180deg, #8a2414, #4a0f08); color: var(--wow-gold); border: 1px solid #c99a4a; border-radius: var(--r-ctl);
+  box-shadow: inset 0 0 0 1px #2a0602, 0 1px 2px #000; padding: 3px 8px; font: var(--fs-sm) var(--font); }
+.toolbar .seg button:hover, .toolbar .seg button.on, .toolbar .viewtoggle button:hover, .toolbar .viewtoggle button.on,
+.toolbar .select:hover, .toolbar .btn:hover {
+  background: linear-gradient(180deg, #b23a22, #6a1a0e); box-shadow: inset 0 0 0 1px #2a0602, inset 0 0 8px rgba(255,220,140,.55), 0 1px 2px #000; color: #ffe9a8; }
+.toolbar .select b { color: #fff; }
 .count { font-size: var(--fs-xs); color: var(--dim); }
 .flyout { position: absolute; z-index: 25; min-width: 180px; padding: var(--s1); background: linear-gradient(180deg, #1c140d, #0b0603); border: 2px solid var(--frame-gold); border-radius: var(--r-card); box-shadow: 0 8px 24px rgba(0,0,0,.7); display: flex; flex-direction: column; gap: 2px; }
 .flyout button { text-align: left; background: transparent; color: var(--text); border: 1px solid transparent; border-radius: var(--r-ctl); padding: var(--s2) var(--s3); font: var(--fs-sm) var(--font); cursor: pointer; }
