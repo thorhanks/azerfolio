@@ -54,8 +54,32 @@ function R.profs()
             for _, c in ipairs(r.spellCheck or {}) do
                 p("  spell %-6d %-30s IsPlayerSpell %-5s C_SpellBook.IsSpellKnown %s", c.id, tostring(c.name), tostring(c.player), tostring(c.known))
             end
+            local function schem(label, e)
+                if not e then return end
+                if not e.slots then p("    %s %-7s no schematic (%s)", label, tostring(e.id), tostring(e.none)); return end
+                local parts = {}
+                for _, c in ipairs(e.slots) do
+                    parts[#parts + 1] = string.format("%sx%s %s (%s/%s)%s", tostring(c.q), tostring(c.name or c.items[1]), c.kind and ("t" .. tostring(c.kind)) or "",
+                        tostring(c.bags), tostring(c.bank), #c.items > 1 and (" +" .. (#c.items - 1) .. " alt") or "")
+                end
+                p("    %s %-7s %-28s -> item %s x%s-%s: %s", label, tostring(e.id), tostring(e.name), tostring(e.out), tostring(e.qmin), tostring(e.qmax),
+                    #parts > 0 and table.concat(parts, ", ") or "no reagents")
+            end
+            if r.shutSchematics then
+                p("  ingredients (window %s): GetRecipeSchematic %s", r.windowOpen and "open" or "shut", tostring(r.has.GetRecipeSchematic))
+                for _, e in ipairs(r.shutSchematics) do schem("shut", e) end
+                if r.schematicSample and type(r.schematicSample) == "table" then p("  schematic fields: %s", table.concat(keys(r.schematicSample), " ")) end
+                p("  tracking: GetRecipesTracked %s, SetRecipeTracked %s, ObjectiveTrackerFrame %s, ProfessionsRecipeTracker %s; tracked now %s",
+                    tostring(r.has.GetRecipesTracked), tostring(r.has.SetRecipeTracked), tostring(r.has.ObjectiveTrackerFrame), tostring(r.has.ProfessionsRecipeTracker),
+                    r.tracked and s(r.tracked.normal) or "?")
+                for _, e in ipairs(r.trackedSchematics or {}) do schem("tracked", e) end
+            end
             local w = r.window
             if w then
+                local okS = 0
+                for _, e in ipairs(w.schematics or {}) do if e.slots and #e.slots > 0 then okS = okS + 1 end end
+                p("  window ingredients: %d of %d recipes have reagents", okS, #(w.schematics or {}))
+                for k, e in ipairs(w.schematics or {}) do if only or k <= 6 then schem("win", e) end end
                 local b = type(w.base) == "table" and w.base or {}
                 local c = type(w.child) == "table" and w.child or {}
                 p("  window: %s / %s %s/%s; showLearned %s showUnlearned %s; all %s->%s filtered %s->%s; learned %d unlearned %d; IsPlayerSpell agrees %d, differs %d",

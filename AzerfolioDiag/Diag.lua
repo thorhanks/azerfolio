@@ -1148,6 +1148,46 @@ local function dumpProfessions()
             name = C_Spell and C_Spell.GetSpellName and try("C_Spell.GetSpellName", C_Spell.GetSpellName, id) }
     end
 
+    -- Ingredients (2026-11-14, for a pinned-recipe shopping list): GetRecipeSchematic per recipe,
+    -- with how many of each reagent you carry (bags, then bags + bank). Asked with the window shut
+    -- on the nine test spells every run, and on the window's recipes when it's open.
+    local function schematic(id)
+        local s = T and T.GetRecipeSchematic and try("GetRecipeSchematic", T.GetRecipeSchematic, id, false)
+        if type(s) ~= "table" then return { id = id, none = type(s) } end
+        local e = { id = id, out = s.outputItemID, qmin = s.quantityMin, qmax = s.quantityMax, name = s.name, slots = {} }
+        for _, slot in ipairs(s.reagentSlotSchematics or {}) do
+            local items = {}
+            for _, rg in ipairs(slot.reagents or {}) do items[#items + 1] = rg.itemID end
+            local first = items[1]
+            local c = { q = slot.quantityRequired, kind = slot.reagentType, items = items, required = slot.required }
+            if first and C_Item and C_Item.GetItemCount then
+                c.bags = try("C_Item.GetItemCount", C_Item.GetItemCount, first, false)
+                c.bank = try("C_Item.GetItemCount", C_Item.GetItemCount, first, true)
+            end
+            if first and C_Item and C_Item.GetItemNameByID then c.name = try("C_Item.GetItemNameByID", C_Item.GetItemNameByID, first) end
+            e.slots[#e.slots + 1] = c
+        end
+        return e
+    end
+    r.has.GetRecipeSchematic = T and type(T.GetRecipeSchematic) or "nil"
+    r.windowOpen = T and T.IsTradeSkillReady and try("IsTradeSkillReady", T.IsTradeSkillReady) or false
+    r.shutSchematics = {}
+    for _, id in ipairs({ 3275, 3276, 2660, 2657, 2330, 2387, 2385, 2538, 7418 }) do r.shutSchematics[#r.shutSchematics + 1] = schematic(id) end
+    local rawS = T and T.GetRecipeSchematic and try("GetRecipeSchematic", T.GetRecipeSchematic, 3275, false)
+    r.schematicSample = safePlain(rawS)
+    -- Recipe tracking (the game's own: the Camelot window has a Track checkbox): what's tracked now.
+    r.has.GetRecipesTracked = T and type(T.GetRecipesTracked) or "nil"
+    r.has.SetRecipeTracked = T and type(T.SetRecipeTracked) or "nil"
+    r.has.ObjectiveTrackerFrame = type(rawget(_G, "ObjectiveTrackerFrame"))
+    r.has.ProfessionsRecipeTracker = type(rawget(_G, "ProfessionsRecipeTracker"))
+    if T and T.GetRecipesTracked then
+        r.tracked = { normal = safePlain(try("GetRecipesTracked", T.GetRecipesTracked, false)), recraft = safePlain(try("GetRecipesTracked", T.GetRecipesTracked, true)) }
+        r.trackedSchematics = {}
+        if type(r.tracked.normal) == "table" then
+            for _, id in ipairs(r.tracked.normal) do r.trackedSchematics[#r.trackedSchematics + 1] = schematic(id) end
+        end
+    end
+
     -- An open profession window: its recipe list with learned and unlearned shown.
     if T and T.IsTradeSkillReady and try("IsTradeSkillReady", T.IsTradeSkillReady) then
         local w = { base = safePlain(T.GetBaseProfessionInfo and try("GetBaseProfessionInfo", T.GetBaseProfessionInfo)),
@@ -1202,6 +1242,10 @@ local function dumpProfessions()
                 end
             end
         end
+        -- Ingredients for the learned recipes and the first unlearned ones (up to 150 in all).
+        w.schematics = {}
+        for _, e in ipairs(w.recipes) do if e.learned and #w.schematics < 150 then w.schematics[#w.schematics + 1] = schematic(e.id) end end
+        for _, e in ipairs(w.recipes) do if not e.learned and #w.schematics < 150 then w.schematics[#w.schematics + 1] = schematic(e.id) end end
         if T.SetShowUnlearned and w.showUnlearned ~= nil then try("SetShowUnlearned", T.SetShowUnlearned, w.showUnlearned) end
         if T.SetShowLearned and w.showLearned ~= nil then try("SetShowLearned", T.SetShowLearned, w.showLearned) end
         r.window = w
@@ -1266,8 +1310,11 @@ local function dumpProfessions()
     DB.profs = nil
     DB.profRuns = DB.profRuns or {}
     push(DB.profRuns, r, 8)
-    msg(string.format("professions: %d professions, %d skill lines; window %s, trainer %s, vendor %s, %d recipe items in bags. Type /reload to save.",
-        #r.profs, #r.skills, r.window and ((r.window.all or 0) .. " recipes") or "not open",
+    local shutOk = 0
+    for _, e in ipairs(r.shutSchematics) do if e.slots and #e.slots > 0 then shutOk = shutOk + 1 end end
+    msg(string.format("professions: %d professions; ingredients with the window shut %d of %d; tracked %s; window %s, trainer %s, vendor %s, %d recipe items in bags. Type /reload to save.",
+        #r.profs, shutOk, #r.shutSchematics, r.tracked and type(r.tracked.normal) == "table" and #r.tracked.normal or "?",
+        r.window and ((r.window.all or 0) .. " recipes") or "not open",
         r.trainer and (r.trainer.count .. " services") or "not open",
         r.vendor and (#r.vendor.items .. " recipes") or "not open", #r.bags))
 end

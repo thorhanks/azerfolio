@@ -619,6 +619,7 @@
           <div class="tfoot">${["Each category counts equally" + (tc.list.some(c => c.pending) ? "; those without data are left out" : ""),
             ...tc.list.filter(c => c.note).map(c => c.key === "quests" ? `${c.unchecked} quests can't be checked yet` : esc(c.note))].join(" · ")}.</div>
         </div>
+        ${profPanel()}
       </div>
       <div class="col">
         <div class="plate ovplate" data-group><span>Atlas</span></div>
@@ -2073,6 +2074,371 @@
   function restoreClass() { setFocus($(`.cnode[data-stop="${ui.classSel}"]`) || $(".cnode")); }
 
   // =====================================================================================
+  // Professions tab (round 1, 2026-11-14; research: docs/research/professions.md and
+  // professions-ux.md). Only this character's professions. A profession is complete at max
+  // skill (300); recipes are a collection that never counts toward completion, and only recipes
+  // you know or with a known source (seen at a trainer, a QuestieDB recipe item) are counted.
+  // =====================================================================================
+  // Ranks on Forever (Warcraft Tavern's Forever guide; the skill gates match Gideon's trainers).
+  const PRANKS = [
+    { name: "Apprentice", cap: 75, at: 1 }, { name: "Journeyman", cap: 150, at: 50 },
+    { name: "Expert", cap: 225, at: 125 }, { name: "Artisan", cap: 300, at: 200 },
+  ];
+  const PMAX = 300;
+  // Per profession: kind, the rank noun ("Journeyman Blacksmith"), the window's recipes (prof-data.js,
+  // real: Gideon's probe runs + QuestieDB) and where its trainers stand for the Alliance (QuestieDB
+  // NPC subNames, `qdb.lua profs <name>`; the addon picks by side and distance).
+  const PROF = {
+    Blacksmithing: { kind: "primary", noun: "Blacksmith", glyph: "anvil", tone: "forge",
+      trainers: { Journeyman: ["Smith Argus · Goldshire, Elwynn Forest", "Dane Lindgren · Stormwind City"], Expert: ["Therum Deepforge · Stormwind City", "Rotgath Stonebeard · Ironforge"], Artisan: ["Bengus Deepforge · Ironforge"] } },
+    Mining: { kind: "primary", noun: "Miner", glyph: "pick", tone: "mine", gather: "mining",
+      trainers: { any: ["Gelman Stonehand · Stormwind City", "Kelsey Fargo · Elwynn Forest", "Geofram Bouldertoe · Ironforge"] } },
+    Herbalism: { kind: "primary", noun: "Herbalist", glyph: "leaf", tone: "herb", gather: "herbalism", trainers: { any: [] } },
+    "First Aid": { kind: "secondary", noun: "First Aid", glyph: "cross", tone: "aid",
+      trainers: { any: ["Shaina Fuller · Stormwind City", "Nissa Firestone · Ironforge"] } },
+    Cooking: { kind: "secondary", noun: "Cook", glyph: "pot", tone: "cook",
+      trainers: { any: ["Stephen Ryback · Stormwind City", "Daryl Riknussun · Ironforge"] } },
+    Fishing: { kind: "secondary", noun: "Fisherman", glyph: "hook", tone: "fish", fish: true,
+      trainers: { any: ["Arnold Leland · Stormwind City", "Grimnur Stonebrand · Ironforge"] } },
+  };
+  // Trainer lists recorded on this character (real for First Aid and Cooking: Gideon's trainer
+  // runs; Blacksmithing's trainer hasn't been visited). [name, skill to learn].
+  const PTRAINER = {
+    "First Aid": [["Minor Healing Potion", 1], ["First Aid Kit", 20], ["Heavy Linen Bandage", 40], ["Lesser Healing Potion", 55],
+      ["Anti-Venom", 80], ["Wool Bandage", 80], ["Simple Poultice", 90], ["Healing Potion", 110], ["Heavy Wool Bandage", 115],
+      ["Woolen Tourniquet", 120], ["Silk Bandage", 150]],
+    Cooking: [["Spiced Wolf Meat", 10], ["Basic Campfire Kit", 20], ["Boiled Clams", 50], ["Coyote Steak", 50], ["Crab Cake", 75],
+      ["Dry Pork Ribs", 80], ["Goblin Deviled Clams", 125], ["Spider Sausage", 200]],
+  };
+  // Skills per scenario. "today" is Gideon's real probe (2026-11-13); the others are invented.
+  const PSKILLS = {
+    today: [["Blacksmithing", 33, 75], ["Mining", 59, 75], ["First Aid", 42, 75], ["Cooking", 23, 75], ["Fishing", 20, 75]],
+    veteran: [["Blacksmithing", 212, 225], ["Mining", 300, 300], ["First Aid", 225, 225], ["Cooking", 150, 150], ["Fishing", 87, 150]],
+    fresh: [],
+  };
+  PSKILLS.almost = PSKILLS.today;
+  // Windows not opened yet on this character (the tab asks you to open them once).
+  const PUNREAD = { today: ["Cooking"], almost: ["Cooking"], veteran: [], fresh: [] };
+  // Where to gather / fish: the hand-curated, unofficial table (docs/research/professions.md
+  // § Gathering table). [node, skill, zones].
+  const GATHER = {
+    mining: [["Copper Vein", 1, "Elwynn Forest, Dun Morogh, Durotar, Mulgore, Tirisfal Glades, Darkshore"],
+      ["Tin Vein", 65, "Redridge Mountains, Hillsbrad Foothills, Ashenvale, The Barrens"],
+      ["Silver Vein", 75, "Redridge Mountains, Hillsbrad Foothills, Ashenvale, The Barrens"],
+      ["Iron Deposit", 125, "Arathi Highlands, Desolace, Thousand Needles"],
+      ["Gold Vein", 155, "Arathi Highlands, Desolace, Thousand Needles"],
+      ["Mithril Deposit", 175, "The Hinterlands, Tanaris"], ["Truesilver Deposit", 230, "The Hinterlands, Tanaris"],
+      ["Dark Iron Deposit", 230, "Searing Gorge, Burning Steppes"],
+      ["Small Thorium Vein", 245, "Un'Goro Crater, Felwood, Blasted Lands"],
+      ["Rich Thorium Vein", 275, "Un'Goro Crater, Eastern Plaguelands, Winterspring, Burning Steppes"]],
+    fishing: [[ "Starting zones", 1, "Elwynn Forest, Dun Morogh, Teldrassil, Durotar, Mulgore, Tirisfal Glades"],
+      ["Second zones and capitals", 75, "Westfall, Loch Modan, Darkshore, The Barrens, Silverpine Forest, Stormwind City"],
+      ["Open waters", 150, "Dustwallow Marsh, Arathi Highlands, Stranglethorn Vale, Desolace, Thousand Needles"],
+      ["Deep waters", 225, "Feralas, Tanaris, The Hinterlands, Un'Goro Crater, Felwood, Western Plaguelands"]],
+  };
+  const zoneName = (mapID) => { const z = window.AZF_ZONES.find(x => x.mapID === mapID) || UNTRACKED.find(x => x.mapID === mapID); return z ? z.name : null; };
+  const rankOf = (cap) => PRANKS.find(r => r.cap === cap) || PRANKS[0];
+  const nextRankOf = (cap) => PRANKS.find(r => r.cap > cap);
+
+  function profRecipes(name, skill) {
+    const raw = (window.AZF_PROFS || {})[name], unread = (PUNREAD[ui.scenarioName] || []).includes(name);
+    if (unread || !raw) return { unread: unread || !PROF[name].fish && !PROF[name].gather, list: [] };
+    const veteran = ui.scenarioName === "veteran";
+    const trainer = new Map((PTRAINER[name] || []).map(([n, s]) => [n, s]));
+    const list = raw.map(([id, rname, learned, grey, cat, src, item]) => {
+      const sod = cat === "SEASON OF DISCOVERY";
+      const t = trainer.get(rname);
+      const sources = src.filter(s => s.k !== "trainer");
+      if (t !== undefined) sources.unshift({ k: "trainer", skill: t });
+      // Veteran: invented learned state (what a level-50 smith plausibly knows).
+      const known = veteran ? !sod && (learned || (grey < skill - 20 && hash(rname) % 3 > 0)) : learned;
+      const learnAt = t !== undefined ? t : null;
+      const sourced = sources.length > 0;
+      const state = known ? "known" : !sourced ? "nosource" : learnAt !== null && skill >= learnAt ? "now" : "later";
+      return { id, name: rname, known, grey, cat, sod, sources, learnAt, state, item, order: learnAt !== null ? learnAt : grey };
+    }).sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+    return { unread: false, list };
+  }
+  function profModel() {
+    const rows = PSKILLS[ui.scenarioName] || [];
+    return rows.map(([name, skill, cap]) => {
+      const P = PROF[name], rank = rankOf(cap), next = nextRankOf(cap);
+      const rec = profRecipes(name, skill);
+      const counted = rec.list.filter(r => r.state !== "nosource");
+      const known = rec.list.filter(r => r.known).length;
+      const now = rec.list.filter(r => r.state === "now").length;
+      const mastered = skill >= PMAX;
+      const atCap = !mastered && skill >= cap && !!next;
+      const trainNow = !mastered && next && skill >= next.at;
+      const status = mastered ? { cls: "gold", text: "Mastered" } : atCap ? { cls: "warn", text: `At cap · train ${next.name}` }
+        : trainNow ? { cls: "go", text: `Train ${next.name} now` } : now ? { cls: "go", text: `${now} recipe${now === 1 ? "" : "s"} to learn` }
+        : rec.unread ? { cls: "dim", text: `Open your ${name} window once` } : null;
+      return { name, ...P, skill, cap, rank, next, rec, counted: counted.length, known, now, nosource: rec.list.length - counted.length,
+        mastered, atCap, trainNow, status, title: name === "First Aid" ? `${rank.name} in First Aid` : `${rank.name} ${P.noun}` };
+    });
+  }
+  // Stand-ins for the painted profession coins (one per profession, like the class coins): a gold
+  // coin struck with the profession's emblem; dull bronze until mastered.
+  const PGLYPH = {
+    anvil: `<path d="M-13 -6 H9 C13 -6 15 -3 15 -1 H4 V4 C4 7 7 8 9 9 V12 H-9 V9 C-7 8 -4 7 -4 4 V-1 H-9 C-12 -1 -13 -3 -13 -6 Z"/>`,
+    pick: `<path d="M-14 -7 C-6 -14 6 -14 14 -7 C6 -10 -6 -10 -14 -7 Z"/><path d="M-1.6 -10 H1.6 V14 H-1.6 Z"/>`,
+    leaf: `<path d="M-11 11 C-11 -4 -2 -12 12 -12 C12 2 4 11 -11 11 Z"/><path d="M-11 11 L6 -6" class="pgcut"/>`,
+    cross: `<path d="M-4 -13 H4 V-4 H13 V4 H4 V13 H-4 V4 H-13 V-4 H-4 Z"/>`,
+    pot: `<path d="M-13 -3 H13 V3 C13 10 7 13 0 13 C-7 13 -13 10 -13 3 Z"/><path d="M-9 -8 C-9 -12 -5 -11 -5 -8 M0 -9 C0 -13 4 -12 4 -9" class="pgsteam"/><path d="M-16 -3 H16 V-1 H-16 Z"/>`,
+    hook: `<path d="M2 -14 V5 C2 11 -10 11 -10 4 L-6 6 C-6 8 -2 8 -2 5 V-14 Z"/><circle cx="0" cy="-14" r="3"/>`,
+  };
+  function profCoin(p, cls = "") {
+    return `<span class="pcoin ${p.mastered ? "gold" : "dull"} ${cls}"><svg viewBox="-24 -24 48 48" aria-hidden="true">
+      <circle r="23" class="pc-rim"/><circle r="19.5" class="pc-face"/><circle r="17" class="pc-ring"/><g class="pc-emb">${PGLYPH[p.glyph] || ""}</g></svg></span>`;
+  }
+  const skillBar = (p) => `<div class="gbar pbar ${p.mastered ? "complete" : "progress"}"><i style="width:${(p.skill / PMAX * 100).toFixed(1)}%"></i><b class="pcapmark" style="left:${(p.cap / PMAX * 100).toFixed(1)}%"></b></div>`;
+  const where = (p, rank) => { const t = p.trainers[rank] || p.trainers.any || []; return t.length ? t.slice(0, 2).join(" or ") : "a trainer (none known nearby)"; };
+  function rankTip(p, r) {
+    const passed = p.cap >= r.cap, isNext = p.next === r;
+    const state = passed ? "Trained." : isNext && p.skill >= r.at ? "You can train it now." : isNext ? `${r.at - p.skill} skill to go.` : "Later.";
+    return `<b>${r.name} ${esc(p.noun === "First Aid" ? "(First Aid)" : p.noun)}</b>Raises your cap to ${r.cap}. Train from skill ${r.at}. ${state}${passed ? "" : ` Trainers: ${esc(where(p, r.name))}.`}`;
+  }
+
+  // Round 2 layout (owner, 2026-11-14; review in docs/research/professions-ux.md § 5b): a slim rail
+  // of your professions on the left, the selected profession's page on the right, split into views
+  // (Y cycles them; a switch at the top for the mouse): Journey (banner with the skill road, Next
+  // up beside Tracked; fits one screen), Recipes (list on the left, the focused recipe on the
+  // right), Gather (Mining, Herbalism, Skinning, Fishing: the node table).
+  const PVIEWS = { journey: "Journey", recipes: "Recipes", gather: "Gather" };
+  function profViews(p) {
+    const v = ["journey"];
+    if (p.rec.list.length || p.rec.unread) v.push("recipes");
+    if (p.gather || p.fish) v.push("gather");
+    return v;
+  }
+  function renderProfessions() {
+    const ps = profModel();
+    if (!ps.length) {
+      content.innerHTML = `<div class="pempty framed"><h2>No professions yet</h2><p>Learn a profession from a trainer and it shows here: its skill, its next rank and the recipes you can collect.</p>
+        <p class="dim">Primary professions are taught in the capitals and starting towns; Cooking, First Aid and Fishing are open to everyone.</p></div>`;
+      return;
+    }
+    if (!ui.profSel || !ps.find(p => p.name === ui.profSel)) ui.profSel = ps[0].name;
+    const dot = (p) => p.mastered ? "gold" : p.atCap ? "warn" : p.trainNow || p.now ? "go" : "";
+    const rail = (p) => `<button class="prail focusable ${p.name === ui.profSel ? "selected" : ""} ${p.mastered ? "mastered" : ""}" data-prof="${esc(p.name)}"
+        data-tip="<b>${esc(p.name)}</b>${esc(p.title)}, ${p.skill} of ${p.cap}${p.status ? ". " + esc(p.status.text) : ""}.">
+        ${profCoin(p, "rl")}<span class="prn">${esc(p.name)}</span><span class="prs"><b>${p.skill}</b> / ${p.cap}</span>
+        ${dot(p) ? `<i class="pdot ${dot(p)}"></i>` : ""}</button>`;
+    const prim = ps.filter(p => p.kind === "primary"), sec = ps.filter(p => p.kind === "secondary");
+    content.innerHTML = `<div class="pviews ${ui.wide ? "wide" : ""}"><nav class="prailbox">
+        ${prim.length ? `<div class="prgroup">Primary</div>${prim.map(rail).join("")}` : ""}
+        ${sec.length ? `<div class="prgroup">Secondary</div>${sec.map(rail).join("")}` : ""}
+      </nav><div class="ppage" id="detailpane"></div></div>`;
+    renderProfInto($("#detailpane"), ps.find(p => p.name === ui.profSel));
+  }
+
+  // The skill road (owner, 2026-11-13: the Class tab's track), now set into the banner: 1 to 300
+  // left to right, gilded up to your skill; past your current cap it's hatched behind a gate
+  // (closed until you train). A milestone stone at each rank's training skill (gold rune trained,
+  // red rune trainable now, plain later); the profession coin at 300, dull until mastered; You at your skill.
+  function profRoad(p) {
+    const W = 1000, H = 132, x0 = 30, x1 = W - 56, y = 74;
+    const X = (s) => x0 + (Math.max(1, Math.min(PMAX, s)) - 1) / (PMAX - 1) * (x1 - x0);
+    const yAt = (x) => y + Math.sin(x / 90) * 6;
+    const wave = (a, b) => { let d = ""; for (let x = a; x <= b; x += 8) d += `${d ? " L" : "M"}${x.toFixed(1)} ${yAt(x).toFixed(1)}`; return d; };
+    const xs = X(p.skill), xc = X(p.cap);
+    const ticks = [1, 75, 150, 225, 300].map(s => `<g class="ptick"><path d="M${X(s)} ${y + 20} v6"/><text x="${X(s)}" y="${y + 40}">${s}</text></g>`).join("");
+    const stones = PRANKS.slice(1).map(r => {
+      const passed = p.cap >= r.cap, now = !passed && p.next === r && p.skill >= r.at;
+      const img = passed ? "milestone-rune-gold" : now ? "milestone-rune-red" : "milestone";
+      const sx = X(r.at), sy = yAt(sx) - 32;
+      return `<g class="pstone ${passed ? "passed" : now ? "now" : "later"}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})">
+        <image href="chrome-art/${img}.png" x="-16" y="-19" width="32" height="36"/><text x="22" y="-2" class="pslabel">${r.name}</text>
+        <text x="22" y="13" class="pssub">${passed ? "trained" : now ? "train now" : `from ${r.at}`}</text></g>`;
+    }).join("");
+    const you = `<g class="you" transform="translate(${xs.toFixed(1)} ${yAt(xs).toFixed(1)})"><circle r="14" class="youface"/><text y="5" class="youinit">${esc(CHAR.name[0])}</text>
+      <image href="chrome-art/you-ring.png" x="-23" y="-25" width="46" height="46"/></g>`;
+    const gate = p.cap < PMAX ? `<g class="pgate" transform="translate(${xc.toFixed(1)} ${yAt(xc).toFixed(1)})"><path d="M-3 -14 V14 M3 -14 V14 M-7 -8 H7 M-7 0 H7 M-7 8 H7"/></g>` : "";
+    const hit = (s, tip, key, w = 44) => `<button class="phit focusable" data-pstop="${key}" style="left:${(X(s) / W * 100).toFixed(2)}%;width:${w}px" data-tip="${tip}"></button>`;
+    const coinTip = p.mastered ? `<b>${esc(p.name)} mastered</b>Skill ${PMAX} of ${PMAX}.` : `<b>${esc(p.name)} mastered</b>At skill ${PMAX}. ${PMAX - p.skill} to go.`;
+    return `<div class="proad" style="aspect-ratio:${W} / ${H}"><svg viewBox="0 0 ${W} ${H}" class="cmapart proadart" aria-hidden="true">
+        <defs><pattern id="phatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="#c4ab7c"/><path d="M0 0 V7" stroke="#5a4128" stroke-width="2.4" opacity=".8"/></pattern></defs>
+        <path d="${wave(x0, x1)}" class="band-edge bmain"/><path d="${wave(x0, xc)}" class="band-earth bmain"/>
+        ${xc < x1 ? `<path d="${wave(xc, x1)}" class="band-closed" stroke="url(#phatch)"/>` : ""}
+        <path d="${wave(x0, xs)}" class="band-gold bmain"/>
+        ${ticks}${gate}${stones}${p.mastered ? "" : you}</svg>
+      <div class="pendcoin" style="left:${((x1 + 22) / W * 100).toFixed(2)}%">${profCoin(p)}</div>
+      ${PRANKS.slice(1).map(r => hit(r.at, rankTip(p, r), r.name)).join("")}${hit(PMAX, coinTip, "end", 54)}</div>`;
+  }
+
+  const SRC_TEXT = {
+    trainer: (s) => `Trainer · skill ${s.skill}`,
+    vendor: (s) => { const z = s.maps.map(zoneName).filter(Boolean); return `Vendor · ${s.npc}${z.length ? ", " + z.slice(0, 2).join(", ") : ""}`; },
+    drop: (s) => { const z = s.maps.map(zoneName).filter(Boolean); return `Drop · ${s.n} creature${s.n === 1 ? "" : "s"}${z.length ? ", " + z.slice(0, 2).join(", ") : ""}`; },
+    object: (s) => `Found in ${s.n === 1 ? "a container" : s.n + " containers"}`,
+    quest: (s) => `Quest reward${s.n > 1 ? ` · ${s.n} quests` : ""}`,
+    item: () => "Recipe item · where it drops isn't known",
+  };
+  const srcLine = (r) => r.sources.length ? r.sources.map(s => SRC_TEXT[s.k](s)).slice(0, 2).join(" · ") : r.known ? "Known · where it's taught isn't recorded" : r.sod ? "Season of Discovery" : "No known source";
+  const SRC_GLYPHS = { trainer: "✦", vendor: "⚖", drop: "☠", object: "▣", quest: "!", item: "?" };
+  // Ingredients (2026-11-14, owner): GetRecipeSchematic answers with the window shut, for any
+  // recipe (probe runs 7-8); have = C_Item.GetItemCount. Where to get a reagent: another recipe of
+  // this profession that makes it, a node from the Where to gather table, QuestieDB vendors, drops.
+  const ORE_NODE = { "Copper Ore": "Copper Vein", "Tin Ore": "Tin Vein", "Silver Ore": "Silver Vein", "Iron Ore": "Iron Deposit", "Gold Ore": "Gold Vein",
+    "Mithril Ore": "Mithril Deposit", "Truesilver Ore": "Truesilver Deposit", "Thorium Ore": "Small Thorium Vein", "Rough Stone": "Copper Vein", "Coarse Stone": "Tin Vein" };
+  function reagentsOf(p, r) {
+    const raw = (window.AZF_REAGENTS || {})[r.id]; if (!raw) return null;
+    return raw.map(([id, q]) => {
+      const it = (window.AZF_REAGENT_ITEMS || {})[id] || { name: `Item ${id}`, have: null, vendors: [], nvendors: 0, drops: 0 };
+      const have = ui.scenarioName === "veteran" ? Math.max(it.have || 0, q * 3) : it.have;
+      const craft = p.rec.list.find(x => x.name === it.name);
+      const node = ORE_NODE[it.name], nodeAt = node && (GATHER.mining.find(g => g[0] === node) || [])[1];
+      const where = craft ? `Craft it: ${craft.name}${craft.known ? "" : " (not known yet)"}`
+        : node ? `Gather: ${node}${nodeAt ? ` (from ${nodeAt})` : ""}`
+        : it.nvendors ? `Vendor · ${it.vendors[0].npc}${it.vendors[0].maps.length ? ", " + (zoneName(it.vendors[0].maps[0]) || "") : ""}${it.nvendors > 1 ? ` (+${it.nvendors - 1} more)` : ""}`
+        : it.drops ? `Drops from ${it.drops} creature${it.drops === 1 ? "" : "s"}` : "Where to get it isn't known";
+      return { id, q, name: it.name, have, where, ok: have !== null && have >= q };
+    });
+  }
+  const ingText = (ings) => ings.map(g => `${g.name} ${g.have === null ? "?" : g.have} / ${g.q}`).join(", ");
+  function ingLines(ings) {
+    return `<div class="pings">${ings.map(g => `<div class="ping ${g.ok ? "ok" : ""}"><span class="pinq">${g.have === null ? "?" : g.have} / ${g.q}</span><span class="pinn">${esc(g.name)}<small>${esc(g.where)}</small></span></div>`).join("")}</div>`;
+  }
+  const isTracked = (id) => !!(ui.tracked && ui.tracked.has(id));
+  function recipeRow(p, r) {
+    const st = r.state;
+    const sk = r.learnAt !== null && !r.known ? `learn ${r.learnAt}` : r.known ? (p.skill < r.grey ? `until ${r.grey}` : "grey") : `grey ${r.grey}`;
+    const tag = st === "known" ? "✓" : st === "now" ? "Learn now" : "";
+    const tracked = isTracked(r.id);
+    return `<button class="precipe focusable st-${st} ${tracked ? "tracked" : ""} ${r.id === ui.recipeSel ? "selected" : ""}" data-recipe="${r.id}"
+      data-tip="<b>${esc(r.name)}</b>${st === "known" ? "Known" : st === "now" ? "You can learn it now" : st === "later" ? "Not yet" : "No known source"}. X ${tracked ? "stops tracking it" : "tracks it in the game's objective tracker"}.">
+      <span class="pricon">${SRC_GLYPHS[(r.sources[0] || {}).k] || "·"}</span>
+      <span class="prname">${esc(r.name)}${tracked ? `<em class="ptracked">Tracked</em>` : ""}</span>
+      <span class="prsk">${esc(sk)}</span><span class="prtag">${esc(tag)}</span></button>`;
+  }
+  // The focused recipe (Recipes view, right): what it is, how to get it, what it needs.
+  function recipeDetail(p, r) {
+    if (!r) return `<div class="pnote">Choose a recipe.</div>`;
+    const ings = reagentsOf(p, r), tracked = isTracked(r.id);
+    const state = r.state === "known" ? "Known" : r.state === "now" ? "You can learn it now" : r.state === "later" ? (r.learnAt !== null ? `Learn at skill ${r.learnAt}` : "Not yet: the skill to learn it shows once the game has shown its recipe item") : r.sod ? "In the game's Season of Discovery list; may not be offered on Forever" : "No trainer you've visited or recipe item is known to teach it";
+    const srcs = r.sources.length ? r.sources.map(s => `<div class="pdsrc"><span class="pricon">${SRC_GLYPHS[s.k]}</span>${esc(SRC_TEXT[s.k](s))}</div>`).join("") : `<div class="pdsrc dim">${esc(srcLine(r))}</div>`;
+    const short = ings ? ings.filter(g => !g.ok) : [];
+    return `<div class="pdhead st-${r.state}"><h3>${esc(r.name)}</h3><div class="pdstate">${esc(state)}</div>
+        ${tracked ? `<em class="ptracked">Tracked</em>` : ""}</div>
+      <div class="pdfacts"><div><span class="rk">Learn at</span>${r.learnAt !== null ? r.learnAt : "?"}</div><div><span class="rk">Gives skill until</span>${r.grey}${p.skill >= r.grey ? " (grey)" : ""}</div><div><span class="rk">Category</span>${esc(r.cat || "—")}</div></div>
+      <h4 class="pdh">How to get it</h4>${srcs}
+      <h4 class="pdh">Ingredients ${ings ? `<small>${short.length ? `missing ${short.length}` : "you have everything for one"}</small>` : ""}</h4>
+      ${ings ? ingLines(ings) : `<div class="pnote">Not in the mockup's sample for this recipe; the addon reads them from the game for any recipe.</div>`}
+      <button class="pbtn focusable" data-ptrack="${r.id}" data-tip="<b>${tracked ? "Stop tracking" : "Track"}</b>The game's own recipe tracking: it shows in the objective tracker with what you carry.">
+        <span class="glyph X">X</span>${tracked ? "Stop tracking" : "Track in the objective tracker"}</button>`;
+  }
+  // Track / Untrack (X): the game's own recipe tracking (C_TradeSkillUI.SetRecipeTracked), shown
+  // in its objective tracker; Azerfolio has no tracker of its own (owner, 2026-11-14).
+  function toggleTrack(id) {
+    if (!ui.tracked) ui.tracked = new Set();
+    const on = !ui.tracked.has(id);
+    on ? ui.tracked.add(id) : ui.tracked.delete(id);
+    const name = (profModel().flatMap(p => p.rec.list).find(r => r.id === id) || {}).name || "Recipe";
+    toast(on ? `Tracking ${esc(name)}<small>in the game's objective tracker</small>` : `Stopped tracking ${esc(name)}`);
+    const k = keyOf(focused), sc = $("#precscroll") || $("#detailscroll"), top = sc ? sc.scrollTop : 0;
+    renderProfInto($("#detailpane"), profModel().find(p => p.name === ui.profSel));
+    const s2 = $("#precscroll") || $("#detailscroll"); if (s2) { s2.style.scrollBehavior = "auto"; s2.scrollTop = top; s2.style.scrollBehavior = ""; }
+    setFocus((k && $(k)) || $("#detailpane .focusable"), { noScroll: true });
+  }
+  // Next up: [class, title, line, action] (action: "recipes:<filter>" or "gather" opens that view).
+  function nextUpProf(p) {
+    const items = [];
+    if (p.mastered) items.push(["gold", `${p.name} mastered`, `Skill ${PMAX}: every rank trained.`]);
+    else if (p.next) {
+      const togo = p.next.at - p.skill;
+      items.push([p.atCap ? "warn" : togo <= 0 ? "go" : "", p.atCap ? `At your cap: train ${p.next.name}` : togo <= 0 ? `Train ${p.next.name} now` : `${p.next.name} at skill ${p.next.at}`,
+        `${togo > 0 ? `${togo} skill to go · ` : ""}${where(p, p.next.name)}${p.atCap ? " · skill-ups are lost until you train" : ""}`]);
+    }
+    if (p.now) items.push(["go", `${p.now} recipe${p.now === 1 ? "" : "s"} waiting at your trainer`, p.rec.list.filter(r => r.state === "now").slice(0, 3).map(r => r.name).join(", "), "recipes:now"]);
+    const ups = p.rec.list.filter(r => r.known && p.skill < r.grey).sort((a, b) => b.grey - a.grey).slice(0, 2);
+    if (ups.length) items.push(["", "Still gives skill", ups.map(r => `${r.name} (until ${r.grey})`).join(", "), "recipes:foryou"]);
+    const G = GATHER[p.gather || (p.fish ? "fishing" : "")];
+    if (G) {
+      const cur = [...G].reverse().find(g => g[1] <= p.skill), nx = G.find(g => g[1] > p.skill);
+      if (cur && !p.fish) items.push(["", `Gather ${cur[0]}`, `Gives skill until ${cur[1] + 100} · ${cur[2].split(", ").slice(0, 3).join(", ")}`, "gather"]);
+      if (nx) items.push(["", `${p.fish ? "Fish" : nx[0]} from ${nx[1]}`, `${nx[1] - p.skill} skill to go · ${nx[2].split(", ").slice(0, 3).join(", ")}`, "gather"]);
+    }
+    if (p.rec.unread) items.push(["dim", `Open your ${p.name} window once`, "Azerfolio reads its recipes from it, then keeps them up to date."]);
+    return items.slice(0, 5);
+  }
+  // Recipes: levelling order (owner, 2026-11-13): by the skill to learn it where the trainer
+  // says, else the skill where it greys. Default filter "For you now" (round 2): learn now, known
+  // and still giving skill, and what opens in the next 25 skill points.
+  const forYou = (p, r) => r.state === "now" || (r.known && p.skill < r.grey) || (r.state === "later" && r.order <= p.skill + 25);
+  function recipeFilter(p) {
+    const f = ui.profFilter || "foryou";
+    return p.rec.list.filter(r => f === "foryou" ? forYou(p, r) : f === "all" ? r.state !== "nosource" : r.state === f);
+  }
+  function renderProfInto(box, p) {
+    const views = profViews(p);
+    if (!views.includes(ui.profView)) ui.profView = "journey";
+    const v = ui.profView;
+    const tabs = `<div class="pvswitch">${views.map(k => `<button class="pvtab focusable ${k === v ? "on" : ""}" data-pview="${k}" data-tip="<b>${PVIEWS[k]}</b>${k === "journey" ? "Your road, what to do next and what you're tracking." : k === "recipes" ? "Every recipe, its sources and ingredients." : p.fish ? "Where to fish for your skill." : "Where to gather for your skill."}">${k === "gather" && p.fish ? "Fish" : PVIEWS[k]}</button>`).join("")}
+      <span class="pvhint"><span class="glyph Y">Y</span>View</span></div>`;
+    let body = "";
+    if (v === "journey") {
+      const score = p.mastered ? profCoin(p, "big") : `<b>${p.skill}</b><small>of ${p.cap}</small>`;
+      const nu = nextUpProf(p).map(([cls, t, s, act], i) => `<button class="pnext focusable ${cls}" data-pnext="${i}" ${act ? `data-pact="${act}"` : ""} data-tip="<b>${esc(t)}</b>${esc(s)}.${act ? " A opens it." : ""}"><span class="pndot"></span><span class="pnt">${esc(t)}<small>${esc(s)}</small></span></button>`).join("");
+      const trackedRecipes = p.rec.list.filter(r => isTracked(r.id));
+      const tracked = trackedRecipes.length ? trackedRecipes.map(r => { const ings = reagentsOf(p, r), short = ings ? ings.filter(g => !g.ok) : [];
+          return `<div class="ptrackcard framed"><button class="precipe ptrackhead focusable tracked" data-recipe="${r.id}" data-tip="<b>${esc(r.name)}</b>Tracked in the game's objective tracker.${ings ? ` Needs ${esc(ingText(ings))}.` : ""} A opens it in Recipes; X stops tracking it.">
+            <span class="pricon ptrackicon">⚑</span><span class="prname">${esc(r.name)}<small>${ings ? (short.length ? `Missing ${short.map(g => g.name).join(", ")}` : "You have everything for one") : "Ingredients not known"}</small></span>
+            <span class="prsk"></span><span class="prtag">${ings && !short.length ? "Ready" : ""}</span></button>${ings ? ingLines(ings) : ""}</div>`; }).join("")
+        : `<div class="pnote">Nothing tracked. In Recipes, X tracks a recipe in the game's objective tracker.</div>`;
+      body = `<div class="pbanner tone-${p.tone} ${p.mastered ? "done" : ""}"><div class="pheroart">${profCoin({ ...p, mastered: true }, "ghost")}</div>
+          <div class="pbtitle"><div><div class="ckicker">${p.kind === "primary" ? "Primary" : "Secondary"} profession${p.gather ? " · gathering" : ""}</div>
+            <h1>${p.mastered ? esc(p.name) + ", mastered" : esc(p.name)}</h1><div class="csubline">${esc(p.title)}</div></div><div class="cscore">${score}</div></div>
+          ${profRoad(p)}</div>
+        <div class="pjcols"><section class="pjcol"><h2 class="section" data-group>Next up</h2><div class="scroll pjscroll"><div class="pnexts">${nu}</div></div></section>
+          <section class="pjcol"><h2 class="section" data-group>Tracked <small>${trackedRecipes.length ? "also in the game's objective tracker" : ""}</small></h2><div class="scroll pjscroll">${tracked}</div></section></div>`;
+    } else if (v === "recipes") {
+      if (p.rec.unread) body = `<div class="pnote big">Open your ${esc(p.name)} window once (from your spellbook) and Azerfolio reads every recipe from it, with its ingredients.</div>`;
+      else {
+        const list = p.rec.list, f = ui.profFilter || "foryou";
+        const n = (k) => k === "foryou" ? list.filter(r => forYou(p, r)).length : k === "all" ? p.counted : list.filter(r => r.state === k).length;
+        const chips = [["foryou", "For you now"], ["all", "All"], ["known", "Known"], ["now", "Learn now"], ["later", "Later"], ["nosource", "No known source"]]
+          .map(([k, l]) => `<button class="pchip focusable ${f === k ? "on" : ""}" data-pfilter="${k}" data-tip="<b>${l}</b>${k === "foryou" ? "What you can learn now, what still gives you skill, and what opens in the next 25 skill points." : k === "nosource" ? "Recipes the game lists that no trainer you've visited or recipe item is known to teach. Not counted." : "Show these recipes."}">${l} <small>${n(k)}</small></button>`).join("");
+        const shown = recipeFilter(p);
+        if (!shown.find(r => r.id === ui.recipeSel)) ui.recipeSel = shown.length ? shown[0].id : null;
+        const bands = [[0, 75, "Apprentice"], [75, 150, "Journeyman"], [150, 225, "Expert"], [225, 999, "Artisan"]];
+        const rows = bands.map(([a, b, nm]) => { const rs = shown.filter(r => r.order >= a && r.order < b); return rs.length ? `<h2 class="section" data-group>${nm} <small>skill ${a || 1}–${Math.min(b, PMAX)} · ${rs.filter(r => r.known).length} of ${rs.length} known</small></h2><div class="precipes">${rs.map(r => recipeRow(p, r)).join("")}</div>` : ""; }).join("")
+          || `<div class="pnote">None here.</div>`;
+        body = `<div class="prtool"><div class="pfilters">${chips}</div><div class="psum"><b>${p.known}</b> known · <b>${p.counted}</b> with a known source${p.nosource ? ` · ${p.nosource} not counted` : ""}</div></div>
+          <div class="prsplit"><div class="prlist"><div class="scroll" id="precscroll">${rows}
+            ${!PTRAINER[p.name] && p.nosource ? `<div class="pnote">You haven't opened a ${esc(p.name)} trainer's list yet: visiting one shows which recipes it teaches and the skill each needs.</div>` : ""}</div></div>
+            <aside class="prdetail" id="precdetail">${recipeDetail(p, list.find(r => r.id === ui.recipeSel))}</aside></div>`;
+      }
+    } else {
+      const G = GATHER[p.gather || (p.fish ? "fishing" : "")];
+      body = `<div class="scroll pgscroll"><h2 class="section" data-group>${p.fish ? "Where to fish" : "Where to gather"} <small>a guide, not game data · your skill ${p.skill}</small></h2><div class="precipes">${G.map(([n, s, z]) => {
+          const st = p.skill >= s + 100 ? "grey" : p.skill >= s ? "now" : "later";
+          return `<button class="precipe pgather focusable st-${st}" data-gather="${esc(n)}" data-tip="<b>${esc(n)}</b>${p.fish ? `Good places to fish from skill ${s}` : `Needs skill ${s}`}${st === "grey" ? "; no longer gives skill" : st === "later" ? ` (${s - p.skill} to go)` : ""}. ${esc(z)}.">
+            <span class="pricon">${p.fish ? "≈" : "◆"}</span><span class="prname">${esc(n)}<small>${esc(z)}</small></span><span class="prsk">${st === "grey" ? "grey" : `from ${s}`}</span><span class="prtag">${st === "now" ? "Gives skill" : st === "later" ? `${s - p.skill} to go` : ""}</span></button>`; }).join("")}</div>
+        <div class="qfoot"><span class="qnote">A hand-curated guide from Classic and Forever guides (docs/research/professions.md); the game doesn't list where nodes grow or fish bite.</span></div></div>`;
+    }
+    box.innerHTML = tabs + `<div class="pvbody pv-${v}">${body}</div>`;
+  }
+  function setProfView(v, focusIn) {
+    ui.profView = v;
+    renderProfInto($("#detailpane"), profModel().find(p => p.name === ui.profSel));
+    if (focusIn) setFocus($(`#detailpane .pvbody .focusable`) || $(`#detailpane [data-pview="${v}"]`));
+  }
+  function restoreProf() {
+    setFocus($(`.prail[data-prof="${CSS.escape(ui.profSel || "")}"]`) || $("#content .focusable"));
+  }
+  // Overview (owner, 2026-11-13): a Professions panel under Tracked completion, one line per
+  // profession with its skill and the most urgent status; A opens the tab on it.
+  function profPanel() {
+    const ps = profModel();
+    if (!ps.length) return `<div class="ppanel framed"><div class="thead"><span>Professions</span></div><div class="tfoot">No professions learned yet.</div></div>`;
+    const mastered = ps.filter(p => p.mastered).length;
+    return `<div class="ppanel tracked framed" data-group><div class="thead"><span>Professions</span><b class="pmast">${mastered} of ${ps.length} mastered</b></div>
+      ${ps.map(p => `<button class="trow prow-ov focusable" data-goprof="${esc(p.name)}" data-tip="<b>${esc(p.name)}</b>${esc(p.title)}, ${p.skill} of ${p.cap}${p.status ? ". " + esc(p.status.text) : ""}. A opens it in the Professions tab.">
+        ${profCoin(p, "xs")}<span class="tl">${esc(p.name)}</span>${skillBar(p)}<span class="tn"><b>${p.skill}</b> / ${p.cap}</span>
+        <span class="ptag ${p.status ? p.status.cls : ""}">${p.status ? esc(p.status.text) : ""}</span></button>`).join("")}</div>`;
+  }
+
+  // =====================================================================================
   // Render + hints
   // =====================================================================================
   const HINTS = {
@@ -2088,9 +2454,13 @@
     class: [["A", "A", "Steps"], ["LT", "LT/RT", "Stop"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
     classSide: [["A", "A", "Steps"], ["DP", "◀▶", "Side path"], ["LT", "LT/RT", "Stop"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
     classSteps: [["DP", "✥", "Step"], ["B", "B", "Road"]],
+    profs: [["A", "A", "Open"], ["Y", "Y", "View"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
+    profsIn: [["DP", "✥", "Select"], ["A", "A", "Open"], ["X", "X", "Track"], ["Y", "Y", "View"], ["LT", "LT/RT", "Section"], ["B", "B", "Professions"]],
+    profsGather: [["DP", "✥", "Select"], ["Y", "Y", "View"], ["B", "B", "Professions"]],
   };
   function screen() {
     if (ui.tab === "class") return "class";
+    if (ui.tab === "professions") return "profs";
     if (ui.tab === "reputation") return ui.wide ? "repWide" : ui.repOpen ? "repPage" : "rep";
     return ui.tab === "zones" ? (ui.detail && !ui.wide ? "detail" : ui.wide ? "zonesWide" : "zones") : "overview";
   }
@@ -2099,6 +2469,7 @@
     $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === ui.tab));
     const sc = screen();
     if (sc === "class") renderClass();
+    else if (sc === "profs") renderProfessions();
     else if (sc === "rep" || sc === "repWide") renderReputation();
     else if (sc === "repPage") renderFactionInto(content, allFactions().find(f => f.id === ui.repOpen), { back: true });
     else if (sc === "overview") renderOverview();
@@ -2113,7 +2484,7 @@
   function keyOf(el) {
     if (!el) return null;
     const d = el.dataset, parts = [];
-    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "rep", "rq", "tab", "cycle", "status", "view", "go", "faction", "src", "rfilter", "stop", "step", "goto"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
+    for (const a of ["open", "crit", "quest", "story", "flight", "page", "na", "next", "rep", "rq", "tab", "cycle", "status", "view", "go", "faction", "src", "rfilter", "stop", "step", "goto", "prof", "goprof", "pfilter", "pstop", "pnext", "recipe", "gather", "pview", "ptrack"]) if (d[a] !== undefined) parts.push(`[data-${a}="${CSS.escape(d[a])}"]`);
     for (const a of ["search", "back", "map", "atlas", "qtoggle"]) if (d[a] !== undefined) parts.push(`[data-${a}]`);
     if (el.id) parts.push("#" + el.id);
     return parts.length ? "." + [...el.classList].filter(c => !["focused", "on", "new", "selected"].includes(c))[0] + parts.join("") : null;
@@ -2133,7 +2504,7 @@
     if (ui.tab === "reputation" && !ui.repOpen) ui.repScroll = $("#scroll")?.scrollTop || 0;
     ui.tab = tab; ui.flyout = null;
     render();
-    if (tab === "zones" && !ui.detail) restoreCatalog(); else if (tab === "reputation") restoreRep(); else if (tab === "class") restoreClass(); else focusFirst();
+    if (tab === "zones" && !ui.detail) restoreCatalog(); else if (tab === "reputation") restoreRep(); else if (tab === "class") restoreClass(); else if (tab === "professions") restoreProf(); else focusFirst();
   }
   // The Reputation list: back to the faction you were on (or the first one), scroll kept.
   function restoreRep() {
@@ -2142,7 +2513,7 @@
     if (sc) { sc.style.scrollBehavior = "auto"; sc.scrollTop = ui.repScroll || 0; sc.style.scrollBehavior = ""; }
     setFocus($(`#scroll [data-faction="${ui.repSel}"]`) || $("#scroll .focusable") || $(".toolbar .focusable"));
   }
-  const TABS = ["overview", "zones", "reputation", "class"];
+  const TABS = ["overview", "zones", "reputation", "class", "professions"];
   const nextTab = (d) => TABS[(TABS.indexOf(ui.tab) + d + TABS.length) % TABS.length];
   function openZone(name, crit) {
     if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
@@ -2158,6 +2529,8 @@
     if (ui.celebrate) return closeCelebrate();
     if (ui.flyout) return closeFlyout();
     if (ui.tab === "class" && focused && focused.closest("#detailpane")) { setHints("class"); return restoreClass(); }
+    if (ui.tab === "professions" && focused && focused.closest("#precdetail")) return setFocus($(`#precscroll [data-recipe="${ui.recipeSel}"]`) || $("#precscroll .focusable"));
+    if (ui.tab === "professions" && focused && focused.closest("#detailpane")) { setHints("profs"); return restoreProf(); }
     if (ui.tab === "reputation" && ui.repOpen) { ui.repOpen = null; render(); return restoreRep(); }
     if (ui.tab === "reputation" && ui.wide && focused && focused.closest("#detailpane")) return setFocus($(`.frep[data-faction="${ui.repSel}"]`));
     // A category page goes back to the zone's overview, focused on that category's tile.
@@ -2211,6 +2584,22 @@
       setHints("classSteps"); return setFocus(first);
     }
     if (d.classroad !== undefined) { ui.classSel = null; return setTab("class"); }
+    if (d.prof) { const first = $("#detailpane .pvbody .focusable") || $("#detailpane .focusable"); if (!first) return; setHints("profsIn"); return setFocus(first); }
+    if (d.goprof) { ui.profSel = d.goprof; ui.profView = "journey"; return setTab("professions"); }
+    if (d.pview) { setProfView(d.pview, false); return setFocus($(`#detailpane [data-pview="${d.pview}"]`)); }
+    if (d.pfilter) { ui.profFilter = d.pfilter; ui.recipeSel = null; renderProfInto($("#detailpane"), profModel().find(p => p.name === ui.profSel)); return setFocus($(`#detailpane [data-pfilter="${d.pfilter}"]`)); }
+    if (d.ptrack) return toggleTrack(Number(d.ptrack));
+    if (d.pact) { // a Next up line opens its view (Recipes with a filter, or Gather)
+      const [view, filter] = d.pact.split(":");
+      if (filter) { ui.profFilter = filter; ui.recipeSel = null; }
+      return setProfView(view, true);
+    }
+    if (d.recipe && el.classList.contains("ptrackhead")) { // a Tracked card opens the recipe in Recipes
+      ui.profFilter = "all"; ui.recipeSel = Number(d.recipe); setProfView("recipes", false);
+      return setFocus($(`#precscroll [data-recipe="${d.recipe}"]`) || $("#detailpane .pvbody .focusable"));
+    }
+    if (d.recipe) return setFocus($(`#precdetail [data-ptrack]`) || el); // A: into the recipe's details (its Track button)
+    if (d.pstop || d.pnext || d.gather) return; // details in the info line
     if (d.goto) { ui.classSel = d.goto; renderStopInto($("#detailpane"), classModel(), d.goto); setHints("class"); return restoreClass(); }
     if (d.step) return; // a quest step: details in the info line
     if (d.rfilter) { ui.repFilter = d.rfilter; render(); return setFocus($(`[data-rfilter="${d.rfilter}"]`)); }
@@ -2323,6 +2712,23 @@
       }
       setHints(el.hasAttribute("data-sidepath") ? "classSide" : "class");
     }
+    if (ui.tab === "professions" && el.dataset.prof) {
+      if (el.dataset.prof !== ui.profSel) {
+        ui.profSel = el.dataset.prof; ui.profFilter = "foryou"; ui.recipeSel = null;
+        $$(".prail.selected").forEach(r => r.classList.remove("selected"));
+        el.classList.add("selected");
+        renderProfInto($("#detailpane"), profModel().find(p => p.name === ui.profSel));
+      }
+      setHints("profs");
+    }
+    if (ui.tab === "professions" && el.closest("#detailpane")) setHints(ui.profView === "gather" ? "profsGather" : "profsIn");
+    if (ui.tab === "professions" && el.dataset.recipe && el.closest("#precscroll") && Number(el.dataset.recipe) !== ui.recipeSel) {
+      ui.recipeSel = Number(el.dataset.recipe);
+      $$("#precscroll .precipe.selected").forEach(r => r.classList.remove("selected"));
+      el.classList.add("selected");
+      const p = profModel().find(x => x.name === ui.profSel);
+      $("#precdetail").innerHTML = recipeDetail(p, p.rec.list.find(r => r.id === ui.recipeSel));
+    }
     if (ui.wide && ui.tab === "reputation" && el.dataset.faction && Number(el.dataset.faction) !== ui.repSel) {
       ui.repSel = Number(el.dataset.faction);
       $$(".frep.selected").forEach(r => r.classList.remove("selected"));
@@ -2415,9 +2821,13 @@
       Enter: () => activate(focused), " ": () => activate(focused), Escape: back, Backspace: back,
       q: () => !ui.flyout && !ui.celebrate && setTab(nextTab(-1)),
       e: () => !ui.flyout && !ui.celebrate && setTab(nextTab(1)),
-      y: () => { if (ui.tab === "reputation" && !ui.repOpen && !ui.flyout) { const v = OPTIONS.repSort.items.map(x => x[0]); ui.repSort = v[(v.indexOf(ui.repSort) + 1) % v.length]; render(); return restoreRep(); }
+      y: () => { if (ui.tab === "professions" && !ui.flyout) { const p = profModel().find(x => x.name === ui.profSel); if (!p) return;
+          const vs = profViews(p), nx = vs[(vs.indexOf(ui.profView || "journey") + 1) % vs.length], inside = focused && focused.closest("#detailpane");
+          setProfView(nx, !!inside); if (!inside) setFocus(focused, { noScroll: true }); return; }
+        if (ui.tab === "reputation" && !ui.repOpen && !ui.flyout) { const v = OPTIONS.repSort.items.map(x => x[0]); ui.repSort = v[(v.indexOf(ui.repSort) + 1) % v.length]; render(); return restoreRep(); }
         if (ui.tab === "zones" && !ui.detail && !ui.flyout) { const v = VIEWS().map(x => x[0]); ui.view = v[(v.indexOf(ui.view) + 1) % v.length]; render(); restoreCatalog(); } },
       x: () => { if (ui.flyout || ui.celebrate) return;
+        if (ui.tab === "professions") { if (focused && focused.dataset.recipe) toggleTrack(Number(focused.dataset.recipe)); return; }
         if (ui.tab === "reputation") { const id = ui.repOpen || (focused && Number(focused.dataset.faction)) || (ui.wide && ui.repSel); if (id) toggleWatch(id); return; }
         if (ui.tab === "zones" && (ui.detail || (ui.wide && focused && focused.closest("#detailpane")))) toast(`Would open the world map at ${esc(ui.detail || ui.selected)}`); else if (ui.tab === "zones") { setFocus($("[data-search]")); $("#searchInput").focus(); } },
       PageDown: () => jump(1), PageUp: () => jump(-1),
@@ -2448,11 +2858,13 @@
     ui.scenarioName = name;
     S = SCENARIOS[name]();
     CHAR = S.char;
-    ui.detail = null; ui.selected = null; ui.lastZone = null; ui.repOpen = null; ui.repSel = null; ui.watched = null; ui.classSel = null;
+    ui.detail = null; ui.selected = null; ui.lastZone = null; ui.repOpen = null; ui.repSel = null; ui.watched = null; ui.classSel = null; ui.profSel = null; ui.profFilter = "foryou"; ui.profView = "journey"; ui.recipeSel = null;
+    // The game's tracked recipes: real for Gideon (Linen Bandage, probe run 8); the veteran tracks two more (invented).
+    ui.tracked = new Set(name === "fresh" ? [] : name === "veteran" ? [...(window.AZF_TRACKED || []), 3276, 2660] : (window.AZF_TRACKED || []));
     $("#celebrate")?.remove(); ui.celebrate = null; closeFlyout();
     buildModel();
   }
-  $("#scenario").addEventListener("change", (e) => { loadScenario(e.target.value); render(); if (ui.tab === "class") restoreClass(); else focusFirst(); e.target.blur(); });
+  $("#scenario").addEventListener("change", (e) => { loadScenario(e.target.value); render(); if (ui.tab === "class") restoreClass(); else if (ui.tab === "professions") restoreProf(); else focusFirst(); e.target.blur(); });
   $("#simulate").addEventListener("click", (e) => { simulateDiscovery(); e.target.blur(); });
   $("#questMode").innerHTML = Object.entries(QUEST_MODES).map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
   $("#questMode").addEventListener("change", (e) => { ui.quests = e.target.value; buildModel(); rerenderKeepFocus(); e.target.blur(); });
