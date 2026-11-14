@@ -1398,6 +1398,27 @@ local function build(parent)
     return page
 end
 
+-- For the Overview's Professions panel: the same words and coin as the tab, and opening the tab
+-- on a profession (focus on its rail entry).
+ns.ProfessionsPage = {
+    StatusText = statusText,
+    NewCoin = newCoin,
+    RailInfo = function(m)
+        local st = statusText(m)
+        return string.format("%s, %s of %s%s.", m.title or m.name, tostring(m.skill or "?"), tostring(m.cap or "?"), st and (". " .. st) or "")
+    end,
+    Open = function(line)
+        ns.UI.SelectTab("professions")
+        local f = ns.UI.GetFrame()
+        local p = f and f.pages.professions
+        if not p then return end
+        local guard = 0
+        while p.mode == "page" and guard < 3 do p:Back(); guard = guard + 1 end
+        ns.Focus.FocusKey("p:" .. tostring(line))
+        ns.UI.RefreshHints()
+    end,
+}
+
 ns.UI.RegisterTab({
     id = "professions",
     label = "Professions",

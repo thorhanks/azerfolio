@@ -693,6 +693,29 @@ return function(t)
         t.eq(rg.items[1].where.recipe.name, "Smelt Copper"); t.eq(rg.items[1].where.recipe.prof, "Mining")
     end)
 
+    t.test("ui: the Overview's Professions panel", function()
+        local state = probeState()
+        state.slots[9] = { "Fishing", 300, 300, 356 } -- one mastered
+        local n = boot(state)
+        n.UI.Show(); n.UI.SelectTab("overview")
+        local ov = n.UI.GetFrame().pages.overview
+        local keys = {}
+        for _, row in ipairs(ov:GetFocusRows()) do
+            local it = row.items[1]
+            if it.key:find("^prof:") then keys[#keys + 1] = it.key .. "=" .. row.section end
+        end
+        t.eq(table.concat(keys, ","), "prof:164=5,prof:186=5,prof:185=5,prof:129=5,prof:356=5", "rail order, its own section")
+        local fishing = ov.pools.prof[5]
+        t.eq(fishing.tag:GetText(), "Mastered")
+        t.eq(ov.pools.prof[2].tag:GetText(), "Train Journeyman now", "Mining at 59")
+        n.Focus.FocusKey("prof:186")
+        n.Focus.Activate()
+        t.eq(n.UI.CurrentTab(), "professions")
+        t.eq(n.Focus.Current().key, "p:186", "the tab opens on Mining")
+        t.eq(n.UI.GetFrame().pages.professions.sel, 186)
+        t.eq(#n.Debug.errors, 0)
+    end)
+
     t.test("ui: no professions yet", function()
         local state = probeState()
         state.slots = {}

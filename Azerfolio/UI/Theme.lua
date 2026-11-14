@@ -127,6 +127,8 @@ Theme.layout = {
     trackBar = 16,             -- gilded bar height in a row
     panelPad = 12,             -- inside a framed panel
     atlasPanel = 240,          -- the Overview's Atlas panel height (Phase 10)
+    profTag = 180,             -- the Overview's Professions panel: "At cap · train Journeyman" (Phase 14; 150 cut "Train Journeyman now")
+    profHead = 36,             -- its title line
 }
 
 -- Painted art from tools/process-art.ps1 (Data/Art.lua lists what exists; the client can't
@@ -239,8 +241,16 @@ function Theme.GildedBar(parent, height)
         r:SetPoint("TOPRIGHT"); r:SetPoint("BOTTOMRIGHT"); r:SetWidth(endW)
         m:SetPoint("TOPLEFT", l, "TOPRIGHT"); m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
     end
+    -- Drawn before the first layout, the bar has no width yet and the fill came out empty
+    -- (the Overview's Professions bars, WoWScrnShot_111426_125515): redo it when it's sized.
+    -- f.onSized(f), if set, runs after (marks placed along the bar).
+    f:SetScript("OnSizeChanged", function(self)
+        if self.lastFrac then self:Set(self.lastFrac, self.lastState) end
+        if self.onSized then self.onSized(self) end
+    end)
     function f:Set(frac, state)
         frac = math.max(0, math.min(1, frac or 0))
+        self.lastFrac, self.lastState = frac, state
         local w = self.well:GetWidth() or 0
         if w <= 0 then w = (self:GetWidth() or 0) - endW end
         self.fill:SetWidth(math.max(0.001, w * frac))

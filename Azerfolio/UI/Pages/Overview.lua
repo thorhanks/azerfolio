@@ -192,6 +192,37 @@ local function newTrackRow(parent)
     return r
 end
 
+-- One Professions row (Phase 14; mockups/DESIGN.md "Overview"): the profession's coin, name, a
+-- gilded skill bar over 1-300 with a tick at your cap, "33 / 75", the status tag.
+local function newProfRow(parent)
+    local T, L, S, W = ns.Theme, ns.Theme.layout, ns.Theme.space, ns.Widgets
+    local r = W.FocusRow(parent, L.trackRow)
+    r.coin = ns.ProfessionsPage and ns.ProfessionsPage.NewCoin(r)
+    if r.coin then r.coin:SetPoint("LEFT", S.s1, 0) end
+    r.label = T.Text(r, "sm", "white"); r.label:SetPoint("LEFT", S.s2 + 18 + S.s2, 0)
+    r.label:SetWidth(L.trackLabel); r.label:SetJustifyH("LEFT"); r.label:SetWordWrap(false)
+    r.tag = T.Text(r, "xs", "profGo"); r.tag:SetPoint("RIGHT", -S.s2, 0)
+    r.tag:SetWidth(L.profTag); r.tag:SetJustifyH("RIGHT"); r.tag:SetWordWrap(false)
+    r.count = T.Text(r, "xs", "dim"); r.count:SetPoint("RIGHT", r.tag, "LEFT", -S.s2, 0)
+    r.count:SetWidth(56); r.count:SetJustifyH("RIGHT")
+    r.bar = T.GildedBar(r, L.trackBar)
+    r.bar:SetPoint("LEFT", r.label, "RIGHT", S.s1, 0)
+    r.bar:SetPoint("RIGHT", r.count, "LEFT", -S.s2, 0)
+    r.capTick = T.Solid(r.bar, "white", "OVERLAY", 0.8)
+    r.capTick:SetSize(2, L.trackBar)
+    -- The tick at your cap, placed along the well (again once the bar has its width).
+    function r:PlaceCap()
+        local bw = self.bar.well:GetWidth() or 0
+        self.capTick:SetShown(self.capFrac ~= nil and bw > 0)
+        if self.capFrac and bw > 0 then
+            self.capTick:ClearAllPoints()
+            self.capTick:SetPoint("CENTER", self.bar.well, "LEFT", bw * self.capFrac, 0)
+        end
+    end
+    r.bar.onSized = function() r:PlaceCap() end
+    return r
+end
+
 -- The class road panel: the Class page's strip in mini mode on top (a window onto the road), a
 -- rule, then the caption. An overlay above the map takes the mouse, so a click anywhere on the
 -- panel opens the Class tab (the map's own nodes never react).
@@ -286,6 +317,17 @@ local function build(parent)
     zrow.legend:SetPoint("BOTTOMLEFT", zrow, "BOTTOMLEFT", S.s2 + 18 + S.s2 + L.trackLabel + S.s1, 3)
     zrow.rule = T.Solid(zrow, "white", "BACKGROUND", 0.08)
     zrow.rule:SetPoint("TOPLEFT"); zrow.rule:SetPoint("TOPRIGHT"); zrow.rule:SetHeight(1)
+
+    -- Professions (Phase 14): under Tracked completion, one row per profession.
+    local prof = newPanel(child, false)
+    prof.title = T.Text(prof, "sm", "gold")
+    prof.title:SetPoint("TOPLEFT", L.panelPad + 2, -L.panelPad + 2)
+    prof.title:SetText("Professions")
+    prof.mastered = T.Text(prof, "sm", "white")
+    prof.mastered:SetPoint("TOPRIGHT", -L.panelPad - 2, -L.panelPad + 2)
+    prof.empty = T.Text(prof, "xs", "dim")
+    prof.empty:SetJustifyH("LEFT")
+    pools.prof = {}
 
     -- The Atlas panel (Phase 10): the painted sea chart with every zone's art at its place.
     local atlasPlate = T.Plate(child, L.plate)
@@ -416,8 +458,58 @@ local function build(parent)
         return y + ty
     end
 
+    -- The Professions panel at (x, y), width w (mockups/DESIGN.md "Overview": "n of m mastered",
+    -- one row per profession; A opens the tab on it). Adds its rows (section 5) and returns the
+    -- next y.
+    local function drawProfessions(x, y, w, rows)
+        local g = ns.Professions and ns.Professions.Get() or { professions = {}, summary = { mastered = 0, total = 0 } }
+        local P = ns.ProfessionsPage
+        prof:ClearAllPoints()
+        prof:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
+        prof:SetWidth(w)
+        local pad = L.panelPad
+        local ty = L.profHead
+        for _, r in ipairs(pools.prof) do r:Hide() end
+        local list = g.professions
+        prof.mastered:SetShown(#list > 0)
+        prof.mastered:SetText(string.format("%d of %d mastered", g.summary.mastered, g.summary.total))
+        prof.empty:SetShown(#list == 0)
+        if #list == 0 then
+            prof.empty:ClearAllPoints()
+            prof.empty:SetPoint("TOPLEFT", prof, "TOPLEFT", pad + 2, -ty)
+            prof.empty:SetWidth(w - 2 * pad)
+            prof.empty:SetText("No professions learned yet.")
+            ty = ty + 18
+        end
+        local max = ns.ProfessionData and ns.ProfessionData.maxSkill or 300
+        for i, m in ipairs(list) do
+            local r = pools.prof[i]
+            if not r then r = newProfRow(prof); pools.prof[i] = r end
+            r:ClearAllPoints()
+            r:SetPoint("TOPLEFT", prof, "TOPLEFT", pad - S.s1, -ty)
+            r:SetPoint("RIGHT", prof, "RIGHT", -pad + S.s1, 0)
+            if r.coin then r.coin:Set(m, 20) end
+            r.label:SetText(m.name)
+            r.count:SetText(string.format("%s%s|r / %s", color("white"), tostring(m.skill or "?"), tostring(m.cap or "?")))
+            r.bar:Set((m.skill or 0) / max, m.mastered and "complete" or nil)
+            r.capFrac = (m.cap and m.cap < max) and (m.cap / max) or nil
+            r:PlaceCap()
+            local text, c = P and P.StatusText(m)
+            r.tag:SetText(text or "")
+            r.tag:SetTextColor(T.RGB(c or "dim"))
+            r:Show()
+            local line = m.skillLine
+            rows[#rows + 1] = { items = { item(r, "prof:" .. line, m.name, (P and P.RailInfo(m) or "") .. " A opens it in the Professions tab.",
+                function() if P then P.Open(line) end end, "L", "Professions") }, section = 5 }
+            ty = ty + L.trackRow
+        end
+        ty = ty + S.s2
+        prof:SetHeight(ty)
+        return y + ty
+    end
+
     -- Draws the left column from x at width w: the Continue card (section 1), then Tracked
-    -- completion (section 2). Returns its focus rows and its height.
+    -- completion (section 2), then Professions (section 5). Returns its focus rows and its height.
     local function drawLeft(m, x, w)
         local rows, y = {}, 0
         local h = m.hero
@@ -469,6 +561,7 @@ local function build(parent)
             y = y + 48
         end
         y = drawTracked(m, x, y + S.s4, w, rows)
+        y = drawProfessions(x, y + S.s4, w, rows)
         return rows, y
     end
 
@@ -564,7 +657,7 @@ local function build(parent)
         end
     end
     for _, msg in ipairs({ "AZF_EXPLORATION_UPDATED", "AZF_ZONE_VISITED", "AZF_LEVEL_CHANGED",
-        "AZF_QUESTS_UPDATED", "AZF_FLIGHTS_UPDATED", "AZF_CLASS_UPDATED" }) do
+        "AZF_QUESTS_UPDATED", "AZF_FLIGHTS_UPDATED", "AZF_CLASS_UPDATED", "AZF_PROFESSIONS_UPDATED" }) do
         ns.Events.On(msg, changed)
     end
     ns.Events.On("AZF_WINDOW_SHOWN", function() if page:IsShown() then page:Redraw() end end)

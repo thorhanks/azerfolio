@@ -516,7 +516,11 @@ end)
 ns.Events.Register("SKILL_LINES_CHANGED", function() changed("skill") end)
 ns.Events.Register("NEW_RECIPE_LEARNED", function() changed("learned") end)
 ns.Events.On("AZF_REFRESH_REQUESTED", function() changed("refresh") end)
-ns.Events.On("AZF_PROFESSION_SOURCES", function() changed("sources") end)
+-- Sources ready: recipes gain sources, trainers get names. Without QuestieDB nothing new is
+-- shown, so the data is only re-read on the next draw (no redraw of the Overview for it).
+ns.Events.On("AZF_PROFESSION_SOURCES", function()
+    if ns.ProfessionSources.State().status == "ready" then changed("sources") else cache = nil end
+end)
 -- The nearest trainers depend on where you are.
 ns.Events.Register("ZONE_CHANGED_NEW_AREA", function() changed("zone") end)
 -- An item name we asked for has arrived.
