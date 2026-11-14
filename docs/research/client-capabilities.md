@@ -117,6 +117,7 @@ Consequences: a flight path's "known" state can only be read at a flight master 
 - Templates that exist: `BackdropTemplate`, `ButtonFrameTemplate`, `PortraitFrameTemplate`, `DefaultPanelTemplate`, `BasicFrameTemplate(WithInset)`, `InsetFrameTemplate`, `PanelTabButtonTemplate`, `WowScrollBox`, `WowScrollBoxList`, `MinimalScrollBar`, `SearchBoxTemplate`, `InputBoxTemplate`, `UICheckButtonTemplate`, `WowStyle1DropdownTemplate`, `WowStyle1FilterDropdownTemplate`, `UIPanelButtonTemplate`, `UIPanelCloseButton`, tooltip templates. [verified-ingame]
 - `CharacterFrameTabButtonTemplate` doesn't exist. Use `PanelTabButtonTemplate` for bottom tabs. [verified-ingame]
 - `EncounterJournal` is not loaded and `EncounterJournal_LoadUI` doesn't exist. `AchievementFrame_LoadUI` exists. [verified-ingame]
+- Making a label smaller at runtime: `FontString:SetFont(file, 11, flags)` returned true but `GetFont` still read 14 right after, on a `UIPanelButtonTemplate` button's label, on an addon font string on the button, and on one on a child frame (AzerfolioDB.trace, 2026-11-14). Font objects (`SetNormalFontObject`, `SetFontObject` with `GameFontNormalSmall`) changed nothing visible either. What works: scale the frame holding the text (`Frame:SetScale`), as `W.PanelButton:SetCompact` does. [verified-ingame]
 
 ## Art
 
