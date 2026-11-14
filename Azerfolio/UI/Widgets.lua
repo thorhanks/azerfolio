@@ -175,42 +175,46 @@ function W.PanelButton(parent)
     local L = ns.Theme.layout
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetHeight(L.panelButton)
-    local function lit(self)
-        local on = self.on or self.focused
-        local f = on and self.LockHighlight or self.UnlockHighlight
-        if f then pcall(f, self) end
-        -- A compact button keeps its small font through the highlight change.
-        if self.compact and self.text and self.text.SetFontObject then
-            local obj = _G[on and "GameFontHighlightSmall" or "GameFontNormalSmall"]
-            if obj and self.text ~= nil and self.GetFontString and self:GetFontString() == self.text then pcall(self.text.SetFontObject, self.text, obj) end
-        end
-    end
-    function b:SetOn(on) self.on = on; lit(self) end
-    function b:SetFocused(on) self.focused = on; lit(self) end
     -- b.text: the button's own label (as W.Control's), or a stand-in where the client gives none.
     local native = b.GetFontString and b:GetFontString()
     b.text = native or ns.Theme.Text(b, "sm", "gold")
     if not native then b.text:SetPoint("CENTER", 0, 0) end
-    -- :SetCompact(on): the game's small button fonts, for a toolbar that runs out of room (the
-    -- Zones toolbar at the minimum width, WoWScrnShot_111426_155718). Call SetLabel after it.
+    -- Compact: the label's own font at panelButtonCompact of its size, set explicitly on the
+    -- label and set again after every text and highlight change. Font objects changed nothing
+    -- in game (WoWScrnShot_111426_160113, 160328): the button re-applies its own font.
+    local function applySize(self)
+        local fs = self.text
+        if not (fs and fs.GetFont and fs.SetFont) then return end
+        local file, size, flags = fs:GetFont()
+        if not file or not size then return end
+        if not self.baseSize or (not self.compact and size ~= self.baseSize and size ~= self.smallSize) then self.baseSize = size end
+        self.smallSize = math.floor(self.baseSize * L.panelButtonCompact + 0.5)
+        local want = self.compact and self.smallSize or self.baseSize
+        if size ~= want then pcall(fs.SetFont, fs, file, want, flags) end
+    end
+    local function lit(self)
+        local on = self.on or self.focused
+        local f = on and self.LockHighlight or self.UnlockHighlight
+        if f then pcall(f, self) end
+        applySize(self)
+    end
+    function b:SetOn(on) self.on = on; lit(self) end
+    function b:SetFocused(on) self.focused = on; lit(self) end
+    -- :SetCompact(on): a smaller label for a toolbar that runs out of room (the Zones toolbar at
+    -- the minimum width, WoWScrnShot_111426_155718). Call SetLabel after it.
     function b:SetCompact(on)
-        on = on and true or false
-        if self.compact == on then return end
-        self.compact = on
-        local fonts = on and { "GameFontNormalSmall", "GameFontHighlightSmall", "GameFontDisableSmall" }
-            or { "GameFontNormal", "GameFontHighlight", "GameFontDisable" }
-        for i, set in ipairs({ "SetNormalFontObject", "SetHighlightFontObject", "SetDisabledFontObject" }) do
-            local obj = _G[fonts[i]]
-            if obj and self[set] then pcall(self[set], self, obj) end
+        self.compact = on and true or false
+        applySize(self)
+    end
+    -- Hover and press swap the button's font too: keep the compact size through them.
+    if b.HookScript then
+        for _, ev in ipairs({ "OnEnter", "OnLeave", "OnMouseDown", "OnMouseUp" }) do
+            b:HookScript(ev, function(self) if self.compact then applySize(self) end end)
         end
-        -- The button's font objects only reach its label on the next state change (in game the
-        -- labels kept their size, WoWScrnShot_111426_160113): set the label's font directly too,
-        -- the highlight one while it's lit.
-        local obj = _G[(self.on or self.focused) and fonts[2] or fonts[1]]
-        if native and obj and self.text.SetFontObject then pcall(self.text.SetFontObject, self.text, obj) end
     end
     function b:SetLabel(text, pad, minWidth)
         if native and self.SetText then self:SetText(text) else self.text:SetText(text) end
+        applySize(self)
         local fs = self.GetFontString and self:GetFontString()
         local w = fs and fs.GetStringWidth and fs:GetStringWidth() or (#text * 7)
         self:SetWidth(math.max(minWidth or self.minWidth or L.panelButtonMin, math.floor(w + 2 * (pad or L.panelButtonPad) + 0.5)))

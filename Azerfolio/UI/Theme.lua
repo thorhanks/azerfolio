@@ -90,7 +90,8 @@ Theme.layout = {
     controlHeight = 28,
     controlPad = 10,           -- text padding inside a toolbar control
     controlPadTight = 6,       -- the same in a narrow window's short toolbar
-    panelButton = 24, panelButtonPad = 16, panelButtonMin = 90, panelButtonPadTight = 10, -- a native red panel button in a view switch (as Zone Detail's "World map")
+    panelButton = 24, panelButtonPad = 16, panelButtonMin = 90, panelButtonPadTight = 10,
+    panelButtonCompact = 0.82, -- a compact red button's label, as a share of its normal size (narrow toolbars) -- a native red panel button in a view switch (as Zone Detail's "World map")
     searchWidth = 150,
     searchMinWidth = 100,
     popupRow = 30,
