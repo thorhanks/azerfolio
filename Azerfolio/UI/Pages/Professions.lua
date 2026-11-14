@@ -460,6 +460,15 @@ local function build(parent)
     if not (type(CreateColor) == "function" and pcall(banner.wash.SetGradient, banner.wash, "VERTICAL",
         CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, 0.75))) then banner.wash:SetColorTexture(0, 0, 0, 0.4) end
     banner.wash:Hide()
+    -- Owner (2026-11-14): the same wash rising from the foot, so the framed road strip stands out
+    -- from the scene; it fades out a little above the strip.
+    banner.washLow = banner:CreateTexture(nil, "BORDER")
+    banner.washLow:SetPoint("BOTTOMLEFT"); banner.washLow:SetPoint("BOTTOMRIGHT")
+    banner.washLow:SetColorTexture(1, 1, 1, 1)
+    if not (type(CreateColor) == "function" and pcall(banner.washLow.SetGradient, banner.washLow, "VERTICAL",
+        CreateColor(0, 0, 0, PT.roadWash), CreateColor(0, 0, 0, 0))) then banner.washLow:SetColorTexture(0, 0, 0, 0.35) end
+    banner.washLow:SetHeight(PT.road + S.s3 + PT.roadWashAbove)
+    banner.washLow:Hide()
     local function cropArt()
         local w, h = banner:GetWidth() or 0, banner:GetHeight() or 0
         if not banner.artKey or w <= 0 or h <= 0 then return end
@@ -768,6 +777,7 @@ local function build(parent)
         banner.emblem:SetSize(h * 0.55, h * 0.55)
         local painted = m.key and ns.Art and ns.Art.professions and ns.Art.professions[m.key]
         banner.art:SetShown(painted and true or false); banner.wash:SetShown(painted and true or false)
+        banner.washLow:SetShown(painted and true or false)
         banner.emblem:SetShown(not painted)
         banner.artKey = painted and m.key or nil
         if painted then
