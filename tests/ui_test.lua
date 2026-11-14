@@ -153,6 +153,20 @@ return function(t)
         t.eq(f.FrameGlow:IsShown(), true)
     end)
 
+    t.test("cover coords fill a frame without squashing the image", function()
+        local ns = boot()
+        local C = ns.Theme.CoverCoords
+        -- A 10:1 strip over the 8:1 road: full width, the middle 80% of the height.
+        local l, r, tp, b = C(1000, 100, 2048, 256)
+        t.eq(l, 0); t.eq(r, 1); t.ok(math.abs(tp - 0.1) < 1e-9); t.ok(math.abs(b - 0.9) < 1e-9)
+        -- A 4:1 strip: full height, the middle half of the width.
+        l, r, tp, b = C(400, 100, 2048, 256)
+        t.ok(math.abs(l - 0.25) < 1e-9); t.ok(math.abs(r - 0.75) < 1e-9); t.eq(tp, 0); t.eq(b, 1)
+        -- Before layout (no size): the whole image.
+        l, r, tp, b = C(0, 112, 2048, 256)
+        t.eq(l, 0); t.eq(r, 1); t.eq(tp, 0); t.eq(b, 1)
+    end)
+
     t.test("glyphs use the client's atlas when it exists, a drawn disc otherwise", function()
         local ns = boot()
         _G.C_Texture = { GetAtlasInfo = function(name)

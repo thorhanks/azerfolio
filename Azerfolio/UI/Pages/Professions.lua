@@ -503,6 +503,10 @@ local function build(parent)
     road:SetHeight(PT.road)
     road.paper = T.Solid(road, "classParchment", "BACKGROUND", 0.92)
     road.paper:SetAllPoints()
+    -- The painted skill road (Media\ProfRoads\<key>.blp, 2048x256), when the trade has one.
+    road.art = road:CreateTexture(nil, "BACKGROUND", nil, 1)
+    road.art:SetAllPoints()
+    road.art:Hide()
     road.edge = W.Edge(road, "BORDER")
     road.edge:SetColor("divider")
     local base = road:GetFrameLevel()
@@ -539,6 +543,12 @@ local function build(parent)
         b.label:SetPoint("LEFT", b, "RIGHT", 4, 6)
         b.sub = T.Text(road, "xs", "classInkFaded")
         b.sub:SetPoint("TOPLEFT", b.label, "BOTTOMLEFT", 0, -1)
+        -- On the painted road the name sits on a parchment tag (sepia edge), so it reads over the art.
+        b.tagEdge = T.Solid(road, "classInkFaded", "BORDER", 0.9)
+        b.tag = T.Solid(road, "classParchment", "ARTWORK", 0.92)
+        b.tag:SetPoint("TOPLEFT", b.tagEdge, "TOPLEFT", 1, -1)
+        b.tag:SetPoint("BOTTOMRIGHT", b.tagEdge, "BOTTOMRIGHT", -1, 1)
+        b.tagEdge:Hide(); b.tag:Hide()
         function b:SetFocused(on)
             self.focused = on
             if self.focusArt then self.focusArt:SetShown(on and true or false); self.focusRing:Hide()
@@ -780,7 +790,17 @@ local function build(parent)
         local x0, x1 = PT.roadPadL, w - PT.roadPadR
         local max = ns.ProfessionData.maxSkill
         local function X(s) return x0 + (math.max(1, math.min(max, s)) - 1) / (max - 1) * (x1 - x0) end
-        local barY = 30 -- from the strip's bottom to the bar's centre
+        -- The painted road fills the strip (cover, centred) and the bar runs on its lane at half height.
+        local painted = m.key and ns.Art and ns.Art.profRoads and ns.Art.profRoads[m.key] and true or false
+        road.paper:SetShown(not painted); road.art:SetShown(painted)
+        if painted then
+            road.art:SetTexture(T.mediaDir .. "ProfRoads\\" .. m.key .. ".blp")
+            local h = road:GetHeight() or PT.road
+            if h <= 0 then h = PT.road end
+            local l, r, t, b = T.CoverCoords(w, h, PT.roadArt[1], PT.roadArt[2])
+            road.art:SetTexCoord(l, r, t, b)
+        end
+        local barY = painted and PT.road / 2 or 30 -- from the strip's bottom to the bar's centre
         road.bar:ClearAllPoints()
         road.bar:SetPoint("LEFT", road, "BOTTOMLEFT", x0 - PT.roadBar * 0.45, barY)
         road.bar:SetWidth(x1 - x0 + PT.roadBar * 0.9)
@@ -820,10 +840,21 @@ local function build(parent)
                 b.sub:SetTextColor(T.RGB(st.state == "now" and "classRedInk" or "classInkFaded"))
                 b.item = { key = "stone:" .. st.rank.name, frame = b, title = rankTitle(m, st.rank), detail = stoneInfo(m, st) }
                 b:Show(); b.label:Show(); b.sub:Show()
+                b.tagEdge:SetShown(painted); b.tag:SetShown(painted)
+                if painted then
+                    local tw = math.max(b.label:GetStringWidth() or 0, b.sub:GetStringWidth() or 0)
+                    local th = (b.label:GetStringHeight() or 12) + (b.sub:GetStringHeight() or 10) + 1
+                    b.tagEdge:ClearAllPoints()
+                    b.tagEdge:SetPoint("TOPLEFT", b.label, "TOPLEFT", -4, 3)
+                    b.tagEdge:SetSize(tw + 8, th + 6)
+                end
                 items[#items + 1] = b.item
             end
         end
-        for i = #(m.stones or {}) + 1, #road.stones do road.stones[i]:Hide(); road.stones[i].label:Hide(); road.stones[i].sub:Hide() end
+        for i = #(m.stones or {}) + 1, #road.stones do
+            local b = road.stones[i]
+            b:Hide(); b.label:Hide(); b.sub:Hide(); b.tagEdge:Hide(); b.tag:Hide()
+        end
         road.you:SetShown(not m.mastered and m.skill ~= nil)
         if m.skill and not m.mastered then
             road.you:ClearAllPoints()

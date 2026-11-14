@@ -548,6 +548,7 @@ Theme.layout.profTab = {
     bannerMin = 250,     -- at the window's minimum size
     listsMin = 200,      -- Next up | Tracked keep at least this much
     road = 112,          -- the parchment strip in the banner's foot
+    roadArt = { 2048, 256 }, -- the painted skill road (Media\ProfRoads), shown cover-fit
     roadBar = 22,        -- the gilded road's height
     roadPadL = 30,       -- 1 sits here
     roadPadR = 80,       -- room for the coin after 300
@@ -765,6 +766,19 @@ function Theme.Text(parent, sizeKey, colorName, layer)
     fs:SetShadowColor(0, 0, 0, 1)
     fs:SetShadowOffset(1, -1)
     return fs
+end
+
+-- Texture coordinates that fill a w x h frame with a tw x th image without squashing it
+-- (cover, centred): returns left, right, top, bottom.
+function Theme.CoverCoords(w, h, tw, th)
+    if not (w and h and tw and th) or w <= 0 or h <= 0 or tw <= 0 or th <= 0 then return 0, 1, 0, 1 end
+    local frame, image = w / h, tw / th
+    if frame >= image then
+        local f = image / frame -- share of the image's height that shows
+        return 0, 1, 0.5 - f / 2, 0.5 + f / 2
+    end
+    local f = frame / image -- share of the image's width that shows
+    return 0.5 - f / 2, 0.5 + f / 2, 0, 1
 end
 
 function Theme.Solid(parent, colorName, layer, alpha)

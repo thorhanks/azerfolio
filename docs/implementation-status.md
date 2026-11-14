@@ -12,6 +12,8 @@ Phase 13 (the Class tab, v1.5) is done, closed 2026-11-13. Its history is in [hi
 
 Phase 14 (the Professions tab, v1.6) is done, closed 2026-11-14. Its painted art followed the same day: 12 banners and 12 coins made with the Codex CLI (two runs of about five minutes), `process-art.ps1` kinds `prof-<key>` (Media/Professions) and `coin-prof-<key>`; the banner is cropped so its subject (`Theme.profBannerFocus`, default 0.62) sits above the road strip; checked in game on Gideon (`WoWScrnShot_111426_132428`-`132445`). Its history is in [history/v1.6-phase14.md](history/v1.6-phase14.md). Open check G1 (gathering skills) and G4 (a Horde character's trainers and zones) wait on play. The version stays 1.2.0 until Phase 11 closes.
 
+Professions tab, painted skill roads (2026-11-14, owner's choice; built, in-game check pending): each trade's Journey road on a painted antique map, the trade growing left to right. 36 panels from the Codex CLI (`art/prompts.md` "Skill roads"; Blacksmithing approved first as the model in the mockup), joined by `process-art.ps1` into `Media/ProfRoads/<key>.blp` (2048×256; `Data/Art.lua` `profRoads`). Lua: the art fills the strip (`Theme.CoverCoords`, cover, centred), the bar runs on the lane at half height, each stone's name sits on a parchment tag; trades without art keep the parchment. Tests 321 pass.
+
 Keep this file short: one compact entry per step, with measurements. When a phase closes, move it to `docs/history/`.
 
 In-game checks that wait on real play (a first-time faction, a level-60 character, a real zone completion) are listed in [open-checks.md](open-checks.md). Phase 11 closes when its R1 and R2 are done.

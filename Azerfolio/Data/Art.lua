@@ -165,6 +165,17 @@ ns.Art = {
         ["tailoring"] = true,
     },
     profRoads = {
+        ["alchemy"] = true,
         ["blacksmithing"] = true,
+        ["cooking"] = true,
+        ["enchanting"] = true,
+        ["engineering"] = true,
+        ["firstaid"] = true,
+        ["fishing"] = true,
+        ["herbalism"] = true,
+        ["leatherworking"] = true,
+        ["mining"] = true,
+        ["skinning"] = true,
+        ["tailoring"] = true,
     },
 }

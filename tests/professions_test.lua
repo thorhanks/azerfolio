@@ -625,6 +625,25 @@ return function(t)
         t.eq(#n.Debug.errors, 0)
     end)
 
+    t.test("ui: the painted skill road fills the strip, the bar on its lane, names on tags", function()
+        local state = probeState()
+        local n = boot(state)
+        n.Art = n.Art or {}
+        n.Art.profRoads = { blacksmithing = true }
+        local p = openTab(n)
+        n.Focus.FocusKey("p:186") -- Mining: no painted road here
+        n.Focus.FocusKey("p:164") -- Blacksmithing
+        local road = p.road
+        t.eq(road.art:IsShown(), true); t.eq(road.paper:IsShown(), false)
+        t.ok(road.art:GetTexture():find("ProfRoads\\blacksmithing.blp", 1, true) ~= nil, road.art:GetTexture())
+        t.eq(road.stones[1].tag:IsShown(), true, "the stone's name on a parchment tag")
+        n.Art.profRoads = {}
+        n.Focus.FocusKey("p:186")
+        t.eq(road.art:IsShown(), false); t.eq(road.paper:IsShown(), true)
+        t.eq(road.stones[1].tag:IsShown(), false)
+        t.eq(#n.Debug.errors, 0)
+    end)
+
     t.test("ui: Recipes (filters, list, detail, Track) and Gather", function()
         local state = probeState()
         state.schematics = { [3276] = { outputItemID = 2581, reagentSlotSchematics = {
