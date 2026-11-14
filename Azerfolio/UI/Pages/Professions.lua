@@ -274,13 +274,28 @@ local function newRailRow(parent)
     function r:SetFocused(on) self.focused = on; local s = self.selected; self.selected = nil; setFocused(self, on); self.selected = s end
     r.coin = newCoin(r)
     r.coin:SetPoint("TOP", r, "TOP", 0, -6)
+    -- The halo: the soft glow piece (glow-soft, drawn by process-art.ps1) tinted warm; stacked
+    -- circles stand in without it (they read as stepped rings, WoWScrnShot_111426_151029).
     r.halo = {}
-    for i, h in ipairs(PT.railHalo) do
-        local c = circle(r, "BACKGROUND", h[1])
-        c:SetPoint("CENTER", r.coin, "CENTER", 0, 0)
-        tint(c, "classPeach", h[2])
-        c:Hide()
-        r.halo[i] = c
+    local glow = T.Chrome("glow-soft")
+    if glow then
+        local g = r:CreateTexture(nil, "BACKGROUND", nil, 1)
+        g:SetTexture(glow)
+        g:SetSize(PT.railGlow[1], PT.railGlow[1])
+        g:SetPoint("CENTER", r.coin, "CENTER", 0, 0)
+        local cr, cg, cb = T.RGB("classPeach")
+        g:SetVertexColor(cr, cg, cb, PT.railGlow[2])
+        if g.SetBlendMode then pcall(g.SetBlendMode, g, "ADD") end
+        g:Hide()
+        r.halo[1] = g
+    else
+        for i, h in ipairs(PT.railHalo) do
+            local c = circle(r, "BACKGROUND", h[1])
+            c:SetPoint("CENTER", r.coin, "CENTER", 0, 0)
+            tint(c, "classPeach", h[2])
+            c:Hide()
+            r.halo[i] = c
+        end
     end
     r.name = T.Text(r, "xs", "white")
     r.name:SetPoint("TOP", r.coin, "BOTTOM", 0, -3)

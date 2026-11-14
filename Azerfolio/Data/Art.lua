@@ -104,6 +104,7 @@ ns.Art = {
         ["frame-bar"] = { x = 0.082, y = 0.3281 },
         ["frame-card"] = { x = 0.16, y = 0.16 },
         ["frame-plaque"] = { x = 0.0469, y = 0.0938 },
+        ["glow-soft"] = true,
         ["milestone"] = true,
         ["milestone-rune-gold"] = true,
         ["milestone-rune-red"] = true,

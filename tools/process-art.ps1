@@ -581,6 +581,21 @@ foreach ($f in $files) {
     $processed++
 }
 
+# A soft round glow drawn here, not generated art (2026-11-14: stacked circles read as stepped
+# rings): white, alpha falling smoothly from the centre to nothing at the edge; the addon tints it.
+# Used behind the selected trade's coin in the Professions rail. -> Chrome\glow-soft.blp + mockup PNG.
+$glowPng = Join-Path (Resolve-Path (Join-Path $PieceMockRoot 'chrome-art')).Path 'glow-soft.png'
+$gb = New-Object System.Drawing.Bitmap 128, 128, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+for ($y = 0; $y -lt 128; $y++) { for ($x = 0; $x -lt 128; $x++) {
+    $d = [Math]::Sqrt([Math]::Pow(($x + 0.5 - 64) / 64, 2) + [Math]::Pow(($y + 0.5 - 64) / 64, 2))
+    $t = [Math]::Max(0.0, 1.0 - $d)
+    $a = [int][Math]::Round(255 * $t * $t * (3 - 2 * $t))
+    $gb.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($a, 255, 255, 255))
+} }
+$gb.Save($glowPng, [System.Drawing.Imaging.ImageFormat]::Png); $gb.Dispose()
+$null = [AzfBlp]::ConvertAlpha($glowPng, (Join-Path (Resolve-Path (Join-Path $MediaRoot 'Chrome')).Path 'glow-soft.blp'))
+Write-Output "glow-soft (drawn: 128x128 radial alpha) -> Chrome\glow-soft.blp"
+
 # Index of available art, rebuilt from the game's BLP folder.
 $ids = @(Get-ChildItem $BlpOut -Filter *.blp | Where-Object { $_.BaseName -match '^\d+$' } | ForEach-Object { [int]$_.BaseName } | Sort-Object)
 $hasFallback = Test-Path (Join-Path $BlpOut 'fallback.blp')
