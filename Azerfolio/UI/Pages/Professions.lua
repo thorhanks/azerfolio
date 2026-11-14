@@ -498,8 +498,10 @@ local function build(parent)
     -- The skill road on its strip, below the banner in the page's body (owner, 2026-11-14: it was
     -- set into the banner's foot; on the dark page it stands out and the banner shows its scene).
     local road = CreateFrame("Frame", nil, journey)
-    road:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", PT.roadFrameOut, -PT.roadGap)
-    road:SetPoint("TOPRIGHT", banner, "BOTTOMRIGHT", -PT.roadFrameOut, -PT.roadGap)
+    -- Its gilded frame lines up with the Next up plate's left edge and the Tracked plate's right
+    -- edge below it (owner, 2026-11-14): inset like the plates (S.s4), plus the frame's overhang.
+    road:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", S.s4 + PT.roadFrameOut, -PT.roadGap)
+    road:SetPoint("TOPRIGHT", banner, "BOTTOMRIGHT", -(S.s4 + PT.roadFrameOut), -PT.roadGap)
     road:SetHeight(PT.road)
     road.paper = T.Solid(road, "classParchment", "BACKGROUND", 0.92)
     road.paper:SetAllPoints()
@@ -595,7 +597,7 @@ local function build(parent)
 
     -- Next up | Tracked, each scrolling on its own.
     local cols = CreateFrame("Frame", nil, journey)
-    cols:SetPoint("TOPLEFT", road, "BOTTOMLEFT", -PT.roadFrameOut, -(PT.roadFrameOut + S.s3))
+    cols:SetPoint("TOPLEFT", road, "BOTTOMLEFT", -(S.s4 + PT.roadFrameOut), -(PT.roadFrameOut + S.s3))
     cols:SetPoint("BOTTOMRIGHT", journey, "BOTTOMRIGHT", 0, S.s1)
     local function column(title)
         local c = CreateFrame("Frame", nil, cols)
