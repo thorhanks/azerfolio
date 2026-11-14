@@ -575,6 +575,7 @@ Theme.layout.profTab = {
     recipeSkill = 64,    -- "learn 40" / "until 60" / "grey"
     recipeState = 72,    -- "Learn now" / ✓ / "from 55"
     detailLine = 34,     -- a source or an ingredient line (text and a sub line)
+    detailLinePad = 4,   -- such a line's text from its top edge
     detailLeft = 64,     -- "4 / 1" or the source tag
     gatherRow = 40,
     tones = {            -- banner stand-in tints (top, bottom) until the painted banners exist

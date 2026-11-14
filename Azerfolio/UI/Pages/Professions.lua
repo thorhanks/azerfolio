@@ -391,12 +391,25 @@ local function newDetailLine(parent)
     local T, PT, W, S = ns.Theme, ns.Theme.layout.profTab, ns.Widgets, ns.Theme.space
     local l = W.FocusRow(parent, PT.detailLine)
     l.left = T.Text(l, "xs", "text")
-    l.left:SetPoint("LEFT", l, "LEFT", S.s1, 0)
     l.left:SetWidth(PT.detailLeft); l.left:SetJustifyH("LEFT")
     l.text = T.Text(l, "xs", "white")
-    l.text:SetPoint("TOPLEFT", l.left, "TOPRIGHT", S.s1, 0)
-    l.text:SetPoint("RIGHT", l, "RIGHT", -S.s1, 0)
     l.text:SetJustifyH("LEFT"); l.text:SetWordWrap(false)
+    -- Anchored to the row, not to the label beside it: an empty label collapsed and the text
+    -- hung below the highlight; with a sub line the pair spilled past it (owner, 2026-11-14).
+    -- One line: centred on the row; with a sub line: from the row's top.
+    function l:Place(twoLines)
+        local x = S.s1 + PT.detailLeft + S.s1
+        self.left:ClearAllPoints(); self.text:ClearAllPoints()
+        if twoLines then
+            self.left:SetPoint("TOPLEFT", self, "TOPLEFT", S.s1, -PT.detailLinePad)
+            self.text:SetPoint("TOPLEFT", self, "TOPLEFT", x, -PT.detailLinePad)
+        else
+            self.left:SetPoint("LEFT", self, "LEFT", S.s1, 0)
+            self.text:SetPoint("LEFT", self, "LEFT", x, 0)
+        end
+        self.text:SetPoint("RIGHT", self, "RIGHT", -S.s1, 0)
+    end
+    l:Place(false)
     l.sub = T.Text(l, "xs", "dim")
     l.sub:SetPoint("TOPLEFT", l.text, "BOTTOMLEFT", 0, -1)
     l.sub:SetPoint("RIGHT", l, "RIGHT", -S.s1, 0)
@@ -1049,6 +1062,7 @@ local function build(parent)
             l:ClearAllPoints(); l:SetPoint("TOPLEFT", dc, "TOPLEFT", 0, -y); l:SetWidth(width)
             l.left:SetText(left or ""); l.text:SetText(text or ""); l.sub:SetText(sub or "")
             l.sub:SetShown(sub ~= nil)
+            l:Place(sub ~= nil)
             l:SetHeight(sub and PT.detailLine or 22)
             l.item = item
             item.frame = l; item.scroll = det.scroll; item.group = "detail"
