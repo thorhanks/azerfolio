@@ -188,6 +188,36 @@ local function isPlayerSpell(id)
     return v and true or false
 end
 
+-- The continent a map lies on (walking its parents to a Continent map), cached; nil when not known.
+local CONTINENT = (rawget(_G, "Enum") and Enum.UIMapType and Enum.UIMapType.Continent) or 2
+local continents = {}
+local function continentOf(mapID)
+    if type(mapID) ~= "number" then return nil end
+    if continents[mapID] ~= nil then return continents[mapID] or nil end
+    local id, found, guard = mapID, nil, 0
+    while type(id) == "number" and id > 0 and guard < 8 do
+        local info = C_Map and type(C_Map.GetMapInfo) == "function" and try("GetMapInfo", C_Map.GetMapInfo, id)
+        if type(info) ~= "table" then break end
+        if info.mapType == CONTINENT then found = id; break end
+        id, guard = info.parentMapID, guard + 1
+    end
+    continents[mapID] = found or false
+    return found
+end
+
+-- How near a trainer's zone is: 0 the zone you're in, 1 your continent, 2 elsewhere.
+local function nearness()
+    local here = ns.Exploration and ns.Exploration.CurrentZone and ns.Exploration.CurrentZone()
+    if not here and C_Map and type(C_Map.GetBestMapForUnit) == "function" then here = try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player") end
+    local hc = continentOf(here)
+    return function(mapID)
+        if not mapID then return 2 end
+        if mapID == here then return 0 end
+        if hc and continentOf(mapID) == hc then return 1 end
+        return 2
+    end
+end
+
 -- Everything the tab and the Overview panel show:
 --   { professions = { { model (ProfessionRules.Profession), status, stones, recipes (nil = window
 --       not read), recipesTime, trainerTime, gatherRows (nil = no gathering), nextUp, trainers
@@ -202,6 +232,7 @@ function Prof.Get()
     local sourcesReady = Src.State().status == "ready"
     local side = ns.character and ns.character.faction == "Horde" and "H" or (ns.character and ns.character.faction == "Alliance" and "A") or nil
     local p = store() or { windows = {}, trainers = {} }
+    local near = nearness()
     local list = {}
     for _, s in ipairs(Prof.Skills()) do
         local m = R.Profession(s)
@@ -226,7 +257,7 @@ function Prof.Get()
             for _, r in ipairs(recipes.list) do r.item = output[r.id] end
         end
         if m.next and sourcesReady then
-            m.trainers = R.TrainersFor(Src.Trainers(s.skillLine), m.next.name, side, ns.ZoneData and ns.ZoneData.faction)
+            m.trainers = R.TrainersFor(Src.Trainers(s.skillLine), m.next.name, side, ns.ZoneData and ns.ZoneData.faction, near)
         end
         local gather
         if m.gather then gather = R.Gather(m.gather, m.skill, ns.ZoneData and ns.ZoneData.levels) end
@@ -342,10 +373,18 @@ function Prof.Reagents(recipeID, m)
     local s = schematic(recipeID)
     if not s then return nil end
     local R = ns.ProfessionRules
+    -- "Craft it": a recipe of any of your professions that makes the reagent (Copper Bar is
+    -- Mining's Smelt Copper, WoWScrnShot_111426_122953); this profession's own recipes first.
     local craftedBy, have, sources = {}, {}, {}
-    for _, r in ipairs(m and m.recipes and m.recipes.list or {}) do
-        if r.item and r.id ~= recipeID then craftedBy[r.item] = r end
+    local function add(prof)
+        for _, r in ipairs(prof and prof.recipes and prof.recipes.list or {}) do
+            if r.item and r.id ~= recipeID and not craftedBy[r.item] then
+                craftedBy[r.item] = (prof == m) and r or { id = r.id, name = r.name, known = r.known, prof = prof.name }
+            end
+        end
     end
+    add(m)
+    for _, other in ipairs(cache and cache.professions or {}) do if other ~= m and other.skillLine ~= (m and m.skillLine) then add(other) end end
     local reagents = {}
     for i, g in ipairs(s.reagents) do
         reagents[i] = { itemID = g.itemID, need = g.need, name = itemName(g.itemID) }
@@ -478,6 +517,8 @@ ns.Events.Register("SKILL_LINES_CHANGED", function() changed("skill") end)
 ns.Events.Register("NEW_RECIPE_LEARNED", function() changed("learned") end)
 ns.Events.On("AZF_REFRESH_REQUESTED", function() changed("refresh") end)
 ns.Events.On("AZF_PROFESSION_SOURCES", function() changed("sources") end)
+-- The nearest trainers depend on where you are.
+ns.Events.Register("ZONE_CHANGED_NEW_AREA", function() changed("zone") end)
 -- An item name we asked for has arrived.
 ns.Events.Register("GET_ITEM_INFO_RECEIVED", function(itemID)
     if waitingItems[itemID] then

@@ -215,7 +215,9 @@ local function professionSteps()
         UI.SelectTab("professions")
         local p = profPage()
         if not p then return nil end
-        if p.mode == "page" then p:Back() end
+        -- Back to the rail (a recipe's detail needs two B: detail -> list -> rail).
+        local guard = 0
+        while p.mode == "page" and guard < 3 do p:Back(); guard = guard + 1 end
         if p.view ~= "journey" then p:SetView("journey") end
         if line then ns.Focus.FocusKey("p:" .. line); UI.RefreshHints() end
         return p
@@ -227,6 +229,22 @@ local function professionSteps()
         { label = "professions, the road", fn = function() local p = open(first); if p then p:EnterPage() end end },
         { label = "professions, next up", fn = function() ns.Focus.Jump(1); UI.RefreshHints() end },
     }
+    -- Recipes and the focused recipe's detail on the first profession that has a read window,
+    -- then Gather on the first gathering profession.
+    local withRecipes, gatherer
+    for _, m in ipairs(list) do
+        if not withRecipes and m.recipes then withRecipes = m end
+        if not gatherer and m.gather then gatherer = m end
+    end
+    if withRecipes then
+        out[#out + 1] = { label = "professions, recipes", fn = function()
+            local p = open(withRecipes.skillLine); if p then p:SetView("recipes"); p:EnterPage() end end }
+        out[#out + 1] = { label = "professions, recipe detail", fn = function() local p = profPage(); if p then p:EnterDetail() end end }
+    end
+    if gatherer then
+        out[#out + 1] = { label = "professions, gather", fn = function()
+            local p = open(gatherer.skillLine); if p then p:SetView("gather"); p:EnterPage() end end }
+    end
     for i = 2, #list do
         local m = list[i]
         out[#out + 1] = { label = "professions, " .. m.name, fn = function() open(m.skillLine) end }
@@ -386,6 +404,7 @@ function UI.RunShots(which)
         local cp = UI.GetFrame().pages.class
         if cp and cp.mode == "steps" then cp:Back() end
         local pp = UI.GetFrame().pages.professions
+        if pp and pp.mode == "page" then pp:Back() end
         if pp and pp.mode == "page" then pp:Back() end
         if UI.shotsOpenedDetail then
             UI.SelectTab("zones")

@@ -76,7 +76,10 @@ end
 -- Where to get an ingredient (ProfessionRules.ReagentSource), in words.
 local function whereText(w)
     if not w then return "Where to get it isn't known" end
-    if w.kind == "craft" then return "Craft it: " .. w.recipe.name .. (w.recipe.known and "" or " (not known yet)") end
+    if w.kind == "craft" then
+        return "Craft it: " .. w.recipe.name .. (w.recipe.prof and (" (" .. w.recipe.prof .. ")") or "")
+            .. (w.recipe.known and "" or " (not known yet)")
+    end
     if w.kind == "gather" then return "Gather: " .. w.node.name .. (w.node.skill and (" (from " .. w.node.skill .. ")") or "") end
     if w.kind == "vendor" then
         local v = w.vendor
@@ -85,6 +88,53 @@ local function whereText(w)
     end
     if w.kind == "drop" then return "Drops from " .. w.n .. " " .. plural(w.n, "creature") end
     return "Where to get it isn't known"
+end
+
+-- Recipes view words ------------------------------------------------------------------------
+
+local FILTER_LABEL = { foryou = "For you now", all = "All", known = "Known", now = "Learn now", later = "Later", nosource = "No known source" }
+local FILTER_INFO = {
+    foryou = "What you can learn now, what still gives you skill, and what opens in the next 25 skill points.",
+    all = "Every recipe with a known source (and the ones you know).",
+    known = "Recipes you know.",
+    now = "Recipes a trainer you've visited teaches at your skill.",
+    later = "Recipes with a known source you can't learn yet, or whose skill to learn isn't known.",
+    nosource = "Recipes the game lists that no trainer you've visited or recipe item is known to teach (Season of Discovery too). Not counted.",
+}
+local SOURCE_TAG = { trainer = "Trainer", vendor = "Vendor", drop = "Drop", object = "Container", quest = "Quest", item = "Item" }
+
+-- One source of a recipe, in words.
+local function sourceText(s)
+    if s.kind == "trainer" then return "Trainer · skill " .. s.skill end
+    if s.kind == "vendor" then
+        local place = s.place or (s.maps and zoneName(s.maps[1]))
+        return "Vendor · " .. tostring(s.npc) .. (place and (", " .. place) or "")
+    end
+    if s.kind == "drop" then
+        local z = zonesText(s.maps, 2)
+        return "Drop · " .. s.n .. " " .. plural(s.n, "creature") .. (z ~= "" and (", " .. z) or "")
+    end
+    if s.kind == "object" then return "Found in " .. (s.n == 1 and "a container" or (s.n .. " containers")) end
+    if s.kind == "quest" then return "Quest reward" .. ((s.n or 1) > 1 and (" · " .. s.n .. " quests") or "") end
+    return "Recipe item · where it drops isn't known"
+end
+
+-- "learn 40" / "until 60" / "grey" / "grey 100", for a list row.
+local function recipeSkillText(r, skill)
+    if r.known then return r.givesSkill and ("until " .. r.grey) or "grey" end
+    if r.learnAt then return "learn " .. r.learnAt end
+    return r.grey and ("grey " .. r.grey) or ""
+end
+
+local function recipeStateText(r)
+    if r.state == "known" then return "Known", "complete" end
+    if r.state == "now" then return "You can learn it now", "profGo" end
+    if r.state == "later" then
+        if r.learnAt then return "Learn at skill " .. r.learnAt, "text" end
+        return "Not yet: the skill to learn it isn't known", "dim"
+    end
+    if r.sod then return "In the game's Season of Discovery list; may not be offered on Forever", "dim" end
+    return "No trainer you've visited or recipe item is known to teach it", "dim"
 end
 
 -- Next up (ProfessionRules.NextUp) in words: title, sub line, colour, action.
@@ -260,6 +310,73 @@ local function newTrackCard(parent)
     return c
 end
 
+-- A recipe row (one line): source tag, name (with Tracked), skill text, state.
+local function newRecipeRow(parent)
+    local T, PT, W, S = ns.Theme, ns.Theme.layout.profTab, ns.Widgets, ns.Theme.space
+    local r = W.FocusRow(parent, PT.recipeRow)
+    r.src = T.Text(r, "xs", "dim")
+    r.src:SetPoint("LEFT", r, "LEFT", S.s1, 0)
+    r.src:SetWidth(PT.recipeSrc); r.src:SetJustifyH("LEFT")
+    r.state = T.Text(r, "xs", "profGo")
+    r.state:SetPoint("RIGHT", r, "RIGHT", -S.s2, 0)
+    r.state:SetWidth(PT.recipeState); r.state:SetJustifyH("RIGHT")
+    r.check = r:CreateTexture(nil, "ARTWORK")
+    r.check:SetTexture(T.files.checkDone)
+    r.check:SetSize(16, 16)
+    r.check:SetPoint("RIGHT", r, "RIGHT", -S.s2, 0)
+    r.check:SetVertexColor(T.RGB("complete"))
+    r.skill = T.Text(r, "xs", "dim")
+    r.skill:SetPoint("RIGHT", r.state, "LEFT", -S.s2, 0)
+    r.skill:SetWidth(PT.recipeSkill); r.skill:SetJustifyH("RIGHT")
+    r.name = T.Text(r, "sm", "white")
+    r.name:SetPoint("LEFT", r.src, "RIGHT", S.s1, 0)
+    r.name:SetPoint("RIGHT", r.skill, "LEFT", -S.s2, 0)
+    r.name:SetJustifyH("LEFT"); r.name:SetWordWrap(false)
+    r:SetScript("OnClick", function(self) if self.onClick then self.onClick() end end)
+    return r
+end
+
+-- A line in the recipe detail: a label column and text (sources, ingredients). Focusable.
+local function newDetailLine(parent)
+    local T, PT, W, S = ns.Theme, ns.Theme.layout.profTab, ns.Widgets, ns.Theme.space
+    local l = W.FocusRow(parent, PT.detailLine)
+    l.left = T.Text(l, "xs", "text")
+    l.left:SetPoint("LEFT", l, "LEFT", S.s1, 0)
+    l.left:SetWidth(PT.detailLeft); l.left:SetJustifyH("LEFT")
+    l.text = T.Text(l, "xs", "white")
+    l.text:SetPoint("TOPLEFT", l.left, "TOPRIGHT", S.s1, 0)
+    l.text:SetPoint("RIGHT", l, "RIGHT", -S.s1, 0)
+    l.text:SetJustifyH("LEFT"); l.text:SetWordWrap(false)
+    l.sub = T.Text(l, "xs", "dim")
+    l.sub:SetPoint("TOPLEFT", l.text, "BOTTOMLEFT", 0, -1)
+    l.sub:SetPoint("RIGHT", l, "RIGHT", -S.s1, 0)
+    l.sub:SetJustifyH("LEFT"); l.sub:SetWordWrap(false)
+    l:SetScript("OnClick", function(self) if self.onClick then self.onClick() end end)
+    return l
+end
+
+-- A Gather row: name (and zones), "from 65" / "grey", the state.
+local function newGatherRow(parent)
+    local T, PT, W, S = ns.Theme, ns.Theme.layout.profTab, ns.Widgets, ns.Theme.space
+    local r = W.FocusRow(parent, PT.gatherRow)
+    r.state = T.Text(r, "xs", "profGo")
+    r.state:SetPoint("RIGHT", r, "RIGHT", -S.s2, 0)
+    r.state:SetWidth(PT.recipeState + 20); r.state:SetJustifyH("RIGHT")
+    r.skill = T.Text(r, "xs", "dim")
+    r.skill:SetPoint("RIGHT", r.state, "LEFT", -S.s2, 0)
+    -- "from 150" wrapped at the recipe list's width (WoWScrnShot_111426_123336).
+    r.skill:SetWidth(PT.recipeSkill + 20); r.skill:SetJustifyH("RIGHT"); r.skill:SetWordWrap(false)
+    r.name = T.Text(r, "sm", "white")
+    r.name:SetPoint("TOPLEFT", r, "TOPLEFT", S.s2, -4)
+    r.name:SetPoint("RIGHT", r.skill, "LEFT", -S.s2, 0)
+    r.name:SetJustifyH("LEFT"); r.name:SetWordWrap(false)
+    r.zones = T.Text(r, "xs", "dim")
+    r.zones:SetPoint("TOPLEFT", r.name, "BOTTOMLEFT", 0, -2)
+    r.zones:SetPoint("RIGHT", r.skill, "LEFT", -S.s2, 0)
+    r.zones:SetJustifyH("LEFT"); r.zones:SetWordWrap(false)
+    return r
+end
+
 ---------------------------------------------------------------------------------------------
 -- The page
 ---------------------------------------------------------------------------------------------
@@ -432,12 +549,66 @@ local function build(parent)
     cols:SetScript("OnSizeChanged", function(self, w) page.nextCol:SetWidth(math.max(1, (w or 0) / 2)) end)
     page.journey = journey
 
-    -- Recipes and Gather: step 7. Until then, a plain note in their place.
-    local other = CreateFrame("Frame", nil, body)
-    other:SetAllPoints()
-    other.text = T.Text(other, "md", "dim")
-    other.text:SetPoint("TOP", 0, -80)
-    page.other = other
+    -- Recipes: the toolbar (filter chips with counts, the summary), then the list (left) and
+    -- the focused recipe (right, PT.detail wide), like the Class tab's road and stop.
+    local recipes = CreateFrame("Frame", nil, body)
+    recipes:SetAllPoints()
+    local tb = CreateFrame("Frame", nil, recipes)
+    tb:SetPoint("TOPLEFT"); tb:SetPoint("TOPRIGHT"); tb:SetHeight(PT.toolbar)
+    T.Solid(tb, "black", "BACKGROUND", 0.28):SetAllPoints()
+    page.chips = {}
+    for _, f in ipairs(ns.ProfessionRules.FILTERS) do
+        local b = W.Control(tb)
+        b.filter = f
+        b:SetScript("OnClick", function() page:SetFilter(f) end)
+        page.chips[#page.chips + 1] = b
+    end
+    page.recSum = T.Text(tb, "xs", "dim")
+    page.recSum:SetPoint("RIGHT", tb, "RIGHT", -S.s4, 0)
+    local det = CreateFrame("Frame", nil, recipes)
+    det:SetPoint("TOPRIGHT", tb, "BOTTOMRIGHT"); det:SetPoint("BOTTOMRIGHT")
+    det:SetWidth(PT.detail)
+    T.Solid(det, "black", "BACKGROUND", 0.22):SetAllPoints()
+    local dedge = T.Solid(det, "divider", "BORDER")
+    dedge:SetPoint("TOPLEFT"); dedge:SetPoint("BOTTOMLEFT"); dedge:SetWidth(1)
+    det.scroll = W.Scroll(det)
+    det.scroll:SetPoint("TOPLEFT", S.s4, -S.s3); det.scroll:SetPoint("BOTTOMRIGHT", -S.s3, S.s2)
+    local dc = det.scroll.child
+    det.name = T.Text(dc, "lg", "gold")
+    det.name:SetPoint("TOPLEFT"); det.name:SetPoint("RIGHT", dc, "RIGHT", -S.s4, 0)
+    det.name:SetJustifyH("LEFT")
+    det.state = T.Text(dc, "sm", "text")
+    det.state:SetPoint("TOPLEFT", det.name, "BOTTOMLEFT", 0, -S.s1); det.state:SetPoint("RIGHT", dc, "RIGHT", -S.s2, 0)
+    det.state:SetJustifyH("LEFT")
+    det.tracked = T.Text(dc, "xs", "profTracked")
+    det.facts = T.Text(dc, "xs", "dim")
+    det.facts:SetJustifyH("LEFT")
+    det.howH = T.Text(dc, "sm", "gold"); det.howH:SetText("How to get it")
+    det.ingH = T.Text(dc, "sm", "gold")
+    det.note = T.Text(dc, "xs", "dim"); det.note:SetJustifyH("LEFT")
+    det.track = W.Control(dc)
+    det.track:SetScript("OnClick", function() page:ToggleTrack(page.recipeSel) end)
+    det.lines = {}
+    page.det = det
+    local rlist = CreateFrame("Frame", nil, recipes)
+    rlist:SetPoint("TOPLEFT", tb, "BOTTOMLEFT"); rlist:SetPoint("BOTTOMRIGHT", det, "BOTTOMLEFT")
+    rlist.scroll = W.Scroll(rlist)
+    rlist.scroll:SetPoint("TOPLEFT", 0, -S.s2); rlist.scroll:SetPoint("BOTTOMRIGHT", -S.s2, S.s2)
+    rlist.note = T.Text(rlist.scroll.child, "sm", "dim")
+    rlist.note:SetJustifyH("LEFT")
+    page.rlist = rlist
+    page.recipeRows, page.recHeaders, page.detailLines, page.gatherRows = {}, {}, {}, {}
+    page.recipes = recipes
+
+    -- Gather: the hand-curated node table (Mining, Herbalism, Skinning; Fishing's brackets).
+    local gather = CreateFrame("Frame", nil, body)
+    gather:SetAllPoints()
+    gather.scroll = W.Scroll(gather)
+    gather.scroll:SetPoint("TOPLEFT", 0, -S.s2); gather.scroll:SetPoint("BOTTOMRIGHT", -S.s2, S.s2)
+    gather.head = W.Header(gather.scroll.child)
+    gather.foot = T.Text(gather.scroll.child, "xs", "dim")
+    gather.foot:SetJustifyH("LEFT")
+    page.gather = gather
 
     -- No professions yet.
     local empty = CreateFrame("Frame", nil, page)
@@ -698,8 +869,237 @@ local function build(parent)
         return items
     end
 
+    -- The focused recipe on the right. Returns its focus items (the sources, the ingredients,
+    -- the Track button), the "detail" column.
+    local function paintDetail(m, r)
+        local det = page.det
+        local dc = det.scroll.child
+        page.used.detailLines = 0
+        for _, l in ipairs(page.detailLines) do l:Hide() end
+        local items = {}
+        det.name:SetShown(r ~= nil); det.state:SetShown(r ~= nil); det.facts:SetShown(r ~= nil)
+        det.howH:SetShown(r ~= nil); det.ingH:SetShown(r ~= nil); det.track:SetShown(r ~= nil); det.tracked:SetShown(false)
+        det.note:SetShown(r == nil)
+        if not r then
+            det.note:ClearAllPoints(); det.note:SetPoint("TOPLEFT"); det.note:SetPoint("RIGHT", dc, "RIGHT", -S.s2, 0)
+            det.note:SetText("Choose a recipe.")
+            dc:SetHeight(40)
+            return items
+        end
+        local width = math.max(1, (dc:GetWidth() or PT.detail) - S.s2)
+        det.name:SetText(r.name)
+        local st, color = recipeStateText(r)
+        det.state:SetText(st); det.state:SetTextColor(T.RGB(color))
+        det.tracked:SetShown(r.tracked)
+        det.tracked:SetText("Tracked")
+        det.tracked:ClearAllPoints(); det.tracked:SetPoint("TOPLEFT", det.state, "BOTTOMLEFT", 0, -S.s1)
+        det.facts:ClearAllPoints()
+        det.facts:SetPoint("TOPLEFT", r.tracked and det.tracked or det.state, "BOTTOMLEFT", 0, -S.s2)
+        det.facts:SetPoint("RIGHT", dc, "RIGHT", -S.s2, 0)
+        det.facts:SetText(string.format("Learn at |cffffffff%s|r   ·   Gives skill until |cffffffff%s|r%s   ·   %s",
+            r.learnAt and tostring(r.learnAt) or "?", r.grey and tostring(r.grey) or "?",
+            (r.grey and m.skill and m.skill >= r.grey) and " (grey)" or "", r.categoryName or "No category"))
+        local y = (det.name:GetStringHeight() or 20) + (det.state:GetStringHeight() or 14) + (r.tracked and 18 or 0)
+            + (det.facts:GetStringHeight() or 14) + S.s4 + S.s3
+        local function line(left, text, sub, item)
+            local l = take("detailLines", newDetailLine, dc)
+            l:ClearAllPoints(); l:SetPoint("TOPLEFT", dc, "TOPLEFT", 0, -y); l:SetWidth(width)
+            l.left:SetText(left or ""); l.text:SetText(text or ""); l.sub:SetText(sub or "")
+            l.sub:SetShown(sub ~= nil)
+            l:SetHeight(sub and PT.detailLine or 22)
+            l.item = item
+            item.frame = l; item.scroll = det.scroll; item.group = "detail"
+            items[#items + 1] = item
+            y = y + (sub and PT.detailLine or 22) + 2
+            return l
+        end
+        det.howH:ClearAllPoints(); det.howH:SetPoint("TOPLEFT", dc, "TOPLEFT", 0, -y)
+        y = y + 22
+        if #r.sources == 0 then
+            line("", r.known and "Known · where it's taught isn't recorded" or (r.sod and "Season of Discovery" or "No known source"), nil,
+                { key = "src:none", title = "How to get it", detail = select(1, recipeStateText(r)) .. "." })
+        end
+        for i, s in ipairs(r.sources) do
+            local text = sourceText(s)
+            line(SOURCE_TAG[s.kind] or "", text, nil, { key = "src:" .. i, title = r.name, detail = text .. "." })
+        end
+        y = y + S.s2
+        local rg = ns.Professions.Reagents(r.id, m)
+        local sum = rg and (rg.ready and "you have everything for one" or (rg.missing > 0 and ("missing " .. rg.missing))
+            or (rg.unknown and "counts not known yet") or "") or "not known"
+        det.ingH:ClearAllPoints(); det.ingH:SetPoint("TOPLEFT", dc, "TOPLEFT", 0, -y)
+        det.ingH:SetText("Ingredients  |cffb5a891" .. sum .. "|r")
+        y = y + 22
+        for i, it in ipairs(rg and rg.items or {}) do
+            local have = it.have == nil and "?" or tostring(it.have)
+            local l = line(have .. " / " .. it.need, it.name or ("Item " .. it.itemID), whereText(it.where),
+                { key = "ing:" .. i, title = it.name or ("Item " .. it.itemID),
+                  detail = string.format("You have %s, it needs %d. %s.", have, it.need, whereText(it.where)) })
+            l.left:SetTextColor(T.RGB(it.ok and "profReady" or (it.have ~= nil and "profShort" or "dim")))
+        end
+        if not rg then
+            line("", "The game gives no ingredients for it.", nil, { key = "ing:none", title = "Ingredients", detail = "The game gives no ingredients for this recipe." })
+        end
+        y = y + S.s3
+        det.track:ClearAllPoints(); det.track:SetPoint("TOPLEFT", dc, "TOPLEFT", 0, -y)
+        det.track:SetLabel(r.tracked and "X  Stop tracking" or "X  Track in the objective tracker")
+        local trackItem = { key = "track", frame = det.track, title = r.tracked and "Stop tracking" or "Track",
+            detail = "The game's own recipe tracking: it shows in the objective tracker with what you carry.",
+            scroll = det.scroll, group = "detail", actionLabel = r.tracked and "Stop tracking" or "Track",
+            onActivate = function() page:ToggleTrack(r.id) end }
+        det.track.item = trackItem
+        items[#items + 1] = trackItem
+        y = y + L.controlHeight + S.s4
+        dc:SetHeight(math.max(1, y))
+        return items
+    end
+
+    -- The list in levelling order, under rank headers ("Apprentice · skill 1-75 · 6 of 22
+    -- known"). Returns the focus rows (the chips first, then one per recipe).
+    local BANDS = { { 0, 75, "Apprentice", "1-75" }, { 75, 150, "Journeyman", "75-150" }, { 150, 225, "Expert", "150-225" },
+        { 225, 1e9, "Artisan", "225-300" } }
+    local function paintRecipes(m)
+        local rec = m.recipes
+        local rows = {}
+        -- Chips with counts.
+        local x = S.s4
+        local chipItems = {}
+        for _, b in ipairs(page.chips) do
+            local f = b.filter
+            local n = rec and (f == "foryou" and rec.counts.foryou or f == "all" and rec.counts.all or rec.counts[f]) or 0
+            b:SetLabel(FILTER_LABEL[f] .. "  " .. n, L.controlPadTight)
+            b:ClearAllPoints(); b:SetPoint("LEFT", tb, "LEFT", x, 0)
+            b:SetOn(page.filter == f)
+            x = x + b:GetWidth() + S.s1
+            b.item = { key = "chip:" .. f, frame = b, title = FILTER_LABEL[f], detail = FILTER_INFO[f], actionLabel = "Show",
+                onActivate = function() page:SetFilter(f) end }
+            chipItems[#chipItems + 1] = b.item
+        end
+        page.recSum:SetText(rec and string.format("|cffffffff%d|r known · |cffffffff%d|r with a known source%s", rec.counts.known, rec.counts.all,
+            rec.counts.nosource > 0 and (" · " .. rec.counts.nosource .. " not counted") or "") or "")
+        local child = page.rlist.scroll.child
+        local width = math.max(1, (child:GetWidth() or 400) - L.listInset - S.s2)
+        local y = S.s1
+        local note = page.rlist.note
+        note:Hide()
+        if not rec then
+            note:ClearAllPoints(); note:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -S.s6); note:SetWidth(width)
+            note:SetText("Open your " .. m.name .. " window once (from your spellbook) and Azerfolio reads every recipe from it, with its ingredients.")
+            note:Show()
+            child:SetHeight(120)
+            page.recipeSel = nil
+            return { { items = chipItems, section = 1 } }, nil
+        end
+        local shown = ns.ProfessionRules.Filter(rec, page.filter, m.skill)
+        local first, selRow
+        local section = 1
+        rows[#rows + 1] = { items = chipItems, section = 1 }
+        for _, band in ipairs(BANDS) do
+            local list, known = {}, 0
+            for _, r in ipairs(shown) do
+                local o = r.order == math.huge and 1e8 or r.order
+                if o >= band[1] and o < band[2] then list[#list + 1] = r; if r.known then known = known + 1 end end
+            end
+            if #list > 0 then
+                section = section + 1
+                local h = take("recHeaders", W.Header, child)
+                h:ClearAllPoints()
+                h:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y); h:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s2, -y)
+                h.text:SetText(band[3]); h.count:SetText("skill " .. band[4] .. " · " .. known .. " of " .. #list .. " known")
+                y = y + L.listHeader + S.s1
+                for _, r in ipairs(list) do
+                    local row = take("recipeRows", newRecipeRow, child)
+                    row:ClearAllPoints(); row:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y); row:SetWidth(width)
+                    row.src:SetText(SOURCE_TAG[r.sources[1] and r.sources[1].kind or ""] or "")
+                    row.name:SetText(r.name .. (r.tracked and "  |cff6fa8ffTracked|r" or ""))
+                    row.name:SetTextColor(T.RGB(r.state == "nosource" and "dim" or "white"))
+                    row.skill:SetText(recipeSkillText(r, m.skill))
+                    row.check:SetShown(r.state == "known")
+                    row.state:SetShown(r.state ~= "known")
+                    row.state:SetText(r.state == "now" and "Learn now" or (r.state == "later" and r.learnAt and ("from " .. r.learnAt)) or "")
+                    row.state:SetTextColor(T.RGB(r.state == "now" and "profGo" or "dim"))
+                    row:SetSelected(r.id == page.recipeSel)
+                    local id = r.id
+                    local st = recipeStateText(r)
+                    row.item = { key = "r:" .. id, frame = row, title = r.name, recipe = r, scroll = page.rlist.scroll,
+                        topGap = L.listHeader + S.s2, group = "list", column = 1,
+                        detail = st .. ". X " .. (r.tracked and "stops tracking it." or "tracks it in the game's objective tracker."),
+                        actionLabel = "Details", onActivate = function() page:EnterDetail() end }
+                    row.onClick = function() page:SelectRecipe(id) end
+                    rows[#rows + 1] = { items = { row.item }, section = section }
+                    if not first then first = r end
+                    if r.id == page.recipeSel then selRow = r end
+                    y = y + PT.recipeRow
+                end
+                y = y + S.s2
+            end
+        end
+        if #shown == 0 then
+            note:ClearAllPoints(); note:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -S.s6); note:SetWidth(width)
+            note:SetText("None here.")
+            note:Show()
+            y = y + 60
+        end
+        -- Without a trainer's list, item-taught recipes are all there is to go on: say so.
+        if not m.trainerTime and rec.counts.nosource > 0 then
+            note:ClearAllPoints(); note:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y - S.s2); note:SetWidth(width)
+            note:SetText("You haven't opened a " .. m.name .. " trainer's list yet: visiting one shows which recipes it teaches and the skill each needs.")
+            note:Show()
+            y = y + 50
+        end
+        child:SetHeight(math.max(1, y))
+        if not selRow then page.recipeSel = first and first.id or nil; selRow = first end
+        for _, row in ipairs(page.recipeRows) do if row:IsShown() then row:SetSelected(row.item and row.item.recipe and row.item.recipe.id == page.recipeSel) end end
+        return rows, selRow
+    end
+
+    local function paintGather(m)
+        local g = m.gatherRows
+        local child = page.gather.scroll.child
+        local width = math.max(1, (child:GetWidth() or 600) - L.listInset - S.s2)
+        local head = page.gather.head
+        head:ClearAllPoints(); head:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -S.s1); head:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s2, -S.s1)
+        head.text:SetText(g and g.fishing and "Where to fish" or "Where to gather")
+        head.count:SetText("a guide, not game data · your skill " .. tostring(m.skill or "?"))
+        local y = L.listHeader + S.s2
+        local rows = {}
+        for i, row in ipairs(g and g.rows or {}) do
+            local r = take("gatherRows", newGatherRow, child)
+            r:ClearAllPoints(); r:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y); r:SetWidth(width)
+            local name = row.name or zoneName(row.mapID) or ("Zone " .. tostring(row.mapID))
+            local zones = row.name and zonesText(row.zones, 6) or ""
+            if row.name and zones == "" then zones = "Where it grows isn't in the guides" end
+            r.name:SetText(name); r.zones:SetText(zones)
+            local skillTxt = row.from == nil and "skill ?" or (row.state == "grey" and "grey" or ("from " .. row.from))
+            r.skill:SetText(skillTxt)
+            local stateTxt = row.state == "gives" and "Gives skill" or row.state == "later" and (row.togo .. " to go")
+                or row.state == "current" and "Your skill" or row.state == "unknown" and "Not known" or ""
+            r.state:SetText(stateTxt)
+            r.state:SetTextColor(T.RGB((row.state == "gives" or row.state == "current") and "profReady" or "dim"))
+            r.name:SetTextColor(T.RGB(row.state == "grey" and "dim" or "white"))
+            local alt = row.alt and #row.alt > 0 and (" Other guides say " .. table.concat(row.alt, " or ") .. ".") or ""
+            local detail
+            if g.fishing then detail = "Good places to fish from skill " .. row.from .. ". " .. zonesText(row.zones, 8) .. "."
+            elseif row.from == nil then detail = "The skill it needs isn't known yet (Forever-only)." .. alt
+            else
+                detail = "Needs skill " .. row.from .. (row.greyAt and ("; gives skill until " .. row.greyAt) or "") .. "." .. alt
+                    .. (zones ~= "" and (" " .. zones .. ".") or "")
+            end
+            r.item = { key = "g:" .. i, frame = r, title = name, detail = detail, scroll = page.gather.scroll, topGap = L.listHeader + S.s2 }
+            rows[#rows + 1] = { items = { r.item }, section = 1 }
+            y = y + PT.gatherRow
+        end
+        local foot = page.gather.foot
+        foot:ClearAllPoints(); foot:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y - S.s3); foot:SetWidth(width)
+        foot:SetText(m.gather == "skinning"
+            and "From the zone level guide and a Classic rule (the skill a creature of each level needs); the game doesn't list it."
+            or "A hand-curated guide from Classic and Forever profession guides; the game doesn't list where nodes grow or fish bite. Skills in doubt are open check G1.")
+        child:SetHeight(y + 70)
+        return rows
+    end
+
     local function hideUnused()
-        for _, list in ipairs({ "railRows", "nextRows", "cards" }) do
+        for _, list in ipairs({ "railRows", "nextRows", "cards", "recipeRows", "recHeaders", "gatherRows" }) do
             for i = (page.used[list] or 0) + 1, #page[list] do page[list][i]:Hide() end
         end
     end
@@ -752,7 +1152,8 @@ local function build(parent)
         self.railFocus = paintRail(list)
         local pageRows = {}
         journey:SetShown(self.view == "journey")
-        other:SetShown(self.view ~= "journey")
+        recipes:SetShown(self.view == "recipes")
+        gather:SetShown(self.view == "gather")
         if self.view == "journey" then
             sizeBanner()
             paintBanner(m)
@@ -766,8 +1167,14 @@ local function build(parent)
                 if tracks[i] then its[#its + 1] = tracks[i] end
                 pageRows[#pageRows + 1] = { items = its, section = 2 }
             end
+        elseif self.view == "recipes" then
+            local rows, sel = paintRecipes(m)
+            pageRows = rows
+            self.detailFocus = paintDetail(m, sel)
+            self.selRecipe = sel
+            if self.recipeFocus == "detail" and #self.detailFocus == 0 then self.recipeFocus = "list" end
         else
-            other.text:SetText(VIEW_LABEL[self.view] .. " comes in the next step.")
+            pageRows = paintGather(m)
         end
         hideUnused()
         self.pageFocus = pageRows
@@ -784,12 +1191,18 @@ local function build(parent)
         ns.UI.RefreshHints()
     end
 
+    -- In Recipes, focus is in the list or in the focused recipe's detail (A / B).
     function page:GetFocusRows()
-        if self.mode == "page" then return self.pageFocus or {} end
-        return self.railFocus or {}
+        if self.mode ~= "page" then return self.railFocus or {} end
+        if self.view == "recipes" and self.recipeFocus == "detail" then
+            local rows = {}
+            for _, it in ipairs(self.detailFocus or {}) do rows[#rows + 1] = { items = { it }, section = 1 } end
+            return rows
+        end
+        return self.pageFocus or {}
     end
 
-    -- Focus on the rail moves the page with it.
+    -- Focus on the rail moves the page with it; focus on a recipe moves the detail with it.
     function page:OnFocusChanged(item)
         if self.mode == "rail" and item and item.prof and item.prof ~= self.sel then
             self.sel = item.prof
@@ -797,6 +1210,14 @@ local function build(parent)
             local ok, err = pcall(self.Redraw, self)
             self.followingFocus = false
             if not ok then ns.Debug.Error("professions focus", err) end
+        elseif self.mode == "page" and self.view == "recipes" and item and item.recipe and item.recipe.id ~= self.recipeSel then
+            self.recipeSel = item.recipe.id
+            local m = selected()
+            if m then self.detailFocus = paintDetail(m, item.recipe); self.selRecipe = item.recipe end
+            for _, row in ipairs(self.recipeRows) do
+                if row:IsShown() then row:SetSelected(row.item and row.item.recipe and row.item.recipe.id == self.recipeSel) end
+            end
+            page.det.scroll:SetVerticalScroll(0)
         end
     end
 
@@ -806,18 +1227,24 @@ local function build(parent)
         self:Redraw()
     end
 
-    -- A on a rail entry: into the page (the first focus stop of the view).
+    -- The view's first focus stop: the first recipe in Recipes (the chips are one up), else the first.
+    local function firstKey()
+        local rows = page.pageFocus or {}
+        if page.view == "recipes" and rows[2] then return rows[2].items[1].key end
+        return rows[1] and rows[1].items[1] and rows[1].items[1].key
+    end
+
+    -- A on a rail entry: into the page.
     function page:EnterPage()
-        local rows = self.pageFocus or {}
-        local first = rows[1] and rows[1].items[1]
-        if not first then return end
+        local key = firstKey()
+        if not key then return end
         self.mode = "page"
-        self.pendingFocusKey = first.key
+        self.recipeFocus = "list"
+        self.pendingFocusKey = key
         self:Refresh()
     end
 
-    -- Y: the next view this profession has. Focus stays where it was (rail), or goes to the
-    -- view's first stop (page).
+    -- Y: the next view this profession has. Focus stays on the rail, or goes to the view's first stop.
     function page:CycleView()
         local views = self.views or { "journey" }
         if #views < 2 then return false end
@@ -827,14 +1254,41 @@ local function build(parent)
         return true
     end
 
-    function page:SetView(v)
+    function page:SetView(v, focusKey)
         self.view = v
+        self.recipeFocus = "list"
         if self.mode == "rail" then self.pendingFocusKey = "p:" .. tostring(self.sel) end
         self:Redraw()
         if self.mode == "page" then
-            local first = self.pageFocus and self.pageFocus[1] and self.pageFocus[1].items[1]
-            if first then self.pendingFocusKey = first.key; self:Refresh() else self.mode = "rail"; self.pendingFocusKey = "p:" .. tostring(self.sel); self:Refresh() end
+            local key = focusKey or firstKey()
+            if key then self.pendingFocusKey = key else self.mode = "rail"; self.pendingFocusKey = "p:" .. tostring(self.sel) end
+            self:Refresh()
         end
+    end
+
+    -- A filter chip (focus stays on it).
+    function page:SetFilter(f)
+        self.filter = f
+        self.recipeFocus = "list"
+        if self.mode == "page" then self.pendingFocusKey = "chip:" .. f end
+        self:Redraw()
+    end
+
+    -- A click on a recipe row.
+    function page:SelectRecipe(id)
+        self.recipeSel = id
+        self.mode, self.recipeFocus = "page", "list"
+        self.pendingFocusKey = "r:" .. id
+        self:Redraw()
+    end
+
+    -- A on a recipe: into its detail (B back to the row).
+    function page:EnterDetail()
+        local first = self.detailFocus and self.detailFocus[1]
+        if not first then return end
+        self.recipeFocus = "detail"
+        self.pendingFocusKey = first.key
+        self:Refresh()
     end
 
     -- A Next up line: open its view ("recipes:<filter>" or "gather").
@@ -845,27 +1299,44 @@ local function build(parent)
         self:SetView(view)
     end
 
-    -- A Tracked card: its recipe in Recipes (the list comes in step 7).
+    -- A Tracked card: its recipe in Recipes, under a filter that shows it.
     function page:OpenRecipe(id)
+        local m = selected()
+        local r
+        for _, x in ipairs(m and m.recipes and m.recipes.list or {}) do if x.id == id then r = x end end
         self.recipeSel = id
-        self.filter = "all"
+        if r and not ns.ProfessionRules.ForYou(r, m.skill) then self.filter = r.state == "nosource" and "nosource" or "all"
+        elseif r then self.filter = "foryou" end
         self.mode = "page"
-        self:SetView("recipes")
+        self:SetView("recipes", "r:" .. id)
     end
 
-    -- X: stop tracking the focused Tracked card's recipe (the game's own tracking).
-    function page:ToggleTrack()
+    -- The recipe X acts on: the focused row or Tracked card, else the recipe shown in Recipes.
+    local function trackTarget(id)
+        if id then return id end
         local item = ns.Focus.Current()
-        local id = item and item.recipeID
-        if not id then return false end
+        if item and item.recipeID then return item.recipeID end
+        if item and item.recipe then return item.recipe.id end
+        if page.mode == "page" and page.view == "recipes" then return page.recipeSel end
+    end
+
+    -- X: Track / Untrack through the game's own tracking.
+    function page:ToggleTrack(id)
+        id = trackTarget(id)
+        if not id or not ns.Professions.CanTrack() then return false end
+        local name = tostring(id)
+        local m = selected()
+        for _, x in ipairs(m and m.recipes and m.recipes.list or {}) do if x.id == id then name = x.name end end
         local tracked = ns.Professions.Get().tracked[id]
         local state = ns.Professions.SetTracked(id, not tracked)
-        if state == nil then
-            ns.UI.SetInfo(item.title, "The game didn't let Azerfolio change its tracking.")
-        else
-            ns.UI.SetInfo(item.title, state and "Tracking it in the game's objective tracker." or "No longer tracked.")
-        end
+        local cur = ns.Focus.Current()
+        if cur then self.pendingFocusKey = cur.key end
         self:Redraw()
+        if state == nil then
+            ns.UI.SetInfo(name, "The game didn't let Azerfolio change its tracking.")
+        else
+            ns.UI.SetInfo(name, state and "Tracking it in the game's objective tracker." or "No longer tracked.")
+        end
         return true
     end
 
@@ -877,15 +1348,23 @@ local function build(parent)
 
     function page:GetHints()
         local hints = {}
-        local item = ns.Focus.Current()
-        if item and item.recipeID then hints[#hints + 1] = { "X", "Stop tracking" } end
+        local id = trackTarget()
+        if id and ns.Professions.CanTrack() then
+            hints[#hints + 1] = { "X", ns.Professions.Get().tracked[id] and "Stop tracking" or "Track" }
+        end
         if self.views and #self.views > 1 then hints[#hints + 1] = { "Y", "View" } end
         return hints
     end
 
-    -- B: from the page back to the rail, on the same profession.
+    -- B: from a recipe's detail back to its row; from the page back to the rail.
     function page:Back()
         if self.mode ~= "page" then return false end
+        if self.view == "recipes" and self.recipeFocus == "detail" then
+            self.recipeFocus = "list"
+            self.pendingFocusKey = "r:" .. tostring(self.recipeSel)
+            self:Refresh()
+            return true
+        end
         self.mode = "rail"
         self.pendingFocusKey = "p:" .. tostring(self.sel)
         self:Refresh()

@@ -254,6 +254,12 @@ return function(t)
         local two = R.TrainersFor({ { name = "Alphonse Dumas", rank = "Journeyman", level = 2, mapID = 2548, side = "A" },
             { name = "Dane Lindgren", rank = "Journeyman", level = 2, mapID = 1453, side = "A" } }, "Journeyman", "A", terr)
         t.eq(two[1].name, "Dane Lindgren")
+        -- Within your side, the nearest first: the zone you're in, then your continent.
+        local fa3 = { { name = "Byancie", mapID = 1438, side = "A" }, { name = "Michelle Belle", mapID = 1429, side = "A" },
+            { name = "Shaina Fuller", mapID = 1453, side = "A" } }
+        local near = function(mapID) return mapID == 1429 and 0 or (mapID == 1453 and 1) or 2 end
+        local ordered = R.TrainersFor(fa3, "Journeyman", "A", terr, near)
+        t.eq(ordered[1].name, "Michelle Belle"); t.eq(ordered[2].name, "Shaina Fuller"); t.eq(ordered[3].name, "Byancie")
         local z = R.OrderZones({ 1411, 1412, 1420, 2521, 1429, 1426, 1438 }, terr, "Alliance")
         t.eq(z[1], 1429, "Elwynn first for an Alliance character"); t.eq(z[#z], 1420, "Tirisfal last")
         t.eq(R.OrderZones({ 1411, 1429 }, terr, "Horde")[1], 1411, "Durotar first for the Horde")
@@ -619,6 +625,74 @@ return function(t)
         t.eq(#n.Debug.errors, 0)
     end)
 
+    t.test("ui: Recipes (filters, list, detail, Track) and Gather", function()
+        local state = probeState()
+        state.schematics = { [3276] = { outputItemID = 2581, reagentSlotSchematics = {
+            { reagents = { { itemID = 2589 } }, quantityRequired = 2 }, { reagents = { { itemID = 1251 } }, quantityRequired = 1 } } } }
+        state.bags = { [2589] = 4 }
+        local n = boot(state)
+        state.window = { line = 129, rows = {
+            { recipeID = 3275, name = "Linen Bandage", learned = true, maxTrivialLevel = 60, categoryID = 7, hyperlink = "|Hitem:1251::|h[x]|h" },
+            { recipeID = 3276, name = "Heavy Linen Bandage", learned = false, maxTrivialLevel = 100, categoryID = 7 },
+            { recipeID = 1244431, name = "Minor Healing Potion", learned = false, maxTrivialLevel = 95, categoryID = 0 },
+            { recipeID = 10841, name = "Heavy Mageweave Bandage", learned = false, maxTrivialLevel = 300, categoryID = 7 } } }
+        wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
+        state.window = nil
+        state.trainer = firstAidTrainer
+        wow.fire("TRAINER_SHOW"); wow.runTimers()
+        local p = openTab(n)
+        n.Focus.FocusKey("p:129")
+        t.ok(p:OnButton("y")); t.eq(p.view, "recipes")
+        p:EnterPage()
+        t.eq(n.Focus.Current().key, "r:1244431", "the first recipe in levelling order (learn at 1)")
+        t.eq(p.filter, "foryou")
+        local keys = {}
+        for _, row in ipairs(p.pageFocus) do for _, it in ipairs(row.items) do keys[#keys + 1] = it.key end end
+        t.eq(table.concat(keys, ","), "chip:foryou,chip:all,chip:known,chip:now,chip:later,chip:nosource,r:1244431,r:3276,r:3275",
+            "chips, then For you now: two to learn and Linen Bandage (still gives skill)")
+        n.Focus.FocusKey("r:3276")
+        t.eq(p.recipeSel, 3276, "the detail follows focus")
+        p:EnterDetail()
+        t.eq(p.recipeFocus, "detail")
+        local dkeys = {}
+        for _, row in ipairs(p:GetFocusRows()) do dkeys[#dkeys + 1] = row.items[1].key end
+        t.eq(table.concat(dkeys, ","), "src:1,ing:1,ing:2,track", "its source, two ingredients, Track")
+        t.ok(p:OnButton("x"), "X tracks it from the detail")
+        t.ok(state.tracked[3276])
+        t.ok(p:Back()); t.eq(p.recipeFocus, "list"); t.eq(n.Focus.Current().key, "r:3276", "B back to the row")
+        p:SetFilter("nosource")
+        local seen = {}
+        for _, row in ipairs(p.pageFocus) do for _, it in ipairs(row.items) do if it.recipe then seen[#seen + 1] = it.recipe.name end end end
+        t.eq(table.concat(seen, ","), "Heavy Mageweave Bandage")
+        t.ok(p:Back()); t.eq(p.mode, "rail")
+        -- A Tracked card on Journey opens its recipe in Recipes.
+        p:SetView("journey"); p:EnterPage()
+        n.Focus.FocusKey("track:3276")
+        n.Focus.Activate()
+        t.eq(p.view, "recipes"); t.eq(n.Focus.Current().key, "r:3276")
+        -- Gather (Mining): the node table.
+        p:Back(); n.Focus.FocusKey("p:186")
+        p:SetView("gather"); p:EnterPage()
+        t.eq(n.Focus.Current().title, "Copper Vein")
+        t.ok(n.Focus.Current().detail:find("Needs skill 1"), n.Focus.Current().detail)
+        t.eq(#n.Debug.errors, 0)
+    end)
+
+    t.test("system: an ingredient another of your professions makes (Copper Bar from Mining)", function()
+        local state = probeState()
+        state.schematics = { [2662] = { outputItemID = 2852, reagentSlotSchematics = { { reagents = { { itemID = 2840 } }, quantityRequired = 4 } } } }
+        local n = boot(state)
+        state.window = { line = 186, rows = { { recipeID = 2657, name = "Smelt Copper", learned = true, maxTrivialLevel = 70, categoryID = 0,
+            hyperlink = "|Hitem:2840::|h[Copper Bar]|h" } } }
+        wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
+        state.window = { line = 164, rows = { { recipeID = 2662, name = "Rough Copper Vest", learned = true, maxTrivialLevel = 55, categoryID = 0 } } }
+        wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
+        local bs = n.Professions.Find(164)
+        local rg = n.Professions.Reagents(2662, bs)
+        t.eq(rg.items[1].where.kind, "craft")
+        t.eq(rg.items[1].where.recipe.name, "Smelt Copper"); t.eq(rg.items[1].where.recipe.prof, "Mining")
+    end)
+
     t.test("ui: no professions yet", function()
         local state = probeState()
         state.slots = {}
@@ -635,7 +709,7 @@ return function(t)
         _G.Screenshot = function() _G.screenshotsTaken = (_G.screenshotsTaken or 0) + 1 end
         _G.screenshotsTaken = 0
         _G.SlashCmdList.AZERFOLIO("shots professions"); wow.runTimers()
-        t.eq(_G.screenshotsTaken, 9, "the tab, the road, Next up, 4 more professions, minimum size, wide")
+        t.eq(_G.screenshotsTaken, 10, "the tab, the road, Next up, 4 more professions, Gather (Mining; no window read, so no Recipes), minimum size, wide")
         t.eq(n.UI.GetFrame().pages.professions.mode, "rail", "back on the rail")
         t.eq(#n.Debug.errors, 0)
     end)

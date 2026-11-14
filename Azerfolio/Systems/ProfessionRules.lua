@@ -159,11 +159,13 @@ end
 --   trainers = { { name, rank, level, mapID, place, side = "A"|"H"|"AH"|nil } ... }
 --   rankName = the rank to train ("Journeyman"); side = "A" | "H" (yours)
 --   territory = Data/Zones.lua's faction map (optional): trainers in your side's zones first
+--   near = function(mapID) -> 0 your zone, 1 your continent, 2 elsewhere (optional)
 -- Keeps trainers of your side (or both) with a zone, whose stated rank reaches it (or isn't
 -- stated: "First Aid Trainer"); then your side's territory first (Stormwind before
--- Riverglades, WoWScrnShot_111426_121308), ranked ones that reach it, the closest rank, by name.
+-- Riverglades, WoWScrnShot_111426_121308), the nearest (Goldshire's Physician before
+-- Teldrassil's, WoWScrnShot_111426_122959), ranked ones that reach it, the closest rank, by name.
 -- A Junior trainer only teaches Apprentice.
-function Rules.TrainersFor(trainers, rankName, side, territory)
+function Rules.TrainersFor(trainers, rankName, side, territory, near)
     local faction = side == "A" and "Alliance" or side == "H" and "Horde" or nil
     local want = Rules.TRAINER_RANKS[rankName] or 1
     local out = {}
@@ -175,6 +177,8 @@ function Rules.TrainersFor(trainers, rankName, side, territory)
     table.sort(out, function(a, b)
         local ha, hb = Rules.SideRank(a.mapID, territory, faction), Rules.SideRank(b.mapID, territory, faction)
         if ha ~= hb then return ha < hb end
+        local na, nb = near and near(a.mapID) or 1, near and near(b.mapID) or 1
+        if na ~= nb then return na < nb end
         local ra, rb = a.level and 0 or 1, b.level and 0 or 1
         if ra ~= rb then return ra < rb end
         if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) < (b.level or 0) end -- the closest rank first

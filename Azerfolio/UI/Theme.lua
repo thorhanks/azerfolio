@@ -541,6 +541,16 @@ Theme.layout.profTab = {
     nextRow = 46,        -- a Next up line (title and sub line)
     ingRow = 20,         -- an ingredient line in a Tracked card
     cardHead = 44,       -- a Tracked card's head (name and summary)
+    -- Recipes view (round 2: toolbar, the list on the left, the focused recipe on the right)
+    toolbar = 40,
+    detail = 380,        -- the focused recipe's column (mockup 380 px)
+    recipeRow = 28,
+    recipeSrc = 64,      -- "Trainer" / "Vendor" / "Drop"
+    recipeSkill = 64,    -- "learn 40" / "until 60" / "grey"
+    recipeState = 72,    -- "Learn now" / ✓ / "from 55"
+    detailLine = 34,     -- a source or an ingredient line (text and a sub line)
+    detailLeft = 64,     -- "4 / 1" or the source tag
+    gatherRow = 40,
     tones = {            -- banner stand-in tints (top, bottom) until the painted banners exist
         alchemy = { "3a2a4a", "120a18" }, blacksmithing = { "4a2a14", "140804" }, enchanting = { "34224e", "0e0816" },
         engineering = { "3a3424", "100e08" }, herbalism = { "26402a", "08120a" }, leatherworking = { "4a3420", "140c06" },
