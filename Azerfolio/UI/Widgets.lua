@@ -180,7 +180,13 @@ function W.PanelButton(parent)
     -- true and the label read 14 again), so a compact toolbar couldn't shrink it. Same font
     -- (Friz Quadrata 14), gold, white while lit or hovered, as the game's button. The game's
     -- own label stays empty.
-    b.text = T.Text(b, "sm", "gold", "OVERLAY")
+    -- On a child frame, not the button: a button with no text of its own took the first font
+    -- string made on it as its label and put its own font back on every state change (trace
+    -- 2026-11-14 16:15: SetFont(11) on the addon's string read 14 again).
+    b.labelFrame = CreateFrame("Frame", nil, b)
+    b.labelFrame:SetAllPoints()
+    if b.labelFrame.SetFrameLevel and b.GetFrameLevel then b.labelFrame:SetFrameLevel(b:GetFrameLevel() + 2) end
+    b.text = T.Text(b.labelFrame, "sm", "gold", "OVERLAY")
     b.text:SetPoint("CENTER", 0, 0)
     b.text:SetWordWrap(false)
     local function paint(self)
@@ -198,16 +204,20 @@ function W.PanelButton(parent)
         b:HookScript("OnMouseDown", function(self) self.text:SetPoint("CENTER", 1, -1) end)
         b:HookScript("OnMouseUp", function(self) self.text:SetPoint("CENTER", 0, 0) end)
     end
-    -- :SetCompact(on): a smaller label (panelButtonCompactSize) for a toolbar that runs out of
-    -- room (the Zones toolbar at the minimum width, WoWScrnShot_111426_155718). Call SetLabel after.
+    -- :SetCompact(on): a smaller label for a toolbar that runs out of room (the Zones toolbar at
+    -- the minimum width, WoWScrnShot_111426_155718). The label's frame is scaled to
+    -- panelButtonCompactSize / size.sm: in game SetFont(11) reported success and the label still
+    -- read 14, even on the addon's own string (traces 2026-11-14 16:15 and 16:20), so the size
+    -- is changed by scale, which nothing resets. Call SetLabel after.
     function b:SetCompact(on)
         self.compact = on and true or false
-        local ok = self.text:SetFont(T.fonts.body, self.compact and L.panelButtonCompactSize or T.size.sm, "")
-        if not ok and GameFontNormal then self.text:SetFontObject(GameFontNormal) end
+        local s = self.compact and (L.panelButtonCompactSize / T.size.sm) or 1
+        if self.labelFrame.SetScale then self.labelFrame:SetScale(s) end
+        self.labelScale = s
     end
     function b:SetLabel(text, pad, minWidth)
         self.text:SetText(text)
-        local w = self.text:GetStringWidth() or (#text * 7)
+        local w = (self.text:GetStringWidth() or (#text * 7)) * (self.labelScale or 1)
         self:SetWidth(math.max(minWidth or self.minWidth or L.panelButtonMin, math.floor(w + 2 * (pad or L.panelButtonPad) + 0.5)))
     end
     hoverInfo(b)
