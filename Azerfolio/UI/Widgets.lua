@@ -182,11 +182,11 @@ function W.PanelButton(parent)
     end
     function b:SetOn(on) self.on = on; lit(self) end
     function b:SetFocused(on) self.focused = on; lit(self) end
-    function b:SetLabel(text, pad)
+    function b:SetLabel(text, pad, minWidth)
         if self.SetText then self:SetText(text) end
         local fs = self.GetFontString and self:GetFontString()
         local w = fs and fs.GetStringWidth and fs:GetStringWidth() or (#text * 7)
-        self:SetWidth(math.max(L.panelButtonMin, math.floor(w + 2 * (pad or L.panelButtonPad) + 0.5)))
+        self:SetWidth(math.max(minWidth or L.panelButtonMin, math.floor(w + 2 * (pad or L.panelButtonPad) + 0.5)))
     end
     hoverInfo(b)
     return b

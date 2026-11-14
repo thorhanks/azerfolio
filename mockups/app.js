@@ -2407,7 +2407,7 @@
         const list = p.rec.list, f = ui.profFilter || "foryou";
         const n = (k) => k === "foryou" ? list.filter(r => forYou(p, r)).length : k === "all" ? p.counted : list.filter(r => r.state === k).length;
         const chips = [["foryou", "For you now"], ["all", "All"], ["known", "Known"], ["now", "Learn now"], ["later", "Later"], ["nosource", "No known source"]]
-          .map(([k, l]) => `<button class="pchip focusable ${f === k ? "on" : ""}" data-pfilter="${k}" data-tip="<b>${l}</b>${k === "foryou" ? "What you can learn now, what still gives you skill, and what opens in the next 25 skill points." : k === "nosource" ? "Recipes the game lists that no trainer you've visited or recipe item is known to teach. Not counted." : "Show these recipes."}">${l} <small>${n(k)}</small></button>`).join("");
+          .map(([k, l]) => `<button class="pchip pvtab btn focusable ${f === k ? "on" : ""}" data-pfilter="${k}" data-tip="<b>${l}</b>${k === "foryou" ? "What you can learn now, what still gives you skill, and what opens in the next 25 skill points." : k === "nosource" ? "Recipes the game lists that no trainer you've visited or recipe item is known to teach. Not counted." : "Show these recipes."}">${l} <small>${n(k)}</small></button>`).join("");
         const shown = recipeFilter(p);
         if (!shown.find(r => r.id === ui.recipeSel)) ui.recipeSel = shown.length ? shown[0].id : null;
         const bands = [[0, 75, "Apprentice"], [75, 150, "Journeyman"], [150, 225, "Expert"], [225, 999, "Artisan"]];

@@ -663,7 +663,7 @@ local function build(parent)
     T.Solid(tb, "black", "BACKGROUND", 0.28):SetAllPoints()
     page.chips = {}
     for _, f in ipairs(ns.ProfessionRules.FILTERS) do
-        local b = W.Control(tb)
+        local b = W.PanelButton(tb) -- native red buttons like the view switch (owner, 2026-11-14)
         b.filter = f
         b:SetScript("OnClick", function() page:SetFilter(f) end)
         page.chips[#page.chips + 1] = b
@@ -1107,7 +1107,7 @@ local function build(parent)
         for _, b in ipairs(page.chips) do
             local f = b.filter
             local n = rec and (f == "foryou" and rec.counts.foryou or f == "all" and rec.counts.all or rec.counts[f]) or 0
-            b:SetLabel(FILTER_LABEL[f] .. "  " .. n, L.controlPadTight)
+            b:SetLabel(FILTER_LABEL[f] .. "  " .. n, L.panelButtonPadTight, 0)
             b:ClearAllPoints(); b:SetPoint("LEFT", tb, "LEFT", x, 0)
             b:SetOn(page.filter == f)
             x = x + b:GetWidth() + S.s1
@@ -1117,6 +1117,9 @@ local function build(parent)
         end
         page.recSum:SetText(rec and string.format("|cffffffff%d|r known · |cffffffff%d|r with a known source%s", rec.counts.known, rec.counts.all,
             rec.counts.nosource > 0 and (" · " .. rec.counts.nosource .. " not counted") or "") or "")
+        -- The wider native buttons can reach the summary in a narrow window: it gives way.
+        local tbw = tb:GetWidth() or 0
+        page.recSum:SetShown(tbw <= 0 or x + S.s4 + (page.recSum:GetStringWidth() or 0) <= tbw - S.s4)
         local child = page.rlist.scroll.child
         local width = math.max(1, (child:GetWidth() or 400) - L.listInset - S.s2)
         local y = S.s1
