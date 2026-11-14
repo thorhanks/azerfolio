@@ -220,16 +220,32 @@ local function hexColor(s)
     return tonumber(s:sub(1, 2), 16) / 255, tonumber(s:sub(3, 4), 16) / 255, tonumber(s:sub(5, 6), 16) / 255
 end
 
--- The profession coin (stand-in): the profession's icon in a ring, gold rim when mastered, dull
--- bronze before. :Set(m, size).
+-- The profession coin: the painted gold coin (Media\Chrome\coin-prof-<key>.blp) when it exists,
+-- gold when mastered and greyed with a bronze tint before, like the class coins
+-- (Theme.layout.classTab.dullCoin); else the stand-in, the profession's icon in a ring.
+-- :Set(m, size).
 local function newCoin(parent)
     local f = CreateFrame("Frame", nil, parent)
     f.rim = circle(f, "BORDER", 10)
     f.rim:SetPoint("CENTER")
     f.icon = circle(f, "ARTWORK", 10)
     f.icon:SetPoint("CENTER")
+    f.coin = f:CreateTexture(nil, "ARTWORK", nil, 2)
+    f.coin:SetPoint("CENTER")
+    f.coin:Hide()
     function f:Set(m, size)
         self:SetSize(size, size)
+        local file = m.key and ns.Theme.Chrome("coin-prof-" .. m.key)
+        self.coin:SetShown(file ~= nil)
+        self.rim:SetShown(file == nil); self.icon:SetShown(file == nil)
+        if file then
+            self.coin:SetTexture(file)
+            self.coin:SetSize(size, size)
+            if self.coin.SetDesaturated then self.coin:SetDesaturated(not m.mastered) end
+            local dull = ns.Theme.layout.classTab.dullCoin.open
+            if m.mastered then self.coin:SetVertexColor(1, 1, 1, 1) else self.coin:SetVertexColor(dull[1], dull[2], dull[3], dull[4]) end
+            return
+        end
         self.rim:SetSize(size, size)
         self.icon:SetSize(size - 6, size - 6)
         tint(self.rim, m.mastered and "complete" or "levelRange")
@@ -432,6 +448,38 @@ local function build(parent)
     banner.emblem = banner:CreateTexture(nil, "BACKGROUND", nil, 2)
     banner.emblem:SetPoint("RIGHT", banner, "RIGHT", -40, 30)
     banner.emblem:SetAlpha(0.12)
+    -- The painted scene (Media\Professions\<key>.blp, 2:1) when it exists, cropped to the banner,
+    -- with a dark wash at the top for the name and the skill.
+    banner.art = banner:CreateTexture(nil, "BACKGROUND", nil, 3)
+    banner.art:SetAllPoints()
+    banner.art:Hide()
+    banner.wash = banner:CreateTexture(nil, "BORDER")
+    banner.wash:SetPoint("TOPLEFT"); banner.wash:SetPoint("TOPRIGHT")
+    banner.wash:SetColorTexture(1, 1, 1, 1)
+    if not (type(CreateColor) == "function" and pcall(banner.wash.SetGradient, banner.wash, "VERTICAL",
+        CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, 0.75))) then banner.wash:SetColorTexture(0, 0, 0, 0.4) end
+    banner.wash:Hide()
+    local function cropArt()
+        local w, h = banner:GetWidth() or 0, banner:GetHeight() or 0
+        if not banner.artKey or w <= 0 or h <= 0 then return end
+        local a = w / h
+        -- The scene's subject (its height in the image, 0 top .. 1 bottom) goes in the middle of
+        -- the part the road strip leaves visible: in the wide window only the smithy's roof showed
+        -- when the whole banner was centred on it (WoWScrnShot_111426_132214).
+        local subject = (T.profBannerFocus and T.profBannerFocus[banner.artKey]) or 0.62
+        if a >= 2 then
+            local frac = 2 / a
+            local visible = math.max(0.2, 1 - (PT.road + S.s3) / h) -- the banner's share above the road
+            local v0 = math.max(0, math.min(1 - frac, subject - frac * visible / 2))
+            banner.art:SetTexCoord(0, 1, v0, v0 + frac)
+        else
+            local frac = a / 2
+            banner.art:SetTexCoord(0.5 - frac / 2, 0.5 + frac / 2, 0, 1)
+        end
+        banner.wash:SetHeight(h * 0.55)
+    end
+    banner:SetScript("OnSizeChanged", cropArt)
+    banner.Crop = cropArt
     banner.kicker = T.Text(banner, "xs", "dim")
     banner.kicker:SetPoint("TOPLEFT", banner, "TOPLEFT", S.s6, -S.s4)
     banner.name = T.Text(banner, "xxl", "gold")
@@ -695,6 +743,14 @@ local function build(parent)
         if m.icon then banner.emblem:SetTexture(m.icon) end
         local h = banner:GetHeight() or PT.bannerMax
         banner.emblem:SetSize(h * 0.55, h * 0.55)
+        local painted = m.key and ns.Art and ns.Art.professions and ns.Art.professions[m.key]
+        banner.art:SetShown(painted and true or false); banner.wash:SetShown(painted and true or false)
+        banner.emblem:SetShown(not painted)
+        banner.artKey = painted and m.key or nil
+        if painted then
+            banner.art:SetTexture(T.mediaDir .. "Professions\\" .. m.key .. ".blp")
+            banner.Crop()
+        end
         banner.kicker:SetText((m.kind == "primary" and "Primary" or "Secondary") .. " profession"
             .. (m.role == "gathering" and " · gathering" or m.role == "both" and " · gathering" or ""))
         banner.name:SetText(m.mastered and (m.name .. ", mastered") or m.name)

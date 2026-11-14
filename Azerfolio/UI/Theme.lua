@@ -526,6 +526,12 @@ Theme.classStrip = {
     },
 }
 
+-- The painted profession banners: where each scene's subject sits in the 2:1 image (0 top .. 1
+-- bottom). The page centres it in the part of the banner above the road strip. Default 0.62:
+-- the Codex banners (2026-11-14) put the forge, the mine mouth, the hearth a little below the
+-- middle. Tune per banner after looking at it in game.
+Theme.profBannerFocus = {}
+
 -- Professions tab (Phase 14; mockups/DESIGN.md "Professions tab", round 2: rail and views).
 Theme.color.profWarn = hex("e0503c")   -- "At cap": skill-ups are lost until you train (the rail's red dot)
 Theme.color.profGo = hex("e08a3c")     -- train now / recipes to learn (orange)

@@ -716,6 +716,25 @@ return function(t)
         t.eq(#n.Debug.errors, 0)
     end)
 
+    t.test("ui: the painted banner and coin replace the stand-ins when they exist", function()
+        local state = probeState()
+        local n = boot(state)
+        -- Start from no profession art at all (Data/Art.lua lists the shipped pieces).
+        n.Art.professions = {}
+        for k in pairs(n.Art.chrome) do if k:find("^coin%-prof%-") then n.Art.chrome[k] = nil end end
+        local p = openTab(n)
+        p:Redraw()
+        t.ok(not p.banner.art:IsShown(), "no art: the gradient stand-in")
+        n.Art.professions.blacksmithing = true
+        n.Art.chrome["coin-prof-blacksmithing"] = true
+        p:Redraw()
+        t.ok(p.banner.art:IsShown()); t.ok(not p.banner.emblem:IsShown())
+        local coin = p.railRows[1].coin
+        t.ok(coin.coin:IsShown() and not coin.rim:IsShown(), "the rail shows the painted coin")
+        t.ok(not p.railRows[2].coin.coin:IsShown(), "Mining has no painted coin here: the stand-in")
+        t.eq(#n.Debug.errors, 0)
+    end)
+
     t.test("ui: no professions yet", function()
         local state = probeState()
         state.slots = {}

@@ -2,6 +2,8 @@
 #   art/source/<mapID>-<slug>.(png|jpg|jpeg)  ->  mockups/zone-art/<mapID>.png        (1024x512 PNG, 2:1 crop)
 #                                              ->  Azerfolio/Media/Zones/<mapID>.blp   (BLP2 DXT1 + mipmaps, for the game)
 #   art/source/fallback*.(png|jpg|jpeg)       ->  fallback.png / fallback.blp
+#   art/source/prof-<key>.(png|jpg|jpeg)      ->  mockups/prof-art/<key>.png and Azerfolio/Media/Professions/<key>.blp
+#                                                 (the Professions tab's banners, cropped like zone art; focal key "prof-<key>")
 # Regenerates Azerfolio/Data/Art.lua and mockups/zone-art/index.js from what exists.
 # Optional focal points: art/focal.json  { "1429": { "x": 0.45, "y": 0.55 } }  (0..1; default 0.5, 0.5)
 param(
@@ -233,6 +235,7 @@ function Get-PieceKind([string]$name) {
     if ($name -eq 'cel-ribbon') { return 'ribbon' }
     if ($name -match '^cel-(laurel|seal-[a-z0-9-]+|claim-(alliance|horde))$') { return 'cel' }
     if ($name -match '^coin-[a-z]+$') { return 'coin' }
+    if ($name -match '^coin-prof-[a-z]+$') { return 'coin' } # the Professions tab's coins (Phase 14)
     if ($name -eq 'you-ring') { return 'ring' }
     if ($name -match '^road-band(-gold)?$') { return 'band' }
     if ($name -eq 'cartouche') { return 'cartouche' }
@@ -430,6 +433,22 @@ foreach ($f in $files) {
         $processed++
         continue
     }
+    # The Professions tab's banners: zone-art crop, their own folders.
+    if ($f.BaseName -match '^prof-([a-z]+)$') {
+        $pk = $Matches[1]
+        $fx = 0.5; $fy = 0.5
+        $fk = "prof-$pk"
+        if ($focal.ContainsKey($fk)) { if ($null -ne $focal[$fk].x) { $fx = [double]$focal[$fk].x }; if ($null -ne $focal[$fk].y) { $fy = [double]$focal[$fk].y } }
+        $profMock = Join-Path $PSScriptRoot '..\mockups\prof-art'
+        $profBlp = Join-Path $MediaRoot 'Professions'
+        foreach ($d in $profMock, $profBlp) { New-Item -ItemType Directory -Force $d | Out-Null }
+        $target = Join-Path (Resolve-Path $profMock).Path "$pk.png"
+        $line = Convert-Image $f.FullName $target $fx $fy
+        $null = [AzfBlp]::Convert($target, (Join-Path (Resolve-Path $profBlp).Path "$pk.blp"))
+        Write-Output "$line + Professions\$pk.blp"
+        $processed++
+        continue
+    }
     if ($f.BaseName -match '^(\d+)(?:[-_ ].*)?$') { $key = $Matches[1] }
     elseif ($f.BaseName -match '^fallback') { $key = 'fallback' }
     else { Write-Output "Skip $($f.Name): not a zone (map ID first), fallback, banner, chrome or icon name (art/prompts.md)"; continue }
@@ -484,6 +503,12 @@ $stripsDir = Join-Path $MediaRoot 'Strips'
 $stripNames = if (Test-Path $stripsDir) { @(Get-ChildItem $stripsDir -Filter *.blp | ForEach-Object { $_.BaseName } | Sort-Object) } else { @() }
 $lua += '    strips = {'
 foreach ($p in $stripNames) { $lua += "        [""$p""] = true," }
+$lua += '    },'
+# The Professions tab's banners in Media\Professions, by profession key (blacksmithing).
+$profDir = Join-Path $MediaRoot 'Professions'
+$profNames = if (Test-Path $profDir) { @(Get-ChildItem $profDir -Filter *.blp | ForEach-Object { $_.BaseName } | Sort-Object) } else { @() }
+$lua += '    professions = {'
+foreach ($p in $profNames) { $lua += "        [""$p""] = true," }
 $lua += @('    },', '}')
 [IO.File]::WriteAllLines((Resolve-Path (Split-Path $ArtLua)).Path + '\' + (Split-Path $ArtLua -Leaf), $lua, (New-Object System.Text.UTF8Encoding $false))
 

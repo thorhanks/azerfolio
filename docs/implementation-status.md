@@ -10,7 +10,7 @@ Phase 12 (the Reputation tab, v1.4) is done, closed 2026-11-09. Its history is i
 
 Phase 13 (the Class tab, v1.5) is done, closed 2026-11-13. Its history is in [history/v1.5-phase13.md](history/v1.5-phase13.md). Open checks J4-J8 wait on play. The version stays 1.2.0 until Phase 11 closes.
 
-Phase 14 (the Professions tab, v1.6) is done, closed 2026-11-14. Its history is in [history/v1.6-phase14.md](history/v1.6-phase14.md). Open check G1 (gathering skills) and G4 (a Horde character's trainers and zones) wait on play. The version stays 1.2.0 until Phase 11 closes.
+Phase 14 (the Professions tab, v1.6) is done, closed 2026-11-14. Its painted art followed the same day: 12 banners and 12 coins made with the Codex CLI (two runs of about five minutes), `process-art.ps1` kinds `prof-<key>` (Media/Professions) and `coin-prof-<key>`; the banner is cropped so its subject (`Theme.profBannerFocus`, default 0.62) sits above the road strip; checked in game on Gideon (`WoWScrnShot_111426_132428`-`132445`). Its history is in [history/v1.6-phase14.md](history/v1.6-phase14.md). Open check G1 (gathering skills) and G4 (a Horde character's trainers and zones) wait on play. The version stays 1.2.0 until Phase 11 closes.
 
 Keep this file short: one compact entry per step, with measurements. When a phase closes, move it to `docs/history/`.
 
