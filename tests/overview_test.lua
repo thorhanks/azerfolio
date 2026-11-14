@@ -54,13 +54,11 @@ local function world(ns)
 end
 
 local function input(ns, over)
-    local zones, _, exs = world(ns)
+    local zones = world(ns)
     local i = {
         zones = zones,
-        nextUpFor = function(mapID) return ns.Zones.NextUp(exs[mapID]) end,
         overall = {},
         current = 1429,
-        recent = {},
         char = { faction = "Alliance", level = 9 },
     }
     for k, v in pairs(over or {}) do i[k] = v end
@@ -78,7 +76,6 @@ return function(t)
         local ns = load()
         local m = ns.Overview.Build(input(ns))
         t.eq(m.hero.zone.name, "Elwynn Forest"); t.eq(m.hero.why, "current")
-        t.eq(m.goal.name, "Westfall", "next goal: fewest left, not the Continue zone")
         t.eq(m.current.name, "Elwynn Forest")
     end)
 
@@ -86,7 +83,6 @@ return function(t)
         local ns = load()
         local m = ns.Overview.Build(input(ns, { current = 1431 }))
         t.eq(m.hero.zone.name, "Duskwood", "your zone, even complete (owner, 2026-11-08)"); t.eq(m.hero.why, "current")
-        t.eq(m.goal.name, "Westfall", "next goal: the closest other zone")
         m = ns.Overview.Build(input(ns, { current = 1453 }))
         t.eq(m.hero.zone.name, "Westfall"); t.eq(m.current.state, "untracked")
         m = ns.Overview.Build(input(ns, { current = false }))
@@ -118,7 +114,6 @@ return function(t)
         local m = ns.Overview.Build(i)
         t.eq(m.hero.why, "level")
         t.eq(m.hero.zone.name, "Loch Modan", "fits level 9 and isn't behind you (10-20 over 1-10)")
-        t.eq(m.goal, nil, "no zone in progress: no next goal")
     end)
 
     t.test("overview: next-for-level order: in progress, fits and ahead, fits, ahead, unknown", function()
@@ -131,31 +126,6 @@ return function(t)
         t.eq(#none, 6, "no level: still every unfinished zone")
     end)
 
-    t.test("overview: suggestions follow the spec's rules in order, each with its zone's Next up picks", function()
-        local ns = load()
-        local m = ns.Overview.Build(input(ns))
-        t.eq(names(m.suggestions, "zone"), "Elwynn Forest,Westfall,Redridge Mountains")
-        t.eq(m.suggestions[1].rule, "current"); t.eq(m.suggestions[2].rule, "closest")
-        t.eq(m.suggestions[3].rule, "level", "the first level pick not already shown")
-        local items = m.suggestions[1].items
-        t.eq(#items, 2, "Next up: two areas (no quests or flight paths here)")
-        t.eq(items[1].kind, "explore"); t.eq(items[1].name, "Elwynn Forest 3",
-            "the first area not discovered yet, in the game's order")
-        for _, g in ipairs(m.suggestions) do
-            t.ok(g.zone.name ~= "Durotar", "the other faction's territory isn't suggested")
-        end
-    end)
-
-    t.test("overview: a zone without picks gets no group", function()
-        local ns = load()
-        local i = input(ns)
-        local pick = i.nextUpFor
-        i.nextUpFor = function(mapID) if mapID == 1429 then return {} end return pick(mapID) end
-        local m = ns.Overview.Build(i)
-        t.eq(m.suggestions[1].zone.name, "Westfall", "Elwynn has nothing confirmed to suggest")
-        i.nextUpFor = function() return {} end
-        t.eq(#ns.Overview.Build(i).suggestions, 0)
-    end)
     t.test("overview: stat counts use the zones you can explore; numbers match the Zones entries", function()
         local ns = load()
         local i = input(ns)
@@ -191,12 +161,10 @@ return function(t)
         t.eq(tc.combined.percent, nil, "nothing readable: no percentage")
         t.eq(tc.combined.cats[1].pending, "achievements"); t.eq(tc.combined.cats[2].pending, "questiedb")
         local m = ns.Overview.Build({})
-        t.eq(m.completion.combined.percent, nil); t.eq(m.hero, nil); t.eq(#m.suggestions, 0)
+        t.eq(m.completion.combined.percent, nil); t.eq(m.hero, nil)
     end)
-    t.test("overview: recent zones are newest first, deduplicated, without the current zone", function()
+    t.test("overview: the visit list keeps the newest last, capped", function()
         local ns = load()
-        local m = ns.Overview.Build(input(ns, { recent = { 1426, 1436, 9999, 1429, 1433, 1436 } }))
-        t.eq(names(m.recent), "Westfall,Redridge Mountains,Dun Morogh")
         local list = {}
         t.ok(ns.Overview.PushRecent(list, 1, 3)); t.ok(ns.Overview.PushRecent(list, 2, 3))
         t.eq(ns.Overview.PushRecent(list, 2, 3), false, "already the newest")

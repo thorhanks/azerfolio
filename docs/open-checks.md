@@ -26,6 +26,12 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | T2 | "+n today" shows a gain seen this session, and nothing after a `/reload` | A quest turn-in that raises any faction | Turn in, open the tab: the tag on that faction; trace-report reputation shows the `+n` |
 | T3 | Whether an unmet faction can be watched (the addon offers X only for met ones) | Any time | Same as T1 on Booty Bay, with the check lifted, or ask the game's Reputation window |
 
+## Overview round 3 (2026-11-13)
+
+| ID | What to confirm | When it comes up | How to check |
+|---|---|---|---|
+| O1 | The new Overview fits 1160×740 and the wide window without scrolling; the class road window shows the strip around You (only the next stop named, You in the middle, clipped at the panel's edges), the caption lines, and A opens the Class tab at your stop | Any time, on Gideon and Thragor | `/reload`, wait a few seconds, `/azf shots` (the "overview" and "overview, class road" shots); then A on the window |
+
 ## Class tab (Phase 13)
 
 `/azf debug class [questID ...]` (debug on), `/reload`, then `luajit tools/trace-report.lua class`. J1-J3 are done (see Done); these wait on play. The tab is closed (2026-11-13); these don't reopen it.

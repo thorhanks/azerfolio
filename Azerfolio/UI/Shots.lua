@@ -226,12 +226,12 @@ local function steps(which)
             if page and page.mode == "detail" then page:Back() end
         end }
     end
-    -- Overview with focus on the first suggested area (chip highlight and chevron).
-    list[#list + 1] = { label = "overview, suggestions", fn = function()
+    -- Overview with focus on the class road window (round 3: its edge and the chevron).
+    list[#list + 1] = { label = "overview, class road", fn = function()
         UI.ApplyGeometry(); UI.SelectTab("overview")
         local item = ns.Focus.Current()
         UI.shotsOverviewKey = item and item.key
-        ns.Focus.Jump(1); UI.RefreshHints()
+        ns.Focus.FocusKey("classroad"); UI.RefreshHints()
     end }
     -- Focus after an RT jump: chevron, row highlight and scroll-into-view in one picture.
     list[#list + 1] = { label = "zones, next section", fn = function()

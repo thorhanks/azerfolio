@@ -1,16 +1,20 @@
--- Overview tab (spec §5, mockups/DESIGN.md "Overview" and "Step 6"): two columns that fit one
--- screen, every panel in the painted frame, section headers on painted plates.
+-- Overview tab (spec §5, mockups/DESIGN.md "Overview", "Step 6" and "Round 3"): two columns that
+-- fit one screen, every panel in the painted frame, section headers on painted plates.
 --   Left: the Continue card (current zone, else the closest to finish, else the next for your
---   level), the Next goal, and Suggested next (up to 3 zones, each with its Next up picks:
---   areas, ready quests, a flight path).
---   Right: Tracked completion (one row per category plus Zones; the headline is the
---   equal-weight average of the categories with data), Recent zones (recently visited) and the
---   Atlas panel (the painted sea chart with every zone at its place; A opens the Atlas view).
--- What to show comes from ns.Overview (pure picks over ns.Zones and ns.Progression results);
--- this file only draws it. A on a zone opens Zone Detail, on a pick its page focused on it (B
--- comes back here); A on a category row opens Zones, on Zones opens it filtered.
--- Frames are pooled; the page redraws on discoveries, quest and flight updates, zone changes
--- and level-ups. (The Activity panel was removed in Phase 9 step 6, owner 2026-11-08.)
+--   level) and Tracked completion (one row per category plus Zones; the headline is the
+--   equal-weight average of the categories with data). The space under it is kept for a
+--   Professions panel (owner, 2026-11-13).
+--   Right: the Atlas panel (the painted sea chart with every zone at its place; A opens the
+--   Atlas view) and your class road: a window onto the Class tab's strip at its own scale,
+--   cropped around You, with a caption (counts, the Next line, abilities waiting at your
+--   trainer); A opens the Class tab on your current stop.
+-- Round 3 (owner, 2026-11-13) removed the Next goal, Suggested next and Recent zones panels.
+-- What to show comes from ns.Overview (pure picks over ns.Zones and ns.Progression results) and
+-- the Class page's summary (ns.ClassJourney, ns.ClassTrainer); this file only draws it.
+-- A on the Continue card opens Zone Detail (B comes back here); A on a category row opens Zones,
+-- on Zones opens it filtered.
+-- The page redraws on discoveries, quest and flight updates, class updates, zone changes and
+-- level-ups.
 local _, ns = ...
 
 local function color(name)
@@ -23,12 +27,12 @@ local function zoneObject(z)
         maxLevel = z.maxLevel, entry = z }
 end
 
--- Opens a zone's detail on the Zones tab (on one objective's page if given); B returns here.
-local function openZone(z, target)
+-- Opens a zone's detail on the Zones tab; B returns here.
+local function openZone(z)
     ns.UI.SelectTab("zones")
     local frame = ns.UI.GetFrame()
     local zp = frame and frame.pages.zones
-    if zp and zp.ShowZone then zp:ShowZone(zoneObject(z), target, "overview") end
+    if zp and zp.ShowZone then zp:ShowZone(zoneObject(z), nil, "overview") end
 end
 
 local function openAtlas()
@@ -45,10 +49,17 @@ local function openZones(status)
     if status and zp and zp.ShowStatus then zp:ShowStatus(status) end
 end
 
+-- The Class tab, focused on your current stop (the road's end once it's walked).
+local function openClass()
+    ns.UI.SelectTab("class")
+    local frame = ns.UI.GetFrame()
+    local cp = frame and frame.pages.class
+    if cp and cp.FocusStop and cp.journey then cp:FocusStop(cp:CurrentStopKey()) end
+end
+
 -- Why a category has no numbers yet (Progression.Combine's pending reasons).
 local PENDING = { achievements = "Waiting for the game's data", building = "Reading quests...",
     questiedb = "Needs the QuestieDB addon", flightmaster = "Talk to a flight master" }
-local RULE = { current = "Current zone", closest = "Closest to complete", level = "Next for your level" }
 
 ---------------------------------------------------------------------------------------------
 -- Pieces
@@ -161,45 +172,6 @@ local function buildHero(parent)
     return h
 end
 
-local function buildGoal(parent)
-    local T, L, S, W = ns.Theme, ns.Theme.layout, ns.Theme.space, ns.Widgets
-    local g = newPanel(parent, true)
-    g:SetHeight(L.goalHeight)
-    g.flag = T.Text(g, "xs", "gold")
-    g.flag:SetPoint("LEFT", S.s4, 0)
-    g.flag:SetText("NEXT GOAL")
-    g.text = T.Text(g, "sm", "text")
-    g.bars = W.CatBars(g)
-    g.bars:SetPoint("RIGHT", g, "RIGHT", -S.s4, 0)
-    g.text:SetPoint("LEFT", g.flag, "RIGHT", S.s3, 0)
-    g.text:SetPoint("RIGHT", g.bars, "LEFT", -S.s3, 0)
-    g.text:SetJustifyH("LEFT"); g.text:SetWordWrap(false)
-    return g
-end
-
-local function newGroup(parent)
-    local T, L = ns.Theme, ns.Theme.layout
-    local g = newPanel(parent, false)
-    g.name = T.Text(g, "md", "white")
-    g.name:SetPoint("TOPLEFT", L.panelPad, -L.panelPad + 2)
-    g.why = T.Text(g, "xs", "dim")
-    g.why:SetPoint("TOPRIGHT", -L.panelPad, -L.panelPad + 1)
-    return g
-end
-
--- One suggestion: category icon, name (quests in their difficulty colour), "Lv n" for quests.
-local function newPick(parent)
-    local T, L, S, W = ns.Theme, ns.Theme.layout, ns.Theme.space, ns.Widgets
-    local b = W.FocusRow(parent, L.sugItem)
-    b.bg = T.Solid(b, "ctlBg", "BACKGROUND", 0.9); b.bg:SetAllPoints()
-    b.icon = b:CreateTexture(nil, "ARTWORK"); b.icon:SetSize(18, 18); b.icon:SetPoint("LEFT", S.s2, 0)
-    b.level = T.Text(b, "xs", "dim"); b.level:SetPoint("RIGHT", -S.s2, 0)
-    b.name = T.Text(b, "sm", "white"); b.name:SetPoint("LEFT", b.icon, "RIGHT", S.s2, 0)
-    b.name:SetPoint("RIGHT", b.level, "LEFT", -S.s2, 0)
-    b.name:SetJustifyH("LEFT"); b.name:SetWordWrap(false)
-    return b
-end
-
 -- One Tracked completion row: icon, name, gilded bar, done / counted, % (or why it has none).
 local function newTrackRow(parent)
     local T, L, S, W = ns.Theme, ns.Theme.layout, ns.Theme.space, ns.Widgets
@@ -220,45 +192,49 @@ local function newTrackRow(parent)
     return r
 end
 
-local function newRecentRow(parent)
-    local T, L, S, W = ns.Theme, ns.Theme.layout, ns.Theme.space, ns.Widgets
-    local r = W.FocusRow(parent, L.recentRow)
-    r.thumb = r:CreateTexture(nil, "ARTWORK")
-    r.thumb:SetSize(L.recentThumb[1], L.recentThumb[2])
-    r.thumb:SetPoint("LEFT", S.s2, 0)
-    r.pct = T.Text(r, "sm", "text")
-    r.pct:SetPoint("RIGHT", -S.s2, 0)
-    r.pct:SetWidth(L.pctWidth); r.pct:SetJustifyH("RIGHT")
-    r.name = T.Text(r, "sm", "white")
-    r.name:SetPoint("TOPLEFT", r.thumb, "TOPRIGHT", S.s3, 1)
-    r.name:SetPoint("RIGHT", r.pct, "LEFT", -S.s2, 0)
-    r.name:SetJustifyH("LEFT"); r.name:SetWordWrap(false)
-    r.bars = W.CatBars(r)
-    r.bars:SetPoint("BOTTOMLEFT", r.thumb, "BOTTOMRIGHT", S.s3, 0)
-    r.note = T.Text(r, "xs", "dim")
-    r.note:SetPoint("BOTTOMLEFT", r.thumb, "BOTTOMRIGHT", S.s3, 0)
-    return r
+-- The class road panel: the Class page's strip in mini mode on top (a window onto the road), a
+-- rule, then the caption. An overlay above the map takes the mouse, so a click anywhere on the
+-- panel opens the Class tab (the map's own nodes never react).
+local function buildClassPanel(parent)
+    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
+    local p = newPanel(parent, true)
+    p.win = CreateFrame("Frame", nil, p)
+    p.win:SetPoint("TOPLEFT", 1, -1); p.win:SetPoint("TOPRIGHT", -1, -1)
+    p.win:SetHeight(L.classMini)
+    if p.win.SetClipsChildren then p.win:SetClipsChildren(true) end
+    p.rule = T.Solid(p, "divider", "ARTWORK")
+    p.rule:SetPoint("TOPLEFT", p.win, "BOTTOMLEFT"); p.rule:SetPoint("TOPRIGHT", p.win, "BOTTOMRIGHT")
+    p.rule:SetHeight(1)
+    p.count = T.Text(p, "xs", "dim")
+    p.next = T.Text(p, "sm", "classPeach")
+    p.next:SetWordWrap(false)
+    p.train = T.Text(p, "xs", "classRedInkLight")
+    for _, fs in ipairs({ p.count, p.next, p.train }) do fs:SetJustifyH("LEFT") end
+    p.count:SetPoint("TOPLEFT", p.win, "BOTTOMLEFT", L.panelPad, -S.s2)
+    p.count:SetPoint("RIGHT", p, "RIGHT", -L.panelPad, 0)
+    p.next:SetPoint("TOPLEFT", p.count, "BOTTOMLEFT", 0, -2)
+    p.next:SetPoint("RIGHT", p, "RIGHT", -L.panelPad, 0)
+    p.train:SetPoint("TOPLEFT", p.next, "BOTTOMLEFT", 0, -2)
+    -- Built when first drawn (the page needs its width).
+    function p:EnsureMap(width)
+        if self.map or not (ns.ClassPage and ns.ClassPage.BuildMini) then return self.map end
+        local m = ns.ClassPage.BuildMini(self.win, width)
+        m:SetAllPoints(self.win)
+        self.map = m
+        self.overlay = CreateFrame("Button", nil, self)
+        self.overlay:SetAllPoints(self.win)
+        self.overlay:SetFrameLevel((m:GetFrameLevel() or 0) + 50)
+        self.overlay:SetScript("OnClick", function() local f = p:GetScript("OnClick"); if f then f(p) end end)
+        self.overlay:SetScript("OnEnter", function() local f = p:GetScript("OnEnter"); if f then f(p) end end)
+        self.overlay:SetScript("OnLeave", function() local f = p:GetScript("OnLeave"); if f then f(p) end end)
+        return m
+    end
+    return p
 end
 
 ---------------------------------------------------------------------------------------------
 -- Text
 ---------------------------------------------------------------------------------------------
-
-local function percentText(z)
-    if z.state == "untracked" then return "-" end
-    return (z.combined and ns.Progression.PercentText(z.combined)) or "?"
-end
-
--- "5 areas · 26 quests" (confirmed not done, per category with numbers).
-local function leftText(z)
-    local parts = {}
-    for _, c in ipairs(z.cats or {}) do
-        if not c.pending and (c.remaining or 0) > 0 then
-            parts[#parts + 1] = c.remaining .. " " .. ns.Theme.category[c.key].unit
-        end
-    end
-    return table.concat(parts, " · ")
-end
 
 local function kicker(model)
     local hero, cur = model.hero, model.current
@@ -287,14 +263,9 @@ local function build(parent)
     local child = scroll.child
     page.scroll = scroll
 
-    local pools = { groups = {}, picks = {}, recent = {}, track = {} }
+    local pools = { track = {} }
     page.pools = pools
     local hero = buildHero(child)
-    local goal = buildGoal(child)
-    local sugPlate = T.Plate(child, L.plate)
-    sugPlate.title:SetText("Suggested next")
-    local sugEmpty = T.Text(child, "sm", "dim")
-    sugEmpty:SetJustifyH("LEFT")
 
     local track = newPanel(child, false)
     track.title = T.Text(track, "sm", "gold")
@@ -316,8 +287,6 @@ local function build(parent)
     zrow.rule = T.Solid(zrow, "white", "BACKGROUND", 0.08)
     zrow.rule:SetPoint("TOPLEFT"); zrow.rule:SetPoint("TOPRIGHT"); zrow.rule:SetHeight(1)
 
-    local recentPlate = T.Plate(child, L.plate)
-    recentPlate.title:SetText("Recent zones")
     -- The Atlas panel (Phase 10): the painted sea chart with every zone's art at its place.
     local atlasPlate = T.Plate(child, L.plate)
     atlasPlate.title:SetText("Atlas")
@@ -330,12 +299,11 @@ local function build(parent)
         for i = 1, 4 do self.focusEdge[i]:SetShown(on == true) end
     end
     atlas:SetFocused(false)
-    local recentPanel = newPanel(child, false)
-    local recentEmpty = T.Text(recentPanel, "sm", "dim")
-    recentEmpty:SetJustifyH("LEFT")
-    page.parts = { hero = hero, goal = goal, track = track, zonesRow = zrow, recent = recentPanel,
-        sugEmpty = sugEmpty, recentEmpty = recentEmpty, sugPlate = sugPlate, recentPlate = recentPlate,
-        atlas = atlas, atlasPlate = atlasPlate }
+    -- Your class road (round 3).
+    local classPlate = T.Plate(child, L.plate)
+    local classPanel = buildClassPanel(child)
+    page.parts = { hero = hero, track = track, zonesRow = zrow, atlas = atlas, atlasPlate = atlasPlate,
+        classPlate = classPlate, classPanel = classPanel }
 
     -- The width the page draws into (before the first layout, from the window).
     local function width()
@@ -349,14 +317,109 @@ local function build(parent)
 
     local function item(frame, key, title, detail, onActivate, group, actionLabel, topGap)
         frame.item = { key = key, frame = frame, title = title, detail = detail, onActivate = onActivate,
-            group = group, scroll = scroll, actionLabel = actionLabel or "Open", topGap = topGap }
+            group = group, column = group == "L" and 1 or 2, scroll = scroll, actionLabel = actionLabel or "Open", topGap = topGap }
         frame:SetScript("OnClick", function() onActivate(frame.item) end)
         return frame.item
     end
 
-    -- Draws the left column from x at width w. Returns its focus rows (each with a section).
+    -- Tracked completion at (x, y), width w. Adds its rows (section 2) and returns the next y.
+    local function drawTracked(m, x, y, w, rows)
+        local tc = m.completion
+        local c = tc.combined
+        track:ClearAllPoints()
+        track:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
+        track:SetWidth(w)
+        track.pct:SetText(ns.Progression.PercentText(c) or "-")
+        local pad = L.panelPad
+        local ty = L.trackHead
+        for _, r in ipairs(pools.track) do r:Hide() end
+        local unread = {}
+        for _, id in ipairs(tc.flightsUnread or {}) do unread[#unread + 1] = ns.Overview.ContinentName(id) or ("map " .. id) end
+        local notes = {}
+        local function add(it) rows[#rows + 1] = { items = { it }, section = 2 } end
+        for i, cat in ipairs(c.cats) do
+            local r = pools.track[i]
+            if not r then r = newTrackRow(track); pools.track[i] = r end
+            local meta = T.category[cat.key]
+            r:ClearAllPoints()
+            r:SetPoint("TOPLEFT", track, "TOPLEFT", pad - S.s1, -ty)
+            r:SetPoint("RIGHT", track, "RIGHT", -pad + S.s1, 0)
+            r.icon:SetTexture(meta.icon)
+            r.label:SetText(meta.label)
+            local pending = cat.pending ~= nil
+            r.label:SetTextColor(T.RGB(pending and "dim" or "white"))
+            r.bar:SetShown(not pending); r.count:SetShown(not pending); r.pct:SetShown(not pending)
+            r.note:SetShown(pending)
+            local detail
+            if pending then
+                r.note:SetText(PENDING[cat.pending] or "Not readable yet")
+                detail = (PENDING[cat.pending] or "Not readable yet") .. ". Left out of the headline until then."
+            else
+                r.count:SetText(color("white") .. cat.completed .. "|r / " .. cat.denominator)
+                r.pct:SetText(ns.Progression.PercentText(cat.progress) or "-")
+                r.bar:Set(cat.completed / cat.denominator, cat.state)
+                detail = string.format("%d of %d %s the game confirms done.", cat.completed, cat.denominator, meta.unit)
+                if cat.key == "quests" and (cat.unchecked or 0) > 0 then
+                    notes[#notes + 1] = cat.unchecked .. " quests can't be checked yet"
+                    detail = detail .. " " .. cat.unchecked .. " more can't be checked yet."
+                end
+                if cat.key == "flights" and #unread > 0 then
+                    notes[#notes + 1] = table.concat(unread, " and ") .. ": talk to a flight master there"
+                    detail = detail .. " " .. table.concat(unread, " and ") .. " isn't counted until you talk to a flight master there."
+                end
+                if cat.key == "explore" and (tc.exploreUnread or 0) > 0 then
+                    notes[#notes + 1] = tc.exploreUnread .. " zones' exploration can't be read yet"
+                end
+            end
+            r:Show()
+            add(item(r, "track:" .. cat.key, meta.label, detail, function() openZones() end, "L", "Zones"))
+            ty = ty + L.trackRow
+        end
+
+        -- Zones: complete / in progress / untouched (/ unknown) over the zones you can do.
+        local zc = m.zones
+        zrow:ClearAllPoints()
+        zrow:SetPoint("TOPLEFT", track, "TOPLEFT", pad - S.s1, -(ty + S.s1))
+        zrow:SetPoint("RIGHT", track, "RIGHT", -pad + S.s1, 0)
+        zrow.count:SetText(string.format("%s%d|r / %d complete", color("white"), zc.complete, zc.applicable))
+        -- The bar ends before the count (a fixed width ran into "0 / 43 complete" in game,
+        -- WoWScrnShot_110826_181134).
+        local rowW = w - 2 * pad + 2 * S.s1
+        local barStart = S.s2 + 18 + S.s2 + L.trackLabel + S.s1
+        local countW = math.ceil(zrow.count:GetStringWidth() or L.trackCount)
+        local barW = math.max(40, rowW - barStart - countW - S.s2 - S.s3)
+        zrow.bar:SetWidth(barW)
+        zrow.bar:SetStack({ { zc.complete, "complete" }, { zc.progress, "todo" }, { zc.untouched, "well" },
+            { zc.unknown, "black" } }, zc.applicable, barW)
+        local legend = string.format("%s%d in progress|r   %d untouched", color("todo"), zc.progress, zc.untouched)
+        if zc.unknown > 0 then legend = legend .. "   " .. zc.unknown .. " no data" end
+        zrow.legend:SetText(legend)
+        local target = zc.complete > 0 and "complete" or (zc.progress > 0 and "progress" or "all")
+        add(item(zrow, "zones", "Zones",
+            "Zones you can do (other faction's territory left out). Complete: exploration, quests and flight "
+                .. "paths all done; in progress: some; untouched: none yet.",
+            function() openZones(target) end, "L",
+            target == "complete" and "Show complete" or (target == "progress" and "Show in progress" or "Zones")))
+        ty = ty + S.s1 + L.trackRow + 14 + S.s2
+
+        local rule = "Each category counts equally"
+        if c.pending then rule = rule .. "; those without data are left out" end
+        table.insert(notes, 1, rule)
+        track.foot:ClearAllPoints()
+        track.foot:SetPoint("TOPLEFT", track, "TOPLEFT", pad + 2, -ty)
+        track.foot:SetWidth(w - 2 * pad - 4)
+        track.foot:SetText(table.concat(notes, " · ") .. ".")
+        local fh = track.foot:GetStringHeight() or 0
+        if fh < 12 then fh = 14 * math.ceil((track.foot:GetStringWidth() or 0) / math.max(1, w - 2 * pad - 4) + 0.001) end
+        ty = ty + math.max(14, fh) + pad
+        track:SetHeight(ty)
+        return y + ty
+    end
+
+    -- Draws the left column from x at width w: the Continue card (section 1), then Tracked
+    -- completion (section 2). Returns its focus rows and its height.
     local function drawLeft(m, x, w)
-        local rows, y, section = {}, 0, 1
+        local rows, y = {}, 0
         local h = m.hero
         hero:SetShown(h ~= nil)
         hero.empty:SetShown(h == nil)
@@ -394,7 +457,7 @@ local function build(parent)
             local go = z.state == "complete" and "Open" or (z.state == "untouched" and "Start" or "Continue")
             local detail = ns.ZonesCatalogue.ZoneDetail(z) .. "  ·  Open the zone to see what's left."
             rows[#rows + 1] = { items = { item(hero, "hero", z.name, detail, function() openZone(z) end, "L",
-                go) }, section = section }
+                go) }, section = 1 }
             y = y + L.heroHeight
         else
             hero.empty:ClearAllPoints()
@@ -405,223 +468,14 @@ local function build(parent)
                 or "Nothing left to continue: every zone you can do is complete.")
             y = y + 48
         end
-
-        goal:SetShown(m.goal ~= nil)
-        if m.goal then
-            local z = m.goal
-            y = y + S.s4
-            goal:ClearAllPoints()
-            goal:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
-            goal:SetWidth(w)
-            goal.text:SetText(string.format("Finish %s%s|r · %d to go", color("white"), z.name, z.left or 0))
-            goal.bars:Set(z.cats or {}, math.max(150, math.floor(w * 0.4)), true)
-            rows[#rows + 1] = { items = { item(goal, "goal", "Next goal",
-                string.format("%s: the zone in progress with the least left (%s).", z.name, leftText(z)),
-                function() openZone(z) end, "L") }, section = section }
-            y = y + L.goalHeight
-        end
-
-        -- Suggested next: one framed panel per zone with its Next up picks, two per line.
-        y = y + S.s4
-        sugPlate:ClearAllPoints()
-        sugPlate:SetPoint("TOPLEFT", child, "TOPLEFT", x - 6, -y)
-        sugPlate:SetWidth(w + 12)
-        y = y + L.plate + S.s3
-        for _, g in ipairs(pools.groups) do g:Hide() end
-        for _, b in ipairs(pools.picks) do b:Hide() end
-        sugEmpty:SetShown(#m.suggestions == 0)
-        if #m.suggestions == 0 then
-            sugEmpty:ClearAllPoints()
-            sugEmpty:SetPoint("TOPLEFT", child, "TOPLEFT", x + S.s3, -y)
-            sugEmpty:SetWidth(w - S.s3)
-            sugEmpty:SetText(m.hero and "Nothing to suggest right now."
-                or "Nothing to suggest: no zone you can do has anything left that the game confirms.")
-            y = y + 24
-        end
-        local used = 0
-        local pad = L.panelPad
-        local colW = math.floor((w - 2 * pad - (L.sugCols - 1) * S.s2) / L.sugCols)
-        for gi, s in ipairs(m.suggestions) do
-            section = section + 1
-            local g = pools.groups[gi]
-            if not g then g = newGroup(child); pools.groups[gi] = g end
-            g:ClearAllPoints()
-            g:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
-            g:SetWidth(w)
-            g.name:SetText(s.zone.name)
-            local left = leftText(s.zone)
-            g.why:SetText((RULE[s.rule] or "") .. (left ~= "" and (" · " .. left .. " left") or ""))
-            g:Show()
-            local top = pad + L.groupHead
-            local row
-            for i, it in ipairs(s.items) do
-                used = used + 1
-                local b = pools.picks[used]
-                if not b then b = newPick(child); pools.picks[used] = b end
-                local col, r = (i - 1) % L.sugCols, math.floor((i - 1) / L.sugCols)
-                b:ClearAllPoints()
-                b:SetPoint("TOPLEFT", g, "TOPLEFT", pad + col * (colW + S.s2), -(top + r * (L.sugItem + S.s1)))
-                b:SetWidth(colW)
-                b.icon:SetTexture(T.category[it.kind] and T.category[it.kind].icon)
-                b.name:SetText(it.name or "?")
-                local dc = it.difficulty and ns.ZoneDetail.DifficultyColor(it.difficulty)
-                if dc then b.name:SetTextColor(dc[1], dc[2], dc[3]) else b.name:SetTextColor(T.RGB("white")) end
-                b.level:SetText(it.kind == "quests" and it.level and ("Lv " .. it.level) or "")
-                b:Show()
-                local zone, pick = s.zone, { kind = it.kind, id = it.id }
-                local what = it.kind == "explore" and "Area to discover" or (it.kind == "flights" and "Flight path to discover"
-                    or ("Quest, level " .. tostring(it.level or "?")))
-                if col == 0 then row = { items = {}, section = section }; rows[#rows + 1] = row end
-                table.insert(row.items, item(b, "pick:" .. it.kind .. ":" .. tostring(it.id), it.name or "?",
-                    what .. " · " .. zone.name .. ". A opens it.", function() openZone(zone, pick) end,
-                    "L", "Open", top + L.plate + S.s3))
-            end
-            local lines = math.ceil(#s.items / L.sugCols)
-            local gh = top + lines * L.sugItem + (lines - 1) * S.s1 + pad
-            g:SetHeight(gh)
-            y = y + gh + S.s3
-        end
+        y = drawTracked(m, x, y + S.s4, w, rows)
         return rows, y
     end
 
-    -- Draws the right column. Returns its focus items (one per row) and its height.
+    -- Draws the right column: the Atlas (section 3) and your class road (section 4). Returns its
+    -- focus rows and its height.
     local function drawRight(m, x, w)
-        local items, y = {}, 0
-        local tc = m.completion
-        local c = tc.combined
-        track:ClearAllPoints()
-        track:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
-        track:SetWidth(w)
-        track.pct:SetText(ns.Progression.PercentText(c) or "-")
-        local pad = L.panelPad
-        local ty = L.trackHead
-        for _, r in ipairs(pools.track) do r:Hide() end
-        local unread = {}
-        for _, id in ipairs(tc.flightsUnread or {}) do unread[#unread + 1] = ns.Overview.ContinentName(id) or ("map " .. id) end
-        local notes = {}
-        for i, cat in ipairs(c.cats) do
-            local r = pools.track[i]
-            if not r then r = newTrackRow(track); pools.track[i] = r end
-            local meta = T.category[cat.key]
-            r:ClearAllPoints()
-            r:SetPoint("TOPLEFT", track, "TOPLEFT", pad - S.s1, -ty)
-            r:SetPoint("RIGHT", track, "RIGHT", -pad + S.s1, 0)
-            r.icon:SetTexture(meta.icon)
-            r.label:SetText(meta.label)
-            local pending = cat.pending ~= nil
-            r.label:SetTextColor(T.RGB(pending and "dim" or "white"))
-            r.bar:SetShown(not pending); r.count:SetShown(not pending); r.pct:SetShown(not pending)
-            r.note:SetShown(pending)
-            local detail
-            if pending then
-                r.note:SetText(PENDING[cat.pending] or "Not readable yet")
-                detail = (PENDING[cat.pending] or "Not readable yet") .. ". Left out of the headline until then."
-            else
-                r.count:SetText(color("white") .. cat.completed .. "|r / " .. cat.denominator)
-                r.pct:SetText(ns.Progression.PercentText(cat.progress) or "-")
-                r.bar:Set(cat.completed / cat.denominator, cat.state)
-                detail = string.format("%d of %d %s the game confirms done.", cat.completed, cat.denominator, meta.unit)
-                if cat.key == "quests" and (cat.unchecked or 0) > 0 then
-                    notes[#notes + 1] = cat.unchecked .. " quests can't be checked yet"
-                    detail = detail .. " " .. cat.unchecked .. " more can't be checked yet."
-                end
-                if cat.key == "flights" and #unread > 0 then
-                    notes[#notes + 1] = table.concat(unread, " and ") .. ": talk to a flight master there"
-                    detail = detail .. " " .. table.concat(unread, " and ") .. " isn't counted until you talk to a flight master there."
-                end
-                if cat.key == "explore" and (tc.exploreUnread or 0) > 0 then
-                    notes[#notes + 1] = tc.exploreUnread .. " zones' exploration can't be read yet"
-                end
-            end
-            r:Show()
-            items[#items + 1] = item(r, "track:" .. cat.key, meta.label, detail, function() openZones() end, "R", "Zones")
-            ty = ty + L.trackRow
-        end
-
-        -- Zones: complete / in progress / untouched (/ unknown) over the zones you can do.
-        local zc = m.zones
-        zrow:ClearAllPoints()
-        zrow:SetPoint("TOPLEFT", track, "TOPLEFT", pad - S.s1, -(ty + S.s1))
-        zrow:SetPoint("RIGHT", track, "RIGHT", -pad + S.s1, 0)
-        zrow.count:SetText(string.format("%s%d|r / %d complete", color("white"), zc.complete, zc.applicable))
-        -- The bar ends before the count (a fixed width ran into "0 / 43 complete" in game,
-        -- WoWScrnShot_110826_181134).
-        local rowW = w - 2 * pad + 2 * S.s1
-        local barStart = S.s2 + 18 + S.s2 + L.trackLabel + S.s1
-        local countW = math.ceil(zrow.count:GetStringWidth() or L.trackCount)
-        local barW = math.max(40, rowW - barStart - countW - S.s2 - S.s3)
-        zrow.bar:SetWidth(barW)
-        zrow.bar:SetStack({ { zc.complete, "complete" }, { zc.progress, "todo" }, { zc.untouched, "well" },
-            { zc.unknown, "black" } }, zc.applicable, barW)
-        local legend = string.format("%s%d in progress|r   %d untouched", color("todo"), zc.progress, zc.untouched)
-        if zc.unknown > 0 then legend = legend .. "   " .. zc.unknown .. " no data" end
-        zrow.legend:SetText(legend)
-        local target = zc.complete > 0 and "complete" or (zc.progress > 0 and "progress" or "all")
-        items[#items + 1] = item(zrow, "zones", "Zones",
-            "Zones you can do (other faction's territory left out). Complete: exploration, quests and flight "
-                .. "paths all done; in progress: some; untouched: none yet.",
-            function() openZones(target) end, "R",
-            target == "complete" and "Show complete" or (target == "progress" and "Show in progress" or "Zones"))
-        ty = ty + S.s1 + L.trackRow + 14 + S.s2
-
-        local rule = "Each category counts equally"
-        if c.pending then rule = rule .. "; those without data are left out" end
-        table.insert(notes, 1, rule)
-        track.foot:ClearAllPoints()
-        track.foot:SetPoint("TOPLEFT", track, "TOPLEFT", pad + 2, -ty)
-        track.foot:SetWidth(w - 2 * pad - 4)
-        track.foot:SetText(table.concat(notes, " · ") .. ".")
-        local fh = track.foot:GetStringHeight() or 0
-        if fh < 12 then fh = 14 * math.ceil((track.foot:GetStringWidth() or 0) / math.max(1, w - 2 * pad - 4) + 0.001) end
-        ty = ty + math.max(14, fh) + pad
-        track:SetHeight(ty)
-        y = y + ty + S.s4
-
-        -- Recently visited zones, in a framed panel under their plate.
-        recentPlate:ClearAllPoints()
-        recentPlate:SetPoint("TOPLEFT", child, "TOPLEFT", x - 6, -y)
-        recentPlate:SetWidth(w + 12)
-        y = y + L.plate + S.s3
-        recentPanel:ClearAllPoints()
-        recentPanel:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
-        recentPanel:SetWidth(w)
-        for _, r in ipairs(pools.recent) do r:Hide() end
-        local ry = S.s3
-        recentEmpty:SetShown(#m.recent == 0)
-        if #m.recent == 0 then
-            recentEmpty:ClearAllPoints()
-            recentEmpty:SetPoint("TOPLEFT", recentPanel, "TOPLEFT", pad + 2, -ry - 2)
-            recentEmpty:SetWidth(w - 2 * pad)
-            recentEmpty:SetText("Zones you travel through will be listed here.")
-            ry = ry + 24
-        end
-        for i, z in ipairs(m.recent) do
-            local r = pools.recent[i]
-            if not r then r = newRecentRow(recentPanel); pools.recent[i] = r end
-            r:ClearAllPoints()
-            r:SetPoint("TOPLEFT", recentPanel, "TOPLEFT", S.s2, -ry)
-            r:SetWidth(w - 2 * S.s2)
-            setArt(r.thumb, z)
-            cropArt(r.thumb, z.mapID, L.recentThumb[1], L.recentThumb[2])
-            r.name:SetText(z.name)
-            r.pct:SetText(percentText(z))
-            r.pct:SetTextColor(T.RGB(z.state == "complete" and "complete" or (z.state == "progress" and "todo" or "dim")))
-            local hasCats = z.cats and #z.cats > 0
-            r.bars:SetShown(hasCats)
-            r.note:SetShown(not hasCats)
-            if hasCats then
-                r.bars:Set(z.cats, w - 2 * S.s2 - S.s2 - L.recentThumb[1] - S.s3 - L.pctWidth - S.s3, true)
-            else
-                r.note:SetText(z.state == "untracked" and "not tracked" or "no data")
-            end
-            r:Show()
-            items[#items + 1] = item(r, "recent:" .. z.mapID, z.name, ns.ZonesCatalogue.ZoneDetail(z),
-                function() openZone(z) end, "R", "Open", L.plate + S.s3 + S.s3)
-            ry = ry + L.recentRow + 2
-        end
-        recentPanel:SetHeight(ry + S.s2)
-        y = y + ry + S.s2 + S.s4
-
+        local rows, y = {}, 0
         -- The Atlas panel: A opens the Atlas view on your current zone.
         atlasPlate:ClearAllPoints()
         atlasPlate:SetPoint("TOPLEFT", child, "TOPLEFT", x - 6, -y)
@@ -632,15 +486,45 @@ local function build(parent)
         local zones = {}
         for _, z in ipairs(m.all or {}) do if z.tracked then zones[#zones + 1] = z end end
         ns.AtlasChart.Draw(atlas, zones, w, L.atlasPanel, { current = m.current and m.current.mapID })
-        items[#items + 1] = item(atlas, "atlas", "Atlas",
+        rows[#rows + 1] = { items = { item(atlas, "atlas", "Atlas",
             "Every zone at its place on the map, with its art and progress. A opens the Atlas.",
-            function() openAtlas() end, "R", "Open", L.plate + S.s3 + S.s3)
-        y = y + L.atlasPanel + S.s2
-        return items, y
+            function() openAtlas() end, "R", "Open", L.plate + S.s3 + S.s3) }, section = 3 }
+        y = y + L.atlasPanel + S.s4
+
+        -- Your class road: the strip around You, then its caption (the Class tab's plaque lines).
+        local cs = ns.ClassPage and ns.ClassPage.Summary and ns.ClassPage.Summary() or { title = "Class road", next = "" }
+        classPlate:ClearAllPoints()
+        classPlate:SetPoint("TOPLEFT", child, "TOPLEFT", x - 6, -y)
+        classPlate:SetWidth(w + 12)
+        classPlate.title:SetText(cs.title or "Class road")
+        classPlate.title:SetTextColor(T.RGB(cs.complete and "complete" or "gold"))
+        y = y + L.plate + S.s3
+        local p = classPanel
+        p:ClearAllPoints()
+        p:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
+        p:SetWidth(w)
+        local mini = p:EnsureMap(w - 2)
+        if mini then mini.miniWidth = w - 2 end
+        p.count:SetShown(cs.count ~= nil)
+        p.count:SetText(cs.count or "")
+        p.next:SetText(cs.next or "")
+        p.next:SetTextColor(T.RGB(cs.nextColor or "classPeach"))
+        p.train:SetShown(cs.train ~= nil)
+        p.train:SetText(cs.train and ((cs.train == 1 and "1 ability" or (cs.train .. " abilities")) .. " waiting at your trainer") or "")
+        local lines = (cs.count and 1 or 0) + 1 + (cs.train and 1 or 0)
+        local ph = 1 + L.classMini + 1 + S.s2 + lines * L.classMiniLine + S.s3
+        p:SetHeight(ph)
+        local detail = (cs.count and (cs.count .. ". ") or "") .. (cs.next or "")
+            .. (cs.train and (" " .. p.train:GetText() .. ".") or "") .. " A opens the Class tab at your stop."
+        rows[#rows + 1] = { items = { item(p, "classroad", cs.title or "Class road", detail,
+            function() openClass() end, "R", "Class tab", L.plate + S.s3 + S.s3) }, section = 4 }
+        y = y + ph + S.s2
+        return rows, y
     end
 
-    -- Draws the model. Focus rows pair the left column's rows with the right column's items
-    -- (FocusGrid groups keep up/down inside a column; left/right crosses).
+    -- Draws the model. Focus rows: the left column's, then the right's, in reading order
+    -- (LT/RT: Continue, Tracked completion, Atlas, class road). Each column is a group, so
+    -- up/down stay in it and left/right cross to the nearest row of the other.
     local function draw(m)
         page.model = m
         local w = width()
@@ -648,20 +532,12 @@ local function build(parent)
         local lw = math.floor(inner * L.overviewLeft)
         local rw = inner - lw
         local leftRows, lh = drawLeft(m, L.listInset, lw)
-        local rightItems, rh = drawRight(m, L.listInset + lw + S.s6, rw)
-        local rows, lastSection = {}, 1
-        for i = 1, math.max(#leftRows, #rightItems) do
-            local items, section = {}, lastSection
-            if leftRows[i] then
-                for _, it in ipairs(leftRows[i].items) do items[#items + 1] = it end
-                section = leftRows[i].section
-            end
-            if rightItems[i] then items[#items + 1] = rightItems[i] end
-            rows[#rows + 1] = { items = items, section = section }
-            lastSection = section
-        end
+        local rightRows, rh = drawRight(m, L.listInset + lw + S.s6, rw)
+        local rows = {}
+        for _, r in ipairs(leftRows) do rows[#rows + 1] = r end
+        for _, r in ipairs(rightRows) do rows[#rows + 1] = r end
         page.rows = rows
-        page.hasSections = lastSection > 1
+        page.hasSections = true
         child:SetHeight(math.max(1, lh, rh))
     end
     page.Draw = draw
@@ -686,7 +562,7 @@ local function build(parent)
         end
     end
     for _, msg in ipairs({ "AZF_EXPLORATION_UPDATED", "AZF_ZONE_VISITED", "AZF_LEVEL_CHANGED",
-        "AZF_QUESTS_UPDATED", "AZF_FLIGHTS_UPDATED" }) do
+        "AZF_QUESTS_UPDATED", "AZF_FLIGHTS_UPDATED", "AZF_CLASS_UPDATED" }) do
         ns.Events.On(msg, changed)
     end
     ns.Events.On("AZF_WINDOW_SHOWN", function() if page:IsShown() then page:Redraw() end end)

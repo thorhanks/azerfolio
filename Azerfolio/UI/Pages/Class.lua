@@ -797,10 +797,16 @@ end
 -- Page
 ---------------------------------------------------------------------------------------------
 
-local function build(parent)
+-- opts.mini (Overview round 3, mockups/DESIGN.md): the strip alone, filling the page, as a window
+-- onto the road for the Overview: no plaque, no right pane, no focus, no scrolling by hand. It
+-- scrolls itself so You sits in the middle, and only the next stop keeps its name.
+local function build(parent, opts)
     local T, L, S, W = ns.Theme, ns.Theme.layout, ns.Theme.space, ns.Widgets
     local CT = L.classTab
+    local mini = opts and opts.mini == true
     local page = CreateFrame("Frame", nil, parent)
+    page.mini = mini
+    page.miniWidth = mini and opts.width or nil
     page.mode = "road"            -- "road" (focus on the strip) | "steps" (focus in the right pane)
     page.nodes, page.dots, page.edges, page.beads, page.cairns, page.abilities = {}, {}, {}, {}, {}, {}
     page.stepRows, page.headers, page.notes = {}, {}, {}
@@ -832,6 +838,12 @@ local function build(parent)
     sbar:SetPoint("TOPRIGHT", plaque, "BOTTOMRIGHT", -S.s1, -S.s2)
     sbar:SetPoint("BOTTOMRIGHT", strip, "BOTTOMRIGHT", -S.s1, S.s2)
     page.scrollBar = sbar
+    if mini then
+        plaque:Hide(); plaque:SetHeight(1)
+        sbar:Hide(); page.scrollBar = nil
+        mscroll:ClearAllPoints(); mscroll:SetAllPoints(strip)
+        mscroll:EnableMouseWheel(false)
+    end
     local map = mscroll.child
     page.map, page.mscroll = map, mscroll
     -- The sky: one gradient band between each pair of colour stops.
@@ -847,6 +859,7 @@ local function build(parent)
     end
     local stripEdge = T.Solid(strip, "divider", "BORDER")
     stripEdge:SetPoint("TOPRIGHT"); stripEdge:SetPoint("BOTTOMRIGHT"); stripEdge:SetWidth(1)
+    if mini then stripEdge:Hide() end
     -- The road's end and "you".
     page.endNode = newNode(map)
     local you = CreateFrame("Frame", nil, map)
@@ -967,6 +980,11 @@ local function build(parent)
     page.emptyText = T.Text(page, "md", "dim")
     page.emptyText:SetPoint("TOP", page.emptyTitle, "BOTTOM", 0, -S.s2)
     page.emptyText:SetWidth(560); page.emptyText:SetWordWrap(true)
+    if mini then
+        d:Hide()
+        page.emptyTitle:ClearAllPoints(); page.emptyTitle:SetPoint("TOP", 0, -S.s6)
+        T.SetFont(page.emptyTitle, "md"); T.SetFont(page.emptyText, "sm")
+    end
 
     ---------------------------------------------------------------------------------------------
 
@@ -995,6 +1013,7 @@ local function build(parent)
     -- The map, its road, beads, nodes and the road's end. Returns the focus rows.
     local function drawMap(j, lay)
         local mapW = math.max(1, (mscroll:GetWidth() or 0) > 1 and mscroll:GetWidth()
+            or (mini and (page.miniWidth or CT.strip))
             or ((page.wide and CT.stripWide or CT.strip) - 2 * S.s2 - CT.scrollBar - S.s1))
         local s = mapW / lay.W
         page.scale = s
@@ -1728,7 +1747,7 @@ local function build(parent)
         self.status = g.status
         self.used = { dots = 0, edges = 0, beads = 0, cairns = 0, nodes = 0, abilities = 0, stepRows = 0, headers = 0, notes = 0 }
         local ready = g.status == "ready" and g.journey and #g.journey.stops > 0
-        strip:SetShown(ready); d:SetShown(ready)
+        strip:SetShown(ready); d:SetShown(ready and not mini)
         self.emptyTitle:SetShown(not ready); self.emptyText:SetShown(not ready)
         if not ready then
             self.journey, self.roadRows, self.detailRows = nil, {}, {}
@@ -1745,6 +1764,7 @@ local function build(parent)
                 self.emptyTitle:SetText("Reading class quests")
                 self.emptyText:SetText("Azerfolio reads them once QuestieDB's quests are in.")
             end
+            if mini then self.emptyText:SetWidth(math.max(100, (self:GetWidth() or 0) - 2 * S.s6)); return end
             self.mode = "road"
             self:Refresh()
             return
@@ -1770,6 +1790,7 @@ local function build(parent)
         plaque.next:SetTextColor(T.RGB(nc))
         self.drawnWidth = mscroll:GetWidth() or 0
         self.roadRows = drawMap(j, self.layout)
+        if mini then self:Centre(); return end
         if page.scrollBar then page.scrollBar.Place() end
         -- Selection: kept if the stop (or ability mark) is still there; else your current stop.
         local abSel = type(self.sel) == "string" and tonumber(self.sel:match("^a:(%d+)$")) or nil
@@ -1789,6 +1810,24 @@ local function build(parent)
         self:Paint()
         self:Refresh()
     end
+
+    -- Mini (the Overview's window): only the next stop keeps its name (the road's end once
+    -- every stop is walked), and the map scrolls so You sits in the middle of the window, held
+    -- inside the strip at its ends. Without You (level not known), the next stop is the middle.
+    function page:Centre()
+        local j, lay = self.journey, self.layout
+        if not (j and lay) then return end
+        local keep = j.next and j.next.stop and j.next.stop.key or "end"
+        for key, b in pairs(self.byKey or {}) do b.label:SetShown(key == keep) end
+        self.endNode.label:SetShown(keep == "end")
+        local s = self.scale or 1
+        local y = self.youY or (lay.pos[keep] and lay.pos[keep][2]) or lay.endPos[2]
+        local h = mscroll:GetHeight() or 0
+        local range = math.max(0, (map:GetHeight() or 0) - h)
+        self.miniScroll = math.max(0, math.min(range, y * s - h / 2))
+        mscroll:SetVerticalScroll(self.miniScroll)
+    end
+    mscroll:HookScript("OnSizeChanged", function() if mini and page.journey then page:Centre() end end)
 
     -- Selected marks on the nodes.
     function page:Paint()
@@ -1888,6 +1927,7 @@ local function build(parent)
 
     -- The strip's column for the window (the map redraws when its width changes: onWidth).
     function page:Layout()
+        if mini then return end
         local wide = ns.UI.IsWide()
         if wide == self.wide then return end
         self.wide = wide
@@ -1919,13 +1959,53 @@ local function build(parent)
         if self.dirty then self.dirty = false; self:Redraw() end
     end)
 
-    page.wide = ns.UI.IsWide()
-    strip:SetWidth(page.wide and CT.stripWide or CT.strip)
+    if mini then
+        strip:SetPoint("TOPRIGHT"); strip:SetPoint("BOTTOMRIGHT")
+    else
+        page.wide = ns.UI.IsWide()
+        strip:SetWidth(page.wide and CT.stripWide or CT.strip)
+    end
     page:Redraw()
     return page
 end
 
-ns.ClassPage = { PushApart = pushApart } -- for tests
+-- The plaque's lines for this character's road (the Overview's class road caption, round 3):
+-- { status, title, count, next, nextColor, train = abilities you can train now (or nil) }.
+-- Without a road (status ~= "ready") only status and a line saying why.
+local function summary()
+    local g = ns.ClassJourney.Get()
+    local out = { status = g.status }
+    local tr = ns.ClassTrainer and ns.ClassTrainer.Get() or { status = "none" }
+    if tr.status == "recorded" and tr.abilities.counts.available > 0 then out.train = tr.abilities.counts.available end
+    local j = g.status == "ready" and g.journey
+    if not (j and #j.stops > 0) then
+        local c = ns.character or {}
+        out.title = "Class road"
+        if g.status == "none" or g.status == "ready" then
+            out.next = "No curated class quests for " .. (c.className or "this class") .. " on the " .. tostring(c.faction or "?") .. " side."
+        elseif g.status == "unavailable" then
+            out.next = "Class quests need the QuestieDB addon."
+        else
+            out.next = "Reading class quests..."
+        end
+        out.nextColor = "dim"
+        return out
+    end
+    local known = j.complete ~= nil
+    out.title = j.title or "Class road"
+    out.complete = j.complete
+    out.count = "Road " .. (known and j.road.done or "?") .. " of " .. j.road.count
+    if j.side.count > 0 then out.count = out.count .. "  ·  Side paths " .. (known and j.side.done or "?") .. " of " .. j.side.count end
+    out.next, out.nextColor = nextLine(j)
+    out.stopKey = j.next and j.next.stop and j.next.stop.key or "end"
+    return out
+end
+
+ns.ClassPage = {
+    PushApart = pushApart, -- for tests
+    Summary = summary,
+    BuildMini = function(parent, width) return build(parent, { mini = true, width = width }) end,
+}
 
 ns.UI.RegisterTab({
     id = "class",

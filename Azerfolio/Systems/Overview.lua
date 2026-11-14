@@ -1,20 +1,17 @@
--- The Overview dashboard's model (spec §5, plan Phase 7, Phase 9 step 6): tracked completion
--- per category, the Zones stat, the Continue card, the next goal, suggested objectives and the
--- recently visited zones. Overview.Build is pure: it takes the Zones catalogue entries
--- (ns.Zones), each zone's Next up picks (ns.Zones.NextUp), the providers' overall results and
--- the saved visits, and only picks and orders them. Every count it hands on comes from
--- ns.Progression, so the Overview and the Zones tab show the same numbers for a zone.
+-- The Overview dashboard's model (spec §5, plan Phase 7, Phase 9 step 6, Overview round 3):
+-- tracked completion per category, the Zones stat and the Continue card. Overview.Build is pure:
+-- it takes the Zones catalogue entries (ns.Zones) and the providers' overall results, and only
+-- picks and orders them. Every count it hands on comes from ns.Progression, so the Overview and
+-- the Zones tab show the same numbers for a zone.
 -- Overview.Gather() collects that input from the client; the visit tracker records the zones
--- the player enters (AzerfolioCharDB.recentZones, newest last).
--- The Activity panel (discoveries per day, latest milestones) was removed in Phase 9 step 6
--- (owner, 2026-11-08), with the milestone tracking behind it.
+-- the player enters (AzerfolioCharDB.recentZones, newest last) and announces AZF_ZONE_VISITED.
+-- The Activity panel was removed in Phase 9 step 6 (owner, 2026-11-08); the next goal, the
+-- suggestions and Recent zones in round 3 (owner, 2026-11-13).
 local _, ns = ...
 
 local Overview = {}
 ns.Overview = Overview
 
-Overview.GROUPS = 3          -- suggestion groups (zones)
-Overview.RECENT_ZONES = 5    -- recently visited zones shown
 Overview.LEVEL_BEHIND = 2    -- "next for your level" looks from this many levels below yours
 
 ---------------------------------------------------------------------------------------------
@@ -141,20 +138,18 @@ end
 
 -- Pure. input:
 --   zones        ns.Zones entries (Zones.All())
---   nextUpFor(mapID) -> the zone's Zones.NextUp picks (or nil)
 --   overall      { explore = Exploration.Overall(), quests = Quests.Overall(),
 --                  flights = FlightPaths.Overall() } (any may be nil)
 --   current      the player's zone mapID (nil if unknown)
---   recent       visited zone mapIDs, newest last
 --   char         { faction, level }
 -- Returns:
+--   all          the zones given
 --   completion   Overview.Tracked result
 --   zones        { applicable, complete, progress, untouched, unknown }   (relevant tracked zones)
 --   current      the current zone's entry (any state) or nil
 --   hero         { zone, why = "current"|"closest"|"level" } or nil
---   goal         the in-progress zone with the fewest left, other than the hero's, or nil
---   suggestions  { { zone, rule, items (Zones.NextUp picks, >= 1) } } (<= GROUPS)
---   recent       recently visited zone entries, newest first, without the current zone
+-- (The next goal, suggestions and recent zones left with their panels, Overview round 3,
+-- owner 2026-11-13.)
 function Overview.Build(input)
     input = input or {}
     local zones, char = input.zones or {}, input.char or {}
@@ -183,44 +178,6 @@ function Overview.Build(input)
     elseif forLevel[1] then
         model.hero = { zone = forLevel[1], why = "level" }
     end
-    local heroZone = model.hero and model.hero.zone
-    for _, z in ipairs(closest) do
-        if z ~= heroZone then model.goal = z break end
-    end
-
-    -- Suggestions (spec §5.5), grouped by zone: 1. the current zone; 2. the zone closest to
-    -- completion; 3. the next zones for your level; then more close zones if room is left.
-    -- Each group lists the zone's Next up picks (areas, ready quests, a flight path), which
-    -- only hold objectives confirmed not done and eligible.
-    local groups, used = {}, {}
-    local function add(z, rule)
-        if #groups >= Overview.GROUPS or used[z.mapID] then return end
-        local items = input.nextUpFor and input.nextUpFor(z.mapID) or {}
-        if #items == 0 then return end
-        used[z.mapID] = true
-        groups[#groups + 1] = { zone = z, rule = rule, items = items }
-    end
-    if current and unfinished(current) then add(current, "current") end
-    local closeTaken = 0
-    for _, z in ipairs(closest) do
-        if closeTaken >= (#groups == 0 and 2 or 1) then break end
-        if not used[z.mapID] then add(z, "closest"); closeTaken = closeTaken + 1 end
-    end
-    for _, z in ipairs(forLevel) do add(z, "level") end
-    for _, z in ipairs(closest) do add(z, "closest") end
-    model.suggestions = groups
-
-    -- Recently visited, newest first, without the zone you're in.
-    local recent, seen = {}, {}
-    local list = input.recent or {}
-    for i = #list, 1, -1 do
-        local z = byMap[list[i]]
-        if z and z ~= current and not seen[z.mapID] and #recent < Overview.RECENT_ZONES then
-            seen[z.mapID] = true
-            recent[#recent + 1] = z
-        end
-    end
-    model.recent = recent
     return model
 end
 
@@ -241,17 +198,12 @@ end
 function Overview.Gather()
     return {
         zones = ns.Zones.All(),
-        nextUpFor = function(mapID)
-            return ns.Zones.NextUp(ns.Exploration.ForZone(mapID), ns.Quests and ns.Quests.ForZone(mapID),
-                ns.FlightPaths and ns.FlightPaths.ForZone(mapID))
-        end,
         overall = {
             explore = ns.Exploration.Overall(),
             quests = ns.Quests and ns.Quests.Overall() or nil,
             flights = ns.FlightPaths and ns.FlightPaths.Overall() or nil,
         },
         current = currentMap(),
-        recent = ns.charDB and ns.charDB.recentZones or {},
         char = ns.character or {},
     }
 end
@@ -295,16 +247,14 @@ function Overview.DebugReport()
     ns.Printf("Overview: tracked completion %s [%s], zones %d of %d complete (%d in progress, %d untouched, %d unknown)",
         ns.Progression.PercentText(c) or "unavailable", table.concat(cats, ", "),
         m.zones.complete, m.zones.applicable, m.zones.progress, m.zones.untouched, m.zones.unknown)
-    ns.Printf("  continue: %s (%s); next goal: %s", m.hero and m.hero.zone.name or "none",
-        m.hero and m.hero.why or "-", m.goal and m.goal.name or "none")
-    local s = {}
-    for _, g in ipairs(m.suggestions) do s[#s + 1] = string.format("%s (%s, %d picks)", g.zone.name, g.rule, #g.items) end
-    ns.Printf("  suggestions: %s", #s > 0 and table.concat(s, ", ") or "none")
-    local r = {}
-    for _, z in ipairs(m.recent) do r[#r + 1] = z.name end
-    ns.Printf("  recent zones: %s", #r > 0 and table.concat(r, ", ") or "none")
+    ns.Printf("  continue: %s (%s)", m.hero and m.hero.zone.name or "none", m.hero and m.hero.why or "-")
+    local cs = ns.ClassPage and ns.ClassPage.Summary and ns.ClassPage.Summary()
+    if cs then
+        ns.Printf("  class road: %s; %s; %s%s", tostring(cs.title), cs.count or tostring(cs.status), tostring(cs.next),
+            cs.train and ("; " .. cs.train .. " to train") or "")
+    end
     ns.Debug.Trace("overview", { percent = c.percent, cats = cats, zones = m.zones,
-        hero = m.hero and m.hero.zone.mapID, heroWhy = m.hero and m.hero.why, goal = m.goal and m.goal.mapID,
-        suggestions = s, recent = r, flightsUnread = #m.completion.flightsUnread,
-        exploreUnread = m.completion.exploreUnread })
+        hero = m.hero and m.hero.zone.mapID, heroWhy = m.hero and m.hero.why,
+        classRoad = cs and { status = cs.status, count = cs.count, next = cs.next, train = cs.train },
+        flightsUnread = #m.completion.flightsUnread, exploreUnread = m.completion.exploreUnread })
 end

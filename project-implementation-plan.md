@@ -513,6 +513,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-12 | Strip art is generated with the Codex CLI (`codex exec`) from `art/prompts.md` | Owner-installed; one road per run, about 4 minutes; the pipeline lines up seams and traces lanes, tests check every road |
 | 2026-11-13 | `art/prompts.md` holds the prompt of every shipped art piece and nothing else, so the whole set can be regenerated from it | Owner, at the Phase 13 close; unused round 3-4 art and its prompts removed |
 | 2026-11-13 | Phase 13 accepted: the Class tab closed. The version stays 1.2.0 until Phase 11 (v1.3) closes; open checks J4-J8 wait on play | Checked in game on Gideon (Paladin, Alliance) and Thragor (Warrior, Horde); the other 16 roads checked in the mockup and by tests. Owner closed it |
+| 2026-11-13 | Overview round 3: Next goal, Suggested next and Recent zones removed; the right column holds the Atlas and a window onto your class road (the Class page's strip in mini mode, centred on You, with the plaque's lines as a caption); the left column's spare space waits for a Professions panel | Owner, after the Class tab: show class progress on the Overview and free up space. The model drops the goal, suggestions and recent picks; the visit tracker stays (it announces zone changes) |
 
 ## 10. Definition of done (v1)
 

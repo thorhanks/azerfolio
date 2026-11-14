@@ -1158,11 +1158,11 @@ return function(t)
         t.eq(ns.UI.CurrentTab(), "overview")
         t.eq(ns.Focus.Current().key, "hero", "the Overview starts on the Continue card")
         press(ns, "PADDRIGHT")
-        t.eq(ns.Focus.Current().key, "track:explore")
+        t.eq(ns.Focus.Current().key, "atlas")
         press(ns, "PADRSHOULDER")
         t.eq(ns.Focus.Current().title, "Westfall", "back where it was")
         press(ns, "PADLSHOULDER")
-        t.eq(ns.Focus.Current().key, "track:explore", "and the Overview's focus too")
+        t.eq(ns.Focus.Current().key, "atlas", "and the Overview's focus too")
     end)
 
     t.test("no chevron when the controller isn't driving the window", function()
@@ -1966,7 +1966,7 @@ return function(t)
         return table.concat(out, ",")
     end
 
-    t.test("overview: Continue card, suggestions and stats from the live catalogue", function()
+    t.test("overview: Continue card, stats and the class road from the live catalogue", function()
         padUI = true
         local ns = boot()
         slash("")
@@ -1977,13 +1977,7 @@ return function(t)
         t.eq(p.hero.pct:GetText(), "40%", "the same number the Zones card shows")
         t.eq(p.hero.count:GetText(), "2 of 5 areas")
         t.ok(p.hero.left:GetText():find("3|r areas to go"), p.hero.left:GetText())
-        t.eq(p.goal:IsShown(), false, "no other zone in progress: no next goal")
-        local groups = overview(ns).pools.groups
-        t.eq(groups[1].name:GetText(), "Elwynn Forest"); t.eq(groups[1].why:GetText(), "Current zone · 3 areas left")
-        t.eq(groups[2], nil, "Durotar is Horde territory; Westfall and Teldrassil have no data")
-        local picks = overview(ns).pools.picks
-        t.eq(picks[1].name:GetText(), "Fargodeep Mine"); t.eq(picks[2].name:GetText(), "Crystal Lake")
-        t.eq(picks[3], nil, "Next up: two areas; no quests or flight paths in the mock")
+        t.eq(p.goal, nil, "round 3: no Next goal, Suggested next or Recent zones")
         -- Most of the 43 catalogue zones have no achievement data in the mock: no headline,
         -- and the row says why.
         t.eq(p.track.pct:GetText(), "-")
@@ -1994,13 +1988,70 @@ return function(t)
         t.ok(p.zonesRow.count:GetText():find("1|r / 4 complete"), "Durotar left out: " .. p.zonesRow.count:GetText())
         t.ok(p.zonesRow.legend:GetText():find("1 in progress") and p.zonesRow.legend:GetText():find("0 untouched")
             and p.zonesRow.legend:GetText():find("2 no data"), p.zonesRow.legend:GetText())
-        t.eq(p.recentEmpty:IsShown(), true, "only the current zone visited so far")
         local rows = overview(ns):GetFocusRows()
-        t.eq(#rows, 3)
-        t.eq(keys(rows[1]), "hero,track:explore")
-        t.eq(keys(rows[2]), "pick:explore:1148,pick:explore:1149,zones")
-        t.eq(keys(rows[3]), "atlas", "the Atlas panel")
+        t.eq(#rows, 5)
+        t.eq(keys(rows[1]), "hero"); t.eq(keys(rows[2]), "track:explore"); t.eq(keys(rows[3]), "zones")
+        t.eq(keys(rows[4]), "atlas", "the right column: the Atlas panel")
+        t.eq(keys(rows[5]), "classroad", "then the class road")
         t.eq(overview(ns).hasSections, true)
+        -- The class road: the Class page's summary as the caption, its strip in mini mode.
+        local cs = ns.ClassPage.Summary()
+        t.eq(p.classPlate.title:GetText(), cs.title)
+        t.eq(p.classPanel.next:GetText(), cs.next)
+        t.ok(p.classPanel.map ~= nil and p.classPanel.map.mini == true, "the strip in mini mode")
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
+    t.test("overview: the class road window centres on You and names only the next stop", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local _, restore = classStub(ns, { [3101] = true, [1642] = true })
+        slash("")
+        local p = overview(ns).parts
+        local m = p.classPanel.map
+        t.eq(m.status, "ready")
+        t.eq(p.classPlate.title:GetText(), "The Paladin's Road")
+        t.ok(p.classPanel.count:GetText():find("^Road 1 of 5") ~= nil, p.classPanel.count:GetText())
+        t.ok(p.classPanel.next:GetText():find("^Next: The Tome of Divinity") ~= nil, p.classPanel.next:GetText())
+        local shown = {}
+        for key, b in pairs(m.byKey) do if b.label:IsShown() then shown[#shown + 1] = key end end
+        t.eq(table.concat(shown, ","), ns.ClassPage.Summary().stopKey, "only the next stop keeps its name")
+        t.eq(m.endNode.label:IsShown(), false)
+        t.ok(m.miniScroll ~= nil and m.miniScroll >= 0, "scrolled to You")
+        t.eq(m.plaque:IsShown(), false, "no plaque in the window")
+        t.eq(m.detail:IsShown(), false, "no right pane in the window")
+        -- A on it: the Class tab at that stop.
+        ns.Focus.FocusKey("classroad")
+        press(ns, "PAD1")
+        local cp = ns.UI.GetFrame().pages.class
+        t.eq(ns.UI.CurrentTab(), "class"); t.eq(cp.sel, ns.ClassPage.Summary().stopKey)
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("overview: without a class road the window says why", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local _, restore = classStub(ns, {}, "unavailable")
+        slash("")
+        local p = overview(ns).parts.classPanel
+        t.eq(p.map.emptyTitle:IsShown(), true)
+        t.eq(p.next:GetText(), "Class quests need the QuestieDB addon.")
+        t.eq(p.count:IsShown(), false)
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("overview: A on the class road opens the Class tab at your stop", function()
+        padUI = true
+        local ns = boot()
+        slash("")
+        ns.Focus.FocusKey("classroad")
+        t.eq(ns.Focus.Current().actionLabel, "Class tab")
+        press(ns, "PAD1")
+        t.eq(ns.UI.CurrentTab(), "class")
+        local cp = ns.UI.GetFrame().pages.class
+        if cp.journey then t.eq(cp.sel, cp:CurrentStopKey(), "the current stop is selected") end
         t.eq(#ns.Debug.errors, 0)
     end)
 
@@ -2018,20 +2069,18 @@ return function(t)
         t.ok(overview(ns).parts.zonesRow.count:GetText():find("0|r / "), overview(ns).parts.zonesRow.count:GetText())
         t.eq(#ns.Debug.errors, 0)
     end)
-    t.test("overview: A on an area opens Zone Detail on it; B comes back to the same chip", function()
+    t.test("overview: A on the Continue card opens Zone Detail; B comes back to it", function()
         padUI = true
         local ns = boot()
         slash("")
-        press(ns, "PADDDOWN"); press(ns, "PADDRIGHT")
-        t.eq(ns.Focus.Current().title, "Crystal Lake")
+        t.eq(ns.Focus.Current().key, "hero")
         press(ns, "PAD1")
         t.eq(ns.UI.CurrentTab(), "zones")
         local z = ns.UI.GetFrame().pages.zones
         t.eq(z.mode, "detail"); t.eq(z.zone.mapID, 1429)
-        t.eq(ns.Focus.Current().key, "c1149", "focused on the area")
         press(ns, "PAD2")
         t.eq(ns.UI.CurrentTab(), "overview", "B returns to the Overview")
-        t.eq(ns.Focus.Current().key, "pick:explore:1149")
+        t.eq(ns.Focus.Current().key, "hero")
         t.eq(ns.UI.IsShown(), true)
         -- Opened from the catalogue, B stays on Zones.
         press(ns, "PADRSHOULDER")
@@ -2039,22 +2088,23 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
-    t.test("overview: RT/LT jump between sections; right moves to the stat panels", function()
+    t.test("overview: RT/LT go Continue, Tracked completion, Atlas, class road; the D-pad keeps columns", function()
         padUI = true
         local ns = boot()
         slash("")
-        press(ns, "PADRTRIGGER")
-        t.eq(ns.Focus.Current().key, "pick:explore:1148", "RT: the first suggestion group")
+        local seen = { ns.Focus.Current().key }
+        for _ = 1, 3 do press(ns, "PADRTRIGGER"); seen[#seen + 1] = ns.Focus.Current().key end
+        t.eq(table.concat(seen, ","), "hero,track:explore,atlas,classroad")
         press(ns, "PADLTRIGGER")
-        t.eq(ns.Focus.Current().key, "hero", "LT: back to Continue")
-        press(ns, "PADDRIGHT")
-        t.eq(ns.Focus.Current().key, "track:explore")
+        t.eq(ns.Focus.Current().key, "atlas", "LT: back a section")
         press(ns, "PADDDOWN")
-        t.eq(ns.Focus.Current().key, "zones", "down stays in the right column")
+        t.eq(ns.Focus.Current().key, "classroad", "down stays in the right column")
         press(ns, "PADDLEFT")
-        t.eq(ns.Focus.Current().key, "pick:explore:1149", "left: the nearest pick")
-        press(ns, "PADDUP")
+        t.eq(ns.Focus.Current().key, "zones", "left: the nearest row of the left column")
+        press(ns, "PADDUP"); press(ns, "PADDUP")
         t.eq(ns.Focus.Current().key, "hero", "up stays in the left column")
+        press(ns, "PADDRIGHT")
+        t.eq(ns.Focus.Current().key, "atlas", "right from Continue: the Atlas")
     end)
 
     t.test("overview: the Zones panel opens the catalogue filtered to complete zones", function()
@@ -2071,7 +2121,7 @@ return function(t)
         t.eq(#ns.Debug.errors, 0)
     end)
 
-    t.test("overview: zones you enter are remembered per character and listed, newest first", function()
+    t.test("overview: zones you enter are remembered per character; Continue follows you", function()
         padUI = true
         local ns = boot()
         slash("")
@@ -2085,14 +2135,11 @@ return function(t)
         wow.runTimers()
         here = 1429
         t.same(ns.charDB.recentZones, { 1429, 1426, 1411 })
-        local rows = overview(ns).pools.recent
-        t.eq(rows[1].name:GetText(), "Dun Morogh"); t.eq(rows[2].name:GetText(), "Elwynn Forest")
-        t.eq(rows[1].pct:GetText(), "100%")
         t.eq(overview(ns).parts.hero.name:GetText(), "Durotar", "now the current zone")
         t.eq(#ns.Debug.errors, 0)
     end)
 
-    t.test("overview: a discovery redraws the card and its suggestions", function()
+    t.test("overview: a discovery redraws the card", function()
         padUI = true
         local ns = boot()
         slash("")
@@ -2102,7 +2149,6 @@ return function(t)
         CRITERIA[776][3][2] = false
         local o = overview(ns)
         t.eq(o.parts.hero.pct:GetText(), "60%")
-        t.eq(o.pools.picks[1].name:GetText(), "Crystal Lake", "the discovered area is no longer suggested")
         t.eq(#ns.Debug.errors, 0)
     end)
 
@@ -2125,7 +2171,7 @@ return function(t)
         slash("debug overview")
         local text = table.concat(wow.chat, "\n")
         t.ok(text:find("continue: Elwynn Forest %(current%)"), text)
-        t.ok(text:find("suggestions: Elwynn Forest %(current, 2 picks%)\n"), text)
+        t.ok(text:find("class road: "), text)
         t.ok(text:find("zones 1 of 4 complete %(1 in progress, 0 untouched, 2 unknown%)"), text)
         local e = ns.db.trace[#ns.db.trace]
         t.eq(e.kind, "overview"); t.eq(e.hero, 1429)

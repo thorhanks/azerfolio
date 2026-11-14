@@ -113,20 +113,18 @@ Theme.layout = {
     heroHeight = 164,
     heroArt = 190,
     heroScore = 180,           -- right part of the Continue card (big percentage and the mini standard)
-    goalHeight = 40,
-    groupHead = 24,            -- suggestion group's name line
     statBar = 12,              -- stacked / progress bar height in the panels
-    recentRow = 40,
-    recentThumb = { 56, 28 },
-    -- Phase 9 step 6 (mockups/DESIGN.md "Step 6"): plates, Tracked completion rows, suggestions.
+    -- Overview round 3 (owner, 2026-11-13): the window onto your class road (the Class tab's strip at
+    -- its own scale, cropped around You) and its caption lines.
+    classMini = 190,
+    classMiniLine = 16,
+    -- Phase 9 step 6 (mockups/DESIGN.md "Step 6"): plates, Tracked completion rows.
     plate = 34,                -- section header plate
     trackHead = 44,            -- Tracked completion: title and headline
     trackRow = 30,             -- one category row
     trackLabel = 104,          -- the category name's column
     trackCount = 92,           -- "done / counted"
     trackBar = 16,             -- gilded bar height in a row
-    sugItem = 30,              -- one suggestion pick
-    sugCols = 2,
     panelPad = 12,             -- inside a framed panel
     atlasPanel = 240,          -- the Overview's Atlas panel height (Phase 10)
 }

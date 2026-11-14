@@ -30,6 +30,10 @@ In-game checks that wait on real play (a first-time faction, a level-60 characte
 
 - 2026-11-08, task 5, both characters (approval pending): Thragor and Gideon get the same 20 zones and the same standing for shared factions; side factions follow the side (Thragor 2778, 2787; Gideon 2779, 589). Each game Reputation window shows only home factions, which agrees with "Not met yet" everywhere. Settled: 471 and Brood of Nozdormu hidden (no data), Zephras Isle one faction per side, Feralas keeps the rule (owner). Still open: a met zone faction against the game's window and a refresh after a zone-faction turn-in (neither character has one). `trace-report.lua reputation` now prints the standing that changed between refreshes. Shots `WoWScrnShot_110826_225848`-`230104`.
 
+## Overview round 3 (2026-11-13)
+
+- Mockup approved (owner): Next goal, Suggested next and Recent zones removed; left Continue + Tracked completion (space kept for a Professions panel), right Atlas + a window onto your class road. Built in Lua: `ClassPage.BuildMini` (the Class page's strip in mini mode: no plaque, pane or focus; scrolled so You is centred, only the next stop named) and `ClassPage.Summary` (the plaque's lines) feed `UI/Pages/Overview.lua`; `Systems/Overview` drops goal, suggestions and recent; `FocusGrid` items can carry a `column` so left/right cross columns that share no row. LT/RT: Continue, Tracked, Atlas, class road. Right column 616 px against about 641 px of view at 1160×740 (computed). `/azf shots` "overview, class road". Tests 285 pass. In-game check O1 pending.
+
 ## Tooling (2026-11-08)
 
 - `luajit tools/trace-report.lua [summary|last [n]|quests|zone <mapID>|perf|kind <name> [n]]` reads `AzerfolioDB.trace` compactly. Use it instead of ad hoc scripts.

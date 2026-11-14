@@ -5,7 +5,8 @@
 --   grid:Move("down") / grid:JumpSection(1) / grid:Current()
 -- Items are opaque tables; an item's `key` (if any) lets focus survive SetRows.
 -- An item's `group` (if any) makes a column: up/down stay among items of the same group and
--- skip rows that have none (the Overview's two columns share rows); left/right cross groups.
+-- skip rows that have none (the Overview's two columns); left/right cross groups. An item's
+-- `column` (a number, if any) says which side its group lies on when no row holds both.
 -- A row's `home` (a column index, if any) is where up/down and LT/RT land in it, whatever
 -- column you came from (the Class tab: up/down follow the road, side paths are left/right).
 local _, ns = ...
@@ -123,7 +124,19 @@ function FocusGrid:Move(dir)
             if not (cur and cur.group) then return false end
             -- Which groups lie on that side: seen before (left) or after (right) cur's group
             -- in a row that has both.
+            -- Items may also say their column (a number): groups in a lower column lie left,
+            -- higher right (the Overview since round 3: no row holds both columns).
             local side = {}
+            if cur.column then
+                for _, r in ipairs(self.rows) do
+                    for _, item in ipairs(r.items) do
+                        if item.group and item.group ~= cur.group and item.column
+                            and ((dir == "left") == (item.column < cur.column)) then
+                            side[item.group] = true
+                        end
+                    end
+                end
+            end
             for _, r in ipairs(self.rows) do
                 local mine
                 for ci, item in ipairs(r.items) do if item.group == cur.group then mine = mine or ci end end
