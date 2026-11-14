@@ -167,6 +167,31 @@ function W.Control(parent)
     return b
 end
 
+-- A native red panel button (UIPanelButtonTemplate, as Zone Detail's "World map") used as one
+-- segment of a view switch (owner, 2026-11-14). Same API as W.Control: :SetOn(on) keeps the
+-- button's own hover highlight lit for the selected view (LockHighlight); :SetLabel(text, pad)
+-- sizes it to the text; :SetFocused(on) lights it while focused too.
+function W.PanelButton(parent)
+    local L = ns.Theme.layout
+    local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    b:SetHeight(L.panelButton)
+    local function lit(self)
+        local on = self.on or self.focused
+        local f = on and self.LockHighlight or self.UnlockHighlight
+        if f then pcall(f, self) end
+    end
+    function b:SetOn(on) self.on = on; lit(self) end
+    function b:SetFocused(on) self.focused = on; lit(self) end
+    function b:SetLabel(text, pad)
+        if self.SetText then self:SetText(text) end
+        local fs = self.GetFontString and self:GetFontString()
+        local w = fs and fs.GetStringWidth and fs:GetStringWidth() or (#text * 7)
+        self:SetWidth(math.max(L.panelButtonMin, math.floor(w + 2 * (pad or L.panelButtonPad) + 0.5)))
+    end
+    hoverInfo(b)
+    return b
+end
+
 -- One dot per objective: confirmed done (gold) first, then not done (grey), then unknown
 -- (faint). :Set(done, todo, unknown, maxWidth) shrinks the dots to fit maxWidth.
 -- Returns the width used.

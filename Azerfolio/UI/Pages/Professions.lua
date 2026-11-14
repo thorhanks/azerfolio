@@ -458,7 +458,7 @@ local function build(parent)
     T.Solid(sw, "black", "BACKGROUND", 0.2):SetAllPoints()
     page.viewBtns = {}
     for i, v in ipairs({ "journey", "recipes", "gather" }) do
-        local b = W.Control(sw)
+        local b = W.PanelButton(sw) -- native buttons, the selected view lit (owner, 2026-11-14)
         b:SetScript("OnClick", function() page:SetView(v) end)
         b.item = { title = VIEW_LABEL[v], detail = "Y cycles the views." }
         page.viewBtns[v] = b
@@ -1284,7 +1284,7 @@ local function build(parent)
                 b:SetLabel(v == "gather" and m.gather == "fishing" and "Fish" or VIEW_LABEL[v])
                 b:ClearAllPoints(); b:SetPoint("LEFT", sw, "LEFT", x, 0)
                 b:SetOn(v == self.view)
-                x = x + b:GetWidth() + S.s1
+                x = x + b:GetWidth() + S.s2
             end
         end
         self.viewHint:SetText(#views > 1 and "Y switches the view" or "")

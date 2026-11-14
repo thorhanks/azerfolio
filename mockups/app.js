@@ -2383,7 +2383,7 @@
     const views = profViews(p);
     if (!views.includes(ui.profView)) ui.profView = "journey";
     const v = ui.profView;
-    const tabs = `<div class="pvswitch">${views.map(k => `<button class="pvtab focusable ${k === v ? "on" : ""}" data-pview="${k}" data-tip="<b>${PVIEWS[k]}</b>${k === "journey" ? "Your road, what to do next and what you're tracking." : k === "recipes" ? "Every recipe, its sources and ingredients." : p.fish ? "Where to fish for your skill." : "Where to gather for your skill."}">${k === "gather" && p.fish ? "Fish" : PVIEWS[k]}</button>`).join("")}
+    const tabs = `<div class="pvswitch">${views.map(k => `<button class="pvtab btn focusable ${k === v ? "on" : ""}" data-pview="${k}" data-tip="<b>${PVIEWS[k]}</b>${k === "journey" ? "Your road, what to do next and what you're tracking." : k === "recipes" ? "Every recipe, its sources and ingredients." : p.fish ? "Where to fish for your skill." : "Where to gather for your skill."}">${k === "gather" && p.fish ? "Fish" : PVIEWS[k]}</button>`).join("")}
       <span class="pvhint"><span class="glyph Y">Y</span>View</span></div>`;
     let body = "";
     if (v === "journey") {
