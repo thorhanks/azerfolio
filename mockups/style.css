@@ -1517,7 +1517,7 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .precipe .ptrackicon { color: #cfe3ff; border-color: rgba(110,150,230,.7); background: rgba(61,111,209,.25); }
 /* ---------- Professions round 2: rail and views (2026-11-14) ---------- */
 .pviews { position: absolute; inset: 0; display: grid; grid-template-columns: 116px 1fr; }
-.prailbox { display: flex; flex-direction: column; gap: 4px; padding: var(--s3) 8px; border-right: 1px solid var(--divider); box-shadow: 1px 0 0 #000; background: linear-gradient(180deg, rgba(42,29,19,.5), rgba(15,8,2,.3)); overflow-y: auto; }
+.prailbox { display: flex; flex-direction: column; gap: 14px; padding: var(--s3) 8px; border-right: 1px solid var(--divider); box-shadow: 1px 0 0 #000; background: linear-gradient(180deg, rgba(42,29,19,.5), rgba(15,8,2,.3)); overflow-y: auto; }
 .prgroup { font-size: 11px; color: var(--wow-gold); text-transform: uppercase; letter-spacing: .08em; text-align: center; margin: 6px 0 2px; opacity: .85; }
 .prail { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 4px 6px; border: 1px solid transparent; border-radius: var(--r-card); background: none; color: var(--text); cursor: pointer; }
 .prail .pcoin.rl { width: 40px; height: 40px; }

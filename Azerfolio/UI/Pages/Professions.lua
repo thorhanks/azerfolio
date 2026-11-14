@@ -757,6 +757,13 @@ local function build(parent)
         local rows = {}
         for _, r in ipairs(page.railRows) do r:Hide() end
         page.groupPrimary:Hide(); page.groupSecondary:Hide()
+        -- The gap between entries (owner, 2026-11-14: more room between them): railGap when the
+        -- rail has room, shrinking toward S.s1 so five professions still fit the 640-tall window.
+        local groups, lastK = 0, nil
+        for _, m in ipairs(list) do if m.kind ~= lastK then groups = groups + 1; lastK = m.kind end end
+        local avail = (rail:GetHeight() or 0) - S.s2 - groups * PT.railGroup - #list * PT.railRow - S.s2
+        local gap = PT.railGap
+        if #list > 0 and (rail:GetHeight() or 0) > 0 then gap = math.max(S.s1, math.min(PT.railGap, math.floor(avail / #list))) end
         local lastKind
         for _, m in ipairs(list) do
             if m.kind ~= lastKind then
@@ -784,7 +791,7 @@ local function build(parent)
                 actionLabel = "Open", onActivate = function() page:EnterPage() end }
             r.onClick = function() page:Select(line); page:EnterPage() end
             rows[#rows + 1] = { items = { r.item }, section = 1 }
-            y = y + PT.railRow + S.s1
+            y = y + PT.railRow + gap
         end
         return rows
     end

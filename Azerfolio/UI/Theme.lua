@@ -544,6 +544,7 @@ Theme.layout.profTab = {
     railGlow = { 84, 0.85 }, -- the selected trade's warm glow behind its coin (glow-soft, added): size, alpha
     railHalo = { { 66, 0.10 }, { 56, 0.16 }, { 48, 0.24 } }, -- its stand-in without glow-soft: circle size, alpha
     railCoin = 40,
+    railGap = 14,        -- between rail entries when there's room (owner, 2026-11-14); shrinks to space.s1 in a short window
     railGroup = 26,      -- "Primary" / "Secondary"
     switch = 38,         -- the view switch (Journey · Recipes · Gather)
     bannerMax = 220,     -- the banner (the road strip sits below it since 2026-11-14; mockup 220 px)
