@@ -694,7 +694,7 @@ local function build(parent)
     det.howH = T.Text(dc, "sm", "gold"); det.howH:SetText("How to get it")
     det.ingH = T.Text(dc, "sm", "gold")
     det.note = T.Text(dc, "xs", "dim"); det.note:SetJustifyH("LEFT")
-    det.track = W.Control(dc)
+    det.track = W.PanelButton(dc) -- the native red button, like the view switch (owner, 2026-11-14)
     det.track:SetScript("OnClick", function() page:ToggleTrack(page.recipeSel) end)
     det.lines = {}
     page.det = det
@@ -1085,14 +1085,14 @@ local function build(parent)
         end
         y = y + S.s3
         det.track:ClearAllPoints(); det.track:SetPoint("TOPLEFT", dc, "TOPLEFT", 0, -y)
-        det.track:SetLabel(r.tracked and "X  Stop tracking" or "X  Track in the objective tracker")
+        det.track:SetLabel(r.tracked and "X  Stop tracking" or "X  Track in the objective tracker", L.panelButtonPad, 0)
         local trackItem = { key = "track", frame = det.track, title = r.tracked and "Stop tracking" or "Track",
             detail = "The game's own recipe tracking: it shows in the objective tracker with what you carry.",
             scroll = det.scroll, group = "detail", actionLabel = r.tracked and "Stop tracking" or "Track",
             onActivate = function() page:ToggleTrack(r.id) end }
         det.track.item = trackItem
         items[#items + 1] = trackItem
-        y = y + L.controlHeight + S.s4
+        y = y + L.panelButton + S.s4
         dc:SetHeight(math.max(1, y))
         return items
     end

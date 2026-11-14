@@ -1542,6 +1542,7 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .pvtab.btn { border: 1px solid #c99a4a; border-radius: var(--r-ctl); margin: 0; min-width: 90px; padding: 3px 16px; color: var(--wow-gold);
   background: linear-gradient(180deg, #8a2414, #4a0f08); box-shadow: inset 0 0 0 1px #2a0602, 0 1px 2px #000; }
 .pchip.pvtab.btn { min-width: 0; padding: 3px 10px; }
+.pbtn.pvtab.btn { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .pchip.pvtab.btn small { color: inherit; opacity: .85; }
 .pvtab.btn:hover, .pvtab.btn.on { background: linear-gradient(180deg, #b23a22, #6a1a0e); box-shadow: inset 0 0 0 1px #2a0602, inset 0 0 8px rgba(255,220,140,.55), 0 1px 2px #000; color: #ffe9a8; }
 .pvhint { margin-left: auto; font-size: var(--fs-xs); color: var(--dim); display: flex; align-items: center; gap: 6px; padding-bottom: 6px; }

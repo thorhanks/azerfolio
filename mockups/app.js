@@ -2334,7 +2334,7 @@
       <h4 class="pdh">How to get it</h4>${srcs}
       <h4 class="pdh">Ingredients ${ings ? `<small>${short.length ? `missing ${short.length}` : "you have everything for one"}</small>` : ""}</h4>
       ${ings ? ingLines(ings) : `<div class="pnote">Not in the mockup's sample for this recipe; the addon reads them from the game for any recipe.</div>`}
-      <button class="pbtn focusable" data-ptrack="${r.id}" data-tip="<b>${tracked ? "Stop tracking" : "Track"}</b>The game's own recipe tracking: it shows in the objective tracker with what you carry.">
+      <button class="pbtn pvtab btn focusable" data-ptrack="${r.id}" data-tip="<b>${tracked ? "Stop tracking" : "Track"}</b>The game's own recipe tracking: it shows in the objective tracker with what you carry.">
         <span class="glyph X">X</span>${tracked ? "Stop tracking" : "Track in the objective tracker"}</button>`;
   }
   // Track / Untrack (X): the game's own recipe tracking (C_TradeSkillUI.SetRecipeTracked), shown
