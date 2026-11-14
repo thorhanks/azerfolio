@@ -406,7 +406,7 @@ local function newCoin(parent, layer)
     return t
 end
 
--- A painted chrome piece as a texture (round 4: the sketch, the ring, road stamps), or nil.
+-- A painted chrome piece as a texture (the brass ring, the focus ring), or nil.
 local function piece(parent, name, layer, sub)
     local file = ns.Theme.Chrome(name)
     if not file then return nil end
@@ -452,10 +452,7 @@ local function newNode(parent)
     b.check:SetTexture(T.files.checkDone)
     b.check:SetPoint("CENTER")
     b.coin = newCoin(b)
-    -- Round 4: a stop not done yet is the coin sketched in ink; open now, a red cartographer's
-    -- ring of small dots around it (the sketch is see-through, so no solid disc behind it).
-    local cf = ns.character and ns.character.classFile
-    b.sketch = cf and piece(b, "sketch-" .. cf:lower(), "ARTWORK", 2)
+    -- A stop open now on the painted map: a red cartographer's ring of small dots around its coin.
     b.redDots = {}
     for i = 1, CT.redDots do
         local d = b:CreateTexture(nil, "ARTWORK", nil, 3)
@@ -606,13 +603,12 @@ local function paintNode(b, size, state, text, name, labelSide, coinSize, ink, s
     b.ink = ink and true or false
     local c = SEAL[state] or SEAL.unknown
     local coin = state == "done" and coinSize and b.coin ~= nil
-    -- Round 4 on the antique map: an unfinished stop is the coin sketched in ink. Round 5 test:
-    -- the coin itself, greyed and tinted bronze (dimmer while later), instead of the faint sketch.
+    -- On the painted map an unfinished stop is the dull coin: the class coin greyed and tinted
+    -- bronze, dimmer while later (round 5; the round 4 ink sketch was too hard to see).
     local dull = ink and state ~= "done" and coinSize ~= nil and b.coin ~= nil
-    local sketch = ink and not coin and state ~= "done" and coinSize ~= nil and (dull or b.sketch ~= nil)
     b.ring:SetSize(size, size); tint(b.ring, c[1], state == "unknown" and 0.5 or 1)
     b.fill:SetSize(size - 2 * CT.ring, size - 2 * CT.ring); tint(b.fill, c[2])
-    b.ring:SetShown(not coin and not sketch); b.fill:SetShown(not coin and not sketch)
+    b.ring:SetShown(not coin and not dull); b.fill:SetShown(not coin and not dull)
     b.crest:Hide()
     local ringSize = (coin or dull) and coinSize or size
     b.focusRing:SetSize(ringSize + 8, ringSize + 8)
@@ -638,16 +634,7 @@ local function paintNode(b, size, state, text, name, labelSide, coinSize, ink, s
     if b.glowFrame.anim then
         if glow then b.glowFrame.anim:Play() else b.glowFrame.anim:Stop() end
     end
-    if b.sketch then
-        b.sketch:SetShown(sketch and not dull)
-        if sketch and not dull then
-            b.sketch:SetSize(size + 2, size + 2)
-            local faint = state == "later" or state == "unknown"
-            b.sketch:SetAlpha(faint and 0.45 or 1)
-            if b.sketch.SetDesaturated then b.sketch:SetDesaturated(faint) end
-        end
-    end
-    local red = sketch and (state == "ready" or state == "progress")
+    local red = dull and (state == "ready" or state == "progress")
     local r = size / 2 + 4
     for i, d in ipairs(b.redDots) do
         d:SetShown(red)
@@ -673,7 +660,7 @@ local function paintNode(b, size, state, text, name, labelSide, coinSize, ink, s
     b.check:SetSize(size * 0.55, size * 0.55)
     b.check:SetShown(state == "done" and not coin)
     if state == "done" then b.check:SetVertexColor(0.35, 0.22, 0.02) end
-    b.text:SetShown(state ~= "done" and not sketch)
+    b.text:SetShown(state ~= "done" and not dull)
     b.text:SetText(state == "unknown" and "?" or (text or ""))
     T.SetFont(b.text, size >= CT.node and "md" or "xs")
     b.text:SetTextColor(T.RGB(c[3]))
@@ -1167,7 +1154,6 @@ local function build(parent)
         local endState = walked and "done" or (j.complete == nil and "unknown" or "later")
         paintNode(e, CT.endNode, endState, "", walked and "The road walked" or "The road's end", "below", nil, page.painted)
         e.text:Hide(); e.check:Hide(); e.lvl:Hide()
-        if e.sketch then e.sketch:Hide() end
         for _, d in ipairs(e.redDots) do d:Hide() end
         if page.painted then
             -- Round 4: the painted map has its own star at the road's end; the node only glows

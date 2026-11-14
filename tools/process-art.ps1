@@ -136,7 +136,7 @@ function Convert-Image([string]$inPath, [string]$outPath, [double]$fx, [double]$
 #   pole      64x256    fit, keyed, DXT5                      Media\Banner
 #   streamer  64x512    fit, keyed, DXT5                      Media\Banner
 #   badge     64x64     fit, keyed, DXT5 (no longer used)     Media\Banner
-#   frame     256x256 (frame-card) / 512x64 (frame-bar) / 128x64 (frame-step) / 256x128 (frame-plaque): stretched, keyed, DXT5, border measured -> Media\Chrome
+#   frame     256x256 (frame-card) / 512x64 (frame-bar) / 256x128 (frame-plaque): stretched, keyed, DXT5, border measured -> Media\Chrome
 #   emblem    128x128   fit, keyed + despilled, DXT5          Media\Chrome (rep-<reaction>: the standing strip)
 #   texture   256x128   stretched, opaque DXT1                Media\Chrome (plaque-fill-*: tinted by the UI)
 # despill (emblems, frame-plaque): solid pixels lose the magenta they reflect (silver, gold).
@@ -156,7 +156,6 @@ $PieceKinds = @{
     badge = @{ size = @(64, 64); fit = 'fit'; key = $true; dir = 'Banner' }
     'frame-card' = @{ size = @(256, 256); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
     'frame-bar' = @{ size = @(512, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true }
-    'frame-step' = @{ size = @(128, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true } # reputation ladder step
     'frame-plaque' = @{ size = @(256, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; slice = $true; despill = $true } # standing strip cell
     emblem = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true }
     texture = @{ size = @(256, 128); fit = 'stretch'; key = $false; dir = 'Chrome'; levels = 165 } # plaque-fill-*: colourless, tinted in the UI
@@ -169,19 +168,14 @@ $PieceKinds = @{
     cel = @{ size = @(256, 256); fit = 'fit'; key = $true; dir = 'Chrome' }
     ribbon = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome' }
     coin = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # coin-<class>: the Class tab's done mark
-    # Class tab round 4 (art/prompts.md "Round 4 style test"): ink drawn on pure white, the white
-    # turned to transparency (inkKey: alpha from darkness, colour un-mixed from the white), so the
-    # marks sit on the parchment map like more ink; metal pieces on magenta as usual.
-    sketch = @{ size = @(128, 128); fit = 'fit'; inkKey = $true; dir = 'Chrome' }          # sketch-<class>: a stop not done yet
-    'road-ink' = @{ size = @(128, 64); fit = 'fit'; inkKey = $true; dir = 'Chrome' }     # road-dash-ink-<n>
-    'road-dot' = @{ size = @(32, 32); fit = 'fit'; inkKey = $true; dir = 'Chrome' }      # road-dot: a side path
-    'road-gold' = @{ size = @(128, 64); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # road-dash-gold-<n>
+    # Ink pieces (inkKey) are drawn on pure white: the white turns to transparency (alpha from
+    # darkness, colour un-mixed from the white), so the ink sits on the painted map like more ink.
     ring = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # you-ring: your portrait's ring
     # Class tab round 5 (art/prompts.md "Round 5"): the road band (tileable, stamped along the road),
     # the name cartouche (nine-slice), the milestones and the red-ink focus ring.
     band = @{ size = @(256, 64); fit = 'stretch'; key = $true; dir = 'Chrome'; despill = $true }   # road-band, road-band-gold
     cartouche = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; despill = $true } # cartouche
-    milestone = @{ size = @(64, 64); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true }  # milestone[-rune-gold|-rune-red] (flag/cap: unused)
+    milestone = @{ size = @(64, 64); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true }  # milestone[-rune-gold|-rune-red]
     'ink-ring' = @{ size = @(128, 128); fit = 'fit'; inkKey = $true; dir = 'Chrome' }               # focus-ring-red
 }
 
@@ -227,7 +221,7 @@ $measured = @{}
 # The kind of a source file by its name, or $null.
 function Get-PieceKind([string]$name) {
     if ($name -match '^(banner|pole|streamer|badge)-(alliance|horde)$') { return $Matches[1] }
-    if ($name -eq 'frame-card' -or $name -eq 'frame-bar' -or $name -eq 'frame-step' -or $name -eq 'frame-plaque') { return $name }
+    if ($name -eq 'frame-card' -or $name -eq 'frame-bar' -or $name -eq 'frame-plaque') { return $name }
     if ($name -match '^plaque-fill-[a-z0-9-]+$') { return 'texture' }
     if ($name -match '^rep-(hated|hostile|unfriendly|neutral|friendly|honored|revered|exalted)$') { return 'emblem' }
     if ($name -match '^plate-[a-z0-9-]+$') { return 'plate' }
@@ -239,14 +233,10 @@ function Get-PieceKind([string]$name) {
     if ($name -eq 'cel-ribbon') { return 'ribbon' }
     if ($name -match '^cel-(laurel|seal-[a-z0-9-]+|claim-(alliance|horde))$') { return 'cel' }
     if ($name -match '^coin-[a-z]+$') { return 'coin' }
-    if ($name -match '^sketch-[a-z]+$') { return 'sketch' }
-    if ($name -match '^road-dash-ink-\d+$') { return 'road-ink' }
-    if ($name -match '^road-dash-gold-\d+$') { return 'road-gold' }
-    if ($name -eq 'road-dot') { return 'road-dot' }
     if ($name -eq 'you-ring') { return 'ring' }
     if ($name -match '^road-band(-gold)?$') { return 'band' }
     if ($name -eq 'cartouche') { return 'cartouche' }
-    if ($name -match '^milestone(-flag-red|-cap-gold|-rune-gold|-rune-red)?$') { return 'milestone' }
+    if ($name -match '^milestone(-rune-gold|-rune-red)?$') { return 'milestone' }
     if ($name -eq 'focus-ring-red') { return 'ink-ring' }
     return $null
 }

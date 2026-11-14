@@ -28,7 +28,7 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 
 ## Class tab (Phase 13)
 
-`/azf debug class [questID ...]` (debug on), `/reload`, then `luajit tools/trace-report.lua class`. J1-J3 are done (see Done); these wait on play.
+`/azf debug class [questID ...]` (debug on), `/reload`, then `luajit tools/trace-report.lua class`. J1-J3 are done (see Done); these wait on play. The tab is closed (2026-11-13); these don't reopen it.
 
 | ID | What to confirm | When it comes up | How to check |
 |---|---|---|---|
@@ -36,6 +36,7 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | J5 | Skyborne race ID and race bit, so Skyborne intros can show | A Skyborne character logs in | `/azf debug class`: raceID, raceFile, raceBit (nil today) |
 | J6 | Whether a Warlock can do both Succubus routes or only one | A Warlock at 20 | Either way one route finishes the stop; note it in docs/research/class-quests.md |
 | J7 | Whether the newer-ID quests are offered in game (A Strange Artifact 78088 for Gideon) | Gideon at 22, in Ashenvale | Find the object and take the quest; QuestieDB having them (J2) doesn't prove the game does |
+| J8 | The other 16 roads look right in game: the strip, the road along its lane, stops by their landmarks, the class coin, milestones once the trainer is opened (seen so far: Paladin Alliance on Gideon, Warrior Horde on Thragor; the rest only in the mockup's Road switch and the tests) | A character of another class and side | `/reload`, wait a few seconds, `/azf shots class`; open the class trainer once first for the milestones |
 
 ## Celebrations (Phase 10)
 

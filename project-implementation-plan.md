@@ -384,6 +384,21 @@ Owner's choice 2026-11-09, after Phase 11 task 5. Spec §7.9, §8.10; design `mo
 
 **Done when:** the tab lists every faction the game returns data for on this side with game-confirmed standing, the reach and sources come from QuestieDB and are marked approximate, X watching works in game (or is shown as unavailable), nothing touches combined zone completion, and the owner approves. *(Done 2026-11-09: closed by the owner; history in `docs/history/v1.4-phase12.md`.)*
 
+### Phase 13 — Class tab (v1.5)
+
+Owner's choice 2026-11-09. Spec §7.10, §8.11; design `mockups/DESIGN.md` "Class tab" (five rounds); mockup code `mockups/app.js` ("Class tab") with every road on the dev bar's Road switch; research `docs/research/class-quests.md`, `docs/research/class-spells.md`; art `art/prompts.md` "Class tab art".
+
+**Tasks**
+1. Research: every class quest per class and side from QuestieDB (`qdb.lua class`). *(Done 2026-11-09.)*
+2. Mockup: the road on a painted strip, stops and side paths, the stop pane. *(Approved 2026-11-09.)*
+3. Curated journeys: `Data/ClassJourneys.lua`, 18 roads, checked against QuestieDB (`qdb.lua class check`). *(Done 2026-11-09.)*
+4. Systems: `ClassJourneyRules` (pure) and `ClassJourney`. *(Done 2026-11-09; J1 confirmed in game.)*
+5. UI: `UI/Pages/Class.lua`, the fourth tab, in `/azf shots class`. *(Done 2026-11-09.)*
+6. Design rounds 2-5 from the owner's reviews: the UX review (19 items), a level road with You on it, abilities from the class trainer (`Systems/ClassTrainer`, `ClassTrainerRules`), the painted antique map, the road band, cartouches, rune milestones, the red-ink focus, a slim scrollbar. *(Done 2026-11-10/11; each round mockup first, then Lua, checked in game on Gideon.)*
+7. Art for every road: 18 strips (three panels each) and 9 class coins, made with the Codex CLI from `art/prompts.md`; seams lined up and lanes traced by the pipeline; stops placed by landmark (`Theme.classStrip`); tests for every road's strip, path, order and spacing. *(Done 2026-11-12/13; Gideon's and Thragor's roads checked in game.)*
+
+**Done when:** every class and side has its road on its own painted strip with the class coin; done or not comes from the game and unknown stays unknown; the abilities come from the class trainer; the tab works with the gamepad at both window widths; and the owner approves. *(Done 2026-11-13: closed by the owner; history in `docs/history/v1.5-phase13.md`. Open checks J4-J8 wait on play.)*
+
 ## 7. Phase 0 questions
 
 All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabilities.md`.
@@ -490,6 +505,14 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-09 | X sets the watched faction (`C_Reputation.SetWatchedFactionByID`) on the player's request; Azerfolio still never changes reputation UI state by itself. Gains "today" are kept in memory for the session only | Watching is a player action the design asks for (spec §8.9 amended); a saved gain history would bring back the removed milestone store |
 | 2026-11-09 | Phase 12 accepted: the Reputation tab closed. The version stays 1.2.0 until Phase 11 (v1.3) closes; open checks T2 (a session gain) and T3 (watching an unmet faction) wait on play | Checked in game on Gideon (two shot rounds, Watch confirmed, strip approved). Owner closed it. Phase 11's R1/R2 still open, so no version number skips 1.3 |
 | 2026-11-09 | Gold isn't reserved for completion: important non-completable states may use it. Exalted is gold (label, bar, standing strip); completion keeps ✓, %, pennants and celebrations as its own cues | Owner, during the Reputation tab art review (`mockups/DESIGN.md` "Gold beyond completion") |
+| 2026-11-09 | Phase 13 (Class tab, v1.5) planned: the class quests as a road on a painted map, one strip per class and side | Owner's choice; class progression was listed as "later" in spec §3 |
+| 2026-11-09 | Class roads are curated by hand (`Data/ClassJourneys.lua`), with QuestieDB for names, levels and eligibility | QuestieDB has every class quest but no order, stops or side paths; another race's versions, repeatable turn-ins and raid gear quests are left off |
+| 2026-11-10 | The road means levels: each stop sits at its level, the road fills to the character's level and You rides it | Owner, round 3: the road had no meaning beyond order |
+| 2026-11-10 | Abilities come from the class trainer's list, recorded when the character opens it; nothing shows before that | The client lists no future spells (`docs/research/class-spells.md`); honest data |
+| 2026-11-10 | The strips are painted in the zone art's style with antique-map colours and a narrow lane; the addon traces the lane and draws the road | Owner, rounds 4-5: the hand-drawn map felt faint, the wide corridor empty |
+| 2026-11-12 | Strip art is generated with the Codex CLI (`codex exec`) from `art/prompts.md` | Owner-installed; one road per run, about 4 minutes; the pipeline lines up seams and traces lanes, tests check every road |
+| 2026-11-13 | `art/prompts.md` holds the prompt of every shipped art piece and nothing else, so the whole set can be regenerated from it | Owner, at the Phase 13 close; unused round 3-4 art and its prompts removed |
+| 2026-11-13 | Phase 13 accepted: the Class tab closed. The version stays 1.2.0 until Phase 11 (v1.3) closes; open checks J4-J8 wait on play | Checked in game on Gideon (Paladin, Alliance) and Thragor (Warrior, Horde); the other 16 roads checked in the mockup and by tests. Owner closed it |
 
 ## 10. Definition of done (v1)
 

@@ -59,9 +59,13 @@ These are hard rules. When a requirement elsewhere conflicts with one of these, 
 
 - A third tab with every faction the game returns data for, and a page per faction on how to raise it (§7.9, §8.10). Owner's choice, 2026-11-09.
 
+### v1.5 — Class tab
+
+- A fourth tab: the character's class quests as a road on a painted map, stop by stop, with the class trainer's abilities along it (§7.10, §8.11). Owner's choice, 2026-11-09.
+
 ### Later (architecture must allow, do not build)
 
-Class progression, professions (recipes: known vs. available, where to get them), collections, dungeons and raids (incl. a dungeon tile on Zone Detail: art and quest progress, opens the Dungeons tab), Legacy progression, reputation rewards per standing and kill reputation, account-wide and cross-character views, custom goals, smarter recommendations, waypoint integration, localization.
+Professions (recipes: known vs. available, where to get them), collections, dungeons and raids (incl. a dungeon tile on Zone Detail: art and quest progress, opens the Dungeons tab), Legacy progression, reputation rewards per standing and kill reputation, account-wide and cross-character views, custom goals, smarter recommendations, waypoint integration, localization.
 
 ### Out of scope
 
@@ -287,6 +291,17 @@ Approved 2026-11-09 (owner); layout and gamepad map in `mockups/DESIGN.md` "Repu
 - **Watch:** X sets or clears the faction shown on the experience bar, when the client allows it; otherwise the action isn't offered.
 - Not built: rank-up toasts, rewards per standing, kill reputation (no data source).
 
+### 7.10 Class tab (v1.5)
+
+Approved 2026-11-09 to 11-13 (owner, five design rounds); layout, art and gamepad map in mockups/DESIGN.md "Class tab". Progress beside zone completion, never part of it.
+
+- **The road:** the character's class quests for their class and side, as stops on a painted map strip (one per class and side, 18 in all), top to bottom in the order they're walked. Road stops and optional **side paths** (they count, but the road doesn't wait for them). A stop is a quest chain; a step is a quest. Another race's version of a stop, repeatable turn-ins and raid or dungeon class quests (gear turn-ins, Dire Maul books) aren't on the road.
+- **The map:** the road runs along the painting's own lane, gilded as far as the character's level (XP included); each road stop sits at its level, the road's end at 60. A finished stop wears the class's gold coin, an unfinished one the same coin dulled (a red dotted ring when it's open now). Names on a parchment cartouche, the stop's quest pips in a row under it. **You** is the character's portrait in a brass ring on the road at their level.
+- **Abilities:** a milestone stone at the road's edge at each level where the class trainer has new abilities: a gilded rune when all are learned, a red rune when something can be trained now, blank while later. Stones close together merge ("Levels 8–10"). The list comes from the trainer (§8.11); until the character opens it once, the tab says so and shows no stones.
+- **The plaque:** the road's title, "Road n of m · Side paths n of m", "n to train", and the one next thing to do.
+- **The pane:** the selected stop: its zone art, reward, where it starts, level, the places it travels to, lead-ins (not counted), numbered steps (sub-quests in place, not counted), done or not from the game; the road's end lists every stop; a milestone lists its levels' abilities (learned / train now / later, cost).
+- **Gamepad:** up and down walk the road (stops and stones in road order), left and right reach a stop's side paths, LT/RT jump stop to stop, A opens the steps, B goes back.
+
 ### 7.6 Map actions
 
 Where supported: open the world map to this zone, show where an exploration objective is, tooltips on objectives.
@@ -340,6 +355,13 @@ Research and probe: `docs/research/reputation.md`.
 - **Gains this session:** standing changes between `UPDATE_FACTION` reads while the addon runs; kept in memory only, never saved, nothing at login.
 - **Watched:** `isWatched` from the faction data; set with `C_Reputation.SetWatchedFactionByID`, guarded (existence check and `pcall`) until verified in game.
 - Pure rules (groups, reach, sorts) live in `Systems/ReputationRules`; the UI only shows their results.
+
+### 8.11 Class tab data (v1.5)
+
+- **The roads:** Data/ClassJourneys.lua, curated from QuestieDB (qdb.lua class) and checked against it (qdb.lua class check): per class and side, the stops in order, their quests (any-one-of versions, alternative routes), lead-ins and sub-quests shown but not counted, race masks where QuestieDB is too broad. Quest names, levels, starters and eligibility come from QuestieDB and the quest rules (§8.4); done or not from the game's completed-quest list. Unknown stays unknown.
+- **The rules** (Systems/ClassJourneyRules, pure): a step is done by any of its quests and left out when none is for the character; a stop's state (done, in progress, open now, later, not known); the road's counts and the next thing to do; where a level sits on the road.
+- **Abilities:** the class trainer lists every service with its level and learned / available / later state, but only while its window is open; Azerfolio reads it on TRAINER_SHOW / TRAINER_UPDATE (all filters on, restored after) and keeps it per character (AzerfolioCharDB.trainer). The spellbook lists no future spells in this client (docs/research/class-spells.md). Systems/ClassTrainerRules (pure) sorts new abilities from new ranks and gives each level's state.
+- **The art:** each strip's lane is traced into Data/StripPaths.lua (	ools/trace-strip.ps1); stop positions per road are Theme.classStrip.
 
 ### 8.6 Aggregation output
 

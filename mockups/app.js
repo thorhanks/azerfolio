@@ -1661,15 +1661,6 @@
         <linearGradient id="coinrim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0b0"/><stop offset=".5" stop-color="#b8860b"/><stop offset="1" stop-color="#5a3a06"/></linearGradient></defs>
       <circle r="23" fill="url(#coinrim)"/><circle r="19.5" fill="url(#coinface)"/><circle r="17" class="ce-ring"/>
       <g class="ce">${COIN_EMBLEM[CLASS_ROAD.cls] || ""}</g></svg></span>`;
-  // Round 4: a stop not done yet is the coin's emblem as a cartographer's ink sketch (one per class,
-  // painted later; this SVG is the stand-in). Finishing the stop turns the sketch into the gold coin.
-  // Later: faint pencil; open now: fresh ink with a red cartographer's circle.
-  const classSketch = () => CLASS_ROAD.art
-    ? `<span class="csketch"><img src="chrome-art/sketch-${CLASS_ROAD.cls.toLowerCase()}.png" alt=""><i class="skred"></i></span>`
-    : `<span class="csketch"><svg viewBox="-24 -24 48 48" aria-hidden="true">
-      <circle r="20" class="sk-rim"/><circle r="16.5" class="sk-rim thin"/>
-      <path d="M0 -12 L3 -4 L11 0 L3 4 L0 12 L-3 4 L-11 0 L-3 -4 Z" class="sk-ray"/>
-      <path d="M-3 -9 H3 V-3 H8 V3 H3 V11 H-3 V3 H-8 V-3 H-3 Z" class="sk-ham"/><circle r="22.5" class="sk-red"/></svg></span>`;
   // The one thing to do next (design round 2): your road stop (or a side path once the road is walked).
   function classNext(m) {
     if (m.unknown) return { text: "Next: not known until the game gives Azerfolio your completed quests" };
