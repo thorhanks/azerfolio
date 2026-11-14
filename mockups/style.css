@@ -1556,8 +1556,8 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .pbtitle .cscore small { font-size: var(--fs-xs); color: var(--text); }
 .pbanner .proad { border-radius: 6px; background: linear-gradient(180deg, rgba(239,225,189,.93), rgba(220,196,147,.93)); }
 /* The painted skill road (2048x256 map): cover, centred on the lane. */
-/* Cropped mostly from the plain ground below (Theme.layout.profTab.roadArtTop = 0.2), as in game. */
-.pbanner .proad.painted { background-size: cover; background-position: center 20%; background-repeat: no-repeat; }
+/* The painted road (2048x256, its lane at row 150): cover; this strip shows the art's whole height. */
+.pbanner .proad.painted { background-size: cover; background-position: center; background-repeat: no-repeat; }
 .proadart .pstag { fill: rgba(239,225,189,.9); stroke: #5a4128; stroke-width: 1; }
 .proad.painted .ptick text { paint-order: stroke; stroke: #efe1bd; stroke-width: 3px; }
 .proadart .pssub { font: 11px var(--font); fill: #6b5236; paint-order: stroke; stroke: #efe1bd; stroke-width: 3px; }

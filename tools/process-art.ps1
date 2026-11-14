@@ -99,6 +99,45 @@ public static class AzfSeam {
 }
 '@
 }
+# Skill-road lanes (2026-11-14): the generator puts the plain lane near, not at, half height (in
+# game the bar ran along the lane's top edge on 11 of 12 roads). Find finds a panel's lane: the
+# band of rows with the least texture (mean luminance change to the left and upper neighbours),
+# smoothed over $win rows, searched between $lo and $hi of the height. Returns the centre row.
+if (-not ('AzfLane' -as [type])) {
+    Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
+using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
+public static class AzfLane {
+    public static int Find(Bitmap b, double lo, double hi, int win) {
+        int w = b.Width, h = b.Height;
+        var d = b.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+        int st = d.Stride; var buf = new byte[st * h];
+        Marshal.Copy(d.Scan0, buf, 0, buf.Length); b.UnlockBits(d);
+        var lum = new double[w * h];
+        for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+            int i = y * st + x * 4;
+            lum[y * w + x] = 0.114 * buf[i] + 0.587 * buf[i + 1] + 0.299 * buf[i + 2];
+        }
+        var score = new double[h];
+        for (int y = 1; y < h; y++) {
+            double s = 0;
+            for (int x = 1; x < w; x++) s += Math.Abs(lum[y * w + x] - lum[y * w + x - 1]) + Math.Abs(lum[y * w + x] - lum[(y - 1) * w + x]);
+            score[y] = s / (w - 1);
+        }
+        int y0 = (int)(h * lo), y1 = (int)(h * hi), best = (y0 + y1) / 2; double bestS = double.MaxValue;
+        for (int y = y0; y <= y1; y++) {
+            double s = 0; int n = 0;
+            for (int k = y - win / 2; k <= y + win / 2; k++) if (k > 0 && k < h) { s += score[k]; n++; }
+            s /= Math.Max(1, n);
+            if (s < bestS) { bestS = s; best = y; }
+        }
+        return best;
+    }
+}
+'@
+}
 $SeamTaper = 150   # rows over which a panel's bend at a seam fades out
 $SeamMax = 90      # largest sideways shift looked for at a seam (px of 512)
 $SeamEdge = 80     # px from the left and right edges over which the bend fades out
@@ -327,9 +366,11 @@ function Convert-Strip([string]$key, [string[]]$panels) {
 
 # The Professions tab's skill roads (art/prompts.md "Skill roads"): profroad-<key>-<n>, three 3:2
 # panels left to right, joined side by side (neighbours overlap by $RoadBlend columns and cross-fade),
-# then the middle $RoadSize[1] rows kept (the lane runs at half height) -> one opaque 2048x256 DXT1
-# Media\ProfRoads\<key>.blp (mockup: mockups/prof-art/road-<key>.png).
+# each panel moved up or down so the lanes meet (AzfLane), then $RoadSize[1] rows kept with the lane at
+# row $RoadLaneRow (room above for the landmarks; Theme.layout.profTab.roadArtLane must match)
+# -> one opaque 2048x256 DXT1 Media\ProfRoads\<key>.blp (mockup: mockups/prof-art/road-<key>.png).
 $RoadSize = @(2048, 256)
+$RoadLaneRow = 150
 $RoadBlend = 32
 function Convert-ProfRoad([string]$key, [string[]]$panels) {
     $W, $H = $RoadSize
@@ -341,6 +382,9 @@ function Convert-ProfRoad([string]$key, [string[]]$panels) {
     $canvas = New-Object System.Drawing.Bitmap $W, $ph, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($canvas)
     $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceOver
+    # Scale each panel first and find its lane; panels are then moved up or down so their lanes
+    # meet at the panels' mean lane, and the kept rows are centred on it.
+    $scaled = @(); $lanes = @()
     for ($i = 0; $i -lt $n; $i++) {
         $p = New-Object System.Drawing.Bitmap $pw, $ph, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
         $pg = [System.Drawing.Graphics]::FromImage($p)
@@ -350,6 +394,12 @@ function Convert-ProfRoad([string]$key, [string[]]$panels) {
         $attrs.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)
         $pg.DrawImage($imgs[$i], (New-Object System.Drawing.Rectangle 0, 0, $pw, $ph), 0, 0, $imgs[$i].Width, $imgs[$i].Height, [System.Drawing.GraphicsUnit]::Pixel, $attrs)
         $attrs.Dispose(); $pg.Dispose(); $imgs[$i].Dispose()
+        $scaled += $p
+        $lanes += [AzfLane]::Find($p, 0.35, 0.8, [int]($ph * 0.06))
+    }
+    $lane = [int][Math]::Round(($lanes | Measure-Object -Average).Average)
+    for ($i = 0; $i -lt $n; $i++) {
+        $p = $scaled[$i]
         if ($i -gt 0) {
             for ($x = 0; $x -lt $RoadBlend; $x++) {
                 $a = [int][Math]::Round(255 * ($x + 0.5) / $RoadBlend)
@@ -357,11 +407,11 @@ function Convert-ProfRoad([string]$key, [string[]]$panels) {
             }
         }
         $left = [Math]::Min($W - $pw, $i * ($pw - $RoadBlend))
-        $g.DrawImage($p, $left, 0, $pw, $ph)
+        $g.DrawImage($p, $left, $lane - $lanes[$i], $pw, $ph)
         $p.Dispose()
     }
     $g.Dispose()
-    $top = [int][Math]::Floor(($ph - $H) / 2)
+    $top = [Math]::Max(0, [Math]::Min($ph - $H, $lane - $RoadLaneRow))
     $flat = New-Object System.Drawing.Bitmap $W, $H, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
     $fg = [System.Drawing.Graphics]::FromImage($flat)
     $fg.DrawImage($canvas, (New-Object System.Drawing.Rectangle 0, 0, $W, $H), 0, $top, $W, $H, [System.Drawing.GraphicsUnit]::Pixel)
@@ -373,7 +423,7 @@ function Convert-ProfRoad([string]$key, [string[]]$panels) {
     $roadDir = Join-Path $MediaRoot 'ProfRoads'
     New-Item -ItemType Directory -Force $roadDir | Out-Null
     $info = [AzfBlp]::Convert($png, (Join-Path (Resolve-Path $roadDir).Path "$key.blp"))
-    return "skill road $key ($n panels: $($sizes -join ', '); joined ${W}x$ph, $RoadBlend-column cross-fades; rows $top-$($top + $H - 1) kept) -> ProfRoads\$key.blp [$info]"
+    return "skill road $key ($n panels: $($sizes -join ', '); joined ${W}x$ph, $RoadBlend-column cross-fades; lanes at rows $($lanes -join '/') -> $lane; rows $top-$($top + $H - 1) kept, lane at $($lane - $top)) -> ProfRoads\$key.blp [$info]"
 }
 
 # Tinted textures (plaque-fill-*): a generator paints them very low contrast (209..229 for the

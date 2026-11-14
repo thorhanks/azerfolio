@@ -798,14 +798,18 @@ local function build(parent)
             road.art:SetTexture(T.mediaDir .. "ProfRoads\\" .. m.key .. ".blp")
             local h = road:GetHeight() or PT.road
             if h <= 0 then h = PT.road end
-            -- Cover-fit, but where the strip is wider than the art, crop from the plain ground
-            -- below rather than the landmarks above (in game they lost their roofs), and put
-            -- the bar where the art's lane (half its height) lands.
+            -- Cover-fit; where the strip is wider than the art, the rows kept put the art's lane
+            -- at roadLaneAt of the strip (room below for the scale), and the bar on that lane.
             local l, r, t, b = T.CoverCoords(w, h, PT.roadArt[1], PT.roadArt[2])
-            local cut = t + (1 - b) -- share of the art's height cropped
-            t, b = cut * PT.roadArtTop, 1 - cut * (1 - PT.roadArtTop)
+            local v = PT.roadArtLane / PT.roadArt[2]
+            local f = b - t -- share of the art's height that shows
+            if f < 1 then
+                b = math.min(1, v + PT.roadLaneAt * f)
+                t = b - f
+                if t < 0 then t, b = 0, f end
+            end
             road.art:SetTexCoord(l, r, t, b)
-            barY = h * (b - 0.5) / (b - t)
+            barY = h * (b - v) / (b - t)
         end
         road.bar:ClearAllPoints()
         road.bar:SetPoint("LEFT", road, "BOTTOMLEFT", x0 - PT.roadBar * 0.45, barY)

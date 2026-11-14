@@ -2241,7 +2241,8 @@
     // the road on its lane at half height, each stone's label on a parchment tag.
     const rkey = p.name.toLowerCase().replace(/[^a-z]/g, "");
     const painted = ((window.AZF_ART || {}).profRoads || []).includes(rkey) && !ui.plainRoad;
-    const W = 1000, H = 132, x0 = 30, x1 = W - 56, y = painted ? 66 : 74;
+    // The art's lane is at row 150 of 256 (process-art.ps1 $RoadLaneRow); this strip (7.6:1) shows its whole height.
+    const W = 1000, H = 132, x0 = 30, x1 = W - 56, y = painted ? Math.round(H * 150 / 256) : 74;
     const X = (s) => x0 + (Math.max(1, Math.min(PMAX, s)) - 1) / (PMAX - 1) * (x1 - x0);
     const yAt = (x) => y + Math.sin(x / 90) * 6;
     const wave = (a, b) => { let d = ""; for (let x = a; x <= b; x += 8) d += `${d ? " L" : "M"}${x.toFixed(1)} ${yAt(x).toFixed(1)}`; return d; };
