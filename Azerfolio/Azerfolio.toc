@@ -61,6 +61,7 @@ UI\Pages\ZoneDetail.lua
 UI\Pages\Zones.lua
 UI\Pages\Reputation.lua
 UI\Pages\Class.lua
+UI\Pages\Professions.lua
 UI\Celebration.lua
 UI\Shots.lua
 UI\Launcher.lua

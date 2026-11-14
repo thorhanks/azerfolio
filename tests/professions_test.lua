@@ -249,6 +249,14 @@ return function(t)
         local j = R.TrainersFor(list, "Journeyman", "A")
         t.eq(#j, 3); t.eq(j[1].name, "Smith Argus"); t.eq(j[2].name, "Therum Deepforge"); t.eq(j[3].name, "Plain")
         t.eq(#R.TrainersFor(list, "Expert", "H"), 2, "Snarl, and the plain trainer")
+        -- Your side's territory first: Stormwind (1453) before a contested Riverglades (2548).
+        local terr = Z.faction
+        local two = R.TrainersFor({ { name = "Alphonse Dumas", rank = "Journeyman", level = 2, mapID = 2548, side = "A" },
+            { name = "Dane Lindgren", rank = "Journeyman", level = 2, mapID = 1453, side = "A" } }, "Journeyman", "A", terr)
+        t.eq(two[1].name, "Dane Lindgren")
+        local z = R.OrderZones({ 1411, 1412, 1420, 2521, 1429, 1426, 1438 }, terr, "Alliance")
+        t.eq(z[1], 1429, "Elwynn first for an Alliance character"); t.eq(z[#z], 1420, "Tirisfal last")
+        t.eq(R.OrderZones({ 1411, 1429 }, terr, "Horde")[1], 1411, "Durotar first for the Horde")
         t.eq(R.RecipeItemNames("Heavy Silk Bandage")[6], "Manual: Heavy Silk Bandage")
     end)
 
@@ -566,6 +574,70 @@ return function(t)
         state.window = { line = 2933, rows = firstAidWindow.rows } -- "Test Profession [DNT]"
         wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
         t.eq((_G.AzerfolioCharDB.professions.windows or {})[2933], nil)
+    end)
+
+    -- The tab (UI/Pages/Professions.lua) -------------------------------------------------------
+    local function openTab(n)
+        n.UI.Show()
+        n.UI.SelectTab("professions")
+        return n.UI.GetFrame().pages.professions
+    end
+
+    t.test("ui: the rail follows focus, A goes into the page, B back, Y and X", function()
+        local state = probeState()
+        state.tracked = { [3275] = true }
+        state.schematics = { [3275] = { outputItemID = 1251, reagentSlotSchematics = { { reagents = { { itemID = 2589 } }, quantityRequired = 1 } } } }
+        state.bags = { [2589] = 4 }
+        local n = boot(state)
+        state.window = { line = 129, rows = {
+            { recipeID = 3275, name = "Linen Bandage", learned = true, maxTrivialLevel = 60, categoryID = 7 },
+            { recipeID = 3276, name = "Heavy Linen Bandage", learned = false, maxTrivialLevel = 100, categoryID = 7 } } }
+        wow.fire("TRADE_SKILL_SHOW"); wow.runTimers()
+        local p = openTab(n)
+        t.eq(#p.railFocus, 5, "one rail entry per profession")
+        t.eq(p.sel, 164, "Blacksmithing first")
+        t.eq(p.mode, "rail")
+        n.Focus.FocusKey("p:129")
+        t.eq(p.sel, 129, "the page follows the rail's focus")
+        t.eq(n.Focus.Current().key, "p:129")
+        t.eq(#p.views, 2, "First Aid: Journey and Recipes")
+        p:EnterPage()
+        t.eq(p.mode, "page")
+        t.eq(n.Focus.Current().key, "stone:Journeyman", "into the road's first stone")
+        local cards = 0
+        for _, row in ipairs(p.pageFocus) do for _, it in ipairs(row.items) do if it.recipeID then cards = cards + 1 end end end
+        t.eq(cards, 1, "Linen Bandage's Tracked card")
+        n.Focus.FocusKey("track:3275")
+        t.eq(n.Focus.Current().recipeID, 3275)
+        t.ok(p:OnButton("x"), "X stops tracking")
+        t.eq(state.tracked[3275], nil)
+        t.ok(p:Back()); t.eq(p.mode, "rail"); t.eq(n.Focus.Current().key, "p:129")
+        t.ok(p:OnButton("y")); t.eq(p.view, "recipes")
+        t.ok(p:OnButton("y")); t.eq(p.view, "journey", "Y cycles back")
+        n.Focus.FocusKey("p:186")
+        t.eq(#p.views, 3, "Mining: Journey, Recipes (smelting; asks for its window) and Gather")
+        t.eq(#n.Debug.errors, 0)
+    end)
+
+    t.test("ui: no professions yet", function()
+        local state = probeState()
+        state.slots = {}
+        local n = boot(state)
+        local p = openTab(n)
+        t.ok(p.empty:IsShown())
+        t.eq(#p:GetFocusRows(), 0)
+        t.eq(#n.Debug.errors, 0)
+    end)
+
+    t.test("ui: /azf shots professions", function()
+        local state = probeState()
+        local n = boot(state)
+        _G.Screenshot = function() _G.screenshotsTaken = (_G.screenshotsTaken or 0) + 1 end
+        _G.screenshotsTaken = 0
+        _G.SlashCmdList.AZERFOLIO("shots professions"); wow.runTimers()
+        t.eq(_G.screenshotsTaken, 9, "the tab, the road, Next up, 4 more professions, minimum size, wide")
+        t.eq(n.UI.GetFrame().pages.professions.mode, "rail", "back on the rail")
+        t.eq(#n.Debug.errors, 0)
     end)
 
     t.test("rules: rail order and the Overview summary", function()

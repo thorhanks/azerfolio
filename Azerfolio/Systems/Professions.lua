@@ -225,7 +225,9 @@ function Prof.Get()
             -- Output item for each recipe, for "Craft it" (rows recorded before step 5 have none).
             for _, r in ipairs(recipes.list) do r.item = output[r.id] end
         end
-        if m.next and sourcesReady then m.trainers = R.TrainersFor(Src.Trainers(s.skillLine), m.next.name, side) end
+        if m.next and sourcesReady then
+            m.trainers = R.TrainersFor(Src.Trainers(s.skillLine), m.next.name, side, ns.ZoneData and ns.ZoneData.faction)
+        end
         local gather
         if m.gather then gather = R.Gather(m.gather, m.skill, ns.ZoneData and ns.ZoneData.levels) end
         m.status = R.Status(m, recipes)

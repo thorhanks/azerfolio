@@ -136,13 +136,35 @@ function Rules.TrainerOf(subName, info)
     return nil
 end
 
+-- Pure: how near a zone is for your side: 0 your territory, 1 contested or not known, 2 the
+-- other side's. territory = Data/Zones.lua's faction map; faction = "Alliance" | "Horde".
+function Rules.SideRank(mapID, territory, faction)
+    local t = territory and mapID and territory[mapID]
+    if not t or t == "Contested" or not faction then return 1 end
+    return t == faction and 0 or 2
+end
+
+-- Pure: zones with your side's first, then contested, then the other side's (stable order
+-- within each). Gideon (Alliance) read "Copper Vein · Durotar, Mulgore, Tirisfal Glades"
+-- before (WoWScrnShot_111426_121313).
+function Rules.OrderZones(zones, territory, faction)
+    local out = {}
+    for i, z in ipairs(zones or {}) do out[i] = { z = z, i = i, r = Rules.SideRank(z, territory, faction) } end
+    table.sort(out, function(a, b) if a.r ~= b.r then return a.r < b.r end return a.i < b.i end)
+    for i, e in ipairs(out) do out[i] = e.z end
+    return out
+end
+
 -- Pure: the trainers to name for a rank, most useful first.
 --   trainers = { { name, rank, level, mapID, place, side = "A"|"H"|"AH"|nil } ... }
 --   rankName = the rank to train ("Journeyman"); side = "A" | "H" (yours)
+--   territory = Data/Zones.lua's faction map (optional): trainers in your side's zones first
 -- Keeps trainers of your side (or both) with a zone, whose stated rank reaches it (or isn't
--- stated: "First Aid Trainer"); ranked ones that reach it first, then by name. A Junior trainer
--- only teaches Apprentice.
-function Rules.TrainersFor(trainers, rankName, side)
+-- stated: "First Aid Trainer"); then your side's territory first (Stormwind before
+-- Riverglades, WoWScrnShot_111426_121308), ranked ones that reach it, the closest rank, by name.
+-- A Junior trainer only teaches Apprentice.
+function Rules.TrainersFor(trainers, rankName, side, territory)
+    local faction = side == "A" and "Alliance" or side == "H" and "Horde" or nil
     local want = Rules.TRAINER_RANKS[rankName] or 1
     local out = {}
     for _, t in ipairs(trainers or {}) do
@@ -151,6 +173,8 @@ function Rules.TrainersFor(trainers, rankName, side)
         if sideOk and rankOk and t.mapID then out[#out + 1] = t end
     end
     table.sort(out, function(a, b)
+        local ha, hb = Rules.SideRank(a.mapID, territory, faction), Rules.SideRank(b.mapID, territory, faction)
+        if ha ~= hb then return ha < hb end
         local ra, rb = a.level and 0 or 1, b.level and 0 or 1
         if ra ~= rb then return ra < rb end
         if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) < (b.level or 0) end -- the closest rank first

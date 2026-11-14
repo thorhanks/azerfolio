@@ -516,6 +516,39 @@ Theme.classStrip = {
     },
 }
 
+-- Professions tab (Phase 14; mockups/DESIGN.md "Professions tab", round 2: rail and views).
+Theme.color.profWarn = hex("e0503c")   -- "At cap": skill-ups are lost until you train (the rail's red dot)
+Theme.color.profGo = hex("e08a3c")     -- train now / recipes to learn (orange)
+Theme.color.profReady = hex("7cc46a")  -- a tracked recipe you have everything for; have >= need
+Theme.color.profShort = hex("d79a7a")  -- have < need (red-tan)
+Theme.color.profTracked = hex("6fa8ff") -- the Tracked tag (blue)
+Theme.layout.profTab = {
+    rail = 116,          -- the rail's width (mockup 116 px)
+    railRow = 74,        -- coin, name, skill
+    railCoin = 40,
+    railGroup = 26,      -- "Primary" / "Secondary"
+    switch = 38,         -- the view switch (Journey · Recipes · Gather)
+    bannerMax = 330,     -- the banner with the road in its foot (mockup min 330 px: room for the scene)
+    bannerMin = 250,     -- at the window's minimum size
+    listsMin = 200,      -- Next up | Tracked keep at least this much
+    road = 112,          -- the parchment strip in the banner's foot
+    roadBar = 22,        -- the gilded road's height
+    roadPadL = 30,       -- 1 sits here
+    roadPadR = 80,       -- room for the coin after 300
+    stone = { 30, 34 },  -- a rank stone (milestone art)
+    you = 30,            -- your portrait on the road
+    endCoin = 52,        -- the profession coin at 300
+    nextRow = 46,        -- a Next up line (title and sub line)
+    ingRow = 20,         -- an ingredient line in a Tracked card
+    cardHead = 44,       -- a Tracked card's head (name and summary)
+    tones = {            -- banner stand-in tints (top, bottom) until the painted banners exist
+        alchemy = { "3a2a4a", "120a18" }, blacksmithing = { "4a2a14", "140804" }, enchanting = { "34224e", "0e0816" },
+        engineering = { "3a3424", "100e08" }, herbalism = { "26402a", "08120a" }, leatherworking = { "4a3420", "140c06" },
+        mining = { "38343a", "0e0c10" }, skinning = { "463420", "120c06" }, tailoring = { "402a3a", "120810" },
+        cooking = { "4a3418", "140c04" }, firstaid = { "4a2424", "140606" }, fishing = { "203a4a", "060e14" },
+    },
+}
+
 -- A painted nine-slice (a chrome piece with { x, y } border fractions) around `frame`, corners
 -- `corner` units, `out` units outside it. Returns a handle with SetShown / SetVertexColor /
 -- SetAlpha, or nil without the art.

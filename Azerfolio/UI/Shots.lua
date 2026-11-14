@@ -206,10 +206,41 @@ local function classSteps()
     }
 end
 
+-- /azf shots professions: the Professions tab (Phase 14) on each of your professions (Journey),
+-- the road and Next up of the first, then the minimum size and wide.
+local function profPage() return UI.GetFrame().pages.professions end
+local function professionSteps()
+    local minW, minH = ns.Config.RANGES["window.width"][1], ns.Config.RANGES["window.height"][1]
+    local function open(line)
+        UI.SelectTab("professions")
+        local p = profPage()
+        if not p then return nil end
+        if p.mode == "page" then p:Back() end
+        if p.view ~= "journey" then p:SetView("journey") end
+        if line then ns.Focus.FocusKey("p:" .. line); UI.RefreshHints() end
+        return p
+    end
+    local list = ns.Professions.Get().professions
+    local first = list[1] and list[1].skillLine
+    local out = {
+        { label = "professions", fn = function() UI.ApplyGeometry(); UI.Relayout(); open(first) end },
+        { label = "professions, the road", fn = function() local p = open(first); if p then p:EnterPage() end end },
+        { label = "professions, next up", fn = function() ns.Focus.Jump(1); UI.RefreshHints() end },
+    }
+    for i = 2, #list do
+        local m = list[i]
+        out[#out + 1] = { label = "professions, " .. m.name, fn = function() open(m.skillLine) end }
+    end
+    out[#out + 1] = { label = "professions at minimum size", fn = function() open(first); UI.FitSize(minW, minH) end }
+    out[#out + 1] = { label = "professions wide", fn = function() UI.FitSize(wideSize()); open(first) end }
+    return out
+end
+
 -- Each step changes the window, then one screenshot is taken.
 local function steps(which)
     if which == "banners" then return bannerSteps() end
     if which == "class" then return classSteps() end
+    if which == "professions" or which == "profs" then return professionSteps() end
     if which == "reputation" or which == "rep" then
         local here = C_Map and C_Map.GetBestMapForUnit
             and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
@@ -354,6 +385,8 @@ function UI.RunShots(which)
         UI.shotsRepSort = nil
         local cp = UI.GetFrame().pages.class
         if cp and cp.mode == "steps" then cp:Back() end
+        local pp = UI.GetFrame().pages.professions
+        if pp and pp.mode == "page" then pp:Back() end
         if UI.shotsOpenedDetail then
             UI.SelectTab("zones")
             local zp = UI.GetFrame().pages.zones
