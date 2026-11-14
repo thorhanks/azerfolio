@@ -723,6 +723,10 @@ return function(t)
         local p = openTab(n)
         t.ok(p.empty:IsShown())
         t.eq(#p:GetFocusRows(), 0)
+        _G.Screenshot = function() _G.screenshotsTaken = (_G.screenshotsTaken or 0) + 1 end
+        _G.screenshotsTaken = 0
+        _G.SlashCmdList.AZERFOLIO("shots professions"); wow.runTimers()
+        t.eq(_G.screenshotsTaken, 3, "the empty page at each size")
         t.eq(#n.Debug.errors, 0)
     end)
 

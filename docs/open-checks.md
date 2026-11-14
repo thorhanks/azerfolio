@@ -44,12 +44,13 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | J7 | Whether the newer-ID quests are offered in game (A Strange Artifact 78088 for Gideon) | Gideon at 22, in Ashenvale | Find the object and take the quest; QuestieDB having them (J2) doesn't prove the game does |
 | J8 | The other 16 roads look right in game: the strip, the road along its lane, stops by their landmarks, the class coin, milestones once the trainer is opened (seen so far: Paladin Alliance on Gideon, Warrior Horde on Thragor; the rest only in the mockup's Road switch and the tests) | A character of another class and side | `/reload`, wait a few seconds, `/azf shots class`; open the class trainer once first for the milestones |
 
-## Professions (research, 2026-11-13)
+## Professions (Phase 14)
 
 | ID | Check | When | How |
 |---|---|---|---|
 | G1 | The skill each gathering node needs on Forever, where the guides disagree (Bruiseweed 85 or 100, Small Thorium 245 or 250, Rich Thorium 275 or 295) and for Forever's new nodes (Heavy Thorium, Marefoil, Demonsage, Death Lotus...); also whether a node stops giving skill 100 points past its requirement (`greyAfter`, a Classic rule) | Mousing over such a node or herb; gathering a node well past its skill | `/azf shot` of its tooltip ("Requires Mining (n)"); update `Data/Gathering.lua` and `docs/research/professions.md` § Gathering table |
 | G2 | A learned recipe's tooltip says "Already known" (vendor and bag), so known state can be read for recipe items too | Any vendor recipe or recipe item you already know | `/azfdiag profs` with the vendor open or the item in your bags, `/reload`, `luajit tools/diag-report.lua profs` |
+| G4 | A Horde character's trainers and gathering zones come Horde-first (trainers of your side, nearest first; Durotar before Elwynn) | When Thragor (or another Horde character) has a profession | `/azf shots professions` on that character, then read the Journey's Next up line and the Gather view |
 
 ## Celebrations (Phase 10)
 

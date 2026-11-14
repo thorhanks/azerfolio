@@ -224,6 +224,14 @@ local function professionSteps()
     end
     local list = ns.Professions.Get().professions
     local first = list[1] and list[1].skillLine
+    if not first then
+        -- No professions (Thragor, WoWScrnShot_111426_130431): the empty page at each size only.
+        return {
+            { label = "professions, none yet", fn = function() UI.ApplyGeometry(); UI.Relayout(); open() end },
+            { label = "professions, none yet at minimum size", fn = function() open(); UI.FitSize(minW, minH) end },
+            { label = "professions, none yet wide", fn = function() UI.FitSize(wideSize()); open() end },
+        }
+    end
     local out = {
         { label = "professions", fn = function() UI.ApplyGeometry(); UI.Relayout(); open(first) end },
         { label = "professions, the road", fn = function() local p = open(first); if p then p:EnterPage() end end },
