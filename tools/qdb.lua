@@ -10,6 +10,7 @@
 --   npc <id> [id...]       every field of the NPCs
 --   npcs <text>            NPCs whose subName (title) contains text, with area and side
 --   rares [areaID|all]     rare, rare elite and boss NPCs (rank 4, 2, 3; cmangos ranks), by spawn area
+--   drops [npcID...]       items by NPC drop: counts by item class and NPC rank; with IDs, each NPC's items
 --   objects <text|*> [areaID] game objects whose name contains text (* = all), spawn points per area
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
 --   gather check           Data/Gathering.lua item IDs and Data/Professions.lua recipe prefixes (run from repo root)
@@ -291,6 +292,57 @@ elseif cmd == "rares" then
                 end
             end
         end
+    end
+elseif cmd == "drops" then
+    -- Items by NPC drop (Item field 2 npcDrops). No IDs: counts by item class and by the
+    -- dropping NPC's rank. With NPC IDs: the items each NPC drops (no drop chances here;
+    -- those are only in QuestieDB's quest-item drop tables).
+    local only = {}
+    for i = 2, #arg do only[tonumber(arg[i])] = true end
+    local items, itabs, errors = load(function(_, f) return f == 2 end, "Item")
+    local npcs = load(nil, "Npc")
+    local byNpc, byClass, byRank, total, dropped = {}, {}, {}, 0, 0
+    local CLASSES = { [0] = "consumable", [1] = "container", [2] = "weapon", [4] = "armor", [5] = "reagent",
+        [7] = "trade goods", [9] = "recipe", [12] = "quest", [15] = "misc" }
+    local RANKS = { [0] = "normal", [1] = "elite", [2] = "rare elite", [3] = "boss", [4] = "rare" }
+    for id, row in pairs(items) do
+        total = total + 1
+        local drops = itabs[id] and itabs[id][2]
+        if type(drops) == "table" and #drops > 0 then
+            dropped = dropped + 1
+            local c = CLASSES[row[12]] or tostring(row[12])
+            byClass[c] = (byClass[c] or 0) + 1
+            local ranks = {}
+            for _, n in ipairs(drops) do
+                byNpc[n] = byNpc[n] or {}
+                table.insert(byNpc[n], id)
+                local r = npcs[n] and RANKS[npcs[n][6]] or "unknown npc"
+                ranks[r] = true
+            end
+            if row[12] == 2 or row[12] == 4 then
+                for r in pairs(ranks) do byRank[r] = (byRank[r] or 0) + 1 end
+            end
+        end
+    end
+    if next(only) then
+        for n in pairs(only) do
+            local nrow = npcs[n]
+            print(string.format("%d %s (%s, lvl %s-%s, area %s): %d items", n, nrow and tostring(nrow[1]) or "?",
+                nrow and (RANKS[nrow[6]] or tostring(nrow[6])) or "-", nrow and tostring(nrow[4]) or "-",
+                nrow and tostring(nrow[5]) or "-", nrow and tostring(nrow[9]) or "-", byNpc[n] and #byNpc[n] or 0))
+            local list = byNpc[n] or {}
+            table.sort(list)
+            for _, id in ipairs(list) do
+                local r = items[id]
+                print(string.format("  %6d %-40s %-11s ilvl %-3s req %-3s", id, tostring(r[1]),
+                    CLASSES[r[12]] or tostring(r[12]), tostring(r[9] or "-"), tostring(r[10] or "-")))
+            end
+        end
+    else
+        print(string.format("%d items, %d with NPC drops, %d decode errors (base rows)", total, dropped, errors))
+        for c, n in pairs(byClass) do print(string.format("  %-12s %d", c, n)) end
+        print("weapons and armour by the dropping NPC's rank (an item may count under several):")
+        for r, n in pairs(byRank) do print(string.format("  %-12s %d", r, n)) end
     end
 elseif cmd == "objects" then
     local q = assert(arg[2], "objects <text|*> [areaID]"):lower()

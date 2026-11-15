@@ -148,6 +148,10 @@ local CANDIDATE_EVENTS = {
     "QUEST_TURNED_IN", "QUEST_REMOVED", "QUEST_ACCEPTED", "QUEST_LOG_UPDATE", "QUEST_DATA_LOAD_RESULT",
     "AREA_POIS_UPDATED", "ADDON_LOADED", "TAXIMAP_OPENED", "TAXIMAP_CLOSED", "PLAYER_INTERACTION_MANAGER_FRAME_SHOW",
     "UPDATE_FACTION", "CHAT_MSG_COMBAT_FACTION_CHANGE", "QUEST_LOG_CRITERIA_UPDATE",
+    -- Dungeons tab (docs/research/dungeons.md): boss kills, lockouts and loot during a run.
+    "ENCOUNTER_START", "ENCOUNTER_END", "BOSS_KILL", "UPDATE_INSTANCE_INFO", "INSTANCE_LOCK_START",
+    "INSTANCE_LOCK_STOP", "INSTANCE_LOCK_WARNING", "LOOT_OPENED", "LOOT_READY", "CHAT_MSG_LOOT",
+    "EJ_LOOT_DATA_RECIEVED", "EJ_DIFFICULTY_UPDATE",
 }
 
 local function dumpEnv()
@@ -1098,6 +1102,277 @@ local function dumpReps()
     DB.reps = r
     msg(string.format("reputation: %s factions listed (%d headers expanded and restored; %s before, %s after), %d IDs looked up. Type /reload to save.",
         tostring(r.count), #expanded, tostring(r.countBefore), tostring(r.countAfter or r.count), #REP_PROBE_IDS))
+end
+
+---------------------------------------------------------------------------
+-- Dungeon probe (/azfdiag dungeons; Dungeons tab, docs/research/dungeons.md): which encounter
+-- journal, lockout and LFG APIs exist; every journal tier, instance, encounter, creature and
+-- loot row (loot read again after 3 s, since the client loads item data on demand); the LFG
+-- dungeon list (IDs 1-3000) with level ranges; saved lockouts; where the player is now; and the
+-- item APIs a "collected" state would need. Run once anywhere, once inside a dungeon.
+---------------------------------------------------------------------------
+
+local DUNGEON_GLOBALS = {
+    "EJ_GetNumTiers", "EJ_SelectTier", "EJ_GetTierInfo", "EJ_GetCurrentTier", "EJ_GetInstanceByIndex",
+    "EJ_SelectInstance", "EJ_GetInstanceInfo", "EJ_GetEncounterInfoByIndex", "EJ_GetEncounterInfo",
+    "EJ_SelectEncounter", "EJ_GetCreatureInfo", "EJ_GetNumLoot", "EJ_GetLootInfoByIndex", "EJ_GetLootInfo",
+    "EJ_SetDifficulty", "EJ_GetDifficulty", "EJ_IsValidInstanceDifficulty", "EJ_SetLootFilter",
+    "EJ_ResetLootFilter", "EJ_GetLootFilter", "EJ_GetInstanceForMap", "EJ_GetCurrentInstance",
+    "EJ_InstanceIsRaid", "EJ_GetMapEncounter", "EJ_GetSectionInfo", "EJ_GetEncounterSearchResultInfo",
+    "GetNumSavedInstances", "GetSavedInstanceInfo", "GetSavedInstanceEncounterInfo", "GetSavedInstanceChatLink",
+    "RequestRaidInfo", "GetInstanceInfo", "IsInInstance", "GetDifficultyInfo", "GetDungeonDifficultyID",
+    "GetLFGDungeonInfo", "GetLFGDungeonEncounterInfo", "GetLFGDungeonNumEncounters", "GetNumRandomDungeons",
+    "GetLFGRandomDungeonInfo", "GetLFDChoiceOrder", "IsLFGDungeonJoinable", "GetItemCount", "GetItemInfo",
+    "GetItemQualityColor", "GetLootSlotLink", "GetNumLootItems", "GetLootSourceInfo",
+}
+local DUNGEON_NAMESPACES = { "C_EncounterJournal", "C_RaidLocks", "C_LFGInfo", "C_LFGList", "C_Item",
+    "C_TransmogCollection", "C_Transmog", "C_ItemUpgrade", "C_LootHistory", "C_Loot" }
+-- Cruel Barb, Hand of Justice, Ironfoe, Hall of Thanes' Ephemeral Choker: item lookups to compare
+-- with QuestieDB (`qdb.lua drops`).
+local DUNGEON_ITEM_IDS = { 5191, 11815, 11684, 270227, 271096 }
+
+local function ejLoot(r, cap)
+    local n = try("EJ_GetNumLoot", EJ_GetNumLoot) or 0
+    r.lootCount = n
+    r.loot = {}
+    local CE = C_EncounterJournal
+    for i = 1, math.min(n, cap) do
+        local row
+        if CE and CE.GetLootInfoByIndex then
+            row = safePlain(try("C_EncounterJournal.GetLootInfoByIndex", CE.GetLootInfoByIndex, i))
+        elseif EJ_GetLootInfoByIndex then
+            row = packArgs(try("EJ_GetLootInfoByIndex", EJ_GetLootInfoByIndex, i))
+        end
+        r.loot[i] = row
+    end
+end
+
+-- lootCap: loot rows kept per encounter (0 = counts only; the instance itself keeps 3x as many).
+local function scanJournal(lootCap)
+    local withLoot = lootCap ~= nil
+    local out = { tiers = {}, instances = {} }
+    out.currentTier = try("EJ_GetCurrentTier", EJ_GetCurrentTier)
+    out.difficulty = try("EJ_GetDifficulty", EJ_GetDifficulty)
+    out.numTiers = try("EJ_GetNumTiers", EJ_GetNumTiers)
+    local seen = {}
+    -- With no tiers reported, scan once without selecting one (tier 0).
+    local tierList = {}
+    for tier = 1, math.min(out.numTiers or 0, 20) do tierList[#tierList + 1] = tier end
+    if #tierList == 0 then tierList[1] = 0 end
+    for _, tier in ipairs(tierList) do
+        if tier > 0 then
+            out.tiers[tier] = packArgs(try("EJ_GetTierInfo", EJ_GetTierInfo, tier))
+            try("EJ_SelectTier", EJ_SelectTier, tier)
+        end
+        for _, raid in ipairs({ false, true }) do
+            for i = 1, 200 do
+                local v = packArgs(try("EJ_GetInstanceByIndex", EJ_GetInstanceByIndex, i, raid))
+                local id = v[1]
+                if not id then break end
+                if not seen[id] then
+                    seen[id] = true
+                    -- retail returns: instanceID, name, description, bgImage, buttonImage1, loreImage,
+                    -- buttonImage2, dungeonAreaMapID, link, shouldDisplayDifficulty, mapID
+                    local inst = { tier = tier, raid = raid, byIndex = v, encounters = {} }
+                    try("EJ_SelectInstance", EJ_SelectInstance, id)
+                    inst.info = packArgs(try("EJ_GetInstanceInfo", EJ_GetInstanceInfo, id))
+                    local areaMap = v[8]
+                    if type(areaMap) == "number" and areaMap > 0 and C_Map and C_Map.GetMapInfo then
+                        inst.areaMapInfo = safePlain(try("GetMapInfo", C_Map.GetMapInfo, areaMap))
+                    end
+                    if withLoot then ejLoot(inst, lootCap * 3) end
+                    for e = 1, 40 do
+                        local ev = packArgs(try("EJ_GetEncounterInfoByIndex", EJ_GetEncounterInfoByIndex, e, id))
+                        -- name, description, journalEncounterID, rootSectionID, link, journalInstanceID,
+                        -- dungeonEncounterID, instanceID
+                        if not ev[3] then
+                            -- Some clients want the instance selected and no ID passed.
+                            ev = packArgs(try("EJ_GetEncounterInfoByIndex", EJ_GetEncounterInfoByIndex, e))
+                            ev.noID = true
+                        end
+                        if not ev[1] then break end
+                        local enc = { byIndex = ev, creatures = {} }
+                        local encID = ev[3]
+                        if encID then
+                            for c = 1, 6 do
+                                local cv = packArgs(try("EJ_GetCreatureInfo", EJ_GetCreatureInfo, c, encID))
+                                if not cv[1] then break end
+                                enc.creatures[c] = cv
+                            end
+                            if withLoot then
+                                try("EJ_SelectEncounter", EJ_SelectEncounter, encID)
+                                ejLoot(enc, lootCap)
+                            end
+                        end
+                        inst.encounters[e] = enc
+                    end
+                    out.instances[#out.instances + 1] = inst
+                end
+            end
+        end
+    end
+    return out
+end
+
+local function savedInstances()
+    local s = { count = try("GetNumSavedInstances", GetNumSavedInstances), list = {} }
+    for i = 1, math.min(s.count or 0, 60) do
+        -- name, lockoutId, reset, difficultyId, locked, extended, instanceIDMostSig, isRaid,
+        -- maxPlayers, difficultyName, numEncounters, encounterProgress, extendDisabled, instanceId
+        local v = packArgs(try("GetSavedInstanceInfo", GetSavedInstanceInfo, i))
+        v.encounters = {}
+        for e = 1, math.min(tonumber(v[11]) or 0, 40) do
+            v.encounters[e] = packArgs(try("GetSavedInstanceEncounterInfo", GetSavedInstanceEncounterInfo, i, e))
+        end
+        s.list[i] = v
+    end
+    return s
+end
+
+local function dumpDungeons()
+    local r = { t = time(), map = currentMapID(), where = where(), has = {}, ns = {} }
+    for _, name in ipairs(DUNGEON_GLOBALS) do r.has[name] = type(_G[name]) end
+    for _, ns in ipairs(DUNGEON_NAMESPACES) do
+        local t = _G[ns]
+        if type(t) == "table" then
+            local keys = {}
+            for k, v in pairs(t) do keys[#keys + 1] = tostring(k) .. ":" .. type(v) end
+            table.sort(keys)
+            r.ns[ns] = keys
+        else
+            r.ns[ns] = type(t)
+        end
+    end
+    r.instanceNow = packArgs(try("GetInstanceInfo", GetInstanceInfo))
+    r.inInstance = packArgs(try("IsInInstance", IsInInstance))
+    if r.map then r.ejForMap = packArgs(try("EJ_GetInstanceForMap", EJ_GetInstanceForMap, r.map)) end
+    r.ejCurrent = packArgs(try("EJ_GetCurrentInstance", EJ_GetCurrentInstance))
+    if r.map and EJ_GetMapEncounter then
+        r.mapEncounters = {}
+        for i = 1, 30 do
+            local v = packArgs(try("EJ_GetMapEncounter", EJ_GetMapEncounter, r.map, i))
+            if v[1] == nil then break end
+            r.mapEncounters[i] = v
+        end
+    end
+
+    local t0 = debugprofilestop and debugprofilestop()
+    r.journal = scanJournal(0)
+    if t0 then r.journalMs = debugprofilestop() - t0 end
+    -- Still empty: does loading Blizzard's journal addon fill it?
+    local AO = C_AddOns
+    if AO then
+        r.ejAddon = { info = packArgs(try("GetAddOnInfo", AO.GetAddOnInfo, "Blizzard_EncounterJournal")),
+            loadedBefore = packArgs(try("IsAddOnLoaded", AO.IsAddOnLoaded, "Blizzard_EncounterJournal")) }
+        if #r.journal.instances == 0 and AO.LoadAddOn then
+            r.ejAddon.load = packArgs(try("LoadAddOn", AO.LoadAddOn, "Blizzard_EncounterJournal"))
+            r.ejAddon.loadedAfter = packArgs(try("IsAddOnLoaded", AO.IsAddOnLoaded, "Blizzard_EncounterJournal"))
+            r.ejAddon.frame = type(_G.EncounterJournal)
+            r.journalAfterLoad = scanJournal(0)
+        end
+    end
+
+    -- Dungeon entrances, map encounters and the journal instance for every map the client has.
+    local CE = C_EncounterJournal
+    r.entrances, r.mapEnc, r.instForMap = {}, {}, {}
+    if C_Map and C_Map.GetMapInfo and CE then
+        for mapID = 1, 3000 do
+            local info = try("GetMapInfo", C_Map.GetMapInfo, mapID)
+            if info then
+                if CE.GetDungeonEntrancesForMap then
+                    local e = try("GetDungeonEntrancesForMap", CE.GetDungeonEntrancesForMap, mapID)
+                    if type(e) == "table" and #e > 0 then r.entrances[mapID] = { name = info.name, list = safePlain(e) } end
+                end
+                if CE.GetEncountersOnMap then
+                    local e = try("GetEncountersOnMap", CE.GetEncountersOnMap, mapID)
+                    if type(e) == "table" and #e > 0 then r.mapEnc[mapID] = { name = info.name, list = safePlain(e) } end
+                end
+                if CE.GetInstanceForGameMap then
+                    local v = try("GetInstanceForGameMap", CE.GetInstanceForGameMap, mapID)
+                    if v then r.instForMap[mapID] = v end
+                end
+            end
+        end
+    end
+    if C_LootHistory and C_LootHistory.GetAllEncounterInfos then
+        r.lootHistory = safePlain(try("GetAllEncounterInfos", C_LootHistory.GetAllEncounterInfos))
+    end
+    if C_LFGInfo and C_LFGInfo.GetLevelUpInstances then
+        r.levelUp = safePlain(try("GetLevelUpInstances", C_LFGInfo.GetLevelUpInstances, UnitLevel and UnitLevel("player") or 1, false))
+    end
+
+    -- LFG dungeon list: name, typeID, subtypeID, minLevel, maxLevel, recLevel, minRecLevel,
+    -- maxRecLevel, expansionLevel, groupID, textureFilename, difficulty, maxPlayers, description, ...
+    r.lfg = {}
+    if GetLFGDungeonInfo then
+        for id = 1, 3000 do
+            local v = packArgs(try("GetLFGDungeonInfo", GetLFGDungeonInfo, id))
+            if v[1] ~= nil then
+                if GetLFGDungeonNumEncounters then
+                    v.numEncounters = packArgs(try("GetLFGDungeonNumEncounters", GetLFGDungeonNumEncounters, id))
+                end
+                -- Bosses as the dungeon finder lists them: bossName, texture, isKilled, ...
+                if GetLFGDungeonEncounterInfo then
+                    v.bosses = {}
+                    for b = 1, 30 do
+                        local bv = packArgs(try("GetLFGDungeonEncounterInfo", GetLFGDungeonEncounterInfo, id, b))
+                        if bv[1] == nil then break end
+                        v.bosses[b] = bv
+                    end
+                end
+                if C_LFGInfo and C_LFGInfo.GetDungeonInfo then
+                    v.cInfo = safePlain(try("C_LFGInfo.GetDungeonInfo", C_LFGInfo.GetDungeonInfo, id))
+                end
+                r.lfg[id] = v
+            end
+        end
+    end
+
+    r.items = {}
+    for _, id in ipairs(DUNGEON_ITEM_IDS) do
+        local it = { info = packArgs(try("GetItemInfo", GetItemInfo or (C_Item and C_Item.GetItemInfo), id)) }
+        if C_Item and C_Item.GetItemQualityByID then it.quality = try("GetItemQualityByID", C_Item.GetItemQualityByID, id) end
+        if C_Item and C_Item.GetItemInfoInstant then it.instant = packArgs(try("GetItemInfoInstant", C_Item.GetItemInfoInstant, id)) end
+        if GetItemCount then it.count = try("GetItemCount", GetItemCount, id, true) end
+        if C_Item and C_Item.GetItemCount then it.cCount = try("C_Item.GetItemCount", C_Item.GetItemCount, id, true) end
+        if C_Item and C_Item.GetItemInventoryTypeByID then it.invType = try("GetItemInventoryTypeByID", C_Item.GetItemInventoryTypeByID, id) end
+        local TC = C_TransmogCollection
+        if TC then
+            if TC.PlayerHasTransmog then it.hasTransmog = packArgs(try("PlayerHasTransmog", TC.PlayerHasTransmog, id)) end
+            if TC.GetItemInfo then it.transmogInfo = packArgs(try("TC.GetItemInfo", TC.GetItemInfo, id)) end
+        end
+        if C_Item and C_Item.RequestLoadItemDataByID then try("RequestLoadItemDataByID", C_Item.RequestLoadItemDataByID, id) end
+        r.items[id] = it
+    end
+
+    r.saved = savedInstances()
+    try("RequestRaidInfo", RequestRaidInfo)
+    -- Kept apart so the run inside a dungeon doesn't overwrite the one outside.
+    r.key = (r.inInstance[1] and "inside") or "outside"
+    if type(DB.dungeons) ~= "table" or DB.dungeons.t then DB.dungeons = {} end
+    DB.dungeons[r.key] = r
+    local nInst, nEnc, nLoot = 0, 0, 0
+    for _, inst in ipairs(r.journal.instances) do
+        nInst = nInst + 1
+        for _, enc in ipairs(inst.encounters) do nEnc = nEnc + 1; nLoot = nLoot + (enc.lootCount or 0) end
+    end
+    local nLfg = 0
+    for _ in pairs(r.lfg) do nLfg = nLfg + 1 end
+    msg(string.format("dungeons (%s): journal %d instances, %d encounters, %d loot rows; LFG %d dungeons; %s saved. Reading loot again in 3 s...",
+        r.key, nInst, nEnc, nLoot, nLfg, tostring(r.saved.count)))
+    C_Timer.After(3, function()
+        local ok, again = pcall(scanJournal, 40)
+        if ok then r.journalLater = again else recordError("dungeons:later", again) end
+        r.savedLater = savedInstances()
+        for _, id in ipairs(DUNGEON_ITEM_IDS) do
+            local it = r.items[id]
+            it.infoLater = packArgs(try("GetItemInfo", GetItemInfo or (C_Item and C_Item.GetItemInfo), id))
+            if C_Item and C_Item.GetItemQualityByID then it.qualityLater = try("GetItemQualityByID", C_Item.GetItemQualityByID, id) end
+        end
+        local nl = 0
+        if ok then for _, inst in ipairs(again.instances) do for _, enc in ipairs(inst.encounters) do nl = nl + (enc.lootCount or 0) end end end
+        msg(string.format("dungeons: second pass %d loot rows, %s saved. Type /reload to save.", nl, tostring(r.savedLater.count)))
+    end)
 end
 
 ---------------------------------------------------------------------------
@@ -2080,6 +2355,7 @@ local HELP = {
     "/azfdiag questdb - QuestieDB probe: API, read cost, corrections, race masks, quest areas",
     "/azfdiag taxi   - flight paths per zone (also recorded when a flight master's map opens)",
     "/azfdiag reps   - reputation probe: faction APIs, the full faction list, lookups by ID",
+    "/azfdiag dungeons - dungeon probe: encounter journal, loot, LFG list, lockouts (once outside, once in a dungeon)",
     "/azfdiag spells - spell probe: spellbook APIs, every spellbook item and its level (run again with a class trainer open)",
     "/azfdiag profs - profession probe: skills, recipe known-state (run with a profession window, trainer or recipe vendor open)",
     "/azfdiag sniff  - toggle logging of every event name",
@@ -2109,6 +2385,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "questdb" then probeQuestDB()
     elseif cmd == "taxi" then dumpTaxi("command")
     elseif cmd == "reps" then dumpReps()
+    elseif cmd == "dungeons" then dumpDungeons()
     elseif cmd == "spells" then dumpSpells()
     elseif cmd == "profs" then dumpProfessions()
     elseif cmd == "sniff" then setSniff(not DB.sniffOn)

@@ -1,7 +1,8 @@
 -- Summarizes the AzerfolioDiag SavedVariables dump.
 -- Usage: luajit tools/diag-report.lua [section] [param]
 -- Sections: summary (default), env, ach, explore, maps, quests, questdb [areas], taxi [nodes], zone, zones, events, art, errors,
---           criteria <achID>, ns <filter>, log [n], skin [tree [filter]], reps, spells, profs [run], sounds
+--           criteria <achID>, ns <filter>, log [n], skin [tree [filter]], reps, spells, profs [run], sounds,
+--           dungeons [outside|inside|<instance name filter>]
 -- Set AZF_DIAG_FILE to read a different dump.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
 
@@ -21,6 +22,145 @@ local function count(t) local n = 0 for _ in pairs(t or {}) do n = n + 1 end ret
 local function s(v) if type(v) == "table" then local o = {} for i, x in ipairs(v) do o[i] = tostring(x) end return "{" .. table.concat(o, ",") .. "}" end return tostring(v) end
 
 local R = {}
+
+-- /azfdiag dungeons: APIs, encounter journal, LFG list, lockouts, items, and the dungeon events
+-- in the log. arg2: outside|inside (which run; default both), or a name filter for one
+-- instance's encounters and loot (from the second pass).
+function R.dungeons()
+    local runs = DB.dungeons
+    if type(runs) ~= "table" or not next(runs) then p("no dungeon probe; run /azfdiag dungeons, then /reload"); return end
+    local function short(v, n) local t = s(v); return #t > n and t:sub(1, n) .. "..." or t end
+    local function lootOf(j)
+        local n, named = 0, 0
+        for _, inst in ipairs(j and j.instances or {}) do
+            for _, enc in ipairs(inst.encounters or {}) do
+                n = n + (enc.lootCount or 0)
+                for _, l in pairs(enc.loot or {}) do if type(l) == "table" and (l.name or l[2]) then named = named + 1 end end
+            end
+        end
+        return n, named
+    end
+    for _, key in ipairs({ "outside", "inside" }) do
+        local r = runs[key]
+        if r and (not arg2 or arg2 == key or (arg2 ~= "inside" and arg2 ~= "outside")) then
+            p("== %s at %s, map %s, instance %s", key, os.date("%m-%d %H:%M:%S", r.t), tostring(r.map), short(r.instanceNow, 120))
+            if not arg2 or arg2 == key then
+                local missing, there = {}, {}
+                for _, k in ipairs(keys(r.has)) do
+                    if r.has[k] == "function" then there[#there + 1] = k else missing[#missing + 1] = k end
+                end
+                p("  have: %s", table.concat(there, ", "))
+                p("  missing: %s", table.concat(missing, ", "))
+                for _, ns in ipairs(keys(r.ns)) do
+                    local v = r.ns[ns]
+                    p("  %s: %s", ns, type(v) == "table" and table.concat(v, " ") or tostring(v))
+                end
+                p("  EJ for map: %s  current: %s  map encounters: %d", s(r.ejForMap), s(r.ejCurrent), count(r.mapEncounters))
+                local j = r.journal or {}
+                p("  journal: %s tiers (current %s, difficulty %s), %d instances, %.0f ms",
+                    tostring(j.numTiers), tostring(j.currentTier), tostring(j.difficulty), #(j.instances or {}), r.journalMs or -1)
+                for t, ti in pairs(j.tiers or {}) do p("    tier %s: %s", tostring(t), short(ti, 100)) end
+                if r.ejAddon then
+                    p("  Blizzard_EncounterJournal: info %s  loaded %s  LoadAddOn %s  after %s  frame %s",
+                        short(r.ejAddon.info, 80), s(r.ejAddon.loadedBefore), s(r.ejAddon.load), s(r.ejAddon.loadedAfter), tostring(r.ejAddon.frame))
+                end
+                if r.journalAfterLoad then
+                    local ja = r.journalAfterLoad
+                    p("  journal after loading it: %s tiers, %d instances", tostring(ja.numTiers), #(ja.instances or {}))
+                end
+                p("  dungeon entrances on %d maps, map encounters on %d, journal instance for %d maps",
+                    count(r.entrances), count(r.mapEnc), count(r.instForMap))
+                for _, m in ipairs(keys(r.entrances)) do
+                    local e = r.entrances[m]
+                    for _, x in ipairs(e.list or {}) do
+                        p("    entrance map %-5s %-22s %s", tostring(m), tostring(e.name), short({ x.journalInstanceID, x.name,
+                            x.position and x.position.x, x.position and x.position.y, x.atlasName, x.areaPoiID }, 120))
+                    end
+                end
+                for _, m in ipairs(keys(r.mapEnc)) do p("    encounters map %s %s: %s", tostring(m), tostring(r.mapEnc[m].name), short(r.mapEnc[m].list, 200)) end
+                for _, m in ipairs(keys(r.instForMap)) do p("    instance for map %s: %s", tostring(m), tostring(r.instForMap[m])) end
+                p("  loot history: %s", short(r.lootHistory, 200))
+                p("  level-up instances: %s", short(r.levelUp, 200))
+                local l1 = lootOf(r.journal)
+                local l2, named = lootOf(r.journalLater)
+                p("  loot rows: first pass %d, after 3 s %d (%d rows with a name kept)", l1, l2, named)
+                for _, inst in ipairs((r.journalLater or j).instances or {}) do
+                    local b = inst.byIndex or {}
+                    local nl = 0
+                    for _, enc in ipairs(inst.encounters or {}) do nl = nl + (enc.lootCount or 0) end
+                    p("    %-6s %-30s %-5s tier %s  areaMap %-6s bosses %-2d loot %-4d inst loot %s", tostring(b[1]), tostring(b[2]),
+                        inst.raid and "raid" or "dung", tostring(inst.tier), tostring(b[8]), #(inst.encounters or {}), nl, tostring(inst.lootCount))
+                end
+                local lfgIDs = keys(r.lfg)
+                p("  LFG rows: %d", #lfgIDs)
+                for i = 1, math.min(#lfgIDs, 400) do
+                    local v = r.lfg[lfgIDs[i]]
+                    p("    %5s %-32s type %-3s sub %-3s lvl %s-%s rec %s exp %s max %s", tostring(lfgIDs[i]), tostring(v[1]), tostring(v[2]),
+                        tostring(v[3]), tostring(v[4]), tostring(v[5]), tostring(v[6]), tostring(v[9]), tostring(v[13]))
+                    if v[2] ~= 4 and v[2] ~= 5 then
+                        p("          row %s", short(v, 260))
+                        p("          encounters %s  bosses %d  C_LFGInfo %s", s(v.numEncounters), #(v.bosses or {}), short(v.cInfo, 120))
+                        for _, b in ipairs(v.bosses or {}) do p("            %s", s(b)) end
+                    end
+                end
+                p("  saved: %s now, %s after RequestRaidInfo", tostring(r.saved and r.saved.count), tostring(r.savedLater and r.savedLater.count))
+                for _, v in ipairs((r.savedLater or r.saved or {}).list or {}) do
+                    p("    %s", short(v, 160))
+                    for _, e in ipairs(v.encounters or {}) do p("      %s", s(e)) end
+                end
+                p("  items:")
+                for _, id in ipairs(keys(r.items)) do
+                    local it = r.items[id]
+                    p("    %6s q %s->%s count %s  info %s  later %s", tostring(id), tostring(it.quality), tostring(it.qualityLater),
+                        tostring(it.count), short(it.info, 70), short(it.infoLater, 90))
+                    p("           C_Item count %s  invType %s  hasTransmog %s  transmogInfo %s", tostring(it.cCount),
+                        tostring(it.invType), s(it.hasTransmog), s(it.transmogInfo))
+                end
+            else
+                local f = arg2:lower()
+                for _, inst in ipairs((r.journalLater or r.journal or {}).instances or {}) do
+                    local b = inst.byIndex or {}
+                    if tostring(b[2]):lower():find(f, 1, true) then
+                        p("  %s %s  byIndex %s", tostring(b[1]), tostring(b[2]), short(b, 300))
+                        p("    info %s", short(inst.info, 300))
+                        p("    areaMapInfo %s", short(inst.areaMapInfo and { inst.areaMapInfo.mapID, inst.areaMapInfo.name, inst.areaMapInfo.mapType, inst.areaMapInfo.parentMapID }, 100))
+                        for _, l in pairs(inst.loot or {}) do p("    inst loot %s", short(l, 200)) end
+                        for _, enc in ipairs(inst.encounters or {}) do
+                            p("    boss %s", short(enc.byIndex, 200))
+                            for _, c in ipairs(enc.creatures or {}) do p("      creature %s", short(c, 160)) end
+                            p("      loot %s rows", tostring(enc.lootCount))
+                            for _, l in pairs(enc.loot or {}) do
+                                if type(l) == "table" and l.itemID then
+                                    p("        %s %s q=%s slot=%s armor=%s", tostring(l.itemID), tostring(l.name), tostring(l.itemQuality),
+                                        tostring(l.slot), tostring(l.armorType))
+                                else
+                                    p("        %s", short(l, 200))
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local DUNGEON_EVENTS = { ENCOUNTER_START = true, ENCOUNTER_END = true, BOSS_KILL = true, UPDATE_INSTANCE_INFO = true,
+        INSTANCE_LOCK_START = true, INSTANCE_LOCK_STOP = true, INSTANCE_LOCK_WARNING = true, LOOT_OPENED = true,
+        LOOT_READY = true, EJ_LOOT_DATA_RECIEVED = true, EJ_DIFFICULTY_UPDATE = true, CHAT_MSG_LOOT = true }
+    local n = 0
+    for _, e in ipairs(DB.log or {}) do
+        if DUNGEON_EVENTS[e.e] then
+            n = n + 1
+            -- CHAT_MSG_LOOT carries other players' names: show the event, not the text.
+            local args = e.e == "CHAT_MSG_LOOT" and "(text not shown)" or short(e.args, 140)
+            p("  event %s %-22s %s map %s", os.date("%H:%M:%S", e.t), e.e, args, tostring(e.where and e.where.map))
+        end
+    end
+    p("  dungeon events in the log: %d (counts: %s)", n, (function()
+        local o = {}
+        for ev in pairs(DUNGEON_EVENTS) do if DB.eventCounts and DB.eventCounts[ev] then o[#o + 1] = ev .. "=" .. DB.eventCounts[ev] end end
+        return table.concat(o, " ")
+    end)())
+end
 
 -- /azfdiag sounds (Phase 15 step 9): PlaySound, SOUNDKIT keys, candidate sounds, events.
 function R.sounds()

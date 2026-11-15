@@ -101,6 +101,14 @@ So far only previews (`/azf debug celebrate stop|road|rank|mastered|rep|exalted`
 | Q1 | Quest difficulty colours match the game's quest log (Azerfolio uses the client's `GetQuestGreenRange` when it exists, else the classic table) | Any time, best at several levels | Compare a zone's Ready now chip colours with the same quests in the quest log or Questie's tracker |
 | Q2 | Skyborne race bits in QuestieDB's race masks (2^32 Alliance, 2^33 Horde) map to a Skyborne character's quests correctly | A Skyborne character | `/azf debug quests`, then compare the zone's quest list with Questie on that character |
 
+## Dungeons research (2026-11-15)
+
+| ID | What to confirm | When it comes up | How to check |
+|---|---|---|---|
+| D2 | Inside a dungeon: the current instance, whether the encounter journal fills there (outside it's empty, D1), its map encounters | Entering any dungeon | `/azfdiag dungeons`, wait for "second pass", `/reload`; `luajit tools/diag-report.lua dungeons inside` |
+| D4 | Whether `C_TransmogCollection.PlayerHasTransmog` turns true for gear the character has owned (an honest "collected" state for loot) | Any time: add the item IDs of a few pieces Gideon wears or has sold to `DUNGEON_ITEM_IDS` in `AzerfolioDiag/Diag.lua` | `/azfdiag dungeons`, `/reload`, report `dungeons outside`: `hasTransmog {true}` for those items |
+| D3 | Whether killing a boss fires `ENCOUNTER_END` / `BOSS_KILL` with an encounter ID that matches the journal, and whether a lockout appears | The first boss kill in a dungeon, with AzerfolioDiag enabled | After the run, `/azfdiag dungeons`, `/reload`; the report's event list and saved list |
+
 ## Performance
 
 | ID | What to confirm | When it comes up | How to check |
@@ -109,6 +117,7 @@ So far only previews (`/azf debug celebrate stop|road|rank|mastered|rep|exalted`
 
 ## Done
 
+- 2026-11-15: D1, the client's dungeon APIs outside an instance (`/azfdiag dungeons`, two runs, Gideon in Elwynn): the encounter journal, entrances and map encounters are empty; the dungeon finder lists 28 classic dungeons and raids with one level each and placeholder bosses; `C_Item` gives quality, slot and counts; no lockouts saved. Details in `docs/research/dungeons.md`.
 - 2026-11-14: K5, the celebration flashes animate on textures in this client: the Explored seal and the claim seal caught mid-flash, the class and profession coins gold after the strike (`/azf shots celebrations`, `WoWScrnShot_111426_224137`-`224201`).
 - 2026-11-14: G3, the game tracks a recipe you haven't learned: `/azf debug professions track 3276` (Heavy Linen Bandage, not learned) put "Heavy Linen Bandage · Linen Cloth: 4/2" in the objective tracker (`WoWScrnShot_111426_115828`); the game reported tracked, then not tracked after the second call (trace-report professions). `SetRecipeTracked` needs three arguments here (recipeID, tracked, isRecraft).
 
