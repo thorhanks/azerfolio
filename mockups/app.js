@@ -1015,7 +1015,7 @@
       // already say met, at war and rival.
       const tip = `<b>${esc(f.name)}</b>${f.label}${exalted ? "" : `, ${num(f.span - f.into)} to ${f.next}`}. A shows the ${f.quests} quests here that raise it.`;
       return `<button class="frep focusable r${f.reaction} ${f.met ? "met" : "unmet"}" data-rep="${f.id}" data-page="rep:${f.id}" data-tip="${tip}">
-        <span class="fwho"><span class="fname">${esc(f.name)}</span><span class="ftags">${repTags(f)}</span></span>
+        <span class="fwho">${crest(f, "ledger")}<span class="fname">${esc(f.name)}</span><span class="ftags">${repTags(f)}</span></span>
         <span class="freact">${f.label}</span>${ladder(f)}
         <span class="fnum">${exalted ? "" : `${num(f.into)} / ${num(f.span)}`}</span></button>`;
     };
@@ -1089,14 +1089,37 @@
     const z = zoneName && byName[zoneName];
     return z ? `<span class="fthumb">${art(z)}</span>` : `<span class="fthumb glyph-k k-${kind || "none"}">${SRC_GLYPH[kind] || "?"}</span>`;
   }
+  // Phase 15 step 8: faction crests (dev bar "Crest", "Fallback"). Twelve majors get a painted
+  // crest (the four goblin towns share the Steamwheedle Cartel's); every other faction gets the
+  // same shape left blank with a mark on it. Used on the tab's rows, the faction page's banner
+  // and the zone ledger. Samples (two per style) are crest-<style>-<key>; the final art drops
+  // the style (crest-<key>). Greyed while not met, like the zone thumbnails were.
+  const CREST_OF = { 72: "stormwind", 47: "ironforge", 69: "darnassus", 54: "gnomeregan", 76: "orgrimmar", 81: "thunderbluff",
+    68: "undercity", 530: "darkspear", 169: "steamwheedle", 21: "steamwheedle", 369: "steamwheedle", 470: "steamwheedle",
+    577: "steamwheedle", 529: "argentdawn", 609: "cenarion", 576: "timbermaw" };
+  const KIND_GLYPH = { ...SRC_GLYPH, zone: "⚐" };
+  const crestInitial = (name) => (name || "?").replace(/^The /, "").charAt(0).toUpperCase();
+  function crest(f, size) {
+    const style = ui.crest || "shield";
+    if (style === "before") return "";
+    const key = CREST_OF[f.id];
+    const painted = [`crest-${key}`, `crest-${style}-${key}`].find(n => key && hasChrome(n));
+    const cls = `crest c-${size} s-${style} ${f.met === false ? "unmet" : ""}`;
+    if (painted) return `<span class="${cls}"><img src="chrome-art/${painted}.png" alt=""></span>`;
+    const mark = (ui.crestFallback || "initial") === "initial" ? crestInitial(f.name) : (KIND_GLYPH[(f.src && f.src[0] || [])[0] || "none"] || "?");
+    // The painted blank shield (crest-blank) when it exists; CSS draws the shape otherwise.
+    const blankArt = style === "shield" && hasChrome("crest-blank") ? `<img src="chrome-art/crest-blank.png" alt="">` : "";
+    return `<span class="${cls} blank ${blankArt ? "painted" : ""} ${key ? "todo" : ""}" ${key ? `title="${key}: painted crest not made yet"` : ""}>${blankArt}<i>${mark}</i></span>`;
+  }
   const tabTags = (f) => repTags(f) + (f.session ? `<span class="gain">+${num(f.session)} today</span>` : "") + (f.watched ? `<span class="watch">Watched</span>` : "");
   function repTabRow(f) {
     const exalted = f.reaction === 8;
     const how = f.group === "none" ? "No quests are known to raise it." : `A shows where to raise it.`;
     const tip = `<b>${esc(f.name)}</b>${f.label}${exalted ? "" : `, ${num(f.left)} to ${f.next}`}${f.met ? "" : " (not met yet)"}. ${how}`;
     const sel = ui.wide && ui.repSel === f.id ? "selected" : "";
-    return `<button class="frep tabrow focusable r${f.reaction} ${f.met ? "met" : "unmet"} ${sel}" data-faction="${f.id}" data-tip="${tip}">
-      ${repThumb(f.home, (f.src[0] || [])[0])}
+    const cr = crest(f, "row");
+    return `<button class="frep tabrow focusable r${f.reaction} ${f.met ? "met" : "unmet"} ${sel} ${cr ? "crested" : ""}" data-faction="${f.id}" data-tip="${tip}">
+      ${cr || repThumb(f.home, (f.src[0] || [])[0])}
       <span class="fwho"><span class="fname">${esc(f.name)}</span><span class="ftags">${tabTags(f)}</span></span>
       <span class="freact">${f.label}</span>${ladder(f)}
       <span class="fnum">${exalted ? "" : ui.repSort === "closest" ? `${num(f.left)} to ${f.next}` : `${num(f.into)} / ${num(f.span)}`}</span></button>`;
@@ -1144,7 +1167,7 @@
     const groupLabel = REP_GROUPS.find(g => g[0] === f.group)[1];
     const hero = `<div class="detail-hero slim fhero">${z ? art(z) : `<div class="plainart"></div>`}<div class="shade"></div>
       ${opts.back ? `<button class="btn dark back focusable" data-back data-tip="Back to all factions (B)">‹ Reputation</button>` : ""}
-      <div class="info"><div><h1>${esc(f.name)}</h1><div class="sub"><span>${groupLabel}</span>${z ? `<span>· Raised most in ${esc(f.home)}</span>` : ""}</div></div>
+      <div class="info"><div class="fherotitle">${crest(f, "hero")}<div><h1>${esc(f.name)}</h1><div class="sub"><span>${groupLabel}</span>${z ? `<span>· Raised most in ${esc(f.home)}</span>` : ""}</div></div></div>
       <div class="pagescore freact-big r${f.reaction}">${f.label}</div></div></div>`;
     const exalted = f.reaction === 8;
     let html = `<div class="repsum frep r${f.reaction} ${f.met ? "met" : "unmet"}"><span class="fwho"><span class="fname">Your standing</span><span class="ftags">${tabTags(f)}</span></span>
@@ -3120,6 +3143,8 @@
   $("#atlasLookSel").addEventListener("change", (e) => { ui.atlasLook = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#atlasRampSel").addEventListener("change", (e) => { ui.atlasRamp = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#atlasPennantSel").addEventListener("change", (e) => { ui.atlasPennant = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  $("#crestSel").addEventListener("change", (e) => { ui.crest = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  $("#crestFallbackSel").addEventListener("change", (e) => { ui.crestFallback = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#profRoadSel").addEventListener("change", (e) => { ui.profRoad = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#profColours").addEventListener("change", (e) => { ui.profColours = e.target.checked ? "on" : "off"; rerenderKeepFocus(); e.target.blur(); });
   $("#step5").addEventListener("change", (e) => { ui.step5 = e.target.checked ? "on" : "off"; ui.classSteps = e.target.checked ? "objective" : "name"; rerenderKeepFocus(); e.target.blur(); });

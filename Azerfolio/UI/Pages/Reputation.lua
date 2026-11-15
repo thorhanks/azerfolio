@@ -3,9 +3,9 @@
 -- no %, no claims, no celebrations; Exalted is gold (owner, 2026-11-09).
 --   * list: toolbar (All / Met / Not met yet, Sort; Y cycles it), the standing strip (a painted
 --     plaque per reaction with its emblem and count, "Met n of m · Exalted n of m"), then the
---     factions in groups with sticky headers (LT/RT), each row a zone-art thumbnail, name and
+--     factions in groups with sticky headers (LT/RT), each row the faction's crest, name and
 --     tags, reaction, the notched bar, n / m;
---   * faction page (A): the main zone's art in the banner, the bar with the reach ghost, the
+--   * faction page (A): the main zone's art in the banner with the crest, the bar with the reach ghost, the
 --     reach in words, the game's description, the rival seesaw, Where to raise it (A on a zone
 --     opens that zone's faction page on the Zones tab, B comes back here), the footer note.
 -- X watches the focused or shown faction (C_Reputation.SetWatchedFactionByID, through
@@ -182,20 +182,13 @@ local function rowBackground(row)
     row.edge:SetColor("repRowEdge")
 end
 
--- A faction line: optional thumbnail, name and tags, reaction, the notched bar, numbers.
+-- A faction line: optional crest, name and tags, reaction, the notched bar, numbers.
 -- `plain`: not a focus stop (the page's summary and the seesaw).
-local function newFactionRow(parent, plain, withThumb)
+local function newFactionRow(parent, plain, withCrest)
     local T, W = ns.Theme, ns.Widgets
     local row = plain and CreateFrame("Frame", nil, parent) or W.FocusRow(parent, T.layout.repTab.row)
     rowBackground(row)
-    if withThumb then
-        row.thumb = row:CreateTexture(nil, "ARTWORK")
-        row.thumbEdge = row:CreateTexture(nil, "BORDER", nil, 1)
-        row.thumbEdge:SetColorTexture(0, 0, 0, 1)
-        row.thumbEdge:SetPoint("TOPLEFT", row.thumb, "TOPLEFT", -1, 1)
-        row.thumbEdge:SetPoint("BOTTOMRIGHT", row.thumb, "BOTTOMRIGHT", 1, -1)
-        thumbIcon(row, row.thumb)
-    end
+    if withCrest then row.crest = W.Crest(row) end
     row.name = T.Text(row, "sm", "white")
     row.name:SetJustifyH("LEFT"); row.name:SetWordWrap(false)
     row.tags = T.Text(row, "xs", "text")
@@ -212,24 +205,21 @@ local function newFactionRow(parent, plain, withThumb)
 end
 
 -- Fills a faction line for `width`: cols = { react, ladder, num, colGap, row }; opts = { name
--- (instead of the faction's), tags (string), num (string), thumb = { w, h } or nil, reach,
+-- (instead of the faction's), tags (string), num (string), crest = size or nil, reach,
 -- big (md name), noNum }. Returns the height (taller when the tags wrap under the name).
 local function paintFactionRow(row, f, width, cols, opts)
     local T = ns.Theme
     local RT, R = T.layout.repTab, T.layout.rep
     local pad, gap = R.pad, cols.colGap
     local x0 = pad
-    if row.thumb then
-        local th = opts.thumb
-        row.thumb:SetShown(th ~= nil); row.thumbEdge:SetShown(th ~= nil)
-        if not th then row.thumb.icon:Hide() end
-        if th then
-            row.thumb:ClearAllPoints()
-            row.thumb:SetSize(th[1], th[2])
-            row.thumb:SetPoint("LEFT", row, "LEFT", 4, 0)
-            paintThumb(row.thumb, f.artMap, f.main and f.main.kind or (f.group == "none" and "none") or "other", f.met == false)
-            x0 = 4 + th[1] + gap
+    if row.crest then
+        local size = opts.crest
+        if size then
+            row.crest:SetPoint("LEFT", row, "LEFT", 4, 0)
+            row.crest:Set(f, size)
+            x0 = 4 + size + gap
         end
+        row.crest:SetShown(size ~= nil)
     end
     T.SetFont(row.name, opts.big and "md" or "sm")
     row.name:SetText(opts.name or f.name or ("Faction " .. tostring(f.factionID)))
@@ -525,8 +515,11 @@ local function build(parent)
     if not ok then shade:SetColorTexture(0, 0, 0, 0.5) end
     local brule = T.Solid(banner, "divider", "ARTWORK")
     brule:SetPoint("BOTTOMLEFT"); brule:SetPoint("BOTTOMRIGHT"); brule:SetHeight(2)
+    -- The faction's crest left of its name (Phase 15 step 8), centred on the name and the line under it.
+    banner.crest = W.Crest(banner)
+    banner.crest:SetPoint("BOTTOMLEFT", banner, "BOTTOMLEFT", S.s6, S.s3)
     banner.name = T.Text(banner, "xxl", "gold")
-    banner.name:SetPoint("BOTTOMLEFT", banner, "BOTTOMLEFT", S.s6, S.s6 + S.s2)
+    banner.name:SetPoint("BOTTOMLEFT", banner, "BOTTOMLEFT", S.s6 + RT.crestHero + S.s4, S.s6 + S.s2)
     banner.sub = T.Text(banner, "sm", "text")
     banner.sub:SetPoint("TOPLEFT", banner.name, "BOTTOMLEFT", 0, -S.s1)
     banner.react = T.Text(banner, "xxl", "white")
@@ -656,7 +649,7 @@ local function build(parent)
         d.sum:Hide(); d.reach:Hide(); d.desc:Hide(); d.seesaw:Hide(); d.srcHead:Hide(); d.foot:Hide(); d.empty:Hide()
         if not f then
             banner.name:SetText(""); banner.sub:SetText(""); banner.react:SetText("")
-            banner.art:Hide(); banner.plain:Show()
+            banner.art:Hide(); banner.plain:Show(); banner.crest:SetShown(false)
             d.empty:ClearAllPoints(); d.empty:SetPoint("TOP", dc, "TOP", 0, -60)
             d.empty:SetText("Select a faction"); d.empty:Show()
             dc:SetHeight(120)
@@ -670,6 +663,7 @@ local function build(parent)
             local top, bottom = T.BannerCrop(f.artMap, banner:GetWidth(), banner:GetHeight())
             banner.art:SetTexCoord(0, 1, top, bottom)
         end
+        banner.crest:Set(f, RT.crestHero); banner.crest:SetShown(true)
         banner.name:SetText(f.name or "")
         local sub = T.repGroups[f.group] or ""
         if f.main and f.main.kind == "zone" then sub = sub .. "  ·  Raised most in " .. placeName(f.main) end
@@ -788,7 +782,7 @@ local function build(parent)
         self.drawnWidth = scroll:GetWidth() or 0
         local inner = wList - L.listInset - S.s6
         local cols = self.wide and RT.wideCols or RT.cols
-        local thumb = self.wide and RT.thumbWide or RT.thumb
+        local crest = self.wide and RT.crestWide or RT.crest
         local closest = s.sort == "closest"
         local rows, byID, headerYs = { toolbarRow() }, {}, {}
         local y = 0
@@ -821,7 +815,7 @@ local function build(parent)
                     local r = take("rows", function(p) return newFactionRow(p, false, true) end, child)
                     r:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
                     r:SetWidth(inner)
-                    local rh = paintFactionRow(r, f, inner, cols, { tags = tags(f, self.wide), num = numText(f, closest), thumb = thumb })
+                    local rh = paintFactionRow(r, f, inner, cols, { tags = tags(f, self.wide), num = numText(f, closest), crest = crest })
                     local id = f.factionID
                     r.item = { key = "f:" .. id, frame = r, title = f.name, detail = infoLine(f), scroll = scroll,
                         topGap = L.listHeader + S.s1 + S.s2, faction = f,

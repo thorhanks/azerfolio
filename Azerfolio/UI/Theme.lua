@@ -173,6 +173,33 @@ function Theme.Pennant(faction)
     return nil
 end
 
+-- Faction crests (Phase 15 step 8, mockups/DESIGN.md "Faction crests"): a painted heraldic
+-- shield for twelve majors (Media\Chrome\crest-<key>; the Steamwheedle Cartel's shared by its
+-- towns), else the blank shield with the faction's initial on it (Theme.CrestInitial).
+Theme.crests = {
+    [72] = "stormwind", [47] = "ironforge", [69] = "darnassus", [54] = "gnomeregan",
+    [76] = "orgrimmar", [81] = "thunderbluff", [68] = "undercity", [530] = "darkspear",
+    [169] = "steamwheedle", [21] = "steamwheedle", [369] = "steamwheedle", [470] = "steamwheedle", [577] = "steamwheedle",
+    [529] = "argentdawn", [609] = "cenarion", [576] = "timbermaw",
+}
+Theme.crestTint = { unmet = 0.72 }   -- not met yet: desaturated and darkened, like the zone thumbnails were
+
+-- The crest's file and whether it's the blank (which wants the initial on it); file nil when
+-- not even the blank is painted (the caller draws a dark box with the initial).
+function Theme.Crest(factionID)
+    local key = factionID and Theme.crests[factionID]
+    local file = key and Theme.Chrome("crest-" .. key)
+    if file then return file, false end
+    return Theme.Chrome("crest-blank"), true
+end
+
+-- The letter on a blank crest: the name's first character, a leading "The " left out.
+function Theme.CrestInitial(name)
+    local s = (tostring(name or ""):gsub("^[Tt]he%s+", ""))
+    local c = s:match("^[%z\1-\127\194-\244][\128-\191]*") or ""
+    return c ~= "" and c:upper() or "?"
+end
+
 -- Zone completion categories (spec §7.7), in display order: label, unit, icon. Icons: the
 -- owner's painted set when present (design round 2), else client icons (the map is the Zones
 -- tab's [verified-ingame]; the quest "!" and gryphon loaded in game, 2026-11-08).
@@ -401,6 +428,7 @@ Theme.layout.rep = {
     row = 32, rowTall = 44,    -- one faction; taller when the tags wrap under the name
     gap = 4,                   -- between rows
     pad = 12,                  -- inside a row, left and right
+    crest = 24,                -- the faction's crest before the name (Phase 15 step 8)
     react = 76, ladder = 216, num = 120, colGap = 12,                 -- 740 px window
     wide = { react = 64, ladder = 148, num = 92, colGap = 8 },       -- the wide split's pane
     compactBelow = 640,        -- a narrower ledger (the minimum window) uses the wide split's columns
@@ -432,8 +460,9 @@ Theme.layout.repTab = {
     plaqueCorner = 10,         -- frame-plaque's drawn corner (12 px of its 256x128)
     clothTint = 0.62, clothEmpty = 0.18, -- the cloth fill's tint strength, full and empty cells
     row = 40, rowGap = 3,
-    thumb = { 56, 30 }, thumbWide = { 44, 26 },
-    cols = { react = 76, ladder = 260, num = 128, colGap = 12, row = 40 },
+    thumb = { 56, 30 }, thumbWide = { 44, 26 },   -- "Where to raise it" rows' zone art
+    crest = 36, crestWide = 30, crestHero = 72,     -- the faction's crest: list row, wide split, page banner
+    cols ={ react = 76, ladder = 260, num = 128, colGap = 12, row = 40 },
     wideCols = { react = 64, ladder = 148, num = 96, colGap = 8, row = 40 },
     splitList = 640,           -- the wide split's list column (style.css .repsplit)
     pageSum = { react = 76, ladder = 260, num = 220, colGap = 12, row = 40 },

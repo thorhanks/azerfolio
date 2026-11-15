@@ -321,6 +321,42 @@ Negative prompt: `shading, gradient, grey, colour, texture, 3D, glossy, photo, t
 | glyph-quests | A single tall bold exclamation mark, the bar slightly wider at the top and tapering down, a round dot below it with a clear gap |
 | glyph-flights | A gryphon (eagle head, wings, lion body) flying, seen straight from the front-above with both wide feathered wings spread out to the sides and slightly raised, the head small in the middle; the wing feathers shown as three or four big separate tips on each wing |
 
+## Faction crests (Phase 15 step 8, 2026-11-14)
+
+The Reputation tab's faction mark (36 px on its rows, 30 in the wide split, 72 on the faction page's banner, 24 in the zone ledger; greyed by the addon while not met). Owner's choice in the mockup: a **heraldic shield** (enamel seal and hanging pennant were the alternatives). Twelve majors are painted; every other faction gets `crest-blank` with its initial drawn by the addon. The Codex CLI made Stormwind and Cenarion Circle first (approved as the set's model), then the other ten and the blank in one run with those two attached. Save as `art/source/crest-<key>.png` (1:1); out: `Media/Chrome/crest-<key>.blp` (128×128, keyed). The faction IDs per key are `Theme.crests`.
+
+Style (the chrome block, recoloured):
+
+```
+Hand-painted fantasy game user interface ornament in the style of a classic high-fantasy MMO,
+aged dark bronze and steel metal with rich coloured enamel, soft shading, subtle warm highlights,
+crisp clean silhouette, perfectly symmetrical left to right, front-facing flat orthographic view,
+the object fills the frame edge to edge with a small even margin, isolated on a perfectly flat
+solid pure magenta (#FF00FF) background, no shadow on the background, no text, no letters.
+Subject: a heraldic heater shield (flat top, pointed bottom) with a narrow dark bronze rim and
+small rivets, the field in coloured enamel, one emblem raised in relief filling most of the field,
+```
+
+Prompt preamble for the set: attach the two approved crests; match their shape, size in the frame, rim, rivets, metal and lighting, changing only the field colour and the emblem; one bold emblem that reads at 24 to 36 px, in a pale metal or colour that contrasts strongly with the field.
+
+Negative prompt: `perspective, 3D render, glossy plastic, neon, sci-fi, busy background, text, letters, numbers, gems, bright polished gold rim, fine filigree, tiny details, drop shadow, asymmetric shape, human faces`.
+
+| File | Faction(s) | Subject line |
+|---|---|---|
+| crest-stormwind | Stormwind | a proud human kingdom: deep royal blue field, the emblem in pale gold: a lion's head facing front with a full mane |
+| crest-cenarion | Cenarion Circle | a circle of nature druids: deep forest green field, the emblem in pale silver-green: a crescent moon cradling three oak leaves |
+| crest-ironforge | Ironforge | a mountain dwarf kingdom: deep crimson field, the emblem in pale bronze: a heavy war hammer standing upright before a twin-peaked mountain |
+| crest-darnassus | Darnassus | a night elf city in a great tree: deep violet field, the emblem in pale silver: a tall slender tree with a broad rounded crown and a small crescent moon above it |
+| crest-gnomeregan | Gnomeregan Exiles | an exiled gnome city of inventors: deep teal field, the emblem in pale brass: a large cogwheel with a small spark at its centre |
+| crest-orgrimmar | Orgrimmar | an orc warrior city: deep blood-red field, the emblem in blackened iron with pale edges: a broad double-bladed war axe standing upright |
+| crest-thunderbluff | Thunder Bluff | a tauren city on high mesas: warm tan-brown field, the emblem in pale bone white: a bull's head seen from the front with long curved horns |
+| crest-undercity | Undercity | an undead city beneath a ruined capital: near-black deep purple field, the emblem in pale sickly green: a bat with wide spread wings seen from the front |
+| crest-darkspear | Darkspear Trolls | a jungle troll tribe: deep sea-blue field, the emblem in pale bone white: two crossed spears with small feathers and a pair of curved tusks below them |
+| crest-steamwheedle | Steamwheedle Cartel, Booty Bay, Gadgetzan, Ratchet, Everlook | a goblin trading cartel of port towns: deep bottle-green field, the emblem in pale gold-brass: a bulging money sack tied at the top with a rope |
+| crest-argentdawn | Argent Dawn | a crusading order against the undead: pale silver-white field, the emblem in deep sky blue: a radiant sun disc with straight rays |
+| crest-timbermaw | Timbermaw Hold | a reclusive furbolg tribe of the forest: dark earthy brown field, the emblem in pale moss green: a bear's paw print with four claws above a small pine tree |
+| crest-blank | every other faction | the shield left plain: dark warm brown-black enamel field with no emblem at all, only a faint soft highlight; the same bronze rim and rivets |
+
 ## Class tab art (Phase 13, 2026-11-10 to 11-13)
 
 Design: mockups/DESIGN.md "Class tab" (round 5). Every piece below is in use; together they rebuild all of the Class tab's art. Never name a game, artist or studio in a prompt. Save each image as `art/source/<file>.png`; `tools/process-art.ps1` keys and converts it, stacks the strips (lining up the lane at each seam), and `tools/trace-strip.ps1 -Method lane` then traces each strip's lane (see CLAUDE.md "Zone art" for the whole run). The Codex CLI (`codex exec`, image generation) made all 51 panels and 8 coins from these prompts; the road panels took about 4 minutes each.

@@ -386,6 +386,44 @@ function W.Number(n)
     return (n < 0 and "-" or "") .. out
 end
 
+-- A faction's crest (Phase 15 step 8, mockups/DESIGN.md "Faction crests"): the painted shield
+-- (Theme.Crest), or the blank shield with the faction's initial; without even the blank, a dark
+-- box with the initial. Greyed while not met. c:Set(f, size), c:SetPoint(...), c:SetShown(on).
+function W.Crest(parent)
+    local T = ns.Theme
+    local c = {}
+    c.tex = parent:CreateTexture(nil, "ARTWORK", nil, 3)
+    c.mark = parent:CreateFontString(nil, "OVERLAY")
+    T.SetFont(c.mark, "sm")
+    c.mark:SetShadowOffset(1, -1); c.mark:SetShadowColor(0, 0, 0, 1)
+    function c:SetPoint(...) self.tex:ClearAllPoints(); self.tex:SetPoint(...) end
+    function c:SetShown(on) self.tex:SetShown(on); self.mark:SetShown(on and self.blank and true or false) end
+    function c:Set(f, size)
+        local file, blank = T.Crest(f and f.factionID)
+        local grey = f and f.met == false
+        self.blank = blank
+        self.tex:SetSize(size, size)
+        if file then
+            self.tex:SetTexture(file)
+            self.tex:SetTexCoord(0, 1, 0, 1)
+            local v = grey and T.crestTint.unmet or 1
+            self.tex:SetVertexColor(v, v, v)
+        else
+            self.tex:SetColorTexture(0.12, 0.08, 0.04, 1)
+        end
+        if self.tex.SetDesaturated then self.tex:SetDesaturated(grey and file ~= nil) end
+        if blank then
+            T.SetFont(self.mark, size >= 60 and "xxl" or size >= 32 and "md" or "sm")
+            self.mark:SetText(T.CrestInitial(f and f.name))
+            self.mark:SetTextColor(T.RGB(grey and "dim" or "text"))
+            -- The shield's middle sits above its centre (the point below).
+            self.mark:ClearAllPoints(); self.mark:SetPoint("CENTER", self.tex, "CENTER", 0, math.floor(size * 0.06 + 0.5))
+        end
+        self.mark:SetShown(blank and self.tex:IsShown() and true or false)
+    end
+    return c
+end
+
 -- The notched reputation bar (mockups/DESIGN.md "Reputation bar", round 3; replaced the
 -- eight-step ladder, owner 2026-11-08): one gilded bar (frame-bar housing) across the whole
 -- reaction range, each reaction an equal eighth. The fill runs through each reaction's colour

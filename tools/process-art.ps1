@@ -210,7 +210,7 @@ $PieceKinds = @{
     celburst = @{ size = @(512, 512); fit = 'stretch'; key = $false; keyBlack = $true; dir = 'Chrome' }
     cel = @{ size = @(256, 256); fit = 'fit'; key = $true; dir = 'Chrome' }
     ribbon = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome' }
-    coin = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # coin-<class>: the Class tab's done mark
+    coin = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # coin-<class>: the Class tab's done mark; crest-<faction> too
     # Ink pieces (inkKey) are drawn on pure white: the white turns to transparency (alpha from
     # darkness, colour un-mixed from the white), so the ink sits on the painted map like more ink.
     ring = @{ size = @(128, 128); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true } # you-ring: your portrait's ring
@@ -294,6 +294,7 @@ function Get-PieceKind([string]$name) {
     if ($name -match '^coin-[a-z]+$') { return 'coin' }
     if ($name -match '^coin-prof-[a-z]+(-dull)?$') { return 'coin' } # the Professions tab's coins (Phase 14; -dull: unfinished, Phase 15)
     if ($name -match '^glyph-[a-z0-9-]+$') { return 'glyph' }
+    if ($name -match '^crest-[a-z0-9-]+$') { return 'coin' } # faction crests (Phase 15 step 8): 128x128, keyed, DXT5
     if ($name -eq 'you-ring') { return 'ring' }
     if ($name -match '^road-band(-gold)?$') { return 'band' }
     if ($name -eq 'cartouche') { return 'cartouche' }

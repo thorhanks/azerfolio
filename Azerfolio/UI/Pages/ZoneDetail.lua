@@ -222,6 +222,7 @@ local function newRepRow(parent, plain)
     if not ok then row.bg:SetColorTexture(top[1], top[2], top[3], 0.88) end
     row.edge = W.Edge(row, "BORDER")
     row.edge:SetColor("repRowEdge")
+    row.crest = W.Crest(row) -- Phase 15 step 8: the faction's crest before its name
     row.name = T.Text(row, "sm", "white")
     row.name:SetJustifyH("LEFT"); row.name:SetWordWrap(false)
     row.tags = T.Text(row, "xs", "text")
@@ -266,8 +267,13 @@ local function paintRepRow(row, f, width, cols, summary)
     row.bar:Set(f, cols.ladder, summary and R.bar.heightSum or R.bar.height)
     row.react:ClearAllPoints(); row.react:SetPoint("LEFT", row, "RIGHT", -(pad + numW + cols.ladder + cols.react + 2 * gap), 0)
     row.react:SetWidth(cols.react)
-    -- Name and tags share what's left; the tags wrap under the name when both don't fit.
-    local avail = math.max(40, width - 2 * pad - cols.react - cols.ladder - numW - 3 * gap)
+    -- The crest, then name and tags share what's left; the tags wrap under the name when both don't fit.
+    local crest = R.crest
+    row.crest:SetPoint("LEFT", row, "LEFT", pad - 4, 0)
+    row.crest:Set(f, crest)
+    row.crest:SetShown(true)
+    local x0 = pad - 4 + crest + gap
+    local avail = math.max(40, width - x0 - pad - cols.react - cols.ladder - numW - 3 * gap)
     local nameW = math.min(avail, math.ceil(row.name:GetStringWidth() or 0) + 1)
     row.name:SetWidth(nameW)
     local tags = row.tags:GetText() or ""
@@ -276,11 +282,11 @@ local function paintRepRow(row, f, width, cols, summary)
     local h = oneLine and (cols.row or R.row) or R.rowTall
     row.name:ClearAllPoints(); row.tags:ClearAllPoints()
     if oneLine then
-        row.name:SetPoint("LEFT", row, "LEFT", pad, 0)
+        row.name:SetPoint("LEFT", row, "LEFT", x0, 0)
         row.tags:SetPoint("LEFT", row.name, "RIGHT", gap, -1)
         row.tags:SetWidth(math.max(1, tagW))
     else
-        row.name:SetPoint("TOPLEFT", row, "TOPLEFT", pad, -6)
+        row.name:SetPoint("TOPLEFT", row, "TOPLEFT", x0, -6)
         row.tags:SetPoint("TOPLEFT", row.name, "BOTTOMLEFT", 0, -3)
         row.tags:SetWidth(avail)
         -- Tall enough for the tags however many lines they wrap to (they spilled out of a

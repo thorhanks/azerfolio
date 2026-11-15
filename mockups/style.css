@@ -701,6 +701,33 @@ body.strip-enamel.fill-enamel .repdist .dcell { background: radial-gradient(elli
 .repsplit .frep.tabrow { grid-template-columns: 44px minmax(0, 1fr) 64px 148px 96px; column-gap: var(--s2); }
 .repsplit .fthumb { width: 44px; height: 26px; }
 .repsplit .tabrow .ftags .rival { display: none; } /* the page says it; the narrow list would wrap to three lines */
+/* Phase 15 step 8: faction crests (dev bar "Crest", "Fallback"). Painted crests are square
+   images with the shape inside; the blank fallback draws the same shape in CSS (bronze edge,
+   dark field, a cream mark). Sizes: tab row 36, wide split 30, ledger 24, page banner 72. */
+.crest { position: relative; display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px; }
+.crest img { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 2px #000); }
+.crest.unmet img { filter: grayscale(.75) brightness(.72) drop-shadow(0 1px 2px #000); }
+.crest.c-ledger { width: 24px; height: 24px; align-self: center; margin-right: calc(-1 * var(--s1)); }
+.crest.c-hero { width: 72px; height: 72px; }
+.repsplit .crest.c-row { width: 30px; height: 30px; }
+.frep.tabrow.crested { grid-template-columns: 36px minmax(0, 1fr) 76px 260px 128px; }
+.repsplit .frep.tabrow.crested { grid-template-columns: 30px minmax(0, 1fr) 64px 148px 96px; }
+.frep .fwho:has(.crest) { align-items: center; }
+.fherotitle { display: flex; align-items: center; gap: var(--s4); min-width: 0; }
+/* The blank: the chosen shape, unpainted. */
+.crest.blank { --shape: polygon(4% 4%, 96% 4%, 96% 46%, 88% 72%, 50% 98%, 12% 72%, 4% 46%); }
+.crest.blank.s-seal { --shape: circle(47% at 50% 50%); }
+.crest.blank.s-pennant { --shape: polygon(18% 2%, 82% 2%, 82% 98%, 50% 80%, 18% 98%); }
+.crest.blank::before, .crest.blank i { content: ""; position: absolute; clip-path: var(--shape); }
+.crest.blank::before { inset: 0; background: linear-gradient(180deg, #a07a4a, #5a3e20 60%, #7a5a34); }
+.crest.blank i { inset: 2px; display: grid; place-items: center; padding-bottom: 8%; background: radial-gradient(circle at 50% 35%, #3b2c1c, #120b05);
+  color: #e8dcc4; font: 400 calc(var(--crest-size, 36px) * .5) "Marcellus", var(--font); font-style: normal; text-shadow: 0 1px 2px #000; }
+.crest.blank.c-ledger { --crest-size: 24px; } .crest.blank.c-hero { --crest-size: 72px; } .repsplit .crest.blank.c-row { --crest-size: 30px; }
+.crest.blank.c-hero i { inset: 3px; }
+.crest.blank.painted::before { display: none; }
+.crest.blank.painted i { background: none; clip-path: none; inset: 0; }
+.crest.blank.unmet::before { filter: grayscale(.6) brightness(.8); }
+.crest.blank.unmet i { color: #a89a84; }
 /* Faction page */
 .fhero .plainart { width: 100%; height: 100%; background: radial-gradient(ellipse at 70% 30%, #4a3520, #1a1008 70%); }
 .freact-big { font: var(--fs-xxl) var(--font) !important; text-shadow: 0 2px 4px #000; }

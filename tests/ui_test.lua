@@ -650,6 +650,17 @@ return function(t)
         t.ok(gold[1] == 1 and gold[3] < 0.4, "Exalted text is gold (#ffd24d)")
         t.ok(ns.Theme.reaction.fill[8][3] < 0.3, "and its eighth of the bar (#ffc933)")
         t.eq(rp.byID[21].num:GetText(), "500 / 3,000")
+        -- Phase 15 step 8: crests. A painted one for the majors (Booty Bay shares the Steamwheedle
+        -- Cartel's), the blank with the initial for the rest ("The" left out).
+        t.eq(ns.Theme.CrestInitial("The League of Arathor"), "L")
+        t.eq(ns.Theme.CrestInitial(nil), "?")
+        t.eq(ns.Theme.crests[21], "steamwheedle")
+        t.ok(tostring(ns.Theme.Crest(72)):find("crest%-stormwind%.blp"), "Stormwind's crest is painted")
+        local _, blank = ns.Theme.Crest(87)
+        t.ok(blank, "Bloodsail: the blank shield")
+        t.eq(rp.byID[87].crest.mark:GetText(), "B")
+        t.eq(rp.byID[2747].crest.mark:GetText(), "B", "Barkskin Burrow")
+        t.ok(not rp.byID[72].crest.blank, "no initial on a painted crest")
         -- Y cycles the sort; Closest shows what's left to the next reaction.
         press(ns, "PAD4")
         t.eq(ns.db.reputation.sort, "closest")

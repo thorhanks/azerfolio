@@ -67,6 +67,13 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 |---|---|---|---|
 | A1 | A claimed zone's tile shows the painted standard in its top-right corner (Atlas 16×32, Overview thumbnail 9×18), full colour and the gold edge, no "Claimed" word; Thragor's is the Horde cloth (Gideon has no claimed zone yet) | The first zone claimed on any character | `/azf shots` (zones, atlas; overview), then read the tile |
 
+## Faction crests (Phase 15 step 8)
+
+| ID | What to confirm | When it comes up | How to check |
+|---|---|---|---|
+| C1 | The Horde capitals' crests (Orgrimmar 76, Thunder Bluff 81, Undercity 68, Darkspear Trolls 530) show on Thragor's Reputation tab, faction pages and ledgers; Gideon only shows the Alliance four and the neutrals | Next time Thragor is played | On Thragor: `/azf shots reputation`, then read the Home rows and a capital's page |
+| C2 | A met neutral faction's crest in full colour (Steamwheedle, Argent Dawn, Cenarion Circle, Timbermaw); so far every neutral is greyed (not met yet) | The first neutral faction met | `/azf shots reputation`, then read its row and page |
+
 ## Celebrations (Phase 10)
 
 | ID | What to confirm | When it comes up | How to check |
