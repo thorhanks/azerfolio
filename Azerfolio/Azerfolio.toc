@@ -19,6 +19,7 @@ Data\Zones.lua
 Data\QuestAreas.lua
 Data\Dungeons.lua
 Data\DungeonRoad.lua
+Data\ClassGear.lua
 Data\FlightPaths.lua
 Data\ClassJourneys.lua
 Data\Professions.lua
@@ -45,6 +46,7 @@ Systems\ClassTrainer.lua
 Systems\ProfessionRules.lua
 Systems\ProfessionSources.lua
 Systems\Professions.lua
+Systems\DungeonRules.lua
 Systems\FlightPaths.lua
 Systems\Zones.lua
 Systems\Atlas.lua

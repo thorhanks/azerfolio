@@ -22,10 +22,11 @@ In-game checks that wait on real play (a first-time faction, a level-60 characte
 
 ## Next
 
-**Phase 16: the Dungeons tab (v1.7)**, plan §6 Phase 16, spec §7.12 and §8.13. Next: task 2, `Systems/DungeonRules` and the class gear table.
+**Phase 16: the Dungeons tab (v1.7)**, plan §6 Phase 16, spec §7.12 and §8.13. Next: task 3, `Systems/Dungeons` (game and QuestieDB reads).
 
 - 2026-11-15, design and art (done, owner approved): research (`docs/research/dungeons.md`: the client has no usable boss list, D1), `Data/Dungeons.lua` (41 instances, 337 bosses with NPC IDs, blurbs, 11 keys; `qdb.lua dungeons check` 0 problems), mockup rounds 1-8 and the page review (option A: Overview / Bosses & loot / Quests), art via the Codex CLI (41 paintings, 6 road regions, card frame A, boss seals, medallion rings; `Media/Dungeons`, `Media/Chrome`), the road's traced lanes (`tools/trace-dungeon-road.ps1`, `Data/DungeonRoad.lua`). Tests 341 pass.
 - 2026-11-15, task 1, plan and spec (done): Phase 16 in the plan (8 tasks), spec §7.12 and §8.13, decision log.
+- 2026-11-15, task 2, rules and class gear (done): `Systems/DungeonRules` (pure; plain-table inputs: catalogue, filters, fit, brackets, wings, progress and "none" reasons, quest states, places incl. boss spawn areas and other instances, chain order, pickups capped 5/4 + more, boss gear with world-drop and level cuts, For you, factions) and `Data/ClassGear.lua` (9 classes, Classic rules; cloaks need the slot, `equipLoc`, from C_Item in task 3). Tests `dungeonrules_test.lua` on Deadmines/BRD rows (`tests/fixtures/dungeon_quests.lua`); 355 pass.
 
 **Phase 11: zone reputation (v1.3)**, plan §6 Phase 11, spec §7.8 and §8.9. Next: task 5, checking on both characters and settling the open questions.
 
