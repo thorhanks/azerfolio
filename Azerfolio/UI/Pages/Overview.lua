@@ -88,40 +88,6 @@ local function newPanel(parent, focusable)
     return p
 end
 
--- Stacked segments { { n, colorName }, ... } over `total` (the Zones row).
-local function newStack(parent)
-    local T, L = ns.Theme, ns.Theme.layout
-    local b = CreateFrame("Frame", nil, parent)
-    b:SetHeight(L.statBar)
-    b.bg = T.Solid(b, "black", "BACKGROUND")
-    b.bg:SetAllPoints()
-    b.segs = {}
-    function b:SetStack(parts, total, width)
-        local x, shown = 0, 0
-        for _, p in ipairs(parts) do if p[1] > 0 then shown = shown + 1 end end
-        local usable = width - math.max(0, shown - 1) * 2
-        local i = 0
-        for _, p in ipairs(parts) do
-            if p[1] > 0 and total > 0 then
-                i = i + 1
-                local s = self.segs[i]
-                if not s then s = self:CreateTexture(nil, "ARTWORK"); self.segs[i] = s end
-                local w = math.max(2, math.floor(usable * p[1] / total + 0.5))
-                if i == shown then w = math.max(2, width - x) end
-                local r, g, bl = T.RGB(p[2])
-                s:SetColorTexture(r, g, bl, 1)
-                s:ClearAllPoints()
-                s:SetPoint("TOPLEFT", self, "TOPLEFT", x, 0)
-                s:SetSize(w, L.statBar)
-                s:Show()
-                x = x + w + 2
-            end
-        end
-        for j = i + 1, #self.segs do self.segs[j]:Hide() end
-    end
-    return b
-end
-
 -- Crops 2:1 zone art to a w x h box (centred; tall boxes cut the sides).
 local function cropArt(tex, mapID, w, h)
     local T = ns.Theme
@@ -238,13 +204,14 @@ local function buildClassPanel(parent)
     p.rule:SetHeight(1)
     p.count = T.Text(p, "xs", "dim")
     p.next = T.Text(p, "sm", "classPeach")
-    p.next:SetWordWrap(false)
+    -- Two lines before a cut ("Stormwi...", review 2026-11-14); the panel grows with it.
+    p.next:SetWordWrap(true)
+    if p.next.SetMaxLines then p.next:SetMaxLines(2) end
     p.train = T.Text(p, "xs", "classRedInkLight")
     for _, fs in ipairs({ p.count, p.next, p.train }) do fs:SetJustifyH("LEFT") end
     p.count:SetPoint("TOPLEFT", p.win, "BOTTOMLEFT", L.panelPad, -S.s2)
     p.count:SetPoint("RIGHT", p, "RIGHT", -L.panelPad, 0)
     p.next:SetPoint("TOPLEFT", p.count, "BOTTOMLEFT", 0, -2)
-    p.next:SetPoint("RIGHT", p, "RIGHT", -L.panelPad, 0)
     p.train:SetPoint("TOPLEFT", p.next, "BOTTOMLEFT", 0, -2)
     -- Built when first drawn (the page needs its width).
     function p:EnsureMap(width)
@@ -311,8 +278,10 @@ local function build(parent)
     zrow.label = T.Text(zrow, "sm", "white"); zrow.label:SetPoint("TOPLEFT", S.s2 + 18 + S.s2, -7)
     zrow.label:SetText("Zones")
     zrow.count = T.Text(zrow, "xs", "dim"); zrow.count:SetPoint("TOPRIGHT", -S.s2, -8)
-    zrow.bar = newStack(zrow)
-    zrow.bar:SetPoint("TOPLEFT", zrow, "TOPLEFT", S.s2 + 18 + S.s2 + L.trackLabel + S.s1, -9)
+    -- The category rows' gilded housing with a stacked fill (Phase 15 step 2, review UI section;
+    -- it was a flat bar). Centred on the label's line.
+    zrow.bar = T.GildedBar(zrow, L.trackBar)
+    zrow.bar:SetPoint("TOPLEFT", zrow, "TOPLEFT", S.s2 + 18 + S.s2 + L.trackLabel + S.s1, -(7 + 7 - L.trackBar / 2))
     zrow.legend = T.Text(zrow, "xs", "dim")
     zrow.legend:SetPoint("BOTTOMLEFT", zrow, "BOTTOMLEFT", S.s2 + 18 + S.s2 + L.trackLabel + S.s1, 3)
     zrow.rule = T.Solid(zrow, "white", "BACKGROUND", 0.08)
@@ -431,8 +400,8 @@ local function build(parent)
         local countW = math.ceil(zrow.count:GetStringWidth() or L.trackCount)
         local barW = math.max(40, rowW - barStart - countW - S.s2 - S.s3)
         zrow.bar:SetWidth(barW)
-        zrow.bar:SetStack({ { zc.complete, "complete" }, { zc.progress, "todo" }, { zc.untouched, "well" },
-            { zc.unknown, "black" } }, zc.applicable, barW)
+        zrow.bar:SetStack({ { zc.complete, "complete" }, { zc.progress, "progress" }, { zc.untouched, nil },
+            { zc.unknown, "unknown" } }, zc.applicable)
         local legend = string.format("%s%d in progress|r   %d untouched", color("todo"), zc.progress, zc.untouched)
         if zc.unknown > 0 then legend = legend .. "   " .. zc.unknown .. " no data" end
         zrow.legend:SetText(legend)
@@ -444,16 +413,16 @@ local function build(parent)
             target == "complete" and "Show complete" or (target == "progress" and "Show in progress" or "Zones")))
         ty = ty + S.s1 + L.trackRow + 14 + S.s2
 
+        -- Two deliberate lines (it wrapped mid-phrase, review 2026-11-14): the rule, then the notes.
         local rule = "Each category counts equally"
         if c.pending then rule = rule .. "; those without data are left out" end
-        table.insert(notes, 1, rule)
         track.foot:ClearAllPoints()
         track.foot:SetPoint("TOPLEFT", track, "TOPLEFT", pad + 2, -ty)
         track.foot:SetWidth(w - 2 * pad - 4)
-        track.foot:SetText(table.concat(notes, " · ") .. ".")
+        track.foot:SetText(rule .. "." .. (#notes > 0 and ("\n" .. table.concat(notes, " · ") .. ".") or ""))
         local fh = track.foot:GetStringHeight() or 0
-        if fh < 12 then fh = 14 * math.ceil((track.foot:GetStringWidth() or 0) / math.max(1, w - 2 * pad - 4) + 0.001) end
-        ty = ty + math.max(14, fh) + pad
+        if fh < 12 then fh = 14 * (math.ceil((track.foot:GetStringWidth() or 0) / math.max(1, w - 2 * pad - 4) + 0.001) + (#notes > 0 and 1 or 0)) end
+        ty = ty + math.max(14, fh) + pad + S.s1 -- + s1: two lines sat on the frame's corner (WoWScrnShot_111426_174502)
         track:SetHeight(ty)
         return y + ty
     end
@@ -523,7 +492,8 @@ local function build(parent)
             setArt(hero.art, z)
             cropArt(hero.art, z.mapID, L.heroArt, L.heroHeight - 2)
             hero.kicker:SetText(kicker(m):upper())
-            hero.name:SetText(z.name)
+            -- A smaller size before a cut ("Elwynn For..." at the minimum size, review 2026-11-14).
+            T.FitFont(hero.name, z.name, w - L.heroArt - S.s4 - L.heroScore, { "xl", "lg", "md" })
             -- Exploration's pips when the zone has them; the zone's overall % (all categories).
             hero.pips:SetShown(p ~= nil)
             if p then hero.pips:Set(p.complete, p.incomplete, p.completionUnknown, w - L.heroArt - L.heroScore - S.s4) end
@@ -600,11 +570,15 @@ local function build(parent)
         if mini then mini.miniWidth = w - 2 end
         p.count:SetShown(cs.count ~= nil)
         p.count:SetText(cs.count or "")
+        -- An explicit width, so the wrap is the same in every render (as the Atlas names, step 1).
+        p.next:SetWidth(w - 2 * L.panelPad)
         p.next:SetText(cs.next or "")
         p.next:SetTextColor(T.RGB(cs.nextColor or "classPeach"))
+        local nextW = T.MeasureText(cs.next or "", "sm")
+        local nextLines = nextW > w - 2 * L.panelPad and 2 or 1
         p.train:SetShown(cs.train ~= nil)
         p.train:SetText(cs.train and ((cs.train == 1 and "1 ability" or (cs.train .. " abilities")) .. " waiting at your trainer") or "")
-        local lines = (cs.count and 1 or 0) + 1 + (cs.train and 1 or 0)
+        local lines = (cs.count and 1 or 0) + nextLines + (cs.train and 1 or 0)
         local ph = 1 + L.classMini + 1 + S.s2 + lines * L.classMiniLine + S.s3
         p:SetHeight(ph)
         -- Sentences (the info line ran "Stormwind City 9 abilities waiting", WoWScrnShot_111326_200956).

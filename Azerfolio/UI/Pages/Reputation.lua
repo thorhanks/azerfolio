@@ -318,14 +318,33 @@ end
 
 -- The narrowest cell that still holds the emblem and the widest label inside the plaque's
 -- frame (a fixed 96 px let "Unfriendly" run onto it while resizing, owner 2026-11-09).
-local function labelCellWidth(cells)
-    local RT = ns.Theme.layout.repTab
+-- The widest reaction name at a size (measured unbounded: a stacked label has a width).
+local function widestLabel(sizeKey)
     local widest = 0
-    for _, c in ipairs(cells) do widest = math.max(widest, math.ceil(c.label:GetStringWidth() or 0)) end
-    return RT.emblem + 6 + widest + 2 * (RT.plaqueCorner + RT.cellPad)
+    for r = 1, 8 do widest = math.max(widest, math.ceil(ns.Theme.MeasureText(ns.Theme.ReactionLabel(r), sizeKey))) end
+    return widest
 end
 
-local function paintCell(c, n, width, height, showLabel)
+local function labelCellWidth()
+    local RT = ns.Theme.layout.repTab
+    return RT.emblem + 6 + widestLabel("xs") + 2 * (RT.plaqueCorner + RT.cellPad)
+end
+
+-- How a cell of this width shows its label, and at what size: "side" (emblem, count over
+-- label), "stacked" (emblem and count, the label centred under them; Phase 15 step 2, the
+-- normal and minimum windows) or nil (no room at all).
+local function labelMode(cw)
+    local RT = ns.Theme.layout.repTab
+    if cw >= labelCellWidth() then return "side", "xs" end
+    for _, k in ipairs({ "xs" }) do -- (10 px doesn't take on this client: Theme.FitFont)
+        -- The label may run over the plaque's corner flourish, not its side rail: about 0.6 of it.
+        if cw >= widestLabel(k) + 2 * math.floor(RT.plaqueCorner * 0.6) then return "stacked", k end
+    end
+end
+
+local function paintCell(c, n, width, height, mode)
+    local showLabel = mode ~= nil
+    local stacked = mode == "stacked"
     local T = ns.Theme
     local RT = T.layout.repTab
     c:SetSize(width, height)
@@ -333,7 +352,7 @@ local function paintCell(c, n, width, height, showLabel)
     local k = n > 0 and RT.clothTint or RT.clothEmpty
     local base = 0.09
     c.cloth:SetVertexColor(col[1] * k + base * (1 - k), col[2] * k + base * (1 - k), col[3] * k + base * (1 - k))
-    local em = showLabel and RT.emblem or RT.emblemSmall
+    local em = stacked and RT.emblemStacked or (showLabel and RT.emblem or RT.emblemSmall)
     c.emblem:SetSize(em, em)
     c.emblem:SetShown(c.emblem:GetTexture() ~= nil)
     if c.emblem.SetDesaturated then c.emblem:SetDesaturated(n == 0) end
@@ -344,6 +363,23 @@ local function paintCell(c, n, width, height, showLabel)
     c.label:SetAlpha(n > 0 and 1 or 0.38)
     c.count:ClearAllPoints(); c.label:ClearAllPoints()
     local tx = em + 6
+    if stacked then
+        -- Emblem and count on one line, the label centred under them, the pair centred in the cell.
+        local countH = math.ceil(c.count:GetStringHeight() or T.size.md)
+        local labelH = math.ceil(c.label:GetStringHeight() or T.size.xs)
+        local lineH = math.max(em, countH)
+        local blockH = lineH + RT.cellText + labelH
+        c.holder:SetHeight(lineH)
+        c.count:SetPoint("LEFT", c.holder, "LEFT", tx, 0)
+        c.holder:SetWidth(tx + (c.count:GetStringWidth() or 0))
+        -- +2: centred, the label sat on the plaque's bottom rail (WoWScrnShot_111426_180138).
+        c.holder:ClearAllPoints(); c.holder:SetPoint("TOP", c, "CENTER", 0, math.floor(blockH / 2 + 0.5) + 2)
+        c.label:SetPoint("TOP", c.holder, "BOTTOM", 0, -RT.cellText)
+        c.label:SetPoint("LEFT", c, "LEFT", 0, 0); c.label:SetPoint("RIGHT", c, "RIGHT", 0, 0)
+        c.label:SetJustifyH("CENTER")
+        return
+    end
+    c.label:SetJustifyH("LEFT")
     -- The count over the label, centred on the cell by their measured height (anchored to the
     -- emblem's top they ran onto the plaque's frame, owner's shot 2026-11-09).
     local countH = math.ceil(c.count:GetStringHeight() or T.size.md)
@@ -580,10 +616,11 @@ local function build(parent)
         local w = width(strip) - 2 * S.s6 - RT.sum
         local cw = math.floor((w - 7 * RT.cellGap) / 8)
         local ch = RT.strip - 2 * S.s2
-        local showLabel = cw >= labelCellWidth(page.cells)
+        local mode, labelSize = labelMode(cw)
         for r = 1, 8 do
             local c = page.cells[r]
-            paintCell(c, sum and sum.byReaction[r] or 0, cw, ch, showLabel)
+            T.SetFont(c.label, labelSize or "xs")
+            paintCell(c, sum and sum.byReaction[r] or 0, cw, ch, mode)
             c:ClearAllPoints()
             c:SetPoint("LEFT", strip, "LEFT", S.s6 + (r - 1) * (cw + RT.cellGap), 0)
         end
@@ -696,7 +733,11 @@ local function build(parent)
             d.srcHead:SetPoint("TOPLEFT", dc, "TOPLEFT", x, -y)
             d.srcHead:SetPoint("RIGHT", dc, "RIGHT", -S.s6, 0)
             d.srcHead.text:SetText("Where to raise it")
-            d.srcHead.count:SetText(#srcs == 1 and "1 place" or (#srcs .. " places"))
+            -- "+100" on the rows, "about" here once (the game's font drew "~" as a squiggle).
+            local anyAmount = false
+            for _, s in ipairs(srcs) do if s.oneTime > 0 then anyAmount = true; break end end
+            d.srcHead.count:SetText((#srcs == 1 and "1 place" or (#srcs .. " places"))
+                .. (anyAmount and "  ·  rep gains are about" or ""))
             d.srcHead:Show()
             y = y + L.listHeader + S.s2
             for _, s in ipairs(srcs) do
@@ -711,7 +752,7 @@ local function build(parent)
                 r.kind:SetText((T.repKinds[s.kind] or "") .. (notYou and "  ·  not for you" or "")
                     .. (s.kind == "zone" and s.zoneFaction and "  ·  zone faction" or ""))
                 r.q:SetText(s.count == 1 and "1 quest" or (s.count .. " quests"))
-                r.amt:SetText(s.oneTime > 0 and ("~+" .. N(s.amount)) or "")
+                r.amt:SetText(s.oneTime > 0 and ("+" .. N(s.amount)) or "")
                 local mapID, fid = s.key, f.factionID
                 local item = { key = "s:" .. s.kind .. ":" .. tostring(s.key), frame = r, title = placeName(s),
                     detail = sourceInfo(f, s), scroll = dscroll, topGap = L.listHeader + S.s2 }

@@ -337,12 +337,22 @@ local function steps(which)
     local pick = zones[1]
     for _, z in ipairs(zones) do if z.mapID == here then pick = z end end
     list[#list + 1] = { label = "zone detail", fn = function() openDetail(pick) end }
-    -- Its category pages (the dashboard's tiles), where they open.
+    -- Its category pages (the dashboard's tiles), only where the tile opens one: a tile that
+    -- doesn't apply (no flight master) is quiet in play, so the shots don't force its page
+    -- open either (review 2026-11-14).
     for _, key in ipairs({ "explore", "quests", "flights" }) do
         list[#list + 1] = { label = "zone detail, " .. key, fn = function()
             local page = zonesPage()
             openDetail(pick)
-            if page and page.OpenPage then page:OpenPage(key) end
+            local tiles = page and page.detail and page.detail.tiles or {}
+            for _, tile in ipairs(tiles) do
+                local it = tile.item
+                if it and it.key == "tile:" .. key then
+                    if it.onActivate then it.onActivate(it); return true end
+                end
+            end
+            ns.Debug.Print("shot skipped: the %s tile doesn't open a page here", key)
+            return false
         end }
     end
     -- The Reputation ledger and a faction page (Phase 11), where some zone has factions.
@@ -442,7 +452,8 @@ function UI.RunShots(which)
             ns.Debug.Error("shots " .. s.label, err)
             return finish("Screenshots stopped: " .. tostring(err))
         end
-        if s.skip then return C_Timer.After(SETTLE, nextStep) end -- a tidy-up step, no picture
+        -- A tidy-up step, or a step with nothing to show here (fn returned false): no picture.
+        if s.skip or err == false then return C_Timer.After(SETTLE, nextStep) end
         C_Timer.After(SETTLE, function()
             local sok, serr = pcall(Screenshot)
             if not sok then ns.Debug.Error("Screenshot", serr) end

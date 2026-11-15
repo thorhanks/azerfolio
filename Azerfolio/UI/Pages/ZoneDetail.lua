@@ -13,6 +13,7 @@ ns.ZoneDetail = Detail
 
 Detail.PAGES = { "explore", "quests", "flights" }
 local NODE_W, NODE_H, NODE_DOT = 88, 58, 22
+local NODE_W_MAX = 132 -- a storyline node's widest (Phase 15 step 2)
 local CHIP_H, CHIP_COLS = 30, 3
 local TILE_SQ = 168      -- round 3: square tiles side by side
 local NEXT_PLATE = 40    -- the "Next up" header plate's height
@@ -300,7 +301,7 @@ function Detail.RepInfo(f)
     return s .. string.format(". A shows the %d %s here that %s it.", n, n == 1 and "quest" or "quests", n == 1 and "raises" or "raise")
 end
 
--- A quest chip on the faction page: level (or a gold check when done), name, state, "~+amount".
+-- A quest chip on the faction page: level (or a gold check when done), name, state, "+amount" ("about" in the group header).
 local function newRepChip(parent)
     local T, S = ns.Theme, ns.Theme.space
     local b = newChip(parent)
@@ -1030,11 +1031,15 @@ local function track(d, y, story, showUnavailable, keyPrefix)
     local x0 = L.listInset
     local maxStack = 1
     for _, col in ipairs(cols) do maxStack = math.max(maxStack, #col) end
+    -- Nodes widen to the room the page has (up to NODE_W_MAX), so names fit two lines ("Find the
+    -- Lost Guar..." at 88, review 2026-11-14; checked in game WoWScrnShot_111426_175336).
+    local avail = (child:GetWidth() or 900) - x0 - S.s6
+    local nodeW = math.max(NODE_W, math.min(NODE_W_MAX, math.floor(avail / #cols)))
     if #cols > 1 then
         local line = take(d, "lines", function() return T.Solid(child, "divider", "BORDER") end)
         line:SetHeight(2)
-        line:SetPoint("TOPLEFT", child, "TOPLEFT", x0 + NODE_W / 2, -(y + 3 + NODE_DOT / 2 - 1))
-        line:SetWidth((#cols - 1) * NODE_W)
+        line:SetPoint("TOPLEFT", child, "TOPLEFT", x0 + nodeW / 2, -(y + 3 + NODE_DOT / 2 - 1))
+        line:SetWidth((#cols - 1) * nodeW)
     end
     local rows = {}
     for level = 1, maxStack do
@@ -1043,7 +1048,8 @@ local function track(d, y, story, showUnavailable, keyPrefix)
             local q = col[level]
             if q then
                 local n = take(d, "nodes", function() return newNode(child) end)
-                n:SetPoint("TOPLEFT", child, "TOPLEFT", x0 + (ci - 1) * NODE_W, -(y + (level - 1) * NODE_H))
+                n:SetPoint("TOPLEFT", child, "TOPLEFT", x0 + (ci - 1) * nodeW, -(y + (level - 1) * NODE_H))
+                n:SetWidth(nodeW); n.name:SetWidth(nodeW - 4)
                 paintNode(n, q)
                 n.item = questItem(d, n, keyPrefix .. q.id, q, L.listHeader + S.s6)
                 items[#items + 1] = n.item
@@ -1329,7 +1335,11 @@ local function fillRep(d, zone, factionID)
     end
     local cw = math.floor((width - (CHIP_COLS - 1) * S.s2) / CHIP_COLS)
     for gi, g in ipairs(groups) do
-        y = header(d, y, g.title, g.count)
+        -- The chips show "+100"; "about" sits in the header once (the game's font drew "~" as a
+        -- raised squiggle, review 2026-11-14).
+        local anyAmount = false
+        for _, q in ipairs(g.list) do if q.amount then anyAmount = true; break end end
+        y = header(d, y, g.title, g.count .. (anyAmount and "  ·  rep gains are about" or ""))
         for i = 1, #g.list, CHIP_COLS do
             local items = {}
             for c = 0, CHIP_COLS - 1 do
@@ -1352,7 +1362,7 @@ local function fillRep(d, zone, factionID)
                     local st = not levelOnly and REP_STATE[kind] or nil
                     local state = q.repeatable and (st and (st .. ", repeatable") or "Repeatable") or st or ""
                     b.state:SetText(state)
-                    b.amt:SetText(q.amount and ("~+" .. ns.Widgets.Number(q.amount)) or "")
+                    b.amt:SetText(q.amount and ("+" .. ns.Widgets.Number(q.amount)) or "")
                     b:SetAlpha(kind == "unavailable" and 0.5 or 1)
                     local line = Detail.QuestLine({ questLevel = q.questLevel, reqLevel = q.reqLevel, kind = kind,
                         difficulty = q.difficulty, reason = q.reason, prereqs = q.prereqs, prereqAny = q.prereqAny })

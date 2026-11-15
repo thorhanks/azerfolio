@@ -118,6 +118,7 @@ Consequences: a flight path's "known" state can only be read at a flight master 
 - `CharacterFrameTabButtonTemplate` doesn't exist. Use `PanelTabButtonTemplate` for bottom tabs. [verified-ingame]
 - `EncounterJournal` is not loaded and `EncounterJournal_LoadUI` doesn't exist. `AchievementFrame_LoadUI` exists. [verified-ingame]
 - Making a label smaller at runtime: `FontString:SetFont(file, 11, flags)` returned true but `GetFont` still read 14 right after, on a `UIPanelButtonTemplate` button's label, on an addon font string on the button, and on one on a child frame (AzerfolioDB.trace, 2026-11-14). Font objects (`SetNormalFontObject`, `SetFontObject` with `GameFontNormalSmall`) changed nothing visible either. What works: scale the frame holding the text (`Frame:SetScale`), as `W.PanelButton:SetCompact` does. [verified-ingame]
+- Font sizes under 12 don't take on plain addon font strings either: a string set to 10 measured exactly as at 12 ("Riverglades" 81.67 both; trace 2026-11-14 17:57). Sizes 12 and up do change at runtime (the Continue card's name, xl -> lg). `Theme.ScaledText` reaches 10 by scaling the string's own frame. Measure text on a separate string with no width (`Theme.MeasureText`, `GetStringWidth`): on a string with a width, the measure came back bounded by it. [verified-ingame]
 
 ## Art
 

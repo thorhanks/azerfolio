@@ -1079,8 +1079,10 @@ local function build(parent)
         det.facts:ClearAllPoints()
         det.facts:SetPoint("TOPLEFT", r.tracked and det.tracked or det.state, "BOTTOMLEFT", 0, -S.s2)
         det.facts:SetPoint("RIGHT", dc, "RIGHT", -S.s2, 0)
-        det.facts:SetText(string.format("Learn at |cffffffff%s|r   ·   Gives skill until |cffffffff%s|r%s   ·   %s",
-            r.learnAt and tostring(r.learnAt) or "?", r.grey and tostring(r.grey) or "?",
+        -- "Learn at ?" read like a typo (review 2026-11-14): say what isn't known.
+        det.facts:SetText(string.format("%s   ·   %s%s   ·   %s",
+            r.learnAt and ("Learn at |cffffffff" .. r.learnAt .. "|r") or "Learn at: not known yet",
+            r.grey and ("Gives skill until |cffffffff" .. r.grey .. "|r") or "Gives skill until: not known yet",
             (r.grey and m.skill and m.skill >= r.grey) and " (grey)" or "", r.categoryName or "No category"))
         local y = (det.name:GetStringHeight() or 20) + (det.state:GetStringHeight() or 14) + (r.tracked and 18 or 0)
             + (det.facts:GetStringHeight() or 14) + S.s4 + S.s3
@@ -1100,7 +1102,7 @@ local function build(parent)
         det.howH:ClearAllPoints(); det.howH:SetPoint("TOPLEFT", dc, "TOPLEFT", 0, -y)
         y = y + 22
         if #r.sources == 0 then
-            line("", r.known and "Known · where it's taught isn't recorded" or (r.sod and "Season of Discovery" or "No known source"), nil,
+            line("", r.known and "Known · source not recorded" or (r.sod and "Season of Discovery" or "No known source"), nil,
                 { key = "src:none", title = "How to get it", detail = select(1, recipeStateText(r)) .. "." })
         end
         for i, s in ipairs(r.sources) do

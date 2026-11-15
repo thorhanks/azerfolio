@@ -616,8 +616,7 @@
             <div class="stack">${totals.complete ? `<i class="c" style="flex:${totals.complete}"></i>` : ""}${totals.progress ? `<i class="p" style="flex:${totals.progress}"></i>` : ""}${totals.untouched ? `<i class="u" style="flex:${totals.untouched}"></i>` : ""}</div>
             <span class="tn"><b>${totals.complete}</b> / ${totals.complete + totals.progress + totals.untouched}</span><span class="tp">done</span>
             <span class="zlegend"><i class="p"></i>${totals.progress} in progress · <i class="u"></i>${totals.untouched} untouched</span></button>
-          <div class="tfoot">${["Each category counts equally" + (tc.list.some(c => c.pending) ? "; those without data are left out" : ""),
-            ...tc.list.filter(c => c.note).map(c => c.key === "quests" ? `${c.unchecked} quests can't be checked yet` : esc(c.note))].join(" · ")}.</div>
+          <div class="tfoot">Each category counts equally${tc.list.some(c => c.pending) ? "; those without data are left out" : ""}.${tc.list.some(c => c.note) ? `<br>${tc.list.filter(c => c.note).map(c => c.key === "quests" ? `${c.unchecked} quests can't be checked yet` : esc(c.note)).join(" · ")}.` : ""}</div>
         </div>
         ${profPanel()}
       </div>
@@ -1016,10 +1015,10 @@
     const chip = (q) => { const [qid, name, ql, rl, amt] = q, d = difficulty(ql, CHAR.level), later = rl > CHAR.level;
       return `<button class="qchip repq focusable d-${later ? "grey" : d} ${later ? "later" : ""}" data-rq="${qid}"
         data-tip="<b>${esc(name)}</b>Level ${ql}${later ? `, from level ${rl}` : ""}. About +${num(amt)} ${esc(f.name)} (QuestieDB's base value; the game may give more).">
-        <span class="lvl">${ql}</span><span class="qn">${esc(name)}</span><span class="amt">~+${num(amt)}</span></button>`; };
+        <span class="lvl">${ql}</span><span class="qn">${esc(name)}</span><span class="amt">+${num(amt)}</span></button>`; };
     const now = qs.filter(q => q[3] <= CHAR.level), later = qs.filter(q => q[3] > CHAR.level);
-    if (now.length) html += `<h2 class="section" data-group>Up to your level <small>${now.length}</small></h2><div class="readygrid">${now.map(chip).join("")}</div>`;
-    if (later.length) html += `<h2 class="section" data-group>Later <small>${later.length} · from level ${Math.min(...later.map(q => q[3]))}</small></h2><div class="readygrid">${later.map(chip).join("")}</div>`;
+    if (now.length) html += `<h2 class="section" data-group>Up to your level <small>${now.length} · rep gains are about</small></h2><div class="readygrid">${now.map(chip).join("")}</div>`;
+    if (later.length) html += `<h2 class="section" data-group>Later <small>${later.length} · from level ${Math.min(...later.map(q => q[3]))} · rep gains are about</small></h2><div class="readygrid">${later.map(chip).join("")}</div>`;
     return html + `<div class="qfoot"><span class="qnote">From QuestieDB. Amounts are its base values, so approximate; done and locked states come from the Quests page in the addon.</span></div>`;
   }
 
@@ -1133,13 +1132,13 @@
         ${[f, r].map(x => `<div class="frep mini r${x.reaction} ${x.met ? "met" : "unmet"}"><span class="fwho"><span class="fname">${esc(x.name)}</span></span><span class="freact">${x.label}</span>${ladder(x)}</div>`).join("")}</div>`;
     }
     if (f.src.length) {
-      html += `<h2 class="section" data-group>Where to raise it <small>${f.src.length} ${f.src.length === 1 ? "place" : "places"}</small></h2><div class="srclist">${f.src.map(s => {
+      html += `<h2 class="section" data-group>Where to raise it <small>${f.src.length} ${f.src.length === 1 ? "place" : "places"} · rep gains are about</small></h2><div class="srclist">${f.src.map(s => {
         const [kind, place, n, amt, forYou] = s, zoneHere = kind === "zone" && byName[place];
         const hasPage = zoneHere && (REP_ZONES[place] || []).some(p => p[0] === f.id);
         const tip = `<b>${esc(place)}</b>${SRC_KIND[kind]}. ${n} quests, about +${num(amt)} (QuestieDB's base values).${forYou === false ? " Not for your class." : zoneHere ? ` A opens ${hasPage ? `${esc(f.name)} in ${esc(place)}` : esc(place)}.` : " A would open the Dungeons tab (later)."}`;
         return `<button class="srow focusable ${forYou === false ? "notyou" : ""}" data-src="${esc(kind + "|" + place)}" data-tip="${tip}">
           ${repThumb(zoneHere ? place : null, kind)}<span class="sname">${esc(place)}<small>${SRC_KIND[kind]}${forYou === false ? " · not for you" : ""}</small></span>
-          <span class="sq">${n} quests</span><span class="samt">~+${num(amt)}</span></button>`; }).join("")}</div>`;
+          <span class="sq">${n} quests</span><span class="samt">+${num(amt)}</span></button>`; }).join("")}</div>`;
     }
     html += `<div class="qfoot"><span class="qnote">From QuestieDB's quest rewards: amounts are base values, so approximate (bonuses like the Human racial aren't in them). Killing and other ways to gain reputation aren't known to the addon.</span></div>`;
     container.innerHTML = `<div class="detail paged">${hero}<div class="detail-body full"><div class="scroll" id="${opts.back ? "scroll" : "detailscroll"}">${html}</div></div></div>`;
@@ -2294,7 +2293,7 @@
     quest: (s) => `Quest reward${s.n > 1 ? ` · ${s.n} quests` : ""}`,
     item: () => "Recipe item · where it drops isn't known",
   };
-  const srcLine = (r) => r.sources.length ? r.sources.map(s => SRC_TEXT[s.k](s)).slice(0, 2).join(" · ") : r.known ? "Known · where it's taught isn't recorded" : r.sod ? "Season of Discovery" : "No known source";
+  const srcLine = (r) => r.sources.length ? r.sources.map(s => SRC_TEXT[s.k](s)).slice(0, 2).join(" · ") : r.known ? "Known · source not recorded" : r.sod ? "Season of Discovery" : "No known source";
   const SRC_GLYPHS = { trainer: "✦", vendor: "⚖", drop: "☠", object: "▣", quest: "!", item: "?" };
   // Ingredients (2026-11-14, owner): GetRecipeSchematic answers with the window shut, for any
   // recipe (probe runs 7-8); have = C_Item.GetItemCount. Where to get a reagent: another recipe of

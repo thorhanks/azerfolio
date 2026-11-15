@@ -71,8 +71,8 @@ local function newTile(parent, mini)
         -- The name gets an explicit width in fillTile (an anchor-only width wasn't resolved on the
         -- first layout, so the same tile showed "Stormwind City" on two lines in one render and
         -- "Stormwin..." in another; review R1). Two lines, cut only past that.
-        t.name = T.Text(t, "xs", "white")
-        t.name:SetPoint("BOTTOMLEFT", 5, 5)
+        t.name = T.ScaledText(t, "xs", "white")
+        t.name.Place("BOTTOMLEFT", 5, 5)
         t.name:SetJustifyH("LEFT"); t.name:SetJustifyV("BOTTOM"); t.name:SetWordWrap(true)
         if t.name.SetMaxLines then t.name:SetMaxLines(2) end
         t.pct = T.Text(t, "xs", "todo")
@@ -116,7 +116,9 @@ local function fillTile(t, z, w, h, here, dim, mini)
     t:SetAlpha(dim and 0.3 or 1)
     if not mini then
         t.name:SetWidth(w - 9)
-        t.name:SetText(z.name)
+        -- One long word ("Riverglades", "Stranglethorn") was cut at 12 px: 10 px first (Phase 15
+        -- step 2), cut only past that.
+        T.FitFont(t.name, z.name, w - 9, { "xs", "xxs" }, 2)
         t.name:SetTextColor(T.RGB(claimed and "gold" or (z.state == "untouched" and "dim" or "white")))
         t.pct:SetText(claimed and "Claimed" or (z.combined and ns.Progression.PercentText(z.combined) or ""))
         -- Orange means in progress; an untouched zone's 0% is grey, as on the cards (review R2).

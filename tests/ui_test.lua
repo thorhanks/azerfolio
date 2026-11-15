@@ -530,13 +530,13 @@ return function(t)
         t.eq(d.banner.pct:GetText(), "Friendly")
         local sum = d.repSums[1]
         t.ok(sum.num:GetText():find("1,800 to Honored"), sum.num:GetText())
-        t.eq(d.headers[1].text:GetText(), "Up to your level"); t.eq(d.headers[1].count:GetText(), "5")
-        t.eq(d.headers[2].text:GetText(), "Later"); t.eq(d.headers[2].count:GetText(), "1  ·  from level 35")
+        t.eq(d.headers[1].text:GetText(), "Up to your level"); t.eq(d.headers[1].count:GetText(), "5  ·  rep gains are about")
+        t.eq(d.headers[2].text:GetText(), "Later"); t.eq(d.headers[2].count:GetText(), "1  ·  from level 35  ·  rep gains are about")
         -- Chips by level: Done Deal 6, Horde Only 7, Supply and Demand 8, then the level 9s by name.
         local chips = d.repChips
         t.eq(chips[1].name:GetText(), "Done Deal"); t.eq(chips[1].mark:IsShown(), true, "done: the gold check")
         t.eq(chips[2].alpha, 0.5, "not for you: dimmed"); t.eq(chips[2].state:GetText(), "Not for you")
-        t.eq(chips[3].amt:GetText(), "~+100")
+        t.eq(chips[3].amt:GetText(), "+100")
         t.eq(chips[4].state:GetText(), "Repeatable"); t.eq(chips[5].state:GetText(), "Locked")
         t.eq(ns.Focus.Current().key, "rq:2", "focus on the first quest")
         t.ok(ns.Focus.Current().detail:find("About %+75 Booty Bay"), ns.Focus.Current().detail)
@@ -1608,8 +1608,10 @@ return function(t)
         wow.runTimers()
         local pictures = 0
         for _, s in ipairs(ns.UI.ShotSteps()) do if not s.skip then pictures = pictures + 1 end end
-        t.eq(_G.screenshotsTaken, pictures)
-        t.eq(_G.screenshotsTaken, 24, "12 before, the zone's three category pages, the Atlas, the Reputation tab (2) and its split (2), the Class tab (2), the Professions tab and at minimum size")
+        t.eq(pictures, 24, "12 before, the zone's three category pages, the Atlas, the Reputation tab (2) and its split (2), the Class tab (2), the Professions tab and at minimum size")
+        -- The fixture zone's tiles: two of the three don't open a page there, so no picture
+        -- (a tile that doesn't apply stays quiet, Phase 15 step 2).
+        t.eq(_G.screenshotsTaken, pictures - 2)
         t.eq(ns.db.zones.displayMode, "cards", "view restored")
         t.eq(ns.UI.GetFrame().pages.zones.popup:IsShown(), false, "popup closed")
         local labels = {}

@@ -189,11 +189,34 @@ function W.PanelButton(parent)
     b.text = T.Text(b.labelFrame, "sm", "gold", "OVERLAY")
     b.text:SetPoint("CENTER", 0, 0)
     b.text:SetWordWrap(false)
+    -- Selected (Phase 15 step 2, review R11; owner chose the mockup's option A): the button is
+    -- pressed in, its own Down look, and a 2 px gold underline sits under it. Hover and focus
+    -- only light a button (white label, highlight), so they never read as selected.
+    b.underline = T.Solid(b.labelFrame, "gold", "OVERLAY")
+    b.underline:SetHeight(L.selectedUnderline)
+    b.underline:SetPoint("TOPLEFT", b, "BOTTOMLEFT", L.selectedUnderlineInset, -L.selectedUnderlineGap)
+    b.underline:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", -L.selectedUnderlineInset, -L.selectedUnderlineGap)
+    b.underline:Hide()
+    -- The template draws its pressed look in its own OnMouseDown / OnMouseUp handlers (they swap
+    -- the Left / Middle / Right pieces), not from the button state, so the selected one runs
+    -- those handlers; SetButtonState locks the state as well where the client draws from it.
+    local function press(self, down)
+        if self.pressedLook == down then return end
+        self.pressedLook = down
+        local h = self.GetScript and self:GetScript(down and "OnMouseDown" or "OnMouseUp")
+        self.pressing = true
+        if h then pcall(h, self, "LeftButton") end
+        self.pressing = nil
+        if self.SetButtonState then pcall(self.SetButtonState, self, down and "PUSHED" or "NORMAL", down) end
+        self.text:SetPoint("CENTER", down and 1 or 0, down and -1 or 0)
+    end
     local function paint(self)
-        local bright = self.on or self.focused or self.hover
-        self.text:SetTextColor(T.RGB(bright and "white" or "gold"))
-        local f = (self.on or self.focused) and self.LockHighlight or self.UnlockHighlight
+        local lit = self.focused or self.hover
+        self.text:SetTextColor(T.RGB(lit and "white" or "gold"))
+        local f = self.focused and self.LockHighlight or self.UnlockHighlight
         if f then pcall(f, self) end
+        self.underline:SetShown(self.on and true or false)
+        press(self, self.on and true or false)
     end
     function b:SetOn(on) self.on = on; paint(self) end
     function b:SetFocused(on) self.focused = on; paint(self) end
@@ -201,8 +224,15 @@ function W.PanelButton(parent)
         b:HookScript("OnEnter", function(self) self.hover = true; paint(self) end)
         b:HookScript("OnLeave", function(self) self.hover = nil; paint(self) end)
         -- Pressed: the label dips with the button, as the game's does.
-        b:HookScript("OnMouseDown", function(self) self.text:SetPoint("CENTER", 1, -1) end)
-        b:HookScript("OnMouseUp", function(self) self.text:SetPoint("CENTER", 0, 0) end)
+        b:HookScript("OnMouseDown", function(self) if not self.pressing then self.text:SetPoint("CENTER", 1, -1) end end)
+        -- A real click's mouse-up puts the template's up look back, even on the selected
+        -- button: press it again.
+        b:HookScript("OnMouseUp", function(self)
+            if self.pressing then return end
+            self.text:SetPoint("CENTER", 0, 0)
+            self.pressedLook = false
+            paint(self)
+        end)
     end
     -- :SetCompact(on): a smaller label for a toolbar that runs out of room (the Zones toolbar at
     -- the minimum width, WoWScrnShot_111426_155718). The label's frame is scaled to

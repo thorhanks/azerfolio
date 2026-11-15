@@ -46,7 +46,7 @@ Theme.color = {
 }
 
 -- Type scale (nothing below 12: couch distance).
-Theme.size = { xs = 12, sm = 14, md = 16, lg = 20, xl = 26, xxl = 32, huge = 42 } -- huge: the zone's % in the dashboard header
+Theme.size = { xxs = 10, xs = 12, sm = 14, md = 16, lg = 20, xl = 26, xxl = 32, huge = 42 } -- huge: the zone's % in the dashboard header
 
 -- 4 px spacing grid.
 Theme.space = { s1 = 4, s2 = 8, s3 = 12, s4 = 16, s6 = 24 }
@@ -69,6 +69,7 @@ Theme.layout = {
     tabGap = 4,
     tabsTop = 40,
     legendHeight = 44,
+    legendHeightTall = 58,     -- two info lines (Phase 15 step 2); Theme.outside.bottom covers it
     legendGap = 6,
     legendEdge = 7,            -- diamond-metal border thickness over the background
     glyphSize = 24,            -- frame
@@ -91,6 +92,7 @@ Theme.layout = {
     controlPad = 10,           -- text padding inside a toolbar control
     controlPadTight = 6,       -- the same in a narrow window's short toolbar
     panelButton = 24, panelButtonPad = 16, panelButtonMin = 90, panelButtonPadTight = 10, -- the red panel buttons (W.PanelButton)
+    selectedUnderline = 2, selectedUnderlineGap = 2, selectedUnderlineInset = 4, -- the selected red button's gold underline (review R11)
     panelButtonCompactSize = 11, -- a compact red button's label size (narrow toolbars; reached by scaling the label from size.sm)
     searchWidth = 150,
     searchMinWidth = 100,
@@ -247,12 +249,53 @@ function Theme.GildedBar(parent, height)
     -- (the Overview's Professions bars, WoWScrnShot_111426_125515): redo it when it's sized.
     -- f.onSized(f), if set, runs after (marks placed along the bar).
     f:SetScript("OnSizeChanged", function(self)
-        if self.lastFrac then self:Set(self.lastFrac, self.lastState) end
+        if self.lastStack then self:SetStack(self.lastStack, self.lastTotal)
+        elseif self.lastFrac then self:Set(self.lastFrac, self.lastState) end
         if self.onSized then self.onSized(self) end
     end)
+    -- A stacked fill (the Overview's Zones row, Phase 15 step 2): parts { { n, kind }, ... } over
+    -- total, left to right; kind "complete" (gold fill), "progress" (amber fill), "unknown"
+    -- (grey) or nil (left as the dark well). 1 px of well between drawn parts.
+    f.segs = {}
+    function f:SetStack(parts, total)
+        self.lastStack, self.lastTotal, self.lastFrac = parts, total, nil
+        self.fill:Hide()
+        local w = self.well:GetWidth() or 0
+        if w <= 0 then w = (self:GetWidth() or 0) - endW end
+        local x, i = 0, 0
+        for _, p in ipairs(parts) do
+            local n = p[1] or 0
+            if n > 0 and (total or 0) > 0 then
+                local sw = w * n / total
+                if p[2] then
+                    i = i + 1
+                    local s = self.segs[i]
+                    if not s then s = self:CreateTexture(nil, "BORDER"); self.segs[i] = s end
+                    s:ClearAllPoints()
+                    s:SetPoint("TOPLEFT", self.well, "TOPLEFT", x, 0)
+                    s:SetPoint("BOTTOMLEFT", self.well, "BOTTOMLEFT", x, 0)
+                    local last = x + sw >= w - 0.5
+                    s:SetWidth(math.max(1, sw - (last and 0 or 1)))
+                    if p[2] == "unknown" or not fill then
+                        local r, g, b = Theme.RGB(p[2] == "complete" and "complete" or (p[2] == "progress" and "todo" or "dim"))
+                        s:SetVertexColor(1, 1, 1)
+                        s:SetColorTexture(r, g, b, p[2] == "unknown" and 0.35 or 1)
+                    else
+                        s:SetTexture(fill)
+                        s:SetTexCoord(w > 0 and x / w or 0, w > 0 and math.min(1, (x + sw) / w) or 1, 0, 1)
+                        if p[2] == "complete" then s:SetVertexColor(1, 1, 1) else s:SetVertexColor(1, 0.72, 0.42) end
+                    end
+                    s:Show()
+                end
+                x = x + sw
+            end
+        end
+        for j = i + 1, #self.segs do self.segs[j]:Hide() end
+    end
     function f:Set(frac, state)
         frac = math.max(0, math.min(1, frac or 0))
-        self.lastFrac, self.lastState = frac, state
+        self.lastFrac, self.lastState, self.lastStack = frac, state, nil
+        for j = 1, #self.segs do self.segs[j]:Hide() end
         local w = self.well:GetWidth() or 0
         if w <= 0 then w = (self:GetWidth() or 0) - endW end
         self.fill:SetWidth(math.max(0.001, w * frac))
@@ -325,7 +368,9 @@ Theme.layout.repTab = {
     cellText = 1,              -- gap between the count and the reaction label
     cellGap = 4, emblem = 32, emblemSmall = 24,
     cellPad = 4,               -- room between the plaque's frame and the cell's content; cells too narrow
-                               -- for the emblem, the widest label and this drop the labels
+                               -- for the emblem, the widest label and this stack the label under
+    emblemStacked = 22,        -- the emblem beside the count when the label sits under both (Phase 15
+                               -- step 2: names at every width; was only in the wide window)
     sum = 170,                 -- "Met n of m · Exalted n of m" column
     plaqueCorner = 10,         -- frame-plaque's drawn corner (12 px of its 256x128)
     clothTint = 0.62, clothEmpty = 0.18, -- the cloth fill's tint strength, full and empty cells
@@ -635,7 +680,7 @@ function Theme.ReactionLabel(r)
 end
 
 -- Space the window's outside parts take (tabs right, legend below, portrait ring and glow).
-Theme.outside = { left = 8, right = 64, top = 8, bottom = 50 }
+Theme.outside = { left = 8, right = 64, top = 8, bottom = 64 } -- bottom: legendGap + legendHeightTall
 
 Theme.fonts = { body = "Fonts\\FRIZQT__.TTF" }
 
@@ -768,6 +813,83 @@ function Theme.SetFont(fs, sizeKey, flags)
     local size = Theme.size[sizeKey] or Theme.size.sm
     local ok = fs:SetFont(Theme.fonts.body, size, flags or "")
     if not ok and GameFontNormal then fs:SetFontObject(GameFontNormal) end
+end
+
+-- The first size in `keys` (largest first) at which `text` fits `width`, set on fs with the text
+-- (Phase 15 step 2: a smaller type before a cut, review "Text cut with ..."). lines > 1: a wrapping
+-- string; its longest word must fit one line and the whole about `lines` lines. The last size is
+-- kept when none fits. Returns the size key used.
+-- Measured on a string of its own with no width (on a string with a width, the measure came
+-- back bounded by it, so a cut word measured as fitting: WoWScrnShot_111426_174503). A shown
+-- frame at full alpha with see-through text, and GetStringWidth (used and proven elsewhere):
+-- with alpha 0 and GetUnboundedStringWidth nothing measured as too wide (WoWScrnShot_111426_175311).
+local ruler
+function Theme.MeasureText(text, sizeKey)
+    if not ruler then
+        local host = CreateFrame("Frame", nil, UIParent)
+        host:SetSize(1, 1); host:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 0)
+        ruler = host:CreateFontString(nil, "BACKGROUND")
+        ruler:SetPoint("BOTTOMLEFT", host, "BOTTOMLEFT", 0, 0)
+        if ruler.SetWordWrap then ruler:SetWordWrap(false) end
+    end
+    Theme.SetFont(ruler, sizeKey)
+    ruler:SetTextColor(0, 0, 0, 0)
+    ruler:SetShadowColor(0, 0, 0, 0)
+    ruler:SetText(text or "")
+    local w = ruler:GetStringWidth() or 0
+    local ok, ub = false, nil
+    if ruler.GetUnboundedStringWidth then ok, ub = pcall(ruler.GetUnboundedStringWidth, ruler) end
+    if ok and type(ub) == "number" and ub > w then w = ub end
+    return w
+end
+-- Sizes under 12 don't take on this client: a ruler at 10 measured exactly as at 12 ("Riverglades"
+-- 81.67 both, trace 2026-11-14 17:57), as the button labels before. A string made by
+-- Theme.ScaledText reaches them by scaling its own frame instead (the W.PanelButton way).
+local MIN_FONT = 12
+function Theme.FitFont(fs, text, width, keys, lines)
+    text = text or ""
+    local plain = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    for i, k in ipairs(keys) do
+        local size = Theme.size[k] or Theme.size.sm
+        local scaled = size < MIN_FONT
+        local mk = scaled and "xs" or k
+        local s = scaled and (size / MIN_FONT) or 1
+        local fits
+        if (lines or 1) > 1 then
+            local widest = 0
+            for word in plain:gmatch("%S+") do widest = math.max(widest, Theme.MeasureText(word, mk) * s) end
+            fits = widest <= width and Theme.MeasureText(plain, mk) * s <= width * (lines - 0.25)
+        else
+            fits = Theme.MeasureText(plain, mk) * s <= width
+        end
+        if (scaled and not fs.scaleFrame) then fits = false end
+        if fits or i == #keys then
+            Theme.SetFont(fs, mk)
+            if fs.scaleFrame then
+                fs.scaleFrame:SetScale(s)
+                if fs.fitWidth then fs:SetWidth(width / s) end
+                if fs.placeArgs then fs.Place(fs.placeArgs[1], fs.placeArgs[2], fs.placeArgs[3]) end
+            end
+            fs:SetText(text)
+            return k
+        end
+    end
+end
+
+-- A font string in a frame of its own covering `parent`, so Theme.FitFont can shrink it past
+-- the client's 12 by scale. Anchor it with fs.Place(point, x, y) (offsets in parent units).
+function Theme.ScaledText(parent, sizeKey, colorName, layer)
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetAllPoints(parent)
+    local fs = Theme.Text(f, sizeKey, colorName, layer)
+    fs.scaleFrame, fs.fitWidth = f, true
+    function fs.Place(point, x, y)
+        local s = f:GetScale() or 1
+        fs.placeArgs = { point, x, y }
+        fs:ClearAllPoints()
+        fs:SetPoint(point, f, point, x / s, y / s)
+    end
+    return fs
 end
 
 function Theme.Text(parent, sizeKey, colorName, layer)

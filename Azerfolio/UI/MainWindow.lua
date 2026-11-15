@@ -316,8 +316,38 @@ local function buildLegend(f)
     lg.info:SetPoint("LEFT", lg, "LEFT", S.s4, 0)
     lg.info:SetPoint("RIGHT", lg.hints, "LEFT", -S.s4, 0)
     lg.info:SetJustifyH("LEFT")
-    lg.info:SetWordWrap(false)
+    -- Two lines when it overflows, the box growing to legendHeightTall (Phase 15 step 2: "Quests
+    -- 43 of 69 (2 unch..." was cut on most pages; the info line is the gamepad user's tooltip).
+    lg.info:SetWordWrap(true)
+    if lg.info.SetMaxLines then lg.info:SetMaxLines(2) end
     f.legend = lg
+end
+
+-- Grows the legend to two lines while the info line overflows one.
+local function fitLegend()
+    local lg = window and window.legend
+    if not lg then return end
+    local L, S = ns.Theme.layout, ns.Theme.space
+    local room = (lg:GetWidth() or 0) - 3 * S.s4 - (lg.hints:GetWidth() or 0)
+    local plain = (lg.info:GetText() or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    local w = ns.Theme.MeasureText(plain, "sm")
+    -- The string's own wrap decides too: the measure alone left a wrapped line in the 44 box
+    -- (WoWScrnShot_111426_180048; the ruler on UIParent and the legend round glyphs apart).
+    -- 4% margin for the ruler's rounding; the line count catches the rest once laid out
+    -- (trace 2026-11-14 18:09: lines=2, height 58; WoWScrnShot_111426_180934).
+    local fs = lg.info
+    local lines = fs.GetNumLines and fs:GetNumLines() or 1
+    local tall = (room > 0 and w * 1.04 > room) or (lines or 1) > 1
+        or (fs:GetStringHeight() or 0) > ns.Theme.size.sm * 1.6
+    lg:SetHeight(tall and L.legendHeightTall or L.legendHeight)
+    return tall
+end
+UI.FitLegend = fitLegend
+
+-- The string's wrap is laid out on the next frame: look again then and grow if it wrapped.
+local function fitLegendSoon()
+    if fitLegend() then return end
+    if C_Timer and C_Timer.After then C_Timer.After(0, fitLegend) end
 end
 
 -- Info line: "<gold>Title</gold> detail". Describes the focused control (gamepad users' tooltip).
@@ -327,6 +357,7 @@ function UI.SetInfo(title, detail)
     if title and title ~= "" then text = "|cffffd100" .. title .. "|r" end
     if detail and detail ~= "" then text = text .. (text ~= "" and "   " or "") .. detail end
     window.legend.info:SetText(text)
+    fitLegendSoon()
 end
 
 -- The current tab's own description.
@@ -382,6 +413,7 @@ function UI.SetHints(hints)
         e.glyph:Hide(); e.glyph2:Hide(); e.text:Hide()
     end
     row:SetWidth(math.max(1, x - S.s4))
+    fitLegendSoon()
 end
 
 -- The focused control's action, the current tab's hints, sections, then B to close.
