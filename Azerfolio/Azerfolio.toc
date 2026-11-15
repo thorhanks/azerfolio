@@ -47,6 +47,7 @@ Systems\ProfessionRules.lua
 Systems\ProfessionSources.lua
 Systems\Professions.lua
 Systems\DungeonRules.lua
+Systems\Dungeons.lua
 Systems\FlightPaths.lua
 Systems\Zones.lua
 Systems\Atlas.lua

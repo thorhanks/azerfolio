@@ -27,6 +27,7 @@ local FILES = {
     "tests/professions_test.lua",
     "tests/dungeons_test.lua",
     "tests/dungeonrules_test.lua",
+    "tests/dungeonsys_test.lua",
     "tests/tools_test.lua",
 }
 

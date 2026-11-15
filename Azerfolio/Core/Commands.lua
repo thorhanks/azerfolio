@@ -18,6 +18,7 @@ local HELP = {
     "/azf debug reputation [mapID|questID ...] - zone factions with their quests, and where watched quests stand in QuestieDB",
     "/azf debug class [questID ...] - your class quest road: each stop's quests and state, and checks against QuestieDB",
     "/azf debug professions [track <recipeID>] - your professions: skill, rank, status, recipes and their sources, trainers, tracked recipes with ingredients (track: switch the game's tracking of a recipe)",
+    "/azf debug dungeons [key] - every dungeon and raid: your quests done, bosses with gear, keys (key, e.g. deadmines: its quests by place, each boss's gear, keys, factions)",
     "/azf debug celebrate explore|quests|flights|claim [mapID] - preview a celebration (window closed: the alert)",
     "/azf debug celebrate stop|road|rank|mastered|rep|exalted - preview a class road, profession or reputation celebration",
     "/azf debug perf - event counts, timings and memory since debug was turned on (reset: start over; gc: collect garbage first)",
@@ -223,6 +224,10 @@ function Commands.Handle(input)
             local rest = {}
             for i = 3, #words do rest[#rest + 1] = words[i] end
             ns.Professions.DebugReport(rest)
+        elseif sub == "dungeons" or sub == "dungeon" then
+            local rest = {}
+            for i = 3, #words do rest[#rest + 1] = words[i] end
+            ns.Dungeons.DebugReport(rest)
         elseif sub == "perf" then
             debugPerf(words[3])
         elseif sub == "celebrate" then

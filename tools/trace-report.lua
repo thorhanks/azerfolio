@@ -9,6 +9,7 @@
 --   reputation          zone factions built (per zone, rivals) and the latest standing read
 --   class               the latest /azf debug class: the road's stops, extras, inferred links, probes
 --   professions         profession windows and trainers recorded, the latest /azf debug professions
+--   dungeons [key]      dungeon builds from QuestieDB, the latest /azf debug dungeons [key] (that key's)
 --   kind <name> [n]     the latest n entries of one kind, one line each
 -- Set AZF_SV_FILE to read a different file.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/Azerfolio.lua"
@@ -289,9 +290,45 @@ function R.professions()
     for _, k in ipairs(keys(d.tracked or {})) do p("  tracked %s", tostring(d.tracked[k])) end
 end
 
+-- Dungeons (Systems/Dungeons, /azf debug dungeons [key]): the QuestieDB builds, then the latest
+-- report: one line per instance and, with a key, that instance's quests, places, bosses and gear.
+function R.dungeons(key)
+    local any = false
+    for _, e in ipairs(trace) do
+        if e.kind == "dungeons" and e.event == "build" then
+            any = true
+            p("  %7.1f build %s%s; quests %s (no record %s), npcs %s, items scanned %s kept %s, npcs with gear %s, read errors %s; work %s ms, max step %s ms, %s steps, elapsed %s ms",
+                e.t or 0, tostring(e.status), e.reason and (" (" .. e.reason .. ")") or "", tostring(e.quests), tostring(e.noRecord),
+                tostring(e.npcs), tostring(e.itemsScanned), tostring(e.itemsKept), tostring(e.npcsWithGear), tostring(e.readErrors),
+                num(e.workMs), num(e.maxStepMs), tostring(e.steps), num(e.elapsedMs))
+            if e.phaseMaxMs then p("           longest stretch between yields: %s", short(e.phaseMaxMs)) end
+        end
+    end
+    if not any then p("no dungeon build in the trace (debug on, /reload, wait for the quest index)") end
+    local want = key and key:lower()
+    local d, di = latest(function(e) return e.kind == "dungeons" and e.report and (not want or tostring(e.key):lower() == want) end)
+    if not d then p("no /azf debug dungeons report in the trace (debug on, /azf debug dungeons, then /reload)"); return end
+    if d.status ~= "ready" then p("report #%d at %.1f: %s %s", di, d.t, tostring(d.status), tostring(d.reason or "")); return end
+    p("report #%d at %.1f in %s ms: level %s %s %s (class bit %s), completion %s; your quests %s/%s, %s instances for your level",
+        di, d.t, num(d.ms), tostring(d.level), tostring(d.faction), tostring(d.classFile), num(d.classBit),
+        d.completionKnown and "known" or "UNKNOWN", tostring(d.done), tostring(d.quests), tostring(d.fit))
+    local inst = {}
+    for k, v in pairs(d.instances or {}) do inst[#inst + 1] = v end
+    table.sort(inst)
+    for _, l in ipairs(inst) do p("  %s", l) end
+    local x = d.detail
+    if x then
+        p("%s: %s; %s items still loading", tostring(d.key), tostring(x.progress), tostring(x.loading))
+        for _, sec in ipairs({ "places", "quests", "bosses", "keys", "factions" }) do
+            p(" %s:", sec)
+            for _, l in ipairs(x[sec] or {}) do p("   %s", l) end
+        end
+    end
+end
+
 local fn = R[section]
 if not fn then
-    p("unknown section %q; sections: summary, last [n], quests, zone <mapID>, perf, reputation, class, professions, kind <name> [n]", section)
+    p("unknown section %q; sections: summary, last [n], quests, zone <mapID>, perf, reputation, class, professions, dungeons, kind <name> [n]", section)
     os.exit(1)
 end
 fn(arg2, arg3)
