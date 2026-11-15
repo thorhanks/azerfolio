@@ -845,3 +845,21 @@ Use the **zone art style block and negative prompt** (§ Zone art) with Elwynn F
 ### The adventurer's road (optional, if the owner picks that view)
 
 One long painted strip behind the medallions, like the Class tab's strips: left to right the world grows darker and higher-level, from green farmland and a lighthouse coast (low levels) through savanna, swamp and desert, to volcanic black mountains and a plagued land at the far right, with a dark citadel at the end for the raids. A pale dirt road winds along the middle. Three 3:2 panels stacked into one strip, like the profession roads (`process-art.ps1`); prompts to write once the view is chosen.
+
+### Card corner flourish (round 3, owner 2026-11-15: "the cards need a custom art border flourish")
+
+The big art cards (Dungeons and Zones) wear the painted gilded card frame (`frame-card`) and a filigree ornament on each corner; the mockup draws the corners as a stand-in. One painted corner, mirrored by code for the other three. Save as `art/source/card-corner.png`; `process-art.ps1` treats it as chrome (`Media/Chrome/card-corner.blp`).
+
+Use the **interface chrome style block** (§ Interface chrome) with `frame-card` attached as the reference. Subject line: `one top-left corner ornament for a gilded picture frame: a gold filigree scroll curling out from the corner along both edges, a small leaf and a round boss at the turn, deep relief, polished gold with dark bronze shadows, on a transparent background; the two arms end in fine points about 80% of the way along; square image.` Negative prompt: `full frame, four corners, text, gems, faces, perspective, background scenery, glow`.
+
+### The adventurer's road backdrop (round 3: the owner kept the Road view)
+
+One long painted strip behind the road, like the Class tab's strips: three 3:2 panels stacked into one 6:1 strip by `process-art.ps1` (as `profroad-<key>-<n>`; here `dungeonroad-<1..3>`, out `Media/Chrome/dungeon-road.blp`). Left to right the land grows darker and higher-level; a pale dirt road winds along the middle third; the top fifth and bottom fifth plain parchment-coloured ground (signs and name plates sit there).
+
+Use the **zone art style block and negative prompt**, with `paladin-alliance` strip panels attached as the style reference, and add: `A panoramic antique-map landscape seen from above at a gentle angle, seamless where panels meet, no buildings larger than a small hut, no landmarks in the top and bottom fifths.`
+
+| File | Subject line |
+|---|---|
+| dungeonroad-1 | Green farmland and a lighthouse on a sea cliff, a mine entrance in a hillside, then dry golden savanna with thorny brambles |
+| dungeonroad-2 | A misty swamp, then red desert canyons with a sand-buried pyramid, then grey highlands with a ruined monastery on a hill |
+| dungeonroad-3 | Black volcanic mountains with lava glow, then a plagued land of dead trees and green fog, ending in a dark spiked citadel at the right edge |

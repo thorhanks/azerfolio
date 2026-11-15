@@ -23,6 +23,9 @@
 --              wings of one instance share it
 --   group      instances that are wings of one place (Scarlet Monastery, Dire Maul, Blackrock Spire)
 --   forever    true for an instance new in Forever
+--   blurb      one line about the place, our own words (the page's subtitle)
+--   keys       keys and attunements: { name, item (QuestieDB item ID, checked by `dungeons check`),
+--              need = "required" | "optional", note } (Classic knowledge, curated 2026-11-15)
 -- Bosses in encounter order where the source gives one, else its infobox order:
 --   name       display name
 --   members    NPC names of a group encounter, when they differ from `name`
@@ -38,14 +41,14 @@ ns.DungeonData = {
     instances = {
         -- Classic dungeons, by level
         { key = "ragefire", name = "Ragefire Chasm", kind = "dungeon", levels = { 15, 21 }, size = 5,
-          zones = { 1454 }, questArea = 2437, bosses = {
+          zones = { 1454 }, questArea = 2437, blurb = "Troggs and cultists in the burning caves beneath Orgrimmar.", bosses = {
             { name = "Oggleflint", npcs = { 11517 } },
             { name = "Taragaman the Hungerer", npcs = { 11520 } },
             { name = "Jergosh the Invoker", npcs = { 11518 } },
             { name = "Bazzalan", npcs = { 11519 } },
         } },
         { key = "deadmines", name = "The Deadmines", kind = "dungeon", levels = { 15, 23 }, size = 5,
-          zones = { 1436 }, questArea = 1581, bosses = {
+          zones = { 1436 }, questArea = 1581, blurb = "The Defias Brotherhood's hidden shipyard under Moonbrook.", bosses = {
             { name = "Rhahk'Zor", npcs = { 644 } },
             { name = "Miner Johnson", rare = true, npcs = { 3586 } },
             { name = "Sneed", npcs = { 643 } },
@@ -56,7 +59,7 @@ ns.DungeonData = {
             { name = "Edwin VanCleef", npcs = { 639 } },
         } },
         { key = "wailing", name = "Wailing Caverns", kind = "dungeon", levels = { 17, 24 }, size = 5,
-          zones = { 1413 }, questArea = 718, bosses = {
+          zones = { 1413 }, questArea = 718, blurb = "A druid's dream gone wrong in the caverns of the Barrens.", bosses = {
             { name = "Lady Anacondra", npcs = { 3671 } },
             { name = "Kresh", optional = true, npcs = { 3653 } },
             { name = "Lord Cobrahn", npcs = { 3669 } },
@@ -68,7 +71,7 @@ ns.DungeonData = {
             { name = "Mutanus the Devourer", npcs = { 3654 } },
         } },
         { key = "shadowfang", name = "Shadowfang Keep", kind = "dungeon", levels = { 18, 24 }, size = 5,
-          zones = { 1421 }, questArea = 209, bosses = {
+          zones = { 1421 }, questArea = 209, blurb = "Archmage Arugal's keep, where the worgen run loose.", bosses = {
             { name = "Rethilgore", npcs = { 3914 } },
             { name = "Razorclaw the Butcher", npcs = { 3886 } },
             { name = "Baron Silverlaine", npcs = { 3887 } },
@@ -80,7 +83,7 @@ ns.DungeonData = {
             { name = "Archmage Arugal", npcs = { 4275 } },
         } },
         { key = "stockade", name = "The Stockade", kind = "dungeon", levels = { 22, 30 }, size = 5,
-          zones = { 1453 }, questArea = 717, bosses = {
+          zones = { 1453 }, questArea = 717, blurb = "Stormwind's prison, taken over by its inmates.", bosses = {
             { name = "Targorr the Dread", npcs = { 1696 } },
             { name = "Kam Deepfury", npcs = { 1666 } },
             { name = "Hamhock", npcs = { 1717 } },
@@ -89,7 +92,7 @@ ns.DungeonData = {
             { name = "Bruegal Ironknuckle", rare = true, npcs = { 1720 } },
         } },
         { key = "blackfathom", name = "Blackfathom Deeps", kind = "dungeon", levels = { 24, 32 }, size = 5,
-          zones = { 1440 }, questArea = 719, bosses = {
+          zones = { 1440 }, questArea = 719, blurb = "A drowned night elf temple full of naga and cultists.", bosses = {
             { name = "Ghamoo-Ra", npcs = { 4887 } },
             { name = "Lady Sarevess", npcs = { 4831 } },
             { name = "Gelihast", npcs = { 6243 } },
@@ -100,7 +103,7 @@ ns.DungeonData = {
             { name = "Aku'mai", npcs = { 4829 } },
         } },
         { key = "gnomeregan", name = "Gnomeregan", kind = "dungeon", levels = { 29, 38 }, size = 5,
-          zones = { 1426 }, questArea = 133, bosses = {
+          zones = { 1426 }, questArea = 133, blurb = "The gnomes' irradiated capital, lost to the troggs.", keys = { { name = "Workshop Key", item = 6893, need = "optional", note = "Opens the workshop door, a shortcut" } }, bosses = {
             { name = "Grubbis", members = { "Grubbis", "Chomper" }, npcs = { 7361, 6215 } },
             { name = "Viscous Fallout", npcs = { 7079 } },
             { name = "Electrocutioner 6000", npcs = { 6235 } },
@@ -109,7 +112,7 @@ ns.DungeonData = {
             { name = "Mekgineer Thermaplugg", npcs = { 7800 } },
         } },
         { key = "razorfenKraul", name = "Razorfen Kraul", kind = "dungeon", levels = { 29, 38 }, size = 5,
-          zones = { 1413 }, questArea = 1717, bosses = {
+          zones = { 1413 }, questArea = 1717, blurb = "The quillboar's thorn warren in the southern Barrens.", bosses = {
             { name = "Roogug", npcs = { 6168 } },
             { name = "Aggem Thorncurse", npcs = { 4424 } },
             { name = "Death Speaker Jargba", npcs = { 4428 } },
@@ -120,7 +123,7 @@ ns.DungeonData = {
             { name = "Charlga Razorflank", npcs = { 4421 } },
         } },
         { key = "smGraveyard", name = "Scarlet Monastery: Graveyard", kind = "dungeon", levels = { 26, 36 }, size = 5,
-          zones = { 1420 }, questArea = 796, group = "Scarlet Monastery", bosses = {
+          zones = { 1420 }, questArea = 796, group = "Scarlet Monastery", blurb = "The Scarlet Crusade's restless cemetery.", bosses = {
             { name = "Interrogator Vishas", npcs = { 3983 } },
             { name = "Azshir the Sleepless", rare = true, npcs = { 6490 } },
             { name = "Fallen Champion", rare = true, npcs = { 6488 } },
@@ -128,21 +131,21 @@ ns.DungeonData = {
             { name = "Bloodmage Thalnos", npcs = { 4543 } },
         } },
         { key = "smLibrary", name = "Scarlet Monastery: Library", kind = "dungeon", levels = { 29, 39 }, size = 5,
-          zones = { 1420 }, questArea = 796, group = "Scarlet Monastery", bosses = {
+          zones = { 1420 }, questArea = 796, group = "Scarlet Monastery", blurb = "The Crusade's library, guarded by hound and arcanist.", bosses = {
             { name = "Houndmaster Loksey", npcs = { 3974 } },
             { name = "Arcanist Doan", npcs = { 6487 } },
         } },
         { key = "smArmory", name = "Scarlet Monastery: Armory", kind = "dungeon", levels = { 32, 42 }, size = 5,
-          zones = { 1420 }, questArea = 796, group = "Scarlet Monastery", bosses = {
+          zones = { 1420 }, questArea = 796, group = "Scarlet Monastery", blurb = "Where the Scarlet Crusade trains its champions.", bosses = {
             { name = "Herod", npcs = { 3975 } },
         } },
         { key = "smCathedral", name = "Scarlet Monastery: Cathedral", kind = "dungeon", levels = { 35, 45 }, size = 5,
-          zones = { 1420 }, questArea = 796, group = "Scarlet Monastery", bosses = {
+          zones = { 1420 }, questArea = 796, group = "Scarlet Monastery", blurb = "The heart of the Crusade and its two leaders.", bosses = {
             { name = "High Inquisitor Fairbanks", npcs = { 4542 } },
             { name = "Scarlet Commander Mograine and High Inquisitor Whitemane", members = { "Scarlet Commander Mograine", "High Inquisitor Whitemane" }, npcs = { 3976, 3977 } },
         } },
         { key = "razorfenDowns", name = "Razorfen Downs", kind = "dungeon", levels = { 37, 46 }, size = 5,
-          zones = { 1441 }, questArea = 722, bosses = {
+          zones = { 1441 }, questArea = 722, blurb = "The quillboar's last mound, swallowed by the Scourge.", bosses = {
             { name = "Tuten'kash", npcs = { 7355 } },
             { name = "Plaguemaw the Rotting", optional = true, npcs = { 7356 } },
             { name = "Mordresh Fire Eye", npcs = { 7357 } },
@@ -151,7 +154,7 @@ ns.DungeonData = {
             { name = "Amnennar the Coldbringer", npcs = { 7358 } },
         } },
         { key = "uldaman", name = "Uldaman", kind = "dungeon", levels = { 42, 52 }, size = 5,
-          zones = { 1418 }, questArea = 1517, bosses = {
+          zones = { 1418 }, questArea = 1517, blurb = "A titan vault under the Badlands, dug up by dwarves.", bosses = {
             { name = "Revelosh", npcs = { 6910 } },
             { name = "The Lost Dwarves", members = { "Baelog", "Eric \"The Swift\"", "Olaf" }, npcs = { 6906, 6907, 6908 } },
             { name = "Ironaya", npcs = { 7228 } },
@@ -162,7 +165,7 @@ ns.DungeonData = {
             { name = "Archaedas", npcs = { 2748 } },
         } },
         { key = "zulfarrak", name = "Zul'Farrak", kind = "dungeon", levels = { 44, 54 }, size = 5,
-          zones = { 1446 }, questArea = 978, bosses = {
+          zones = { 1446 }, questArea = 978, blurb = "The Sandfury trolls' sun-scorched city in Tanaris.", keys = { { name = "Mallet of Zul'Farrak", item = 9240, need = "optional", note = "Summons Gahz'rilla at the sacred pool" } }, bosses = {
             { name = "Zerillis", rare = true, npcs = { 10082 } },
             { name = "Sandarr Dunereaver", rare = true, npcs = { 10080 } },
             { name = "Theka the Martyr", npcs = { 7272 } },
@@ -178,7 +181,7 @@ ns.DungeonData = {
             { name = "Chief Ukorz Sandscalp", npcs = { 7267 } },
         } },
         { key = "maraudon", name = "Maraudon", kind = "dungeon", levels = { 45, 52 }, size = 5,
-          zones = { 1443 }, questArea = 2100, bosses = {
+          zones = { 1443 }, questArea = 2100, blurb = "Princess Theradras's crystal caverns in Desolace.", bosses = {
             { name = "Noxxion", npcs = { 13282 } },
             { name = "Razorlash", npcs = { 12258 } },
             { name = "Lord Vyletongue", npcs = { 12236 } },
@@ -190,7 +193,7 @@ ns.DungeonData = {
             { name = "Princess Theradras", npcs = { 12201 } },
         } },
         { key = "sunkenTemple", name = "Sunken Temple", kind = "dungeon", levels = { 50, 60 }, size = 5,
-          zones = { 1435 }, questArea = 1417, bosses = {
+          zones = { 1435 }, questArea = 1417, blurb = "The drowned temple where the Atal'ai call on Hakkar.", bosses = {
             { name = "Atal'alarion", optional = true, npcs = { 8580 } },
             { name = "Veyzhak the Cannibal", rare = true, npcs = { 5399 } },
             { name = "Zekkis", rare = true, npcs = { 5400 } },
@@ -205,7 +208,7 @@ ns.DungeonData = {
             { name = "Shade of Eranikus", npcs = { 5709 } },
         } },
         { key = "blackrockDepths", name = "Blackrock Depths", kind = "dungeon", levels = { 52, 60 }, size = 5,
-          zones = { 1427, 1428 }, questArea = 1584, bosses = {
+          zones = { 1427, 1428 }, questArea = 1584, blurb = "The Dark Iron dwarves' molten city under Blackrock.", keys = { { name = "Shadowforge Key", item = 11000, need = "optional", note = "Opens the Shadowforge doors to the inner city" } }, bosses = {
             { name = "High Interrogator Gerstahn", npcs = { 9018 } },
             { name = "Lord Roccor", npcs = { 9025 } },
             { name = "Houndmaster Grebmar", npcs = { 9319 } },
@@ -235,7 +238,7 @@ ns.DungeonData = {
             { name = "Emperor Dagran Thaurissan", npcs = { 9019 } },
         } },
         { key = "lowerSpire", name = "Lower Blackrock Spire", kind = "dungeon", levels = { 55, 60 }, size = 5,
-          zones = { 1427, 1428 }, questArea = 1583, group = "Blackrock Spire", bosses = {
+          zones = { 1427, 1428 }, questArea = 1583, group = "Blackrock Spire", blurb = "The orc and ogre camps of Blackrock Spire's lower halls.", bosses = {
             { name = "Highlord Omokk", npcs = { 9196 } },
             { name = "Spirestone Butcher", rare = true, npcs = { 9219 } },
             { name = "Spirestone Battle Lord", rare = true, npcs = { 9218 } },
@@ -255,7 +258,7 @@ ns.DungeonData = {
             { name = "Overlord Wyrmthalak", npcs = { 9568 } },
         } },
         { key = "dmEast", name = "Dire Maul: East", kind = "dungeon", levels = { 55, 60 }, size = 5,
-          zones = { 1444 }, questArea = 2557, group = "Dire Maul", bosses = {
+          zones = { 1444 }, questArea = 2557, group = "Dire Maul", blurb = "Warpwood Quarter, overgrown by a corrupted ancient.", bosses = {
             { name = "Pusillin", npcs = { 14354 } },
             { name = "Lethtendris", members = { "Lethtendris", "Pimgib" }, npcs = { 14327, 14349 } },
             { name = "Hydrospawn", npcs = { 13280 } },
@@ -263,7 +266,7 @@ ns.DungeonData = {
             { name = "Alzzin the Wildshaper", npcs = { 11492 } },
         } },
         { key = "dmWest", name = "Dire Maul: West", kind = "dungeon", levels = { 55, 60 }, size = 5,
-          zones = { 1444 }, questArea = 2557, group = "Dire Maul", bosses = {
+          zones = { 1444 }, questArea = 2557, group = "Dire Maul", blurb = "Capital Gardens, where the Highborne still cling on.", keys = { { name = "Crescent Key", item = 18249, need = "optional", note = "Opens the inner doors of Dire Maul" } }, bosses = {
             { name = "Tendris Warpwood", npcs = { 11489 } },
             { name = "Tsu'zee", rare = true, npcs = { 11467 } },
             { name = "Magister Kalendris", npcs = { 11487 } },
@@ -272,7 +275,7 @@ ns.DungeonData = {
             { name = "Prince Tortheldrin", npcs = { 11486 } },
         } },
         { key = "dmNorth", name = "Dire Maul: North", kind = "dungeon", levels = { 55, 60 }, size = 5,
-          zones = { 1444 }, questArea = 2557, group = "Dire Maul", bosses = {
+          zones = { 1444 }, questArea = 2557, group = "Dire Maul", blurb = "The ogres' Gordok Commons and King Gordok's throne.", keys = { { name = "Crescent Key", item = 18249, need = "optional", note = "Opens the inner doors of Dire Maul" } }, bosses = {
             { name = "Guard Mol'dar", npcs = { 14326 } },
             { name = "Stomper Kreeg", npcs = { 14322 } },
             { name = "Guard Fengus", npcs = { 14321 } },
@@ -282,7 +285,7 @@ ns.DungeonData = {
             { name = "King Gordok", npcs = { 11501 } },
         } },
         { key = "scholomance", name = "Scholomance", kind = "dungeon", levels = { 55, 60 }, size = 5,
-          zones = { 1422 }, questArea = 2057, bosses = {
+          zones = { 1422 }, questArea = 2057, blurb = "The Cult of the Damned's school of necromancy at Caer Darrow.", keys = { { name = "Skeleton Key", item = 13704, need = "required", note = "Opens the doors into Scholomance" } }, bosses = {
             { name = "Kirtonos the Herald", optional = true, npcs = { 10506 } },
             { name = "Jandice Barov", npcs = { 10503 } },
             { name = "Rattlegore", npcs = { 11622 } },
@@ -298,7 +301,7 @@ ns.DungeonData = {
             { name = "Darkmaster Gandling", npcs = { 1853 } },
         } },
         { key = "stratholme", name = "Stratholme", kind = "dungeon", levels = { 56, 61 }, size = 5,
-          zones = { 1423 }, questArea = 2017, bosses = {
+          zones = { 1423 }, questArea = 2017, blurb = "The burning, plagued city, split between Scarlet and Scourge.", keys = { { name = "Key to the City", item = 12382, need = "optional", note = "Opens the Service Entrance gate from the Main Gate side" } }, bosses = {
             { name = "Skul", rare = true, wing = "Main Gate", npcs = { 10393 } },
             { name = "The Unforgiven", wing = "Main Gate", npcs = { 10516 } },
             { name = "Hearthsinger Forresten", rare = true, wing = "Main Gate", npcs = { 10558 } },
@@ -317,7 +320,7 @@ ns.DungeonData = {
             { name = "Baron Rivendare", wing = "Service Entrance", npcs = { 10440 } },
         } },
         { key = "upperSpire", name = "Upper Blackrock Spire", kind = "dungeon", levels = { 56, 61 }, size = 10,
-          zones = { 1427, 1428 }, questArea = 1583, group = "Blackrock Spire", bosses = {
+          zones = { 1427, 1428 }, questArea = 1583, group = "Blackrock Spire", blurb = "General Drakkisath's halls at the top of Blackrock Spire.", keys = { { name = "Seal of Ascension", item = 12344, need = "required", note = "Opens the door to Upper Blackrock Spire" } }, bosses = {
             { name = "Pyroguard Emberseer", npcs = { 9816 } },
             { name = "Solakar Flamewreath", npcs = { 10264 } },
             { name = "Jed Runewatcher", rare = true, npcs = { 10509 } },
@@ -330,14 +333,14 @@ ns.DungeonData = {
 
         -- Forever dungeons, by level
         { key = "hallOfThanes", name = "Hall of Thanes", kind = "dungeon", levels = { 13, 18 }, size = 5,
-          zones = { 1455 }, questArea = 16919, forever = true, bosses = {
+          zones = { 1455 }, questArea = 16919, forever = true, blurb = "The royal dwarven tombs beneath Ironforge, disturbed at last.", bosses = {
             { name = "Faldrim Anvilmar", npcs = { 261306 } },
             { name = "Magmatus", npcs = { 261316 } },
             { name = "Plunder", npcs = { 261311 } },
             { name = "Durgen Dirgehammer", npcs = { 261319 } },
         } },
         { key = "ruinsOfLordaeron", name = "Ruins of Lordaeron", kind = "dungeon", levels = { 15, 22 }, size = 5,
-          zones = { 1420 }, questArea = 16611, forever = true, bosses = {
+          zones = { 1420 }, questArea = 16611, forever = true, blurb = "The Forsaken take back the ruins of Lordaeron's throne room.", bosses = {
             { name = "Witherfang", npcs = { 250483 } },
             { name = "The Baron", npcs = { 250660 } },
             { name = "Viktor the Vile", npcs = { 256035 } },
@@ -347,13 +350,13 @@ ns.DungeonData = {
             { name = "Lordaeron Captain", rare = true, npcs = { 255699 } },
         } },
         { key = "excavationSite", name = "Excavation Site: Wetlands", kind = "dungeon", levels = { 26, 32 }, size = 5,
-          zones = { 1437 }, forever = true, bosses = {
+          zones = { 1437 }, forever = true, blurb = "A dig above Whelgar's Excavation that found something old.", bosses = {
             { name = "Saltspine", npcs = { 260322 } },
             { name = "Shadetooth", npcs = { 260325 } },
             { name = "Relic Guardian", npcs = { 260326 } },
         } },
         { key = "dalaran", name = "City of Dalaran", kind = "dungeon", levels = { 28, 34 }, size = 5,
-          zones = { 1416 }, forever = true, bosses = {
+          zones = { 1416 }, forever = true, blurb = "Strange magic in the sewers under the walled city of Dalaran.", keys = { { name = "Dalaran Sewer Key", item = 277507, need = "required", note = "Passes the wards on the sewer grate" } }, bosses = {
             { name = "Atrexis the Grave Knight", npcs = { 247126 } },
             { name = "Lyn the Ignored", optional = true, npcs = { 247032 } },
             { name = "Arcane Anomaly", npcs = { 245999 } },
@@ -364,7 +367,7 @@ ns.DungeonData = {
             { name = "Shade of the Archmage", npcs = { 246020 } },
         } },
         { key = "drownedCity", name = "The Drowned City", kind = "dungeon", levels = { 35, 42 }, size = 5,
-          zones = { 1434 }, forever = true, bosses = {
+          zones = { 1434 }, forever = true, blurb = "Naga and pirates in a sunken city off Stranglethorn.", bosses = {
             { name = "Zul'Alai", npcs = { 258905 } },
             { name = "Var'Taka", npcs = { 258924 } },
             { name = "Primeval Elemental", npcs = { 263886 } },
@@ -376,7 +379,7 @@ ns.DungeonData = {
             { name = "\"Pyromancer\" Braxton", rare = true, npcs = { 260468 } },
         } },
         { key = "kroldok", name = "Krol'dok Stronghold", kind = "dungeon", levels = { 40, 45 }, size = 5,
-          zones = { 2548 }, forever = true, bosses = {
+          zones = { 2548 }, forever = true, blurb = "An ogre warlord's stronghold in the Riverglades.", bosses = {
             { name = "Slavecrusher Grox", npcs = { 258966 } },
             { name = "Twilight Commander Zarmok", npcs = { 258972 } },
             { name = "War Handler Ashka", npcs = { 259281 } },
@@ -385,7 +388,7 @@ ns.DungeonData = {
             { name = "Overlord Mugg", npcs = { 258968 } },
         } },
         { key = "alcazPrison", name = "Alcaz Prison", kind = "dungeon", levels = { 48, 53 }, size = 5,
-          zones = { 1445 }, forever = true, bosses = {
+          zones = { 1445 }, forever = true, blurb = "The island prison off Dustwallow, and the rumours it holds.", bosses = {
             { name = "The Questioner", npcs = { 256236 } },
             { name = "Tidemistress Ca'zass", npcs = { 255997 } },
             { name = "Overseer Wrex", npcs = { 255391 } },
@@ -393,7 +396,7 @@ ns.DungeonData = {
             { name = "Blazeroar", npcs = { 255702 } },
         } },
         { key = "blackmawHold", name = "Blackmaw Hold", kind = "dungeon", levels = { 55, 60 }, size = 5,
-          zones = { 1447 }, forever = true, bosses = {
+          zones = { 1447 }, forever = true, blurb = "A corrupted furbolg tribe behind a long-sealed gate in Azshara.", bosses = {
             { name = "Bonesnout the Unbroken", npcs = { 247198 } },
             { name = "Elder Shaman Bloodmane", npcs = { 247209 } },
             { name = "Impaan the Imprisoner", npcs = { 247206 } },
@@ -404,7 +407,7 @@ ns.DungeonData = {
             { name = "Tunnelweb Matriarch", rare = true, npcs = { 250034 } },
         } },
         { key = "shapersTerrace", name = "Shaper's Terrace", kind = "dungeon", levels = { 58, 60 }, size = 5,
-          zones = { 1449 }, forever = true, bosses = {
+          zones = { 1449 }, forever = true, blurb = "Titan mysteries on Un'Goro's rim, powered by four crystals.", bosses = {
             -- No set order; five are needed to finish, the rest optional (Warcraft Tavern).
             { name = "Cinder", optional = true, npcs = { 261974 } },
             { name = "Titanosaur", optional = true, npcs = { 253201 } },
@@ -420,7 +423,7 @@ ns.DungeonData = {
 
         -- Raids
         { key = "zulgurub", name = "Zul'Gurub", kind = "raid", levels = { 58, 60 }, size = 20,
-          zones = { 1434 }, questArea = 1977, bosses = {
+          zones = { 1434 }, questArea = 1977, blurb = "The Gurubashi capital, where Hakkar the Soulflayer returns.", bosses = {
             { name = "High Priestess Jeklik", npcs = { 14517 } },
             { name = "High Priest Venoxis", npcs = { 14507 } },
             { name = "High Priestess Mar'li", npcs = { 14510 } },
@@ -436,11 +439,11 @@ ns.DungeonData = {
             { name = "Hakkar", npcs = { 14834 } },
         } },
         { key = "onyxia", name = "Onyxia's Lair", kind = "raid", levels = { 60, 60 }, size = 40,
-          zones = { 1445 }, questArea = 2159, bosses = {
+          zones = { 1445 }, questArea = 2159, blurb = "The black dragonflight's broodmother in her Dustwallow lair.", keys = { { name = "Drakefire Amulet", item = 16309, need = "required", note = "Lets you into Onyxia's Lair (an attunement chain)" } }, bosses = {
             { name = "Onyxia", npcs = { 10184 } },
         } },
         { key = "moltenCore", name = "Molten Core", kind = "raid", levels = { 60, 60 }, size = 40,
-          zones = { 1427, 1428 }, questArea = 2717, bosses = {
+          zones = { 1427, 1428 }, questArea = 2717, blurb = "Ragnaros and his lieutenants in the heart of Blackrock.", bosses = {
             { name = "Lucifron", npcs = { 12118 } },
             { name = "Magmadar", npcs = { 11982 } },
             { name = "Gehennas", npcs = { 12259 } },
@@ -453,7 +456,7 @@ ns.DungeonData = {
             { name = "Ragnaros", npcs = { 11502 } },
         } },
         { key = "blackwingLair", name = "Blackwing Lair", kind = "raid", levels = { 60, 60 }, size = 40,
-          zones = { 1427, 1428 }, questArea = 2677, bosses = {
+          zones = { 1427, 1428 }, questArea = 2677, blurb = "Nefarian's laboratories at the summit of Blackrock Spire.", keys = { { name = "Blackhand's Command", item = 18987, need = "required", note = "The attunement to Blackwing Lair" } }, bosses = {
             { name = "Razorgore the Untamed", npcs = { 12435 } },
             { name = "Vaelastrasz the Corrupt", npcs = { 13020 } },
             { name = "Broodlord Lashlayer", npcs = { 12017 } },
@@ -464,7 +467,7 @@ ns.DungeonData = {
             { name = "Nefarian", npcs = { 11583 } },
         } },
         { key = "ruinsOfAhnQiraj", name = "Ruins of Ahn'Qiraj", kind = "raid", levels = { 60, 60 }, size = 20,
-          zones = { 1451 }, questArea = 3429, bosses = {
+          zones = { 1451 }, questArea = 3429, blurb = "The outer ruins of the silithid city in Silithus.", bosses = {
             { name = "Kurinnaxx", npcs = { 15348 } },
             { name = "General Rajaxx", npcs = { 15341 } },
             { name = "Moam", optional = true, npcs = { 15340 } },
@@ -473,7 +476,7 @@ ns.DungeonData = {
             { name = "Ossirian the Unscarred", npcs = { 15339 } },
         } },
         { key = "templeOfAhnQiraj", name = "Temple of Ahn'Qiraj", kind = "raid", levels = { 60, 60 }, size = 40,
-          zones = { 1451 }, questArea = 3428, bosses = {
+          zones = { 1451 }, questArea = 3428, blurb = "The temple of the Old God C'Thun.", bosses = {
             { name = "The Prophet Skeram", npcs = { 15263 } },
             { name = "Silithid Royalty", members = { "Vem", "Princess Yauj", "Lord Kri" }, optional = true, npcs = { 15544, 15543, 15511 } },
             { name = "Battleguard Sartura", npcs = { 15516 } },
@@ -485,7 +488,7 @@ ns.DungeonData = {
             { name = "C'Thun", npcs = { 15727 } },
         } },
         { key = "naxxramas", name = "Naxxramas", kind = "raid", levels = { 60, 60 }, size = 40,
-          zones = { 1423 }, questArea = 3456, bosses = {
+          zones = { 1423 }, questArea = 3456, blurb = "Kel'Thuzad's floating necropolis over the Plaguelands.", bosses = {
             { name = "Anub'Rekhan", wing = "Spider Wing", npcs = { 15956 } },
             { name = "Grand Widow Faerlina", wing = "Spider Wing", npcs = { 15953 } },
             { name = "Maexxna", wing = "Spider Wing", npcs = { 15952 } },

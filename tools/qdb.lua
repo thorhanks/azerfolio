@@ -405,7 +405,7 @@ elseif cmd == "dungeons" then
                 end
             end
         end
-        local quests = load()
+        local quests, qtabs = load(function(_, f) return f == 26 end)
         local qByArea = {}
         for id, q in pairs(quests) do
             local a = q[17]
@@ -445,21 +445,49 @@ elseif cmd == "dungeons" then
             local qs = {}
             for _, qid in ipairs(inst.questArea and qByArea[inst.questArea] or {}) do
                 local q = quests[qid]
-                -- [id, name, quest level, required level, side "A"/"H"/"", class mask (0 = any class)]
-                qs[#qs + 1] = string.format("[%d,%s,%d,%d,%s,%d]", qid, js(q[1]), q[5] or 0, q[4] or 0, js(side(q[6])),
-                    type(q[7]) == "number" and q[7] or 0)
+                -- [id, name, quest level, required level, side "A"/"H"/"", class mask (0 = any class),
+                --  reputation rewards [[factionID, amount], ...] (QuestieDB base values)]
+                local reps = {}
+                for _, r in ipairs(qtabs[qid] and qtabs[qid][26] or {}) do reps[#reps + 1] = string.format("[%d,%d]", r[1] or 0, r[2] or 0) end
+                qs[#qs + 1] = string.format("[%d,%s,%d,%d,%s,%d,[%s]]", qid, js(q[1]), q[5] or 0, q[4] or 0, js(side(q[6])),
+                    type(q[7]) == "number" and q[7] or 0, table.concat(reps, ","))
             end
             table.sort(qs)
-            out[#out + 1] = string.format("{key:%s,name:%s,kind:%s,lv:[%d,%d],size:%d,zones:[%s],group:%s,forever:%s,qa:%s,\n bosses:[%s],\n quests:[%s]},",
+            local keys = {}
+            for _, k in ipairs(inst.keys or {}) do
+                keys[#keys + 1] = string.format("{name:%s,item:%d,need:%s,note:%s}", js(k.name), k.item or 0, js(k.need), js(k.note))
+            end
+            out[#out + 1] = string.format("{key:%s,name:%s,kind:%s,lv:[%d,%d],size:%d,zones:[%s],group:%s,forever:%s,qa:%s,blurb:%s,keys:[%s],\n bosses:[%s],\n quests:[%s]},",
                 js(inst.key), js(inst.name), js(inst.kind), inst.levels[1], inst.levels[2], inst.size, table.concat(inst.zones, ","),
                 inst.group and js(inst.group) or "null", inst.forever and "true" or "false", tostring(inst.questArea or "null"),
-                table.concat(bosses, ",\n  "), table.concat(qs, ","))
+                js(inst.blurb or ""), table.concat(keys, ","), table.concat(bosses, ",\n  "), table.concat(qs, ","))
         end
         out[#out + 1] = "];"
         print(table.concat(out, "\n"))
         return
     end
     local problems, total = 0, 0
+    -- Keys and attunements: item IDs by exact name (find), or the ID's name must match (check).
+    local itemByName = {}
+    for id, r in pairs(items) do
+        if type(r[1]) == "string" then local k = r[1]:lower(); itemByName[k] = itemByName[k] or {}; table.insert(itemByName[k], id) end
+    end
+    for _, inst in ipairs(data.instances) do
+        for _, k in ipairs(inst.keys or {}) do
+            local c = itemByName[k.name:lower()] or {}
+            table.sort(c)
+            if mode == "find" and not k.item then
+                if #c == 0 then problems = problems + 1; print(string.format("NONE %-16s key %s", inst.key, k.name))
+                else print(string.format("%s %-16s key %-26s %s", #c == 1 and "OK  " or "PICK", inst.key, k.name, table.concat(c, ", ")))
+                    print(string.format("  => key %s | %s | item = %d", inst.key, k.name, c[1])) end
+            elseif mode == "check" then
+                if not k.item then problems = problems + 1; print(string.format("MISSING %-16s key %s", inst.key, k.name))
+                elseif not items[k.item] or tostring(items[k.item][1]):lower() ~= k.name:lower() then
+                    problems = problems + 1; print(string.format("KEYNAME %-16s key %s: item %d is %s", inst.key, k.name, k.item, tostring(items[k.item] and items[k.item][1])))
+                end
+            end
+        end
+    end
     for _, inst in ipairs(data.instances) do
         for _, b in ipairs(inst.bosses) do
             local names = b.members or { b.name }
