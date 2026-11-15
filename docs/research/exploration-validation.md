@@ -13,7 +13,7 @@ Exploration objectives and their completion come from the zone's **"Explore <zon
 - **Completion:** the `completed` return (3rd).
 - **Name:** the criteria string (1st), already localized by the client.
 
-Explored map textures are not used. They don't correspond to criteria (6 textures for 5 done areas; textures in zones never visited).
+Explored map textures are not used for progress. They don't correspond to criteria (6 textures for 5 done areas; textures in zones never visited). Since Phase 15 step 6 they're drawn on the Exploration page's zone map, for display only (probe in `client-capabilities.md`, "Drawing the zone map").
 
 ## Discovery test
 

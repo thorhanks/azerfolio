@@ -1068,6 +1068,29 @@ return function(t)
         t.eq(d.headers[3] == nil or not d.headers[3]:IsShown(), true, "no unknown areas: no third section")
     end)
 
+    t.test("zone detail: the exploration page shows the zone map beside a one-column list", function()
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        slash("")
+        local savedA, savedT = _G.C_Map.GetMapArtLayers, _G.C_Map.GetMapArtLayerTextures
+        local savedE = _G.C_MapExplorationInfo
+        _G.C_Map.GetMapArtLayers = function() return { { layerWidth = 1002, layerHeight = 668, tileWidth = 256, tileHeight = 256 } } end
+        _G.C_Map.GetMapArtLayerTextures = function() local ids = {} for i = 1, 12 do ids[i] = 100 + i end return ids end
+        _G.C_MapExplorationInfo = { GetExploredMapTextures = function()
+            return { { offsetX = 0, offsetY = 0, textureWidth = 512, textureHeight = 256, fileDataIDs = { 1, 2 } } } end }
+        local d = openPage(ns, ELWYNN, "explore")
+        _G.C_Map.GetMapArtLayers, _G.C_Map.GetMapArtLayerTextures, _G.C_MapExplorationInfo = savedA, savedT, savedE
+        local zm = d.zmap
+        t.ok(zm:IsShown(), "the map is shown")
+        t.eq(#zm.base, 12); t.eq(#zm.pieces, 2)
+        t.ok(zm.base[1]:IsShown() and zm.pieces[2]:IsShown())
+        t.ok(zm.legend[1]:IsShown(), "not fully explored: the fog's legend")
+        local rows = page(ns).detailRows
+        for _, r in ipairs(rows) do t.eq(#r.items, 1, "one area per row beside the map") end
+        t.eq(#ns.Debug.errors, 0)
+        openPage(ns, { mapID = 1411, name = "Durotar", continent = "Kalimdor" }, "explore")
+        t.eq(d.zmap:IsShown(), false, "no art from the client: no map")
+    end)
+
     t.test("zone detail: areas with unknown state are listed, not counted, and explained", function()
         padUI = true
         local ns = boot({ schemaVersion = 4, lastTab = "zones" })

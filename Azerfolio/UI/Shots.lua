@@ -262,9 +262,51 @@ local function professionSteps()
     return out
 end
 
+-- /azf shots explore: the Exploration page and its zone map (Phase 15 step 6) for the player's
+-- zone at the normal, minimum and wide sizes, then a fully explored zone and one with no area
+-- found yet, where the character has them.
+local function exploreSteps()
+    local zones = allZones()
+    local here = C_Map and C_Map.GetBestMapForUnit
+        and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
+    local pick, full, none
+    for _, z in ipairs(zones) do
+        local ok, ex = pcall(ns.Exploration.ForZone, z)
+        if ok and ex and ex.status == "tracked" then
+            if z.mapID == here or not pick then pick = z end
+            local p = ex.progress
+            if p.trackedComplete and not full and z.mapID ~= here then full = z end
+            if p.complete == 0 and not none then none = z end
+        end
+    end
+    local function open(z, w, h)
+        return function()
+            local page = zonesPage()
+            if not (page and z) then return false end
+            if w then
+                if page.mode == "detail" then page:Back() end
+                UI.SelectTab("zones"); UI.FitSize(w, h)
+                page:Open(z); UI.shotsOpenedDetail = true
+            else
+                openDetail(z)
+            end
+            page:OpenPage("explore")
+            return true
+        end
+    end
+    local r = ns.Config.RANGES
+    local list = { { label = "explore", fn = open(pick) },
+        { label = "explore at minimum size", fn = open(pick, r["window.width"][1], r["window.height"][1]) },
+        { label = "explore wide", fn = open(pick, wideSize()) } }
+    if full then list[#list + 1] = { label = "explore, fully explored", fn = open(full) } end
+    if none and none ~= pick then list[#list + 1] = { label = "explore, nothing found yet", fn = open(none) } end
+    return list
+end
+
 -- Each step changes the window, then one screenshot is taken.
 local function steps(which)
     if which == "banners" then return bannerSteps() end
+    if which == "explore" then return exploreSteps() end
     if which == "class" then return classSteps() end
     if which == "professions" or which == "profs" then return professionSteps() end
     if which == "reputation" or which == "rep" then

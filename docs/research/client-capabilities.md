@@ -60,6 +60,13 @@ Elwynn Forest (776) has 12 criteria, 5 done on Gideon: Jerod's Landing, Northshi
 - Zone maps with no explore achievement: the six capitals (1453–1458) and Zephras Isle (2521, plus orphan 2665). [verified-ingame]
 - `C_MapExplorationInfo.GetExploredMapTextures(mapID)`: Elwynn returns 6 textures while 5 criteria are done. Alterac Mountains and Moonglade return 1 texture each with 0 criteria done, on a character who has never been there. **Not usable for completion.** [verified-ingame]
 - Texture entries have `fileDataIDs`, `offsetX/Y`, `textureWidth/Height`, `hitRect`, `isShownByMouseOver`, `isDrawOnTopLayer`. They could help draw a map highlight later. [verified-ingame]
+- **Drawing the zone map in an addon frame works** (Phase 15 step 6; `/azfdiag mapart`, report `luajit tools/diag-report.lua mapart`, Gideon in Elwynn, 2026-11-14, `WoWScrnShot_111426_204830`, 0 errors) [verified-ingame]:
+  - `C_Map.GetMapArtLayers(mapID)` gives one layer for Elwynn (1429) and Alterac Mountains (1416): `layerWidth 1002, layerHeight 668, tileWidth 256, tileHeight 256` (minScale 1, maxScale 2.14, additionalZoomSteps 2).
+  - `C_Map.GetMapArtLayerTextures(mapID, 1)` gives 12 file IDs: 4×3 tiles row by row; the last column (234) and row (156) are cropped from 256 files.
+  - `texture:SetTexture(fileID)` returns `true` and `GetTexture` / `GetTextureFileID` read the same ID back, for base tiles and explored pieces. On screen the base tiles are the game's own "unexplored" parchment (relief and labels, no detail), and the explored pieces paint the green detail over it exactly in place.
+  - `GetExploredMapTextures` cuts each piece into 256-unit files row by row (`fileDataIDs`; 306×233 → 2 files, 512×512 → 4); the last file of a row or column is a power-of-two file cropped by texture coordinates. Elwynn now returns 12 pieces, Alterac 1 (never visited: still there). No piece had `isShownByMouseOver` or `isDrawOnTopLayer` set.
+  - `GetMapArtID` returns an ID (2153 Elwynn); `GetMapArtBackgroundAtlas` returns nil.
+  - Use: display only (the Exploration page's map, `Systems/ZoneMap.lua`). Counts still come from the achievement's criteria.
 - `GetExploredAreaIDsAtPosition` returned area 87 "Goldshire" at the player's position. [verified-ingame]
 - `GetMapOverlayInfo` and `GetNumMapOverlays` (classic) don't exist. [verified-ingame]
 

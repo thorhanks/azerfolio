@@ -18,6 +18,7 @@ local FILES = {
     "tests/overview_test.lua",
     "tests/celebrations_test.lua",
     "tests/atlas_test.lua",
+    "tests/zonemap_test.lua",
     "tests/quests_test.lua",
     "tests/questrules_test.lua",
     "tests/reputation_test.lua",

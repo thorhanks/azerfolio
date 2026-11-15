@@ -54,6 +54,13 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | G5 | A recipe's skill-up colour (Recipes view) follows a skill-up without opening the profession window (yellow turns green at the game's threshold) | When a skill-up moves a known recipe across a colour | Before: note a recipe's colour in Recipes; gain skill with the window shut; check the colour again (the game's window shows the truth) |
 | G4 | A Horde character's trainers and gathering zones come Horde-first (trainers of your side, nearest first; Durotar before Elwynn) | When Thragor (or another Horde character) has a profession | `/azf shots professions` on that character, then read the Journey's Next up line and the Gather view |
 
+## Exploration zone map (Phase 15 step 6)
+
+| ID | What to confirm | When it comes up | How to check |
+|---|---|---|---|
+| X1 | A partly explored zone: the lit pieces sit where the discovered areas are, the rest under fog (seen so far only on Elwynn, fully explored, and Alterac, 0/15) | Any time: Westfall (3/14 on Gideon) | Open Westfall's Exploration page and take `/azf shot`; compare with the game's world map (M) |
+| X2 | A new area's piece appears on the map without `/reload` | Discovering a new area with the Exploration page open, or opening it right after | `/azf shot` before and after |
+
 ## Celebrations (Phase 10)
 
 | ID | What to confirm | When it comes up | How to check |

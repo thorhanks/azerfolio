@@ -763,6 +763,154 @@ local function dumpZone()
 end
 
 ---------------------------------------------------------------------------
+-- Map art probe (Azerfolio Phase 15 step 6): can an addon frame draw a zone's base map tiles
+-- and the explored overlays? Records the raw API returns for the current zone, Elwynn (1429)
+-- and Alterac Mountains (1416, never visited on Gideon), then shows a test frame: left the
+-- base tiles alone, right the base dimmed with the explored pieces drawn over it in full.
+-- The screenshot is the evidence that they render; SetTexture's return and GetTexture's
+-- read-back are recorded too. /azfdiag mapart [mapID]; again (or the X) hides the frame.
+---------------------------------------------------------------------------
+
+local mapArtFrame
+
+local function pow2(n) local p = 1 while p < n do p = p * 2 end return p end
+
+-- Sets one tile; returns a record of what the client said.
+local function probeTile(tex, fid)
+    local r = { fid = fid }
+    r.set = safePlain(try("tex:SetTexture", tex.SetTexture, tex, fid))
+    r.get = safePlain(try("tex:GetTexture", tex.GetTexture, tex))
+    if tex.GetTextureFileID then r.fileID = safePlain(try("tex:GetTextureFileID", tex.GetTextureFileID, tex)) end
+    return r
+end
+
+local function drawBase(holder, mapID, rec, shade)
+    local layers = rec.layers
+    local layer = type(layers) == "table" and layers[1]
+    local ids = rec.layerTextures and rec.layerTextures[1]
+    if type(layer) ~= "table" or type(ids) ~= "table" then return end
+    local tw, th = layer.tileWidth or 256, layer.tileHeight or 256
+    local lw, lh = layer.layerWidth or 1002, layer.layerHeight or 668
+    local cols = math.ceil(lw / tw)
+    local checks = {}
+    for i, fid in ipairs(ids) do
+        local col, row = (i - 1) % cols, math.floor((i - 1) / cols)
+        local w, h = math.min(tw, lw - col * tw), math.min(th, lh - row * th)
+        if w > 0 and h > 0 then
+            local tex = holder:CreateTexture(nil, "BACKGROUND")
+            local c = probeTile(tex, fid)
+            if #checks < 4 then checks[#checks + 1] = c end
+            tex:SetSize(w, h)
+            tex:SetPoint("TOPLEFT", holder, "TOPLEFT", col * tw, -row * th)
+            tex:SetTexCoord(0, w / tw, 0, h / th)
+            if shade then tex:SetVertexColor(shade, shade, shade) end
+        end
+    end
+    return checks
+end
+
+local function drawExplored(holder, list)
+    local checks = {}
+    for _, e in ipairs(type(list) == "table" and list or {}) do
+        local tw, th = e.textureWidth or 0, e.textureHeight or 0
+        local wide, high = math.ceil(tw / 256), math.ceil(th / 256)
+        local fids = e.fileDataIDs or {}
+        for j = 1, high do
+            local ph = (j < high) and 256 or (th - 256 * (j - 1))
+            local fh = pow2(ph)
+            for k = 1, wide do
+                local pw = (k < wide) and 256 or (tw - 256 * (k - 1))
+                local fw = pow2(pw)
+                local fid = fids[(j - 1) * wide + k]
+                if fid then
+                    local tex = holder:CreateTexture(nil, "ARTWORK")
+                    local c = probeTile(tex, fid)
+                    if #checks < 4 then checks[#checks + 1] = c end
+                    tex:SetSize(pw, ph)
+                    tex:SetPoint("TOPLEFT", holder, "TOPLEFT", (e.offsetX or 0) + 256 * (k - 1), -((e.offsetY or 0) + 256 * (j - 1)))
+                    tex:SetTexCoord(0, pw / fw, 0, ph / fh)
+                end
+            end
+        end
+    end
+    return checks
+end
+
+local function mapArtRecord(mapID)
+    local r = { mapID = mapID }
+    local info = try("GetMapInfo", C_Map.GetMapInfo, mapID)
+    r.name = info and info.name
+    r.api = {
+        GetMapArtLayers = type(C_Map.GetMapArtLayers) == "function",
+        GetMapArtLayerTextures = type(C_Map.GetMapArtLayerTextures) == "function",
+        GetMapArtID = type(C_Map.GetMapArtID) == "function",
+        GetMapArtBackgroundAtlas = type(C_Map.GetMapArtBackgroundAtlas) == "function",
+        GetExploredMapTextures = C_MapExplorationInfo and type(C_MapExplorationInfo.GetExploredMapTextures) == "function" or false,
+    }
+    r.artID = safePlain(try("GetMapArtID", C_Map.GetMapArtID, mapID))
+    r.backgroundAtlas = safePlain(try("GetMapArtBackgroundAtlas", C_Map.GetMapArtBackgroundAtlas, mapID))
+    r.layers = safePlain(try("GetMapArtLayers", C_Map.GetMapArtLayers, mapID))
+    r.layerTextures = {}
+    if type(r.layers) == "table" then
+        for i = 1, #r.layers do
+            r.layerTextures[i] = safePlain(try("GetMapArtLayerTextures", C_Map.GetMapArtLayerTextures, mapID, i))
+        end
+    end
+    if C_MapExplorationInfo then
+        r.explored = safePlain(try("GetExploredMapTextures", C_MapExplorationInfo.GetExploredMapTextures, mapID))
+    end
+    return r
+end
+
+local function probeMapArt(arg)
+    if not C_Map then msg("mapart: no C_Map"); return end
+    if mapArtFrame and mapArtFrame:IsShown() and not arg then mapArtFrame:Hide(); msg("mapart frame hidden"); return end
+    local cur = currentMapID()
+    local want = tonumber(arg) or cur
+    local out = { t = time(), where = where(), shown = want, maps = {} }
+    local seen = {}
+    for _, id in ipairs({ want, cur, 1429, 1416 }) do
+        if id and not seen[id] then seen[id] = true; out.maps[#out.maps + 1] = mapArtRecord(id) end
+    end
+    local rec = out.maps[1]
+    if mapArtFrame then mapArtFrame:Hide() end
+    local f = CreateFrame("Frame", nil, UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
+    mapArtFrame = f
+    f:SetFrameStrata("DIALOG")
+    f:SetSize(1002 + 24, 334 + 48)
+    f:SetPoint("CENTER")
+    local bg = f:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0, 0, 0, 0.9)
+    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOPLEFT", 12, -10)
+    title:SetText(string.format("AzerfolioDiag mapart: %s (%s). Left: base tiles. Right: base x0.35 + explored overlays.",
+        tostring(rec.name), tostring(want)))
+    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", 2, 2)
+    local holders = {}
+    for i = 1, 2 do
+        local h = CreateFrame("Frame", nil, f)
+        h:SetSize(1002, 668)
+        h:SetScale(0.5)
+        h:SetPoint("TOPLEFT", f, "TOPLEFT", (12 + (i - 1) * 501) * 2, -36 * 2)
+        holders[i] = h
+    end
+    out.baseChecks = drawBase(holders[1], want, rec)
+    drawBase(holders[2], want, rec, 0.35)
+    out.exploredChecks = drawExplored(holders[2], rec.explored)
+    f:Show()
+    DB.mapArt = out
+    local layer = type(rec.layers) == "table" and rec.layers[1]
+    msg(string.format("mapart %s: %s layers, %s base tiles, %s explored pieces. Take a screenshot, then /reload.",
+        tostring(want), type(rec.layers) == "table" and #rec.layers or "no",
+        type(rec.layerTextures[1]) == "table" and #rec.layerTextures[1] or "no",
+        type(rec.explored) == "table" and #rec.explored or "no"))
+    if layer then msg(string.format("layer 1: %sx%s, tiles %sx%s", tostring(layer.layerWidth), tostring(layer.layerHeight),
+        tostring(layer.tileWidth), tostring(layer.tileHeight))) end
+end
+
+---------------------------------------------------------------------------
 -- Zone metadata probe (Azerfolio Phase 6): does the client give level ranges, faction or
 -- map positions for each zone? Records raw returns only; the agent judges them.
 ---------------------------------------------------------------------------
@@ -1859,6 +2007,7 @@ local HELP = {
     "/azfdiag art    - show the image-format test frame",
     "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
     "/azfdiag skin   - record what draws the native frames (open Reputation first) and show a template test",
+    "/azfdiag mapart [mapID] - record the zone's map art and explored overlays and draw them (again to hide)",
     "/azfdiag status - show what has been recorded",
     "/azfdiag clear  - clear logs and diffs",
     "Then /reload to write results to disk.",
@@ -1874,6 +2023,7 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "ach" then DB.achievements = scanAchievements(true); matchExploreToMaps(); msg("achievements dumped")
     elseif cmd == "quests" then dumpQuests(); msg("quests dumped")
     elseif cmd == "zone" then dumpZone()
+    elseif cmd == "mapart" then probeMapArt((input or ""):match("^%s*%S+%s+(%d+)"))
     elseif cmd == "zones" then dumpZoneMeta()
     elseif cmd == "questdb" then probeQuestDB()
     elseif cmd == "taxi" then dumpTaxi("command")

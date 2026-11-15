@@ -31,6 +31,7 @@ Systems\Maps.lua
 Systems\Objectives.lua
 Systems\Progression.lua
 Systems\Exploration.lua
+Systems\ZoneMap.lua
 Systems\QuestRules.lua
 Systems\Quests.lua
 Systems\ReputationRules.lua

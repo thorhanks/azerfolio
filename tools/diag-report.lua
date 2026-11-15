@@ -465,6 +465,43 @@ function R.zone()
     end
 end
 
+-- mapart: the map art probe (/azfdiag mapart): art layers, base tiles, explored overlays, and
+-- what SetTexture / GetTexture said for the first tiles drawn.
+function R.mapart()
+    local m = DB.mapArt
+    if not m then p("no mapArt; run /azfdiag mapart, then /reload") return end
+    local w = m.where or {}
+    p("recorded %s, player on map %s (%s), frame shows %s", os.date("%Y-%m-%d %H:%M", m.t or 0), tostring(w.map), tostring(w.zone), tostring(m.shown))
+    for _, r in ipairs(m.maps or {}) do
+        p("map %s %s: artID %s, background atlas %s", tostring(r.mapID), tostring(r.name), s(r.artID), s(r.backgroundAtlas))
+        local api = {}
+        for _, k in ipairs(keys(r.api)) do api[#api + 1] = k .. "=" .. tostring(r.api[k]) end
+        p("  api: %s", table.concat(api, " "))
+        if type(r.layers) ~= "table" then p("  layers: %s", s(r.layers)) end
+        for i, l in ipairs(type(r.layers) == "table" and r.layers or {}) do
+            local f = {}
+            for _, k in ipairs(keys(l)) do f[#f + 1] = k .. "=" .. s(l[k]) end
+            local ids = r.layerTextures and r.layerTextures[i]
+            p("  layer %d: %s", i, table.concat(f, " "))
+            p("    tiles: %s", type(ids) == "table" and (#ids .. " " .. s(ids)) or s(ids))
+        end
+        local ex = type(r.explored) == "table" and r.explored or {}
+        p("  explored pieces: %d", #ex)
+        for i, e in ipairs(ex) do
+            p("    %2d: off %s,%s size %sx%s files %s mouseOver %s onTop %s", i, tostring(e.offsetX), tostring(e.offsetY),
+                tostring(e.textureWidth), tostring(e.textureHeight), s(e.fileDataIDs), tostring(e.isShownByMouseOver), tostring(e.isDrawOnTopLayer))
+        end
+    end
+    for _, k in ipairs({ "baseChecks", "exploredChecks" }) do
+        for i, c in ipairs(m[k] or {}) do p("%s %d: fid %s set %s get %s fileID %s", k, i, tostring(c.fid), s(c.set), s(c.get), s(c.fileID)) end
+    end
+    local errs = 0
+    for _, e in ipairs(DB.errors or {}) do
+        if (e.t or 0) >= (m.t or 0) then errs = errs + 1; p("error: %s %s", tostring(e.label), tostring(e.err)) end
+    end
+    p("errors since the probe: %d", errs)
+end
+
 -- zones: the raw zone metadata probe (/azfdiag zones), one line per zone map.
 function R.zones()
     local z = DB.zoneMeta

@@ -22,6 +22,11 @@ local NEXT_COLS = 3
 local DASH_OVER = 8      -- the right column's scroll frame reaches this far past it (plate ends, card frames)
 local STANDARD_W = 236   -- design round 2: narrower, the standard fills it
 local DASH_HEADER = 196  -- design round 2: the dashboard's taller header (pages keep bannerHeight)
+-- The Exploration page's zone map (Phase 15 step 6): the base map darkened by FOG (the mockup's
+-- fog, #1c140c at 78%, over the parchment), the game's explored pieces in full over it.
+local FOG = { 0.40, 0.34, 0.27 }
+local MAP_LIST_SHARE, MAP_LIST_MIN = 0.4, 300 -- the area list's share of the page, beside the map
+local MAP_CAPTION = 18
 
 local DIFF_COLOR = { red = { 1, 0.13, 0.13 }, orange = { 1, 0.5, 0.25 }, yellow = { 1, 1, 0 },
     green = { 0.25, 0.75, 0.25 }, grey = { 0.62, 0.62, 0.62 } }
@@ -522,6 +527,49 @@ function Detail.New(page)
     d.toggle.text = T.Text(d.toggle, "sm", "text")
     d.toggle.text:SetPoint("LEFT", S.s3, 0)
     d.toggle:SetScript("OnClick", function(self) if self.item then self.item.onActivate(self.item) end end)
+
+    -- Exploration: the area list's column and the zone map beside it (Phase 15 step 6). The
+    -- map's tiles live on a holder in map units, scaled to the map's width (LayoutExplore).
+    local listCol = CreateFrame("Frame", nil, scroll.child)
+    listCol:SetPoint("TOPLEFT"); listCol:SetHeight(1)
+    d.listCol = listCol
+    local zm = CreateFrame("Frame", nil, scroll.child)
+    zm:Hide()
+    zm.bg = T.Solid(zm, "black", "BACKGROUND")
+    zm.bg:SetAllPoints()
+    if zm.SetClipsChildren then pcall(zm.SetClipsChildren, zm, true) end
+    zm.holder = CreateFrame("Frame", nil, zm)
+    zm.holder:SetPoint("TOPLEFT")
+    zm.base, zm.pieces = {}, {}
+    -- The painted frame on a frame of its own, above the holder's tiles (inside the clip).
+    zm.border = CreateFrame("Frame", nil, zm)
+    zm.border:SetAllPoints()
+    zm.border:SetFrameLevel(zm.holder:GetFrameLevel() + 2)
+    zm.frame = T.CardFrame(zm.border, 24, 0)
+    if not zm.frame then zm.edge = W.Edge(zm.border, "OVERLAY"); zm.edge:SetColor("cardEdge") end
+    zm.cap = CreateFrame("Frame", nil, scroll.child)
+    zm.cap:SetHeight(MAP_CAPTION)
+    zm.cap:SetPoint("TOPLEFT", zm, "BOTTOMLEFT", 0, -S.s2)
+    zm.cap:SetPoint("TOPRIGHT", zm, "BOTTOMRIGHT", 0, -S.s2)
+    local function swatch(after, r, g, b)
+        local t = zm.cap:CreateTexture(nil, "ARTWORK")
+        t:SetSize(12, 12)
+        t:SetColorTexture(r, g, b, 1)
+        if after then t:SetPoint("LEFT", after, "RIGHT", S.s4, 0) else t:SetPoint("LEFT", zm.cap, "LEFT", 0, 0) end
+        local fs = T.Text(zm.cap, "xs", "text")
+        fs:SetPoint("LEFT", t, "RIGHT", S.s1, 0)
+        return t, fs
+    end
+    local _, lit = swatch(nil, 0.79, 0.70, 0.48)
+    lit:SetText("Revealed")
+    local fogSwatch, fogText = swatch(lit, 0.79 * FOG[1], 0.70 * FOG[2], 0.48 * FOG[3])
+    fogText:SetText("Unexplored")
+    zm.legend = { fogSwatch, fogText }
+    zm.note = T.Text(zm.cap, "xs", "dim")
+    zm.note:SetPoint("RIGHT", zm.cap, "RIGHT", 0, 0)
+    zm.note:SetText("The game's own map")
+    d.zmap = zm
+    scroll.onWidth = function() if zm:IsShown() then Detail.LayoutExplore(d) end end
     return d
 end
 
@@ -546,13 +594,16 @@ local function resetPools(d)
     end
     d.message:Hide()
     d.toggle:Hide()
+    d.zmap:Hide(); d.zmap.cap:Hide()
 end
 
-local function header(d, y, title, count)
+-- A group header from listInset to the page's right margin, or to `right`'s right edge.
+local function header(d, y, title, count, right)
     local L, S = ns.Theme.layout, ns.Theme.space
     local h = take(d, "headers", function() return ns.Widgets.Header(d.scroll.child) end)
     h:SetPoint("TOPLEFT", d.scroll.child, "TOPLEFT", L.listInset, -y)
-    h:SetPoint("TOPRIGHT", d.scroll.child, "TOPRIGHT", -S.s6, -y)
+    if right then h:SetPoint("TOPRIGHT", right, "TOPRIGHT", 0, -y)
+    else h:SetPoint("TOPRIGHT", d.scroll.child, "TOPRIGHT", -S.s6, -y) end
     h.text:SetText(title)
     h.count:SetText(count or "")
     return y + L.listHeader + S.s2
@@ -929,6 +980,50 @@ local MESSAGES = {
     unavailable = "The game isn't returning achievement data right now. Try again in a moment.",
 }
 
+-- Draws ns.ZoneMap's tiles on the map's holder: the base tiles under the fog (none once the
+-- zone is fully explored: the design's "fully revealed at 100%"), the explored pieces over them.
+local function mapTile(holder, pool, i, layer, t)
+    local tex = pool[i]
+    if not tex then tex = holder:CreateTexture(nil, layer); pool[i] = tex end
+    tex:SetTexture(t.fid)
+    tex:ClearAllPoints()
+    tex:SetPoint("TOPLEFT", holder, "TOPLEFT", t.x, -t.y)
+    tex:SetSize(t.w, t.h)
+    tex:SetTexCoord(0, t.r, 0, t.b)
+    tex:Show()
+    return tex
+end
+
+local function drawMap(zm, map, revealed)
+    zm.mapW, zm.mapH = map.width, map.height
+    zm.holder:SetSize(map.width, map.height)
+    local f = revealed and { 1, 1, 1 } or FOG
+    for i, t in ipairs(map.base) do mapTile(zm.holder, zm.base, i, "BACKGROUND", t):SetVertexColor(f[1], f[2], f[3]) end
+    for i = #map.base + 1, #zm.base do zm.base[i]:Hide() end
+    for i, t in ipairs(map.pieces) do mapTile(zm.holder, zm.pieces, i, "ARTWORK", t) end
+    for i = #map.pieces + 1, #zm.pieces do zm.pieces[i]:Hide() end
+    for _, r in ipairs(zm.legend) do r:SetShown(not revealed) end
+end
+
+-- Places the list column and the map beside it for the page's width (on fill and on resize):
+-- the list takes MAP_LIST_SHARE (at least MAP_LIST_MIN), the map the rest at its own aspect.
+function Detail.LayoutExplore(d)
+    local zm, child, S = d.zmap, d.scroll.child, ns.Theme.space
+    local cw = child:GetWidth() or 0
+    if cw <= 0 or not zm.mapW then return end
+    local listW = math.max(MAP_LIST_MIN, math.floor((cw - S.s6) * MAP_LIST_SHARE))
+    local mapW = math.floor(cw - listW - 2 * S.s6)
+    if mapW < 120 then mapW = 120 end
+    local mapH = math.floor(mapW * zm.mapH / zm.mapW + 0.5)
+    d.listCol:SetWidth(listW)
+    zm:ClearAllPoints()
+    zm:SetPoint("TOPLEFT", child, "TOPLEFT", listW + S.s6, -((zm.top or 0) + S.s1))
+    zm:SetSize(mapW, mapH)
+    zm.holder:SetScale(mapW / zm.mapW)
+    local bottom = (zm.top or 0) + S.s1 + mapH + S.s2 + MAP_CAPTION + S.s4
+    child:SetHeight(math.max(1, d.exploreBottom or 0, bottom))
+end
+
 local function fillExplore(d, zone)
     local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
     local ex = ns.Exploration.ForZone(zone)
@@ -957,6 +1052,16 @@ local function fillExplore(d, zone)
     end
     if #notes > 0 then y = text(d, y, table.concat(notes, "\n"), "sm", "text") + S.s2 end
 
+    -- The zone map beside the list (one column), or the list alone in two columns.
+    local map = ns.ZoneMap and ns.ZoneMap.ForMap(zone.mapID)
+    local right = nil
+    if map then
+        drawMap(d.zmap, map, complete)
+        d.zmap.top = y
+        d.zmap:Show(); d.zmap.cap:Show()
+        right = d.listCol
+    end
+
     local todo = { title = "To discover", list = {}, count = p.incomplete }
     local found = { title = "Discovered", list = {}, count = p.complete }
     local unsure = { title = "State unknown", list = {}, count = p.completionUnknown }
@@ -971,15 +1076,19 @@ local function fillExplore(d, zone)
     if #unsure.list > 0 then groups[#groups + 1] = unsure end
     for gi, g in ipairs(groups) do
         if gi > 1 then y = y + S.s2 end
-        y = header(d, y, g.title, g.count == 1 and "1 area" or (g.count .. " areas")) - S.s1
+        y = header(d, y, g.title, g.count == 1 and "1 area" or (g.count .. " areas"), right) - S.s1
         if #g.list == 0 then y = y + S.s2 end
-        for i = 1, #g.list, 2 do
+        local cols = right and 1 or 2
+        for i = 1, #g.list, cols do
             local items = {}
-            for col = 0, 1 do
+            for col = 0, cols - 1 do
                 local c = g.list[i + col]
                 if c then
                     local row = take(d, "checks", function() return checkRow(child) end)
-                    if col == 0 then
+                    if right then
+                        row:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
+                        row:SetPoint("TOPRIGHT", right, "TOPRIGHT", 0, -y)
+                    elseif col == 0 then
                         row:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
                         row:SetPoint("TOPRIGHT", child, "TOP", -S.s2, -y)
                     else
@@ -1004,7 +1113,8 @@ local function fillExplore(d, zone)
             y = y + L.checkRow + 2
         end
     end
-    child:SetHeight(math.max(1, y))
+    d.exploreBottom = y
+    if map then Detail.LayoutExplore(d) else child:SetHeight(math.max(1, y)) end
     return rows
 end
 
