@@ -315,6 +315,16 @@ Approved 2026-11-13 to 11-14 (owner, two design rounds); layout and gamepad map 
 - **Overview:** a Professions panel ("n of m mastered", one row per profession with its skill bar and status; A opens the tab on it).
 - **Gamepad:** the rail, A into the page, Y view, LT/RT sections, X Track, B back.
 
+### 7.12 Dungeons tab (v1.7)
+
+Approved 2026-11-15 (owner, eight mockup rounds and the page review, option A); layout and gamepad map in mockups/DESIGN.md "Dungeons tab". Every dungeon and raid (41: Classic, Scarlet Monastery and Dire Maul as wings, the raids, Forever's nine). A dungeon's **progress is its quests** (the game confirms them); **boss kills are never counted** (the game keeps no record of past kills); **loot is a collection** ("in your bags" is not completion). Nothing here counts toward zone completion.
+
+- **Catalogue views** (Y cycles): **Cards** (default: three across, the instance's painting in a thin bronze frame, tags, quest bar; gold edge and ✓ when every quest is done), **List** (the wide window: list + page), **Road** (every instance in level order on the adventurer's road: painted regions, medallions in painted rings, You at your level with the road gilded up to you, a preview card under the strip). Filters: All, For your level, Dungeons, Raids, New in Forever; groups by level bracket and Raids.
+- **The instance page:** a banner (painting, one-line blurb, Dungeon/Raid · size · entrance zone · levels, wing tabs, the quest score, a gold seal when every quest is done) and three views (Y): **Overview** (Before you go: level fit, keys and attunements, where to pick up the quests grouped by place; The run: the bosses as numbered seals; Rewards: the quest bar and the factions raised), **Bosses & loot** (bosses in encounter order with rare / optional / one-of tags and wings; the focused boss's own gear, For you / All, quality, type, level, in your bags), **Quests** (To do / Done / All, grouped by where you pick them up, in chain order, with the giver, earlier quests and a different turn-in).
+- **Levels are a guide** (curated, unofficial), like the zone guide; "For your level" uses the zone guide's rule.
+- **Zone Detail:** a "Dungeon here" tile per instance whose entrance is in the zone (art, levels, bosses, quest bar); A opens it, B returns.
+- **Gamepad:** A open, Y view, LT/RT sections, X world map at the entrance zone, B back; on the road D-pad left / right walk it in order.
+
 ### 7.6 Map actions
 
 Where supported: open the world map to this zone, show where an exploration objective is, tooltips on objectives.
@@ -385,6 +395,13 @@ Research and probe: `docs/research/reputation.md`.
 - **Ingredients:** GetRecipeSchematic (window shut, any recipe), have from C_Item.GetItemCount; where to get each: another recipe of the profession, a gathering node, QuestieDB vendors or drops, or unknown.
 - **Tracking:** the game's own (GetRecipesTracked, SetRecipeTracked). Azerfolio changes it only on the player's X.
 - **Gathering:** Data/Gathering.lua, hand-curated and unofficial, with provenance per row (like Data/Zones.lua); conflicting or unknown skills stay marked as such (open check G1).
+
+### 8.13 Dungeons data (v1.7)
+
+- **Instances and bosses:** Data/Dungeons.lua, hand-curated and unofficial (Warcraft Wiki instance pages, Classic versions; Shaper's Terrace from Warcraft Tavern): key, name, kind, level range, size, entrance zones, QuestieDB quest area, group (wings), Forever, blurb (our words), keys and attunements (QuestieDB item IDs), bosses in encounter order with rare / optional / one-of / wing and QuestieDB NPC IDs. Checked by `qdb.lua dungeons check`. The client's encounter journal and dungeon finder give nothing usable (research/dungeons.md, D1).
+- **Quests:** Systems/Quests' instance index (QuestieDB quest area), this character's side and class; done from the game. Forever dungeons whose quests QuestieDB files under a zone say "not mapped". Where a quest starts: the giver NPC's spawn area through Data/QuestAreas.lua (dungeon areas and the bosses' spawn areas mean inside), items and objects; an area Azerfolio doesn't map is named by the client (C_Map.GetAreaInfo).
+- **Loot:** each boss NPC's QuestieDB npcDrops, weapons and armour only, world drops left out (more than 8 NPCs drop it); no drop chances. Quality, icon, slot and item level from C_Item; in your bags (and bank) and keys from C_Item.GetItemCount. Most raid bosses have no gear in QuestieDB and say so. "For you" from a curated class gear table.
+- **Art:** Media/Dungeons/<key>.blp (41) and road1..6 (the road's regions), the road's lanes in Data/DungeonRoad.lua (tools/trace-dungeon-road.ps1), the seals and rings in Media/Chrome.
 
 ### 8.6 Aggregation output
 

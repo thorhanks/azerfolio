@@ -22,6 +22,11 @@ In-game checks that wait on real play (a first-time faction, a level-60 characte
 
 ## Next
 
+**Phase 16: the Dungeons tab (v1.7)**, plan §6 Phase 16, spec §7.12 and §8.13. Next: task 2, `Systems/DungeonRules` and the class gear table.
+
+- 2026-11-15, design and art (done, owner approved): research (`docs/research/dungeons.md`: the client has no usable boss list, D1), `Data/Dungeons.lua` (41 instances, 337 bosses with NPC IDs, blurbs, 11 keys; `qdb.lua dungeons check` 0 problems), mockup rounds 1-8 and the page review (option A: Overview / Bosses & loot / Quests), art via the Codex CLI (41 paintings, 6 road regions, card frame A, boss seals, medallion rings; `Media/Dungeons`, `Media/Chrome`), the road's traced lanes (`tools/trace-dungeon-road.ps1`, `Data/DungeonRoad.lua`). Tests 341 pass.
+- 2026-11-15, task 1, plan and spec (done): Phase 16 in the plan (8 tasks), spec §7.12 and §8.13, decision log.
+
 **Phase 11: zone reputation (v1.3)**, plan §6 Phase 11, spec §7.8 and §8.9. Next: task 5, checking on both characters and settling the open questions.
 
 - 2026-11-08, task 1, reputation research (done): owner chose reputation next. Zone factions come from quest reputation rewards (`qdb.lua reps`). Forever has only `C_Reputation`: the met list holds 5 factions for Gideon, and by-ID reads also cover unmet factions (38 of 52 IDs). Findings and open questions in [research/reputation.md](research/reputation.md). Decided: zone factions derived from quests (`qdb.lua reps rule`, 21 zones), not a completion category, section hidden where there's none.
