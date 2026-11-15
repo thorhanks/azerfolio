@@ -460,8 +460,11 @@ local function build(parent)
             if r.coin then r.coin:Set(m, 20) end
             r.label:SetText(m.name)
             r.count:SetText(string.format("%s%s|r / %s", color("white"), tostring(m.skill or "?"), tostring(m.cap or "?")))
-            r.bar:Set((m.skill or 0) / max, m.mastered and "complete" or nil)
-            r.capFrac = (m.cap and m.cap < max) and (m.cap / max) or nil
+            -- The bar runs to the current cap, as its "33 / 75" says (owner, 2026-11-14: to 300
+            -- with a cap tick read as empty); full means time to train. No cap tick.
+            local span = (m.cap and m.cap > 0) and m.cap or max
+            r.bar:Set(math.min(1, (m.skill or 0) / span), m.mastered and "complete" or nil)
+            r.capFrac = nil
             r:PlaceCap()
             local text, c = P and P.StatusText(m)
             r.tag:SetText(text or "")

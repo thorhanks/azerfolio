@@ -2476,6 +2476,9 @@
     return `<span class="pcoin ${p.mastered ? "gold" : "dull"} ${cls}"><svg viewBox="-24 -24 48 48" aria-hidden="true">
       <circle r="23" class="pc-rim"/><circle r="19.5" class="pc-face"/><circle r="17" class="pc-ring"/><g class="pc-emb">${PGLYPH[p.glyph] || ""}</g></svg></span>`;
   }
+  // The Overview's row runs to the current cap, as its "33 / 75" (owner, 2026-11-14: to 300
+  // with a cap tick read as empty); full means time to train.
+  const capBar = (p) => `<div class="gbar pbar ${p.mastered ? "complete" : "progress"}"><i style="width:${Math.min(100, p.skill / (p.cap || PMAX) * 100).toFixed(1)}%"></i></div>`;
   const skillBar = (p) => `<div class="gbar pbar ${p.mastered ? "complete" : "progress"}"><i style="width:${(p.skill / PMAX * 100).toFixed(1)}%"></i><b class="pcapmark" style="left:${(p.cap / PMAX * 100).toFixed(1)}%"></b></div>`;
   const where = (p, rank) => { const t = p.trainers[rank] || p.trainers.any || []; return t.length ? t.slice(0, 2).join(" or ") : "a trainer (none known nearby)"; };
   function rankTip(p, r) {
@@ -2842,7 +2845,7 @@
     const mastered = ps.filter(p => p.mastered).length;
     return `<div class="ppanel tracked framed" data-group><div class="thead"><span>Professions</span><b class="pmast">${mastered} of ${ps.length} mastered</b></div>
       ${ps.map(p => `<button class="trow prow-ov focusable" data-goprof="${esc(p.name)}" data-tip="<b>${esc(p.name)}</b>${esc(p.title)}, ${p.skill} of ${p.cap}${p.status ? ". " + esc(p.status.text) : ""}. A opens it in the Professions tab.">
-        ${profCoin(p, "xs")}<span class="tl">${esc(p.name)}</span>${skillBar(p)}<span class="tn"><b>${p.skill}</b> / ${p.cap}</span>
+        ${profCoin(p, "xs")}<span class="tl">${esc(p.name)}</span>${capBar(p)}<span class="tn"><b>${p.skill}</b> / ${p.cap}</span>
         <span class="ptag ${p.status ? p.status.cls : ""}">${p.status ? esc(p.status.text) : ""}</span></button>`).join("")}</div>`;
   }
 
