@@ -405,7 +405,34 @@ elseif cmd == "dungeons" then
                 end
             end
         end
-        local quests, qtabs = load(function(_, f) return f == 26 end)
+        local quests, qtabs = load(function(_, f) return f == 26 or f == 2 or f == 3 or f == 12 or f == 13 end)
+        -- Where a quest starts and ends: the first NPC giver's spawn area, mapped to a zone by
+        -- Data/QuestAreas.lua (dungeon and raid areas mean "inside"); objects and items say so.
+        local qaEnv = {}
+        local qaChunk = assert(loadfile("Azerfolio/Data/QuestAreas.lua"))
+        setfenv(qaChunk, qaEnv)
+        qaChunk(nil, qaEnv)
+        local QA = qaEnv.QuestAreaData
+        local function js(s) return string.format("%q", tostring(s)):gsub("\\\n", "\\n") end
+        -- Areas the bosses spawn in count as "inside" too (NPC spawn areas differ from quest areas: Dire Maul 10022-10027, Blackrock Depths 1585).
+        local bossArea = {}
+        for _, inst in ipairs(data.instances) do
+            for _, b in ipairs(inst.bosses) do for _, n in ipairs(b.npcs or {}) do for _, a in ipairs(spawnAreas(n)) do bossArea[a] = true end end end
+        end
+        local function place(by)
+            if type(by) ~= "table" then return "null" end
+            local npcList, objList, itemList = by[1], by[2], by[3]
+            if type(npcList) == "table" and npcList[1] then
+                local n = npcList[1]
+                local areas = spawnAreas(n)
+                local a = areas[1] or (npcs[n] and npcs[n][9]) or 0
+                local kind = (QA.dungeon[a] or QA.raid[a] or bossArea[a]) and "inside" or ""
+                return string.format("[%s,%d,%d,%s]", js(npcs[n] and npcs[n][1] or ("NPC " .. n)), a, QA.zone[a] or 0, js(kind))
+            end
+            if type(objList) == "table" and objList[1] then return "[\"an object\",0,0,\"object\"]" end
+            if type(itemList) == "table" and itemList[1] then return "[\"an item\",0,0,\"item\"]" end
+            return "null"
+        end
         local qByArea = {}
         for id, q in pairs(quests) do
             local a = q[17]
@@ -449,8 +476,14 @@ elseif cmd == "dungeons" then
                 --  reputation rewards [[factionID, amount], ...] (QuestieDB base values)]
                 local reps = {}
                 for _, r in ipairs(qtabs[qid] and qtabs[qid][26] or {}) do reps[#reps + 1] = string.format("[%d,%d]", r[1] or 0, r[2] or 0) end
-                qs[#qs + 1] = string.format("[%d,%s,%d,%d,%s,%d,[%s]]", qid, js(q[1]), q[5] or 0, q[4] or 0, js(side(q[6])),
-                    type(q[7]) == "number" and q[7] or 0, table.concat(reps, ","))
+                --  giver [name, areaID, mapID, "inside"|"object"|"item"|""], turn-in (same), earlier quests [ids]
+                local tab = qtabs[qid]
+                local pre = {}
+                local p1, pg = field(q, tab, 13), field(q, tab, 12)
+                for _, x in ipairs(type(p1) == "table" and p1 or {}) do pre[#pre + 1] = tostring(x) end
+                for _, x in ipairs(type(pg) == "table" and pg or {}) do pre[#pre + 1] = tostring(x) end
+                qs[#qs + 1] = string.format("[%d,%s,%d,%d,%s,%d,[%s],%s,%s,[%s]]", qid, js(q[1]), q[5] or 0, q[4] or 0, js(side(q[6])),
+                    type(q[7]) == "number" and q[7] or 0, table.concat(reps, ","), place(field(q, tab, 2)), place(field(q, tab, 3)), table.concat(pre, ","))
             end
             table.sort(qs)
             local keys = {}
@@ -463,6 +496,20 @@ elseif cmd == "dungeons" then
                 js(inst.blurb or ""), table.concat(keys, ","), table.concat(bosses, ",\n  "), table.concat(qs, ","))
         end
         out[#out + 1] = "];"
+        -- Names of the earlier quests a dungeon quest needs (often outside the instance).
+        local names, seenPre = {}, {}
+        for _, inst in ipairs(data.instances) do
+            for _, qid in ipairs(inst.questArea and qByArea[inst.questArea] or {}) do
+                local tab = qtabs[qid]
+                for _, fi in ipairs({ 13, 12 }) do
+                    local v = field(quests[qid], tab, fi)
+                    for _, x in ipairs(type(v) == "table" and v or {}) do
+                        if not seenPre[x] and quests[x] then seenPre[x] = true; names[#names + 1] = string.format("%d:%s", x, js(quests[x][1])) end
+                    end
+                end
+            end
+        end
+        out[#out + 1] = "window.AZF_QUEST_NAMES = {" .. table.concat(names, ",") .. "};"
         print(table.concat(out, "\n"))
         return
     end

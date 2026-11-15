@@ -74,3 +74,7 @@ A horizontal path of boss seals right under the banner (like the road), the focu
 - Bosses get a **numbered seal** (a small round bronze seal with the number; rares hollow, optional dashed), not the road's milestone stone. New piece: `boss-seal` (chrome, 64 px), one prompt.
 - Panels in the art-card frame A (thin bronze line) instead of brown boxes; gold kept for the banner, names white, headers in the plate style.
 - Item tiles use the game's icons in the addon with the quality colour on a thin border.
+
+## Decision
+
+Owner (2026-11-15): **option A**, views. Built in the mockup as round 5 (`mockups/DESIGN.md` "Dungeons tab"): Overview with Before you go (quest pickups by place, from QuestieDB givers), The run (numbered seals) and Rewards; Bosses & loot with For you / All; Quests grouped by where you pick them up. Measured: every Overview fits the page (10 instances, including Blackrock Depths' 27 bosses and 9 pickup places), no panel scrolls. The `boss-seal` art and the class gear table for "For you" are still to make.

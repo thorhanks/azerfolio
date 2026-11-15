@@ -2891,7 +2891,7 @@
     const lvl = CHAR.level, side = CHAR.faction === "Horde" ? "H" : "A";
     return DUN.map(d => {
       const quests = d.quests.filter(q => (!q[4] || q[4] === side) && (!q[5] || (q[5] & PALADIN_BIT)))
-        .map(q => ({ id: q[0], name: q[1], level: q[2], req: q[3], cls: q[5] > 0, reps: q[6] || [], done: dunQuestDone(q, d.key) }));
+        .map(q => ({ id: q[0], name: q[1], level: q[2], req: q[3], cls: q[5] > 0, reps: q[6] || [], giver: q[7] || null, turnin: q[8] || null, pre: q[9] || [], done: dunQuestDone(q, d.key) }));
       const done = quests.filter(q => q.done).length;
       const zones = d.zones.map(zoneById);
       const fit = d.lv[0] <= lvl + 3 && d.lv[1] >= lvl;
@@ -3070,29 +3070,128 @@
   const dunOwned = (it) => ui.scenarioName === "veteran" && it[3] <= 22 && it[0] % 4 === 0;
   // Mockup: Veteran carries the Workshop Key (SAMPLE; C_Item.GetItemCount in the addon).
   const dunHasKey = (k) => ui.scenarioName === "veteran" && k.item === 6893;
+
+  // ---- The instance's page, round 5 (owner chose review option A, 2026-11-15:
+  // docs/reviews/2026-11-15-dungeon-page-review.md): the banner, then three views like the
+  // Professions tab (Y cycles): Overview (fits one screen: Before you go, The run, Rewards),
+  // Bosses & loot (compact list | the focused boss's loot, For you / All), Quests (grouped by
+  // where you pick them up, in chain order, with the giver, earlier quests and the turn-in). ----
+  const DPV = [["overview", "Overview"], ["bosses", "Bosses & loot"], ["quests", "Quests"]];
+  // "For you" (mockup: Paladin): armour and weapons the class uses, the armour type it wants
+  // (mail before 40, plate from 40), shields and librams. A curated class table in the addon.
+  const CLASS_GEAR = { Paladin: { armor: (sub, lvl) => sub === 0 || sub === 6 || sub === 7 || sub === (lvl >= 40 ? 4 : 3), weapon: [0, 1, 4, 5, 6, 7, 8] } };
+  function lootForYou(it) {
+    const g = CLASS_GEAR[CHAR.className]; if (!g) return true;
+    return it[4] === 4 ? g.armor(it[5], Math.max(CHAR.level, it[3])) : g.weapon.includes(it[5]);
+  }
+  const dunZoneName = (mapID) => (zoneById(mapID) || {}).name;
+  // Where a quest starts, as a place to group by.
+  function pickupPlace(q, d) {
+    const g = q.giver;
+    if (!g) return { key: "unknown", name: "Where it starts isn't known", sub: "" };
+    if (g[3] === "object" || g[3] === "item") return { key: g[3], name: g[3] === "item" ? "Starts from an item" : "Starts at an object", sub: "" };
+    if (g[3] === "inside") return { key: "inside", name: `Inside ${d.group || d.name}`, sub: "" };
+    const zn = g[2] ? dunZoneName(g[2]) : null;
+    return { key: "z" + (g[2] || g[1]), name: zn || "Elsewhere", sub: zn ? "" : `area ${g[1]}: the game names it in the addon (C_Map.GetAreaInfo)` };
+  }
+  function dunPickups(d) {
+    const groups = new Map();
+    d.quests.filter(q => !q.done).forEach(q => {
+      const p = pickupPlace(q, d);
+      if (!groups.has(p.key)) groups.set(p.key, { ...p, quests: [], givers: new Set() });
+      const g = groups.get(p.key); g.quests.push(q); if (q.giver && !q.giver[3]) g.givers.add(q.giver[0]);
+    });
+    return [...groups.values()].sort((a, b) => b.quests.length - a.quests.length);
+  }
+  // A chain that reuses its name ("The Defias Brotherhood" after "The Defias Brotherhood") says "the earlier step".
+  const preNames = (q) => (q.pre || []).map(id => { const n = (window.AZF_QUEST_NAMES || {})[id] || `quest ${id}`; return n === q.name ? "the earlier step" : n; });
+  function sealHtml(b, i, cls = "") {
+    return `<span class="bseal ${b.rare ? "rare" : ""} ${b.opt || b.oneOf ? "opt" : ""} ${cls}">${i + 1}</span>`;
+  }
   function bossLoot(d, b) {
     if (!b) return "";
-    const q = dunQuality(d);
+    const q = dunQuality(d), all = ui.dunLoot === "all";
+    const items = all ? b.loot : b.loot.filter(lootForYou);
     const have = b.loot.filter(dunOwned).length;
-    const head = `<div class="dloothead"><h3>${esc(b.n)}</h3><span class="dim">${b.loot.length ? `${b.loot.length} items it drops${have ? ` · <b class="dhave">In your bags: ${have} of ${b.loot.length}</b>` : ""}` : ""}</span></div>`;
+    const head = `<div class="dloothead"><h3>${esc(b.n)}</h3>
+      <span class="dlootcount">${b.loot.length ? `${b.loot.length} items · ${b.loot.filter(lootForYou).length} for you${have ? ` · <b class="dhave">${have} in your bags</b>` : ""}` : ""}</span>
+      ${b.loot.length ? `<div class="pvswitch dlootf">${[["foryou", "For you"], ["all", "All"]].map(([v, l]) => `<button class="pvtab btn pchip focusable ${(all ? "all" : "foryou") === v ? "on" : ""}" data-dlf="${v}" data-tip="<b>${l}</b>${v === "all" ? "Every item this boss drops." : `Armour and weapons a ${esc(CHAR.className)} uses (${CHAR.level >= 40 ? "plate" : "mail"} for your level), shields and librams.`}">${l}</button>`).join("")}</div>` : ""}</div>`;
     if (!b.loot.length) return head + `<div class="dnoloot">${d.kind === "raid"
       ? "No loot known for this boss. QuestieDB lists no gear for most raid bosses; a curated table would fill this in."
       : "No gear known for this boss. Some bosses drop only trade goods or quest items, or their loot sits in a chest."}</div>`;
-    return head + `<div class="dloot">${b.loot.map(it => {
+    if (!items.length) return head + `<div class="dnoloot">Nothing here for a ${esc(CHAR.className)}. "All" shows every item.</div>`;
+    return head + `<div class="dloot grid">${items.map(it => {
       const own = dunOwned(it);
-      return `<button class="ditem focusable q${q}" data-ditem="${it[0]}" data-tip="<b>${esc(it[1])}</b>${QNAME[q]} ${esc(itemType(it).toLowerCase())}, item level ${it[2]}, requires level ${it[3]}.${own ? " You have one (bags or bank)." : ""} Drops from ${esc(b.n)}.">
-        <span class="dicon">${it[4] === 2 ? "⚔" : "⛨"}</span><span class="diname">${esc(it[1])}</span><span class="ditype">${esc(itemType(it))}</span>
-        <span class="direq ${it[3] > CHAR.level ? "later" : ""}">Lv ${it[3]}</span>${own ? `<span class="tag own">✓ Have</span>` : ""}</button>`;
+      return `<button class="ditem tile focusable q${q}" data-ditem="${it[0]}" data-tip="<b>${esc(it[1])}</b>${QNAME[q]} ${esc(itemType(it).toLowerCase())}, item level ${it[2]}, requires level ${it[3]}.${lootForYou(it) ? "" : ` Not what a ${esc(CHAR.className)} wears.`}${own ? " You have one (bags or bank)." : ""} The game's item tooltip shows in the addon.">
+        <span class="dicon">${it[4] === 2 ? "⚔" : "⛨"}</span><span class="dibody"><span class="diname">${esc(it[1])}</span><span class="ditype">${esc(itemType(it))} · Lv <b class="${it[3] > CHAR.level ? "later" : ""}">${it[3]}</b></span></span>${own ? `<span class="tag own">✓</span>` : ""}</button>`;
     }).join("")}</div>`;
   }
-  // The instance's page. Round 3 (owner, 2026-11-15: "I like all 1-10"): the painting as a tall
-  // banner with the blurb (1, 8) and the "every quest done" seal (4); wing tabs for Scarlet
-  // Monastery and Dire Maul (7); keys and attunements (5); the bosses as a trail of numbered stones (2)
-  // beside the focused boss's loot with item icons (3) and "In your bags" (10); the factions its
-  // quests raise (6); X shows the entrance on the world map (9).
+  function dunOverview(d) {
+    const lvl = CHAR.level;
+    const fitText = lvl < d.lv[0] ? `${d.lv[0] - lvl} level${d.lv[0] - lvl > 1 ? "s" : ""} to go` : lvl > d.lv[1] ? "Below you now" : "Right for your level";
+    const picks = dunPickups(d);
+    const MAXP = (d.keys || []).length ? 4 : 5, morePlaces = picks.length - MAXP;
+    const pickRows = picks.slice(0, morePlaces > 0 ? MAXP - 1 : MAXP).map(p => `<button class="dpick focusable" data-dpick="${esc(p.key)}" data-tip="<b>${esc(p.name)}</b>${p.quests.length} quest${p.quests.length > 1 ? "s" : ""} to pick up: ${p.quests.map(q => esc(q.name)).join(", ")}. A shows them in Quests.">
+        <span class="dpkn">${p.quests.length}</span><span class="dpkbody"><span class="dpkplace">${esc(p.name)}</span><span class="dpkwho">${[...p.givers].slice(0, 3).map(esc).join(", ") || p.quests.map(q => esc(q.name)).slice(0, 2).join(", ")}${p.quests.some(q => q.pre.length) ? ` · <i>${p.quests.filter(q => q.pre.length).length} need${p.quests.filter(q => q.pre.length).length > 1 ? "" : "s"} an earlier quest</i>` : ""}</span></span></button>`).join("");
+    const moreRow = morePlaces > 0 ? `<button class="dpick more focusable" data-dpv="quests" data-tip="<b>${morePlaces + 1} more places</b>${picks.slice(MAXP - 1).map(p => esc(p.name)).join(", ")}. A shows every quest by place.">
+        <span class="dpkn">+${morePlaces + 1}</span><span class="dpkbody"><span class="dpkplace">More places</span><span class="dpkwho">${picks.slice(MAXP - 1).map(p => esc(p.name)).join(", ")}</span></span></button>` : "";
+    const before = `<section class="dpanel before"><div class="dph">Before you go</div>
+      <div class="dlvl"><span class="dlvt"><b>Lv ${d.lv[0]}-${d.lv[1]}</b> · you're ${lvl}</span>${levelbar(d)}<span class="dlvs ${d.fit ? "fit" : ""}">${fitText}</span></div>
+      ${(d.keys || []).map(k => `<button class="dkey focusable ${k.need}" data-dkey="${k.item}" data-tip="<b>${esc(k.name)}</b>${esc(k.note)}. ${k.need === "required" ? "Required." : "Optional."}${dunHasKey(k) ? " You have it." : ""}">
+        <span class="dkicon">⚿</span><span>${esc(k.name)}</span>${dunHasKey(k) ? `<span class="tag own">✓ Have</span>` : k.need === "required" ? `<span class="tag req">Required</span>` : `<span class="tag">Optional</span>`}</button>`).join("")}
+      <div class="dpsub">Pick up the quests</div>
+      ${d.qTotal ? (picks.length ? `<div class="dpicks">${pickRows}${moreRow}</div>` : `<div class="dnoloot">Every quest here is done ✓</div>`)
+        : `<div class="dnoloot">${!d.qa ? "Its quests aren't mapped to it yet." : d.quests0 ? "None for your side." : "No quests here."}</div>`}</section>`;
+    const forYouN = d.bosses.reduce((n, b) => n + b.loot.filter(lootForYou).length, 0);
+    const run = `<section class="dpanel run"><div class="dph">The run <small>${d.bosses.length} bosses · ${d.loot} items · ${forYouN} for you</small></div>
+      <div class="dseals ${d.bosses.length > 12 ? "compact" : ""}">${d.bosses.map((b, i) => `<button class="dseal-b focusable" data-dseal="${esc(b.n)}" data-tip="<b>${i + 1}. ${esc(b.n)}</b>${b.rare ? "A rare: not always there. " : ""}${b.opt ? "Optional. " : ""}${b.oneOf ? `One of the ${esc(b.oneOf)} bosses. ` : ""}${b.loot.length ? `${b.loot.length} items, ${b.loot.filter(lootForYou).length} for you.` : "No gear known."} A shows its loot.">
+        ${sealHtml(b, i)}<span class="dsn">${esc(b.n)}</span></button>`).join("")}</div></section>`;
+    const byFac = {};
+    d.quests.forEach(q => (q.reps || []).forEach(([fid, amt]) => { if (amt > 0) { const e = byFac[fid] = byFac[fid] || { amt: 0, n: 0 }; e.amt += amt; e.n++; } }));
+    const facs = allFactions().filter(f => byFac[f.id]).sort((a, b) => byFac[b.id].amt - byFac[a.id].amt);
+    const rewards = `<section class="dpanel rewards"><div class="dph">Rewards</div>
+      ${d.qTotal ? `<div class="dqscore ${d.state}">${bar(d.qDone / d.qTotal)}<span><b>${d.qDone}</b> / ${d.qTotal} quests done</span></div>` : ""}
+      ${facs.length ? `<div class="dfacrow">${facs.slice(0, 4).map(f => `<button class="dfac focusable r${f.reaction}" data-repgo="${f.id}" data-tip="<b>${esc(f.name)}</b>${f.label}. About +${num(byFac[f.id].amt)} from ${byFac[f.id].n} quest${byFac[f.id].n > 1 ? "s" : ""} here (QuestieDB's base values). A opens it in Reputation.">
+          ${crest(f, "row") || `<i class="dfacdot"></i>`}<span class="dfn">${esc(f.name)}</span><span class="dfa">+${num(byFac[f.id].amt)}</span></button>`).join("")}</div>` : `<div class="dnoloot">No reputation from quests here.</div>`}</section>`;
+    return `<div class="dview dov">${before}<div class="dovright">${run}${rewards}</div></div>`;
+  }
+  function dunBossesView(d) {
+    let lastWing = null;
+    const rows = d.bosses.map((b, i) => {
+      const wing = b.wing && b.wing !== lastWing ? `<div class="dwing">${esc(b.wing)}</div>` : "";
+      lastWing = b.wing || lastWing;
+      const tags = `${b.rare ? `<span class="tag rare">Rare</span>` : ""}${b.opt ? `<span class="tag">Optional</span>` : ""}${b.oneOf ? `<span class="tag">One of: ${esc(b.oneOf)}</span>` : ""}`;
+      return `${wing}<button class="dboss compact focusable ${b.n === ui.dunBoss ? "selected" : ""}" data-dboss="${esc(b.n)}" data-tip="<b>${i + 1}. ${esc(b.n)}</b>${b.loot.length ? `${b.loot.length} items, ${b.loot.filter(lootForYou).length} for you; right to browse them.` : "No gear known."}">
+        ${sealHtml(b, i, "sm")}<span class="dbname">${esc(b.n)}${tags}</span><span class="dbloot">${b.loot.length ? `${b.loot.filter(lootForYou).length}/${b.loot.length}` : "–"}</span></button>`;
+    }).join("");
+    return `<div class="dview dbv"><div class="scroll dbvlist" data-group><div class="dbosslist">${rows}</div>
+        <p class="dnote">Kills aren't counted: the game keeps no record of past kills.</p></div>
+      <div class="scroll dbvloot" id="dlootpane">${bossLoot(d, d.bosses.find(b => b.n === ui.dunBoss))}</div></div>`;
+  }
+  function dunQuestsView(d) {
+    const lvl = CHAR.level, f = ui.dunQf || "open";
+    if (!d.qTotal) return `<div class="dview dqv"><div class="scroll"><div class="dnoloot">${!d.qa ? "This dungeon's quests aren't mapped to it yet: QuestieDB files them under their zones." : d.quests0 ? "None for your side." : "No quests here."}</div></div></div>`;
+    const shown = d.quests.filter(q => f === "all" || (f === "done" ? q.done : !q.done));
+    const groups = new Map();
+    shown.forEach(q => { const p = pickupPlace(q, d); if (!groups.has(p.key)) groups.set(p.key, { ...p, quests: [] }); groups.get(p.key).quests.push(q); });
+    // Chain order inside a place: a quest after the quest it needs, then by level.
+    const order = (qs) => qs.sort((a, b) => (a.pre.includes(b.id) ? 1 : b.pre.includes(a.id) ? -1 : a.level - b.level));
+    const row = (q) => {
+      const diff = difficulty(q.level, lvl), pre = preNames(q);
+      const turnin = q.turnin && q.giver && q.turnin[0] !== q.giver[0] ? `turn in to ${esc(q.turnin[0])}${q.turnin[2] && q.turnin[2] !== q.giver[2] ? `, ${esc(dunZoneName(q.turnin[2]) || "")}` : ""}` : "";
+      return `<button class="dqrow focusable d-${diff} ${q.done ? "done" : ""}" data-dquest="${q.id}" data-tip="<b>${esc(q.name)}</b>Level ${q.level}${q.req ? `, from level ${q.req}` : ""}. ${q.done ? "Done." : q.req > lvl ? `Opens at level ${q.req}.` : diff === "red" ? "Ready, but red for you." : "Ready for you."}${pre.length ? ` Needs ${esc(pre.join(", "))} first.` : ""}">
+        <span class="lvl">${q.level}</span><span class="dqbody"><span class="qn">${esc(q.name)}</span>
+        <span class="dqmeta">${q.giver ? `from ${esc(q.giver[0])}` : ""}${pre.length ? ` · <i>needs ${esc(pre.join(", "))}</i>` : ""}${turnin ? ` · ${turnin}` : ""}</span></span>
+        <span class="dqstate">${q.done ? "✓" : q.req > lvl ? `from ${q.req}` : diff === "red" ? "red" : "ready"}</span></button>`;
+    };
+    const body = [...groups.values()].map(g => `<div class="group-h" data-group data-place="${esc(g.key)}">${esc(g.name)} <small>${g.quests.length}</small></div><div class="dqlist">${order(g.quests).map(row).join("")}</div>`).join("")
+      || `<div class="dnoloot">${f === "done" ? "None done yet." : "Every quest here is done ✓"}</div>`;
+    return `<div class="dview dqv"><div class="pvswitch dqf">${[["open", "To do"], ["done", "Done"], ["all", "All"]].map(([v, l]) => `<button class="pvtab btn pchip focusable ${f === v ? "on" : ""}" data-dqf="${v}" data-tip="<b>${l}</b>${v === "open" ? "Quests you haven't done, by where you pick them up." : v === "done" ? "Quests you've done here." : "Every quest for your side and class."}">${l} <small>${v === "open" ? d.qTotal - d.qDone : v === "done" ? d.qDone : d.qTotal}</small></button>`).join("")}
+        <span class="dqnote">Grouped by where you pick them up · your side and class</span></div>
+      <div class="scroll dqscroll">${body}</div></div>`;
+  }
   function renderDungeonInto(container, d, opts) {
     if (!d) { container.innerHTML = `<div class="empty"><b>Select a dungeon</b></div>`; return; }
-    const lvl = CHAR.level;
     const score = d.qTotal ? `<div class="pagescore ${d.state}">${d.qDone} / ${d.qTotal}<small>quests done</small></div>`
       : `<div class="pagescore dim">${!d.qa ? "Quests not mapped" : d.quests0 ? "None for your side" : "No quests"}</div>`;
     const seal = d.state === "complete" ? `<img class="dseal" src="chrome-art/cel-seal-quests.png" alt="" data-tip-none>` : "";
@@ -3106,50 +3205,23 @@
         <div class="sub"><span>${d.kind === "raid" ? `Raid · ${d.size} players` : `Dungeon · ${d.size} players`}</span><span>· ${esc(d.zones.map(x => x.name).join(" / "))}</span><span>· Lv ${d.lv[0]}-${d.lv[1]}</span></div>
         ${wingTabs}</div>
       <div class="dscore">${seal}${score}</div></div></div>`;
-    // Keys and attunements (curated).
-    const keys = (d.keys || []).length ? `<div class="dkeys"><span class="dklabel">${d.keys.some(k => k.need === "required") ? "You'll need" : "Handy to have"}</span>${d.keys.map(k =>
-      `<button class="dkey focusable ${k.need}" data-dkey="${k.item}" data-tip="<b>${esc(k.name)}</b>${esc(k.note)}. ${k.need === "required" ? "Required." : "Optional."}${dunHasKey(k) ? " You have it." : ""}">
-        <span class="dkicon">⚿</span><span>${esc(k.name)}</span>${dunHasKey(k) ? `<span class="tag own">✓ Have</span>` : k.need === "required" ? `<span class="tag req">Required</span>` : ""}</button>`).join("")}</div>` : "";
     if (!ui.dunBoss || !d.bosses.some(b => b.n === ui.dunBoss)) ui.dunBoss = (d.bosses.find(b => b.loot.length) || d.bosses[0]).n;
-    let lastWing = null;
-    const bosses = d.bosses.map((b, i) => {
-      const wing = b.wing && b.wing !== lastWing ? `<div class="dwing">${esc(b.wing)}</div>` : "";
-      lastWing = b.wing || lastWing;
-      const tags = `${b.rare ? `<span class="tag rare">Rare</span>` : ""}${b.opt ? `<span class="tag">Optional</span>` : ""}${b.oneOf ? `<span class="tag">One of: ${esc(b.oneOf)}</span>` : ""}`;
-      const tip = `<b>${esc(b.n)}</b>Boss ${i + 1} of ${d.bosses.length}${b.rare ? ", a rare: not always there" : ""}${b.opt ? ", optional" : ""}${b.oneOf ? `, one of the ${esc(b.oneOf)} bosses (one per run)` : ""}. ${b.loot.length ? `${b.loot.length} items in its loot; right to browse them.` : "No gear known."}`;
-      return `${wing}<button class="dboss stone focusable ${b.n === ui.dunBoss ? "selected" : ""} ${b.rare || b.opt || b.oneOf ? "side" : ""}" data-dboss="${esc(b.n)}" data-tip="${tip}">
-        <span class="dbn">${i + 1}</span><span class="dbname">${esc(b.n)}${tags}</span><span class="dbloot">${b.loot.length ? `${b.loot.length} items` : "–"}</span></button>`;
-    }).join("");
-    const chip = (q) => `<button class="qchip focusable d-${difficulty(q.level, lvl)} ${q.done ? "done" : ""}" data-dquest="${q.id}"
-      data-tip="<b>${esc(q.name)}</b>Level ${q.level}${q.req ? `, from level ${q.req}` : ""}. ${q.done ? "Done." : q.req > lvl ? `Opens at level ${q.req}.` : "Ready for you."}${q.cls ? " A class quest." : ""}">
-      <span class="lvl">${q.level}</span><span class="qn">${esc(q.name)}</span>${q.done ? `<span class="qdone">✓</span>` : ""}</button>`;
-    const open = d.quests.filter(q => !q.done && q.req <= lvl);
-    const ready = open.filter(q => difficulty(q.level, lvl) !== "red"), red = open.filter(q => difficulty(q.level, lvl) === "red");
-    const later = d.quests.filter(q => !q.done && q.req > lvl), done = d.quests.filter(q => q.done);
-    const qgroup = (t, qs) => qs.length ? `<div class="dqh">${t} <small>${qs.length}</small></div><div class="qchips">${qs.sort((a, b) => a.level - b.level).map(chip).join("")}</div>` : "";
-    const quests = d.qTotal ? qgroup("Ready now", ready) + qgroup("Ready, but red for you", red) + qgroup("Later", later) + qgroup("Done", done)
-      : `<div class="dnoloot">${d.qa ? "No quests for your side and class here." : "This dungeon's quests aren't mapped to it yet: QuestieDB files them under their zones. (A design question for this tab.)"}</div>`;
-    // Factions the quests here raise (your side's quests; QuestieDB base values), most first.
-    const byFac = {};
-    d.quests.forEach(q => (q.reps || []).forEach(([fid, amt]) => { if (amt > 0) { const e = byFac[fid] = byFac[fid] || { amt: 0, n: 0 }; e.amt += amt; e.n++; } }));
-    const facs = allFactions().filter(f => byFac[f.id]).sort((a, b) => byFac[b.id].amt - byFac[a.id].amt);
-    const factions = facs.length ? `<section class="dsec"><div class="group-h" data-group>Factions raised here <small>${facs.length}</small></div><div class="dfacs">${facs.map(f =>
-      `<button class="dfac focusable r${f.reaction}" data-repgo="${f.id}" data-tip="<b>${esc(f.name)}</b>${f.label}. About +${num(byFac[f.id].amt)} from ${byFac[f.id].n} quest${byFac[f.id].n > 1 ? "s" : ""} here (QuestieDB's base values). A opens it in Reputation.">
-        ${crest(f, "row") || `<i class="dfacdot"></i>`}<span class="dfn">${esc(f.name)}</span><span class="dfa">+${num(byFac[f.id].amt)}</span><span class="dfr">${f.label}</span></button>`).join("")}</div></section>` : "";
-    container.innerHTML = `<div class="detail dpage tallpage">${hero}<div class="scroll dscroll">
-      ${keys}
-      <div class="dcols"><section class="dsec"><div class="group-h" data-group>Bosses <small>${d.bosses.length} · in encounter order</small></div>
-          <div class="dbosslist trailstones">${bosses}</div>
-          <p class="dnote">Boss kills aren't counted: the game keeps no record of past kills. From now on Azerfolio can mark the ones it sees (check D3).</p></section>
-        <section class="dsec dlootsec" id="dlootpane">${bossLoot(d, d.bosses.find(b => b.n === ui.dunBoss))}</section></div>
-      <section class="dsec"><div class="group-h" data-group>Quests <small>${d.qTotal ? `${d.qDone} of ${d.qTotal} done` : ""}</small></div>${quests}
-        <p class="dnote">Quests count when QuestieDB files them under this instance; your side and class only.</p></section>
-      ${factions}
-      <p class="dnote src">Bosses, levels and keys: Warcraft Wiki and Classic knowledge (curated, unofficial). Loot and reputation: QuestieDB. Item icons, quality and "Have" come from the game in the addon; stand-ins here.</p>
-    </div></div>`;
+    const v = ui.dunPv || "overview";
+    const sw = `<div class="pvswitch dpvswitch">${DPV.map(([k, l]) => `<button class="pvtab btn focusable ${k === v ? "on" : ""}" data-dpv="${k}" data-tip="<b>${l}</b>${k === "overview" ? "Before you go, the run and the rewards." : k === "bosses" ? "Every boss and what it drops, for you or all." : "Every quest, by where you pick it up."}">${l}</button>`).join("")}
+      <span class="dpvnote">Y switches the view · sources: Warcraft Wiki (curated), QuestieDB</span></div>`;
+    const body = v === "bosses" ? dunBossesView(d) : v === "quests" ? dunQuestsView(d) : dunOverview(d);
+    container.innerHTML = `<div class="detail dpage tallpage views">${hero}<div class="dpbody"><span class="dpbg">${dunArt(d)}</span>${sw}${body}</div></div>`;
+  }
+  // Switch the page's view (Y, or A on a view button); focus lands in the view, or on `sel`.
+  function setDunPv(v, sel) {
+    ui.dunPv = v;
+    const box = dunSplit() ? $("#detailpane") : content;
+    renderDungeonInto(box, dunModel().find(x => x.key === (dunSplit() ? ui.dunSel : ui.dunOpen)), { back: !dunSplit() });
+    setHints("dunPage");
+    return setFocus((sel && $(sel)) || (v === "bosses" && $(`[data-dboss="${CSS.escape(ui.dunBoss || "")}"]`)) || $(".dview .focusable") || $("[data-dpv].on"));
   }
   function restoreDun() {
-    if (ui.dunOpen && !dunSplit()) return setFocus($(`#content [data-dboss="${CSS.escape(ui.dunBoss || "")}"]`) || $("#content .dboss") || $("[data-back]"));
+    if (ui.dunOpen && !dunSplit()) return setFocus($(`#content [data-dboss="${CSS.escape(ui.dunBoss || "")}"]`) || $("#content .dview .focusable") || $("#content [data-dpv].on") || $("[data-back]"));
     const sc = $("#scroll");
     if (sc) { sc.style.scrollBehavior = "auto"; sc.scrollTop = ui.dunScroll || 0; sc.style.scrollBehavior = ""; }
     // The road opens on your level: the first instance that suits you.
@@ -3184,7 +3256,7 @@
     profsGather: [["DP", "✥", "Select"], ["Y", "Y", "View"], ["B", "B", "Professions"]],
     dun: [["A", "A", "Open"], ["Y", "Y", "View"], ["LT", "LT/RT", "Section"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
     dunWide: [["A", "A", "Details"], ["Y", "Y", "View"], ["LT", "LT/RT", "Section"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
-    dunPage: [["DP", "✥", "Select"], ["X", "X", "Map"], ["LT", "LT/RT", "Section"], ["B", "B", "Back"]],
+    dunPage: [["DP", "✥", "Select"], ["Y", "Y", "View"], ["X", "X", "Map"], ["LT", "LT/RT", "Section"], ["B", "B", "Back"]],
   };
   function screen() {
     if (ui.tab === "class") return "class";
@@ -3342,12 +3414,12 @@
     if (d.dview) { ui.dunView = d.dview; ui.trailPicked = false; render(); return restoreDun(); }
     if (d.godun) { // Zone Detail's dungeon tile: open it in the Dungeons tab; B comes back to the zone
       ui.dunFromZone = ui.detail || ui.selected; ui.tab = "dungeons"; ui.dunSel = d.godun; ui.dunBoss = null;
-      if (dunSplit()) { ui.dunFromZone = null; render(); return setFocus($("#detailpane .dboss.selected") || $("#detailpane .dboss")); }
+      if (dunSplit()) { ui.dunFromZone = null; render(); return setFocus($("#detailpane .dboss.selected") || $("#detailpane .dview .focusable") || $("#detailpane .dboss")); }
       ui.dunOpen = d.godun; render(); return restoreDun();
     }
     if (d.dun) { // Dungeons: open the instance's page (wide: move into it)
       ui.dunSel = d.dun; ui.dunBoss = null;
-      if (dunSplit()) return setFocus($("#detailpane .dboss.selected") || $("#detailpane .dboss") || el);
+      if (dunSplit()) return setFocus($("#detailpane .dboss.selected") || $("#detailpane .dview .focusable") || $("#detailpane .dboss") || el);
       ui.dunScroll = $("#scroll")?.scrollTop || 0; ui.dunOpen = d.dun; render(); return restoreDun();
     }
     if (d.dboss) return setFocus($("#dlootpane .ditem") || el); // A on a boss: into its loot
@@ -3358,6 +3430,11 @@
     }
     if (d.repgo) { const id = Number(d.repgo); ui.tab = "reputation"; ui.repSel = id; ui.repOpen = ui.wide ? null : id; render(); return restoreRep(); }
     if (d.dkey) return; // details in the info line
+    if (d.dpv) return setDunPv(d.dpv, `[data-dpv="${d.dpv}"]`);
+    if (d.dpick) { ui.dunQf = "open"; setDunPv("quests"); const h = $(`.dqscroll [data-place="${CSS.escape(d.dpick)}"]`); if (h) { h.scrollIntoView({ block: "start" }); return setFocus(h.nextElementSibling?.querySelector(".focusable") || h); } return; }
+    if (d.dseal) { ui.dunBoss = d.dseal; setDunPv("bosses"); return setFocus($(`[data-dboss="${CSS.escape(d.dseal)}"]`)); }
+    if (d.dlf) { ui.dunLoot = d.dlf; const dd = dunModel().find(x => x.key === (dunSplit() ? ui.dunSel : ui.dunOpen)); $("#dlootpane").innerHTML = bossLoot(dd, dd.bosses.find(b => b.n === ui.dunBoss)); return setFocus($(`[data-dlf="${d.dlf}"]`)); }
+    if (d.dqf) { ui.dunQf = d.dqf; setDunPv("quests"); return setFocus($(`[data-dqf="${d.dqf}"]`)); }
     if (d.ditem || d.dquest) return; // details in the info line
     if (d.faction) { // Reputation tab: open the faction's page (wide: move into it)
       const id = Number(d.faction); ui.repSel = id;
@@ -3608,6 +3685,7 @@
       y: () => { if (ui.tab === "professions" && !ui.flyout) { const p = profModel().find(x => x.name === ui.profSel); if (!p) return;
           const vs = profViews(p), nx = vs[(vs.indexOf(ui.profView || "journey") + 1) % vs.length], inside = focused && focused.closest("#detailpane");
           setProfView(nx, !!inside); if (!inside) setFocus(focused, { noScroll: true }); return; }
+        if (ui.tab === "dungeons" && !ui.flyout && (ui.dunOpen || (dunSplit() && focused && focused.closest("#detailpane")))) { const ks = DPV.map(x => x[0]); return setDunPv(ks[(ks.indexOf(ui.dunPv || "overview") + 1) % ks.length]); }
         if (ui.tab === "dungeons" && !ui.dunOpen && !ui.flyout) { const v = DUN_VIEWS().map(x => x[0]); ui.dunView = v[(v.indexOf(ui.dunView || "cards") + 1) % v.length]; render(); return restoreDun(); }
         if (ui.tab === "reputation" && !ui.repOpen && !ui.flyout) { const v = OPTIONS.repSort.items.map(x => x[0]); ui.repSort = v[(v.indexOf(ui.repSort) + 1) % v.length]; render(); return restoreRep(); }
         if (ui.tab === "zones" && !ui.detail && !ui.flyout) { const v = VIEWS().map(x => x[0]); ui.view = v[(v.indexOf(ui.view) + 1) % v.length]; render(); restoreCatalog(); } },
