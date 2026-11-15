@@ -2168,3 +2168,6 @@ body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; po
 .trmed.fit .trring.painted { filter: drop-shadow(0 0 10px rgba(255,220,120,.8)); }
 .trmed.complete .trring.painted { filter: drop-shadow(0 0 12px rgba(255,209,0,.75)); }
 .focused.trmed .trring.painted { outline: none; filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 10px rgba(255,230,0,.95)); }
+/* Round 8 fix: slice the cartouche at its parchment band (rows 39-87 of 128, measured), top and bottom
+   borders 0, so the band fills the whole 28 px plate and the name has room above and below. */
+.trmed .trcart { border-image: url(chrome-art/cartouche.png) 39 64 40 64 fill / 0 24px 0 24px / 0 stretch; padding: 0 28px; }
