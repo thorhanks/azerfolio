@@ -69,6 +69,9 @@ ns.Art = {
         ["atlas-backdrop"] = true,
         ["bar-fill"] = true,
         ["bar-fill-white"] = true,
+        ["card-frame-a"] = { x = 0.0273, y = 0.0273 },
+        ["card-frame-b"] = { x = 0.0352, y = 0.0313 },
+        ["card-frame-c"] = { x = 0.043, y = 0.0469 },
         ["cartouche"] = true,
         ["cel-claim-alliance"] = true,
         ["cel-claim-horde"] = true,
@@ -207,5 +210,7 @@ ns.Art = {
         ["mining"] = true,
         ["skinning"] = true,
         ["tailoring"] = true,
+    },
+    dungeons = {
     },
 }

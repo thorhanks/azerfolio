@@ -2930,8 +2930,11 @@
   // frame (frame-card) over the art, with filigree corners (a drawn stand-in until the painted
   // card-corner piece exists; art/prompts.md "Card corner flourish").
   function cardFrame() {
-    const v = ui.cardFrame || "flourish";
+    const v = ui.cardFrame || "subtle-a";
     if (v === "none") return "";
+    // Round 4 (owner: "more subtle, the current border is too much for a card grid"): thin painted frames.
+    if (v.startsWith("subtle-")) { const k = v.slice(7), [cs, cw] = { a: [14, "7px"], b: [16, "8px"], c: [32, "16px"] }[k] || [16, "8px"];
+      return `<span class="cframe subtle" style="--cf:url(chrome-art/card-frame-${k}.png);--cs:${cs};--cw:${cw}"></span>`; }
     return `<span class="cframe ${v}">${v === "flourish" ? `<i class="cfc tl"></i><i class="cfc tr"></i><i class="cfc bl"></i><i class="cfc br"></i>` : ""}</span>`;
   }
   function dunArt(d) {
@@ -2999,8 +3002,6 @@
         <span class="trart">${dunArt(d)}</span><span class="trring"></span>${d.state === "complete" ? `<span class="trdone">✓</span>` : ""}${d.forever ? `<span class="trnew">New</span>` : ""}
         <span class="trcart"><b>${esc(d.name)}</b><small>Lv ${d.lv[0]}-${d.lv[1]}${d.kind === "raid" ? ` · ${d.size}` : ""}</small></span></button>`;
     }).join("");
-    // Overview scrubber: one tick per instance in its state colour, You, and the visible window.
-    const scrub = items.map((d, i) => `<i class="trtick ${d.state} ${d.kind}" style="left:${((PAD + i * STEP) / W * 100).toFixed(2)}%"></i>`).join("");
     return `<div class="trailwin" id="trailwin"><div class="trail" style="width:${W}px;height:${H}px">
         <div class="trground"></div><div class="trdusk"></div>${firstRaid > 0 ? `<div class="trcitadel" style="left:${PAD + firstRaid * STEP - STEP / 2}px"></div>` : ""}
         <svg class="trroad" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><path class="trbed" d="${path}"/><path class="trlane" d="${path}"/><path class="trruts" d="${path}"/>
@@ -3008,7 +3009,6 @@
         ${signs.join("")}${marks.join("")}${meds}
         <span class="tryou" style="left:${youX}px;top:${ROAD}px"><i>${esc(CHAR.name[0])}</i><b>You · ${lvl}</b></span>
       </div></div>
-      <div class="trscrub" id="trscrub">${scrub}<i class="tryoutick" style="left:${(youX / W * 100).toFixed(2)}%"></i><span class="trview" id="trview"></span></div>
       <div class="trpreview" id="trpreview"></div>`;
   }
   function trailPreview(d) {
@@ -3021,13 +3021,6 @@
         <div class="trpvfoot">${d.qTotal ? `<span class="dcq">${bar(d.qDone / d.qTotal)}<small>${d.qDone} / ${d.qTotal} quests</small></span>` : `<span class="dim">${dunQuestCell(d).replace(/<[^>]+>/g, "")}</span>`}
           ${(d.keys || []).map(k => `<span class="trpvkey">⚿ ${esc(k.name)}</span>`).join("")}
           <span class="dim">${d.loot} items in its loot</span><span class="trpvgo">A Open ›</span></div></div></div>`;
-  }
-  // Keeps the scrubber's window in step with the strip's scroll.
-  function syncTrailScrub() {
-    const win = $("#trailwin"), view = $("#trview");
-    if (!win || !view) return;
-    view.style.left = (win.scrollLeft / win.scrollWidth * 100) + "%";
-    view.style.width = (win.clientWidth / win.scrollWidth * 100) + "%";
   }
   const dunSplit = () => ui.wide && (ui.dunView || "cards") === "list";
   const DUN_VIEWS = () => ui.wide ? [["cards", "▦", "Cards"], ["list", "☰", "List"], ["trail", "〰", "Road"]] : [["cards", "▦", "Cards"], ["list", "☰", "List"], ["trail", "〰", "Road"]];
@@ -3057,7 +3050,7 @@
       $("#trpreview").innerHTML = trailPreview(d);
       const win = $("#trailwin");
       win.style.scrollBehavior = "auto"; win.scrollLeft = Math.max(0, (ui.trailYouX || 0) - win.clientWidth * 0.35); win.style.scrollBehavior = "";
-      win.addEventListener("scroll", syncTrailScrub); syncTrailScrub();
+
       return;
     }
     if (ui.wide && view === "list") {
@@ -3104,7 +3097,7 @@
       : `<div class="pagescore dim">${!d.qa ? "Quests not mapped" : d.quests0 ? "None for your side" : "No quests"}</div>`;
     const seal = d.state === "complete" ? `<img class="dseal" src="chrome-art/cel-seal-quests.png" alt="" data-tip-none>` : "";
     const wings = d.group ? dunModel().filter(x => x.group === d.group) : [];
-    const wingTabs = wings.length > 1 ? `<div class="dwings">${wings.map(w => `<button class="btn focusable ${w.key === d.key ? "on" : ""}" data-dwing="${w.key}"
+    const wingTabs = wings.length > 1 ? `<div class="dwings">${wings.map(w => `<button class="focusable ${w.key === d.key ? "on" : ""}" data-dwing="${w.key}"
         data-tip="<b>${esc(w.name)}</b>Levels ${w.lv[0]}-${w.lv[1]}, ${w.bosses.length} bosses${w.qTotal ? `, ${w.qDone} of ${w.qTotal} quests done` : ""}.">${esc(w.name.split(": ")[1] || w.name)}</button>`).join("")}</div>` : "";
     const hero = `<div class="detail-hero dhero tall">${dunArt(d)}<div class="shade"></div>
       ${opts.back ? `<button class="btn dark back focusable" data-back data-tip="Back (B)">‹ ${ui.dunFromZone ? esc(ui.dunFromZone) : "Dungeons"}</button>` : ""}

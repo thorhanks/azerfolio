@@ -299,6 +299,7 @@ $measured = @{}
 function Get-PieceKind([string]$name) {
     if ($name -match '^(banner|pole|streamer|badge)-(alliance|horde)$') { return $Matches[1] }
     if ($name -eq 'frame-card' -or $name -eq 'frame-bar' -or $name -eq 'frame-plaque') { return $name }
+    if ($name -match '^card-frame(-[a-z0-9]+)?$') { return 'frame-card' } # the art cards' subtle frame (Dungeons round 4)
     if ($name -match '^plaque-fill-[a-z0-9-]+$') { return 'texture' }
     if ($name -match '^rep-(hated|hostile|unfriendly|neutral|friendly|honored|revered|exalted)$') { return 'emblem' }
     if ($name -match '^plate-[a-z0-9-]+$') { return 'plate' }

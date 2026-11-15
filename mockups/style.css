@@ -230,20 +230,20 @@ h2.section small { font-size: var(--fs-xs); color: var(--dim); }
 /* Owner (2026-11-14): the Zones and Reputation toolbars use the game's red panel buttons (as the
    Professions tab); the selected one keeps the hover highlight. The search box stays dark. */
 .toolbar .seg, .toolbar .viewtoggle { border: 0; overflow: visible; gap: 4px; }
-.toolbar .seg button, .toolbar .viewtoggle button, .toolbar .select, .toolbar .btn {
+.toolbar .seg button, .toolbar .viewtoggle button, .dwings button, .toolbar .select, .toolbar .btn {
   background: linear-gradient(180deg, #8a2414, #4a0f08); color: var(--wow-gold); border: 1px solid #c99a4a; border-radius: var(--r-ctl);
   box-shadow: inset 0 0 0 1px #2a0602, 0 1px 2px #000; padding: 3px 8px; font: var(--fs-sm) var(--font); }
-.toolbar .seg button:hover, .toolbar .seg button.on, .toolbar .viewtoggle button:hover, .toolbar .viewtoggle button.on,
+.toolbar .seg button:hover, .toolbar .seg button.on, .toolbar .viewtoggle button:hover, .toolbar .viewtoggle button.on, .dwings button:hover,
 .toolbar .select:hover, .toolbar .btn:hover {
   background: linear-gradient(180deg, #b23a22, #6a1a0e); box-shadow: inset 0 0 0 1px #2a0602, inset 0 0 8px rgba(255,220,140,.55), 0 1px 2px #000; color: #ffe9a8; }
 .toolbar .select b { color: #fff; }
 /* Phase 15 step 2 (review R11, owner chose A over text tabs): the selected toolbar button is
    pressed in (the button's own Down look), bright gold text and border, and a 2 px gold underline;
    hover only lights a button, it never looks selected. */
-body :is(.toolbar .seg button, .toolbar .viewtoggle button, .pvtab.btn) { position: relative; }
-body :is(.toolbar .seg button, .toolbar .viewtoggle button, .pvtab.btn):hover:not(.on) {
+body :is(.toolbar .seg button, .toolbar .viewtoggle button, .dwings button, .pvtab.btn) { position: relative; }
+body :is(.toolbar .seg button, .toolbar .viewtoggle button, .dwings button, .pvtab.btn):hover:not(.on) {
   background: linear-gradient(180deg, #a03020, #5a150b); box-shadow: inset 0 0 0 1px #2a0602, inset 0 0 6px rgba(255,220,140,.3), 0 1px 2px #000; color: #ffe9a8; }
-body :is(.toolbar .seg button, .toolbar .viewtoggle button, .pvtab.btn).on {
+body :is(.toolbar .seg button, .toolbar .viewtoggle button, .dwings button, .pvtab.btn).on {
   background: linear-gradient(180deg, #3a0a04, #5a160c); color: #ffd100; border-color: #ffd100;
   box-shadow: inset 0 2px 4px rgba(0,0,0,.75), inset 0 0 0 1px #2a0602; }
 /* The gold underline under the selected button was removed after the Phase 15 close (owner, 2026-11-14): pressed in alone. */
@@ -868,7 +868,7 @@ body.chrome .catbar.progress .ctrack i { filter: hue-rotate(-16deg) saturate(1.2
 @keyframes bob { 0%, 100% { transform: translateX(-4px); } 50% { transform: translateX(0); } }
 .focused { position: relative; z-index: 3; }
 /* Rows, chips, buttons: the native highlight bar */
-.focused:is(.zrow, .check, .areachip, .seg button, .select, .search, .viewtoggle button, .flyout button, .goal, .counter, .btn, .close) { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
+.focused:is(.zrow, .check, .areachip, .seg button, .select, .search, .viewtoggle button, .dwings button, .flyout button, .goal, .counter, .btn, .close) { background-image: linear-gradient(90deg, rgba(220,215,205,.08), rgba(220,215,205,.28) 12%, rgba(220,215,205,.28) 88%, rgba(220,215,205,.08)); box-shadow: 0 0 0 1px rgba(255,230,0,.55); }
 /* Art cards, tiles, large panels: a thin focus-yellow edge (they're pictures, a bar wouldn't read) */
 .focused:is(.zcard, .tile, .hero, .minimap) { box-shadow: 0 0 0 2px var(--focus), 0 0 14px 2px rgba(255,230,0,.45) !important; }
 .zcard.focused, .tile.focused { transform: scale(1.03); }
@@ -1957,8 +1957,8 @@ body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; po
 .trmed.complete .trart > img, .trmed.complete .trart > svg { filter: none; }
 .trmed.fit .trring::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px dashed #3c8a3c; }
 .trmed .trdone { position: absolute; right: 0; top: -4px; font-size: 22px; color: #f0c040; text-shadow: 0 0 6px rgba(255,209,0,.8), 0 1px 2px #000; }
-.trmed .trcart { position: absolute; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; white-space: nowrap; padding: 2px 14px;
-  border-image: url(chrome-art/cartouche.png) 0 40 fill / 0 18px / 0 stretch; color: #2a1608; font: var(--fs-sm) var(--font); }
+.trmed .trcart { position: absolute; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; text-align: center; padding: 3px 28px 4px; width: max-content; white-space: nowrap; line-height: 1.15;
+  border-image: url(chrome-art/cartouche.png) 34 64 30 64 fill / 4px 24px 4px 24px / 0 stretch; color: #2a1608; font: var(--fs-sm) var(--font); }
 .trmed .trcart b { font-weight: 400; } .trmed .trcart small { font-size: var(--fs-xs); color: #5a3f24; }
 .trmed.above .trcart { bottom: 100%; margin-bottom: 2px; } .trmed.below .trcart { top: 100%; margin-top: 2px; }
 .focused.trmed { transform: scale(1.12); z-index: 3; } .focused.trmed .trring { outline: 3px solid rgba(255,230,0,.9); outline-offset: 2px; border-radius: 50%; }
@@ -2011,8 +2011,8 @@ body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; po
 .dscore { display: flex; align-items: flex-end; gap: var(--s3); }
 .dseal { width: 84px; height: 84px; filter: drop-shadow(0 3px 6px rgba(0,0,0,.7)); transform: rotate(-8deg); }
 .dwings { display: flex; gap: 6px; margin-top: var(--s2); }
-.dwings .btn { font-size: var(--fs-sm); padding: 2px 10px; }
-.dwings .btn.on { color: var(--wow-gold); box-shadow: inset 0 -2px 0 var(--wow-gold); }
+.dwings button { cursor: pointer; }
+
 .dkeys { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; margin-bottom: var(--s4); padding: var(--s2) var(--s3); background: rgba(0,0,0,.3); border: 1px solid #4a3622; border-radius: 6px; }
 .dklabel { font: var(--fs-sm) var(--font); color: var(--wow-gold); margin-right: var(--s2); }
 .dkey { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background: linear-gradient(180deg, #2e2214, #1a1209); border: 1px solid #7a5a2a; border-radius: var(--r-ctl); color: var(--white); font: var(--fs-sm) var(--font); cursor: pointer; }
@@ -2043,8 +2043,8 @@ body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; po
 .trdusk { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(20,10,4,0) 0%, rgba(20,10,4,0) 25%, rgba(40,16,8,.18) 55%, rgba(30,8,4,.42) 80%, rgba(16,4,2,.6) 100%); }
 .trcitadel { background: linear-gradient(90deg, rgba(60,14,6,0), rgba(70,16,8,.35) 10%, rgba(30,6,4,.55)); border-left: 0; box-shadow: inset 6px 0 0 -3px rgba(120,30,20,.6); }
 .trroad .trruts { fill: none; stroke: #b49663; stroke-width: 2; stroke-dasharray: 10 14; opacity: .7; }
-.trsign { position: absolute; top: 8px; transform: translateX(-50%); z-index: 1; padding: 4px 26px; min-width: 150px; text-align: center;
-  border-image: url(chrome-art/plate-header.png) 0 60 fill / 0 30px / 0 stretch; font: var(--fs-sm) var(--font); color: var(--wow-gold); text-shadow: 0 1px 2px #000; white-space: nowrap; }
+.trsign { position: absolute; top: 8px; transform: translateX(-50%); z-index: 1; padding: 5px 40px; min-width: 150px; text-align: center;
+  border-image: url(chrome-art/plate-header.png) 24 110 fill / 8px 36px / 0 stretch; font: var(--fs-sm) var(--font); color: var(--wow-gold); text-shadow: 0 1px 2px #000; white-space: nowrap; }
 .trsign::after { content: ""; position: absolute; left: 50%; top: 100%; width: 3px; height: 30px; margin-left: -1px; background: linear-gradient(#5a3f24, rgba(90,63,36,0)); }
 .trsign.raid { color: #ffb0a0; }
 .trlv { position: absolute; transform: translate(-50%, -50%); width: 26px; height: 26px; display: grid; place-items: center; z-index: 1;
@@ -2063,3 +2063,11 @@ body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; po
 .trpvart.dcard { aspect-ratio: auto; position: relative; overflow: visible; }
 .trpvkey { color: #e2b84a; font-size: var(--fs-xs); }
 .trpreview .dblurb { color: var(--text); text-shadow: none; margin: 0; }
+.trailbox { grid-template-rows: auto 1fr; } /* round 4: the overview scrubber is gone (owner) */
+
+/* ---------- Round 4: subtle painted card frames (2026-11-15) ---------- */
+.cframe.subtle { inset: -2px; border-image: var(--cf) var(--cs) fill / var(--cw) / 0 stretch; }
+.dcard:has(.cframe.subtle) { box-shadow: 0 4px 10px rgba(0,0,0,.55); }
+.dcard.complete:has(.cframe.subtle) { box-shadow: 0 0 0 1px var(--st-complete), 0 0 14px rgba(255,209,0,.35); }
+.dcard.progress:has(.cframe.subtle) { box-shadow: 0 0 0 1px var(--st-progress), 0 4px 10px rgba(0,0,0,.55); }
+.dcard:has(.cframe.subtle) .dctags { top: 10px; left: 12px; } .dcard:has(.cframe.subtle) .dcfoot { left: 14px; right: 14px; bottom: 11px; }
