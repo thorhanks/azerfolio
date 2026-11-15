@@ -723,6 +723,182 @@ return function(t)
         restore(); restoreZone()
     end)
 
+    -- The Dungeons tab over the real catalogue (Data/Dungeons.lua): the Deadmines' two quests
+    -- done, Wailing Caverns one of two, Shadowfang Keep Horde only; `known` false = the client
+    -- doesn't say which quests are done.
+    local function dunStub(ns, opts)
+        local D = ns.Dungeons
+        local real = { state = D.State, cat = D.Catalogue, known = D.CompletionKnown }
+        local by = {}
+        local function area(key) return D.Instance(key).questArea end
+        by[area("deadmines")] = { { id = 1, name = "A", level = 18, reqLevel = 14, side = "A", done = true },
+            { id = 2, name = "B", level = 20, reqLevel = 14, done = true } }
+        by[area("wailing")] = { { id = 3, name = "C", level = 20, reqLevel = 15, done = true }, { id = 4, name = "D", level = 22, reqLevel = 16 } }
+        by[area("shadowfang")] = { { id = 5, name = "E", level = 22, reqLevel = 18, side = "H" } }
+        D.State = function() return opts.state or { status = "ready" } end
+        D.CompletionKnown = function() return opts.known ~= false end
+        D.Catalogue = function(filter)
+            if (opts.state or {}).status and opts.state.status ~= "ready" then return nil end
+            local q = {}
+            for a, list in pairs(by) do
+                q[a] = {}
+                for i, x in ipairs(list) do
+                    local c = {}
+                    for k, v in pairs(x) do c[k] = v end
+                    if opts.known == false then c.done = nil end
+                    q[a][i] = c
+                end
+            end
+            return ns.DungeonRules.Catalogue(D.Character(), q, filter)
+        end
+        return function() D.State = real.state; D.Catalogue = real.cat; D.CompletionKnown = real.known end
+    end
+
+    t.test("dungeons tab: building and unavailable say so; no counts before the build", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local opts = { state = { status = "building" } }
+        local restore = dunStub(ns, opts)
+        slash("")
+        ns.UI.SelectTab("dungeons")
+        local dp = ns.UI.GetFrame().pages.dungeons
+        t.ok(dp and dp:IsShown(), "the sixth tab")
+        t.eq(dp.emptyTitle:GetText(), "Reading dungeons")
+        t.eq(dp.count:GetText(), "")
+        t.eq(#dp.focusRows, 1, "only the toolbar")
+        opts.state = { status = "unavailable", reason = "QuestieDB is not loaded" }
+        ns.Events.Send("AZF_DUNGEONS_UPDATED", "build")
+        t.eq(dp.emptyTitle:GetText(), "Dungeons need QuestieDB")
+        t.ok(dp.emptyText:GetText():find("QuestieDB is not loaded", 1, true), dp.emptyText:GetText())
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("dungeons tab: cards, groups, quest bars, Y views, filters, the page, B, wide split", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local opts = {}
+        local restore = dunStub(ns, opts)
+        slash("")
+        ns.UI.SelectTab("dungeons")
+        local dp = ns.UI.GetFrame().pages.dungeons
+        local W = ns.DungeonsPage.Words
+        t.eq(dp:View(), "cards")
+        t.eq(dp.count:GetText(), "41 of 41  ·  levels are a guide")
+        t.eq(dp.headers[1].text:GetText(), "Levels 13-19")
+        t.eq(dp.headers[dp.sectionCount].text:GetText(), "Raids")
+        t.eq(#dp.focusRows[2].items, 3, "three across")
+        t.eq(ns.Focus.Current().key, dp.focusRows[2].items[1].key, "opens on the first instance")
+        -- The Deadmines: every quest done (gold edge, ✓), Wailing Caverns in progress, Shadowfang none for you.
+        local dm, wc, sfk = dp.byKey.deadmines, dp.byKey.wailing, dp.byKey.shadowfang
+        t.eq(dm.check:IsShown(), true)
+        t.ok(dm.quest.text:GetText():find("2 / 2 quests", 1, true), dm.quest.text:GetText())
+        t.eq(wc.check:IsShown(), false)
+        t.eq(wc.quest.text:GetText(), "1 / 2 quests")
+        t.eq(sfk.quest.text:GetText(), "None for your side")
+        t.eq(sfk.quest.well:IsShown(), false)
+        t.ok(dm.meta:GetText():find("Lv 15-23", 1, true), dm.meta:GetText())
+        t.eq(W.Meta(ns.Dungeons.Instance("deadmines"), "Westfall"), "Dungeon  ·  Lv 15-23  ·  Westfall  ·  8 bosses")
+        t.ok(W.Meta(ns.Dungeons.Instance("moltenCore"), "Blackrock Mountain"):find("Raid · 40", 1, true))
+        t.ok(dp.headers[1].count:GetText():find("every quest done in"), dp.headers[1].count:GetText())
+        local tags = W.Tags({ inst = ns.Dungeons.Instance("hallOfThanes"), fit = true })
+        t.eq(tags[1].text, "New in Forever"); t.eq(tags[2].text, "Your level")
+        t.eq(W.Tags({ inst = ns.Dungeons.Instance("upperSpire"), fit = false })[1].text, "10 players")
+        local mc = ns.Dungeons.Instance("moltenCore")
+        t.eq(W.Meta(mc, "Searing Gorge", 1):find("Raid"), nil, "a narrow card drops the kind first")
+        t.ok(W.Meta(mc, "Searing Gorge", 1):find("bosses"))
+        t.eq(W.Meta(mc, "Searing Gorge", 2):find("bosses"), nil, "then the bosses")
+        ns.Focus.FocusKey("d:deadmines")
+        t.ok(ns.Focus.Current().detail:find("2 of 2 quests done. A opens it.", 1, true), ns.Focus.Current().detail)
+        -- LT/RT jump brackets.
+        t.eq(dp.hasSections, true)
+        ns.Focus.Jump(1)
+        t.eq(ns.Focus.Current().entry.bracket.key, "20-29")
+        -- Y: List (saved), focus stays on the instance; Y again: Cards (the Road isn't in the cycle yet).
+        local before = ns.Focus.Current().key
+        press(ns, "PAD4")
+        t.eq(ns.db.dungeons.view, "list")
+        t.eq(dp.rows[1]:IsShown(), true)
+        t.eq(ns.Focus.Current().key, before)
+        t.eq(dp.byKey.wailing.quest.text:GetText(), "1 / 2 quests")
+        t.eq(dp.byKey.wailing.bosses:IsShown(), true)
+        press(ns, "PAD4")
+        t.eq(ns.db.dungeons.view, "cards")
+        t.eq(W.View("road"), "cards", "the Road shows Cards until it's built")
+        -- A: the page; B back to the same card.
+        ns.Focus.FocusKey("d:deadmines")
+        press(ns, "PAD1")
+        t.eq(dp.mode, "page")
+        t.eq(dp.detail:IsShown(), true); t.eq(dp.list:IsShown(), false)
+        t.eq(dp.detail.banner.name:GetText(), "The Deadmines")
+        t.eq(dp.detail.banner.score:GetText(), "2 / 2 quests done")
+        press(ns, "PAD4")
+        t.eq(ns.db.dungeons.view, "cards", "Y does nothing on the page yet")
+        press(ns, "PAD2")
+        t.eq(dp.mode, "list")
+        t.eq(ns.Focus.Current().key, "d:deadmines")
+        -- Filters.
+        dp:SetFilter("raid")
+        t.eq(dp.count:GetText(), "7 of 41  ·  levels are a guide", "Data/Dungeons.lua's raids")
+        t.eq(dp.headers[1].text:GetText(), "Raids")
+        dp:SetFilter("forever")
+        t.eq(dp.count:GetText(), "9 of 41  ·  levels are a guide")
+        dp:SetFilter("all")
+        -- Wide: Cards stay full width; List splits and the page follows focus.
+        ns.UI.FitSize(1640, 740)
+        t.eq(dp.wide, true)
+        t.eq(dp:Split(), false)
+        dp:SetView("list")
+        t.eq(dp:Split(), true)
+        t.eq(dp.detail:IsShown(), true)
+        t.eq(dp.byKey.wailing.bosses:IsShown(), false, "the split's list drops the bosses")
+        ns.Focus.FocusKey("d:wailing")
+        t.eq(dp.selKey, "wailing")
+        t.eq(dp.detail.banner.name:GetText(), "Wailing Caverns")
+        t.eq(ns.Focus.Current().canActivate(ns.Focus.Current()), false, "nothing to move into yet")
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("/azf shots dungeons covers Cards, List, the page, minimum and wide; restores the view", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview", dungeons = { filter = "raid", view = "list" } })
+        local restore = dunStub(ns, {})
+        slash("")
+        slash("shots dungeons")
+        wow.runTimers()
+        t.eq(_G.screenshotsTaken, 11)
+        t.eq(ns.db.dungeons.view, "list", "view restored")
+        t.eq(ns.db.dungeons.filter, "raid", "filter restored")
+        t.eq(ns.UI.GetFrame().pages.dungeons.mode, "list")
+        t.eq(ns.UI.CurrentTab(), "overview")
+        t.eq(ns.UI.GetFrame():GetWidth(), 1160, "size restored")
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("dungeons tab: unknown completion is ?, never 0, and no bracket claims", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local restore = dunStub(ns, { known = false })
+        slash("")
+        ns.UI.SelectTab("dungeons")
+        local dp = ns.UI.GetFrame().pages.dungeons
+        t.eq(dp.byKey.deadmines.quest.text:GetText(), "? / 2 quests")
+        t.eq(dp.byKey.deadmines.check:IsShown(), false)
+        t.eq(dp.byKey.deadmines.quest.fill:IsShown(), false)
+        t.eq(dp.headers[1].count:GetText():find("every quest"), nil, dp.headers[1].count:GetText())
+        ns.Focus.FocusKey("d:deadmines")
+        t.ok(ns.Focus.Current().detail:find("hasn't said which are done", 1, true))
+        local W = ns.DungeonsPage.Words
+        t.eq(W.QuestText({ total = 0, none = "unmapped" }, true), "Quests not mapped")
+        t.eq(W.QuestText({ total = 0, none = "none" }, true), "No quests")
+        t.eq(W.QuestText({ total = 1, done = 0 }, true), "0 / 1 quest")
+        t.eq(W.NextView("cards"), "list"); t.eq(W.NextView("list"), "cards")
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
     -- The Class tab over the real Paladin road (Data/ClassJourneys.lua) built by the real rules
     -- for a Human: the letter done, The Tome of Divinity 1 of 8, the rest locked by level.
     local DWARF = { 3107, 1646, 1647, 1648, 1778, 1779, 1783, 1784, 1785, 2997, 2999, 3000, 1645, 1789 }
@@ -1556,18 +1732,20 @@ return function(t)
 
     t.test("tabs are registered in order and wrap around", function()
         local ns = boot()
-        t.eq(#ns.UI.tabs, 5)
+        t.eq(#ns.UI.tabs, 6)
         t.eq(ns.UI.tabs[1].id, "overview")
         t.eq(ns.UI.tabs[2].id, "zones")
         t.eq(ns.UI.tabs[3].id, "reputation")
         t.eq(ns.UI.tabs[4].id, "class")
         t.eq(ns.UI.tabs[5].id, "professions")
+        t.eq(ns.UI.tabs[6].id, "dungeons")
         t.eq(ns.UI.TabAfter("overview", 1), "zones")
         t.eq(ns.UI.TabAfter("zones", 1), "reputation")
         t.eq(ns.UI.TabAfter("reputation", 1), "class")
         t.eq(ns.UI.TabAfter("class", 1), "professions")
-        t.eq(ns.UI.TabAfter("professions", 1), "overview")
-        t.eq(ns.UI.TabAfter("overview", -1), "professions")
+        t.eq(ns.UI.TabAfter("professions", 1), "dungeons")
+        t.eq(ns.UI.TabAfter("dungeons", 1), "overview")
+        t.eq(ns.UI.TabAfter("overview", -1), "dungeons")
     end)
 
     t.test("/azf opens and closes the window; Escape is registered", function()
@@ -1692,7 +1870,7 @@ return function(t)
         wow.runTimers()
         local pictures = 0
         for _, s in ipairs(ns.UI.ShotSteps()) do if not s.skip then pictures = pictures + 1 end end
-        t.eq(pictures, 24, "12 before, the zone's three category pages, the Atlas, the Reputation tab (2) and its split (2), the Class tab (2), the Professions tab and at minimum size")
+        t.eq(pictures, 26, "12 before, the zone's three category pages, the Atlas, the Reputation tab (2) and its split (2), the Class tab (2), the Professions and Dungeons tabs and at minimum size")
         -- The fixture zone's tiles: two of the three don't open a page there, so no picture
         -- (a tile that doesn't apply stays quiet, Phase 15 step 2).
         t.eq(_G.screenshotsTaken, pictures - 2)

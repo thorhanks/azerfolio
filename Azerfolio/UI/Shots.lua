@@ -262,6 +262,43 @@ local function professionSteps()
     return out
 end
 
+-- /azf shots dungeons (Phase 16 task 4): the Dungeons tab's Cards and List, the next section,
+-- an instance's page, at the minimum size and wide (Cards full width, List split). The view and
+-- filter are restored at the end.
+local function dunPage() return UI.GetFrame().pages.dungeons end
+local function dungeonSteps()
+    local minW, minH = ns.Config.RANGES["window.width"][1], ns.Config.RANGES["window.height"][1]
+    local function open(view)
+        UI.SelectTab("dungeons")
+        local p = dunPage()
+        if not p then return nil end
+        if p.mode == "page" then p:Back() end
+        if UI.shotsDunView == nil then UI.shotsDunView, UI.shotsDunFilter = ns.db.dungeons.view, ns.db.dungeons.filter end
+        if ns.db.dungeons.filter ~= "all" then ns.db.dungeons.filter = "all" end
+        p:SetView(view)
+        ns.Focus.Jump(1); UI.RefreshHints() -- the first instance
+        return p
+    end
+    local function openPage()
+        local p = dunPage()
+        local item = ns.Focus.Current()
+        if p and item and item.entry then p:OpenInstance(item.entry.inst.key) end
+    end
+    return {
+        { label = "dungeons, cards", fn = function() UI.ApplyGeometry(); UI.Relayout(); open("cards") end },
+        { label = "dungeons, next section", fn = function() ns.Focus.Jump(1); UI.RefreshHints() end },
+        { label = "dungeons, instance page", fn = openPage },
+        { label = "dungeons, list", fn = function() open("list") end },
+        { label = "dungeons, list scrolled", fn = function() ns.Focus.Jump(1); ns.Focus.Jump(1); UI.RefreshHints() end },
+        { label = "dungeons at minimum size", fn = function() open("cards"); UI.FitSize(minW, minH) end },
+        { label = "dungeons, list at minimum size", fn = function() open("list") end },
+        { label = "dungeons wide, cards", fn = function() UI.FitSize(wideSize()); open("cards") end },
+        { label = "dungeons wide, instance page", fn = openPage },
+        { label = "dungeons wide, list", fn = function() open("list") end },
+        { label = "dungeons wide, list next section", fn = function() ns.Focus.Jump(1); UI.RefreshHints() end },
+    }
+end
+
 -- /azf shots explore: the Exploration page and its zone map (Phase 15 step 6) for the player's
 -- zone at the normal, minimum and wide sizes, then a fully explored zone and one with no area
 -- found yet, where the character has them.
@@ -350,6 +387,7 @@ local function steps(which)
     if which == "explore" then return exploreSteps() end
     if which == "class" then return classSteps() end
     if which == "professions" or which == "profs" then return professionSteps() end
+    if which == "dungeons" or which == "dungeon" then return dungeonSteps() end
     if which == "reputation" or which == "rep" then
         local here = C_Map and C_Map.GetBestMapForUnit
             and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
@@ -507,6 +545,13 @@ function UI.RunShots(which)
         local pp = UI.GetFrame().pages.professions
         if pp and pp.mode == "page" then pp:Back() end
         if pp and pp.mode == "page" then pp:Back() end
+        local dp = UI.GetFrame().pages.dungeons
+        if dp and dp.mode == "page" then dp:Back() end
+        if dp and UI.shotsDunView ~= nil then
+            ns.db.dungeons.filter = UI.shotsDunFilter or ns.db.dungeons.filter
+            dp:SetView(UI.shotsDunView)
+        end
+        UI.shotsDunView, UI.shotsDunFilter = nil, nil
         if UI.shotsOpenedDetail then
             UI.SelectTab("zones")
             local zp = UI.GetFrame().pages.zones

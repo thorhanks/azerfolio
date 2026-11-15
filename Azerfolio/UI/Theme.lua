@@ -254,11 +254,12 @@ function Theme.CategoryInline(key, size)
     return "|T" .. tostring(meta and meta.icon) .. ":" .. size .. ":" .. size .. "|t"
 end
 
--- The painted card frame (frame-card, nine-slice) drawn over `frame`'s edge, `out` units
--- outside it, corners `corner` units square. The centre stays empty. Returns a handle with
--- SetShown(on) and SetVertexColor(r, g, b), or nil without the art.
-function Theme.CardFrame(frame, corner, out, layer)
-    local file, slice = Theme.Chrome("frame-card")
+-- The painted card frame (frame-card, nine-slice; or the chrome piece `name`, e.g. the
+-- Dungeons cards' card-frame-a) drawn over `frame`'s edge, `out` units outside it, corners
+-- `corner` units square. The centre stays empty. Returns a handle with SetShown(on) and
+-- SetVertexColor(r, g, b), or nil without the art.
+function Theme.CardFrame(frame, corner, out, layer, name)
+    local file, slice = Theme.Chrome(name or "frame-card")
     if not file or type(slice) ~= "table" then return nil end
     corner, out = corner or 24, out or 4
     local sx, sy = slice.x, slice.y
@@ -488,6 +489,32 @@ Theme.layout.repTab = {
         other = "Interface\\Icons\\INV_Misc_Note_01", none = "Interface\\Icons\\INV_Misc_QuestionMark",
     },
 }
+-- Dungeons tab (Phase 16 task 4; mockups/DESIGN.md "Dungeons tab", style.css .dcard/.drow/.tag).
+Theme.color.dunTagNew = hex("ffe9a8")       -- "New in Forever" (style.css .tag.new)
+Theme.color.dunTagNewBg = hex("5a3f12")     -- rgba(160,110,20,.35) over the card's dark foot
+Theme.color.dunTagNewEdge = hex("9b7a3c")
+Theme.color.dunTagBg = hex("0a0602")        -- a plain tag on the art (.dcard .dctags .tag)
+Theme.color.dunTagEdge = hex("4a4038")
+Theme.color.dunFaint = hex("857a68")        -- "No quests" and the like (.dq.none)
+Theme.layout.dunTab = {
+    cols = 3,                  -- cards across (owner, round 2: "three across")
+    cardAspect = 10 / 16,      -- card height / width (16:10)
+    cardGap = 24,              -- .dcards gap var(--s6)
+    frameCorner = 14,          -- card-frame-a: about 7 px of its 256 (round 4), drawn at 14
+    frameOut = 2,              -- .cframe.subtle inset -2px
+    shade = 0.65,              -- share of the card the foot's dark gradient covers (.dcshade)
+    pad = 14,                  -- the foot's and the tags' inset (.dcfoot left 14, .dctags 12)
+    tag = 18, tagPad = 6, tagGap = 6, -- .tag line-height 18, padding 0 6px
+    questBar = 6, questBarMax = 220, -- .dcq max-width 220
+    check = 28,                -- the ✓ on a card with every quest done
+    row = 52, thumb = { 64, 36 }, thumbWide = { 52, 30 }, glyph = 14,
+    thumbSepia = 0.45,         -- the row thumbnail's desaturation (with a warm tint)
+    lvCol = 132, bossCol = 84, questCol = 170, questColWide = 150, -- .drow grid columns
+    splitList = 720,           -- the wide split's list column (.dunsplit)
+    banner = 216,              -- the instance page's banner (round 3, idea 1)
+    kindIcon = { dungeon = "Interface\\Icons\\INV_Misc_Key_03", raid = "Interface\\Icons\\INV_Misc_Head_Dragon_01" },
+}
+
 Theme.repGroups = { home = "Home", zones = "Zones", instances = "Dungeons & raids", bgs = "Battlegrounds",
     profs = "Professions", other = "Class and events", none = "No known quests", unknown = "Sources not known" }
 Theme.repKinds = { zone = "Zone", dungeon = "Dungeon", raid = "Raid", battleground = "Battleground",
