@@ -400,10 +400,17 @@ function Quests.Shape(objectives, info)
         if rank[a.kind] ~= rank[b.kind] then return rank[a.kind] < rank[b.kind] end
         return byLevel(a, b)
     end)
-    local ready = {}
-    for _, o in ipairs(objectives) do if o.kind == "ready" then ready[#ready + 1] = o end end
-    table.sort(ready, byLevel)
-    return { ready = ready, stories = active, finished = finished, singles = singles }
+    -- Ready now leaves out quests red for you (Phase 15 step 5, Next up's rule since step 1):
+    -- Stormwind's library books (level 20-45, no level requirement) filled it for a level-10
+    -- character. They are readyRed, shown after it.
+    local ready, readyRed = {}, {}
+    for _, o in ipairs(objectives) do
+        if o.kind == "ready" then
+            if o.difficulty == "red" then readyRed[#readyRed + 1] = o else ready[#ready + 1] = o end
+        end
+    end
+    table.sort(ready, byLevel); table.sort(readyRed, byLevel)
+    return { ready = ready, readyRed = readyRed, stories = active, finished = finished, singles = singles }
 end
 
 -- Pure: a zone's quest objectives and progress for one character.
@@ -449,7 +456,7 @@ function Quests.Evaluate(ctx, mapID, ids, repeatable)
     local shape = Quests.Shape(objectives, ctx.info)
     return { status = "ready", mapID = mapID, objectives = objectives, progress = progress,
         count = #objectives, repeatable = repeatable or 0, reasons = reasons, unknownReasons = unknownReasons,
-        coverage = coverage, ready = shape.ready, stories = shape.stories, finished = shape.finished,
+        coverage = coverage, ready = shape.ready, readyRed = shape.readyRed, stories = shape.stories, finished = shape.finished,
         singles = shape.singles }
 end
 
@@ -630,6 +637,63 @@ function Quests.Info(id) return info(id) end
 --   { kind = "npc"|"object"|"item", name, place, mapID }   nil fields when not known (mapID: the
 --   zone map of the starter's area per Data/QuestAreas)
 -- nil when QuestieDB has no starter for it (or isn't loaded). Cached per quest.
+-- Each race's home zone maps (its capital and its starting zone), by the client's race file
+-- token: the Class tab names a giver there first (Phase 15 step 5). Races not listed (Forever's
+-- newer ones) have no home preference.
+Quests.RACE_HOME = {
+    Human = { 1453, 1429 }, Dwarf = { 1455, 1426 }, Gnome = { 1455, 1426 }, NightElf = { 1457, 1438 },
+    Orc = { 1454, 1411 }, Troll = { 1454, 1411 }, Scourge = { 1458, 1420 }, Tauren = { 1456, 1412 },
+}
+
+-- Pure (Phase 15 step 5): which of a quest's starting NPCs to name. QuestieDB lists every NPC
+-- that gives the quest, from both sides (Torwa Pathfinder: Darnassus and Thunder Bluff); the
+-- first was named before. Order: friendly to your side ("A", "H", "AH"; unknown counts as
+-- friendly), in your home (home = { [mapID] = true }), then QuestieDB's order.
+--   ids = NPC IDs; side = "A" | "H" | nil; friendOf(id) -> "A"|"H"|"AH"|nil; zoneOf(id) -> mapID|nil
+function Quests.PickStarter(ids, side, home, friendOf, zoneOf)
+    local best, bestScore
+    for i, id in ipairs(ids or {}) do
+        local f = friendOf and friendOf(id)
+        local friendly = not side or type(f) ~= "string" or f:find(side, 1, true) ~= nil
+        local z = zoneOf and zoneOf(id)
+        local score = (friendly and 2 or 0) + ((friendly and home and z and home[z]) and 1 or 0)
+        if not bestScore or score > bestScore then best, bestScore = id, score end
+        if i > 12 then break end -- long lists (a class quest from every trainer): enough
+    end
+    return best
+end
+
+-- Pure (Phase 15 step 5, R12): what a quest asks, from QuestieDB's objectivesText (a list of
+-- strings; contract per Types/Quest.t.lua [verified-files]): the first sentence of the first
+-- entry with text, without its closing full stop. nil when there's none.
+function Quests.ObjectiveText(v)
+    local s = v
+    if type(v) == "table" then
+        s = nil
+        for _, x in ipairs(v) do
+            if type(x) == "string" and x:find("%S") then s = x; break end
+        end
+    end
+    if type(s) ~= "string" then return nil end
+    s = s:gsub("^%s+", ""):gsub("%s+$", "")
+    local cut = s:find("[%.!%?]%s")
+    if cut then s = s:sub(1, cut) end
+    s = s:gsub("%.$", "")
+    return s ~= "" and s or nil
+end
+
+-- What a quest asks (Quests.ObjectiveText of QuestieDB's composed view), cached; nil when it has
+-- none or QuestieDB isn't loaded.
+local objectives = {}
+function Quests.Objective(id)
+    if objectives[id] ~= nil then return objectives[id] or nil end
+    local Q = lib and lib.Quest
+    if type(Q) ~= "table" or type(Q.objectivesText) ~= "function" then return nil end
+    local ok, v = pcall(Q.objectivesText, id)
+    objectives[id] = ok and Quests.ObjectiveText(v) or false
+    return objectives[id] or nil
+end
+
 local starters = {}
 function Quests.Starter(id)
     if starters[id] ~= nil then return starters[id] or nil end
@@ -642,6 +706,11 @@ function Quests.Starter(id)
         local ok, v = pcall(f, key)
         return ok and v or nil
     end
+    local zones = ns.QuestAreaData and ns.QuestAreaData.zone
+    local function zoneOf(entity, key)
+        local area = read(entity, "zoneID", key)
+        return type(area) == "number" and zones and zones[area] or nil
+    end
     local function areaName(areaID)
         if type(areaID) ~= "number" or not (C_Map and type(C_Map.GetAreaInfo) == "function") then return nil end
         local ok, name = pcall(C_Map.GetAreaInfo, areaID)
@@ -653,6 +722,15 @@ function Quests.Starter(id)
         for i, kind in ipairs({ "npc", "object", "item" }) do
             local list = sb[i]
             local first = type(list) == "table" and list[1]
+            if kind == "npc" and type(first) == "number" and #list > 1 then
+                local c = ns.character or {}
+                local side = c.faction == "Alliance" and "A" or c.faction == "Horde" and "H" or nil
+                local home
+                for _, m in ipairs(Quests.RACE_HOME[c.raceFile] or {}) do home = home or {}; home[m] = true end
+                first = Quests.PickStarter(list, side, home,
+                    function(n) return read("Npc", "friendlyToFaction", n) end,
+                    function(n) return zoneOf("Npc", n) end) or first
+            end
             if type(first) == "number" then
                 local entity = ({ npc = "Npc", object = "Object", item = "Item" })[kind]
                 local name = read(entity, "name", first)

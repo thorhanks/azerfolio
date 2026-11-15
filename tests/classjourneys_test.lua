@@ -346,4 +346,43 @@ return function(t)
             end
         end)
     end)
+
+    -- Phase 15 step 5: Start here leaves out other routes' and other races' lead-ins and puts
+    -- versions of one breadcrumb on one row, your home's first.
+    t.test("class rules: Start here groups alternatives and leaves out other versions", function()
+        local R = loadRules()
+        local info = {
+            [2998] = { next = 1642, breadcrumbFor = 1642, exclusive = { 3681 } },
+            [3681] = { next = 1642, breadcrumbFor = 1642, exclusive = { 2998 } },
+            [1641] = { next = 1642 },                                  -- the chain's own start
+            [1790] = { exclusive = { 1787 } },                         -- excludes a step: another version
+            [1679] = { next = 1678, breadcrumbFor = 1678, exclusive = { 1639, 1683 } }, -- into another route
+            [1684] = { exclusive = { 1639, 1678, 1683 } },             -- another race's, no next
+            [1638] = { next = 1639, breadcrumbFor = 1639, exclusive = { 1678, 1683 } }, -- your route's
+            [1522] = { breadcrumbFor = 1524, exclusive = { 1523 } }, [1523] = { breadcrumbFor = 1524, exclusive = { 1522 } },
+        }
+        local function i(id) return info[id] end
+        local function ex(...) local o = {} for _, id in ipairs({ ... }) do o[#o + 1] = { id = id, state = "eligible" } end return o end
+        local stop = { steps = { { id = 1642 }, { id = 1787, ids = { 1787 } } } }
+        local g = R.StartHere(ex(2998, 3681, 1641, 1790), stop, i, function(id) return id == 3681 end)
+        t.eq(#g, 2, "the two breadcrumbs share a row; 1641 its own; 1790 left out")
+        t.eq(g[1].items[1].id, 3681, "your home's giver first")
+        t.eq(g[1].items[2].id, 2998)
+        t.eq(g[2].items[1].id, 1641)
+        local warrior = { steps = { { id = 1639 }, { id = 1640 } }, otherRoutes = { [1678] = true, [1683] = true } }
+        g = R.StartHere(ex(1638, 1679, 1684), warrior, i)
+        t.eq(#g, 1); t.eq(g[1].items[1].id, 1638, "only the shown route's start")
+        -- The Tome of Valor's start from two trainers (no breadcrumb, both into 1649): one row.
+        info[1793] = { next = 1649 }; info[1794] = { next = 1649 }
+        g = R.StartHere(ex(1793, 1794), { steps = { { id = 1649 } } }, i)
+        t.eq(#g, 1); t.eq(#g[1].items, 2)
+        local shaman = { steps = { { id = 1524 } } }
+        local list = ex(1522, 1523); list[2].state = "done"
+        g = R.StartHere(list, shaman, i)
+        t.eq(#g, 1); t.eq(#g[1].items, 2); t.eq(g[1].done, true, "done when any version is")
+        -- A built stop with routes knows the other routes' quests.
+        local s = R.Stop({ key = "stance", routes = { { 1639, 1640, name = "Stormwind" }, { 1678, name = "Ironforge" } } },
+            function(id) return id == 1678 and "unavailable" or "eligible" end, {}, 1)
+        t.eq(s.route, "Stormwind"); t.eq(s.otherRoutes[1678], true); t.eq(s.otherRoutes[1639], nil)
+    end)
 end

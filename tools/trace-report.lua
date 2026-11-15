@@ -254,6 +254,12 @@ function R.class()
         p("probed quests:")
         for _, k in ipairs(keys(d.probes)) do p("  %-6s %s", k, tostring(d.probes[k])) end
     end
+    if d.objectiveCount then
+        p("objectives (QuestieDB objectivesText; Phase 15 step 5): %s", d.objectiveCount)
+        for _, k in ipairs(keys(d.objectives or {})) do p("  %-18s %s", k, tostring(d.objectives[k])) end
+        p("givers (side- and home-aware):")
+        for _, k in ipairs(keys(d.givers or {})) do p("  %-22s %s", k, tostring(d.givers[k])) end
+    end
 end
 
 -- Professions (Systems/Professions, /azf debug professions): windows and trainers recorded,

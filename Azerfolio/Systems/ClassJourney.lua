@@ -99,6 +99,25 @@ function ClassJourney.DebugReport(args)
             entry.inferred[s.key] = table.concat(links, " | ")
         end
     end
+    -- Phase 15 step 5: what each step asks (QuestieDB's objectivesText, read in game) and the
+    -- giver named for it (side- and home-aware); steps without an objective fall back to the name.
+    entry.objectives, entry.givers = {}, {}
+    local withObj, steps = 0, 0
+    for _, s in ipairs(j.stops) do
+        for _, st in ipairs(s.steps) do
+            steps = steps + 1
+            local o = ns.Quests.Objective and ns.Quests.Objective(st.id)
+            if o then withObj = withObj + 1 end
+            entry.objectives[string.format("%s %d", s.key, st.id)] = o or "(none)"
+            local g = ns.Quests.Starter(st.id)
+            entry.givers[string.format("%s %d", s.key, st.id)] = g and ((g.name or "?") .. " @ " .. tostring(g.place or "?")) or "(none)"
+        end
+        for _, e in ipairs(s.extra) do
+            local g = ns.Quests.Starter(e.id)
+            entry.givers[string.format("%s extra %d", s.key, e.id)] = g and ((g.name or "?") .. " @ " .. tostring(g.place or "?")) or "(none)"
+        end
+    end
+    entry.objectiveCount = string.format("%d of %d steps have an objective", withObj, steps)
     -- Every curated ID in QuestieDB's composed view (corrections applied): missing ones, and
     -- the newer IDs (78xxx, 9xxxx) that are there.
     local missing, newerSeen, total = {}, 0, 0

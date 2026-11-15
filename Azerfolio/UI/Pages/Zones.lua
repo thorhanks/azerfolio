@@ -102,6 +102,7 @@ local function build(parent)
     page.popup = buildPopup(page)
     page.detailPage = nil      -- nil = the dashboard, else "explore" | "quests" | "flights" | "rep:<factionID>"
     page.openStories = {}      -- finished storylines unfolded on the Quests page (this session)
+    page.openFolds = {}        -- long chip groups unfolded (Quests' red Ready, a faction's Later; this session)
 
     local function arrange()
         local L = ns.Theme.layout
@@ -199,6 +200,13 @@ local function build(parent)
     function page:ToggleStory(id)
         self.openStories[id] = not self.openStories[id] or nil
         self.pendingFocusKey = "fold:" .. tostring(id)
+        show(self.zone, true)
+        refresh()
+    end
+    -- A long chip group (Phase 15 step 5): show all of it, or its first row again.
+    function page:ToggleFold(key)
+        self.openFolds[key] = not self.openFolds[key] or nil
+        self.pendingFocusKey = "gfold:" .. key
         show(self.zone, true)
         refresh()
     end

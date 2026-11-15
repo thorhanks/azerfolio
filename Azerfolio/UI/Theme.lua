@@ -908,6 +908,23 @@ function Theme.MeasureText(text, sizeKey)
     if ok and type(ub) == "number" and ub > w then w = ub end
     return w
 end
+-- How many lines `text` takes wrapped at `width` (greedy, by words measured on the ruler; a
+-- word wider than the line takes a line of its own). For rows that grow to fit their text
+-- (Phase 15 step 5: class steps lead with the quest's objective, never cut).
+function Theme.WrapLines(text, sizeKey, width)
+    text = (text or ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    if text == "" or not width or width <= 0 then return 1 end
+    local space = Theme.MeasureText("a a", sizeKey) - Theme.MeasureText("aa", sizeKey)
+    local lines, used = 1, 0
+    for word in text:gmatch("%S+") do
+        local w = Theme.MeasureText(word, sizeKey)
+        if used == 0 then used = w
+        elseif used + space + w <= width then used = used + space + w
+        else lines = lines + 1; used = w end
+    end
+    return lines
+end
+
 -- Sizes under 12 don't take on this client: a ruler at 10 measured exactly as at 12 ("Riverglades"
 -- 81.67 both, trace 2026-11-14 17:57), as the button labels before. A string made by
 -- Theme.ScaledText reaches them by scaling its own frame instead (the W.PanelButton way).

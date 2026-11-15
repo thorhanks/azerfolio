@@ -248,4 +248,40 @@ return function(t)
             t.eq(seen[left], nil, "area " .. left .. " stays unmapped")
         end
     end)
+
+    -- Phase 15 step 5: what a step asks, and which of a quest's givers to name.
+    t.test("quests: objective text and the giver for your side and home", function()
+        local ns = load()
+        local Q = ns.Quests
+        t.eq(Q.ObjectiveText({ "Bring 10 Linen Cloth to Stephanie Turner in Stormwind." }), "Bring 10 Linen Cloth to Stephanie Turner in Stormwind")
+        t.eq(Q.ObjectiveText({ "Use the Censer. When you have slain 25 Spirits, return." }), "Use the Censer", "the first sentence")
+        t.eq(Q.ObjectiveText({ "", "Speak to Jordan Stilwell in Ironforge" }), "Speak to Jordan Stilwell in Ironforge", "the first entry with text; no full stop kept as is")
+        t.eq(Q.ObjectiveText("Find Daphne Stilwell in Westfall."), "Find Daphne Stilwell in Westfall")
+        t.eq(Q.ObjectiveText(nil), nil); t.eq(Q.ObjectiveText({}), nil); t.eq(Q.ObjectiveText({ "  " }), nil)
+        -- Torwa Pathfinder: Thunder Bluff's giver listed first; an Alliance druid gets Darnassus'.
+        local friend = { [1] = "H", [2] = "A", [3] = "A", [4] = "AH" }
+        local zone = { [1] = 1456, [2] = 1457, [3] = 1453, [4] = 1446 }
+        local function f(id) return friend[id] end
+        local function z(id) return zone[id] end
+        t.eq(Q.PickStarter({ 1, 2 }, "A", nil, f, z), 2, "friendly to your side")
+        t.eq(Q.PickStarter({ 1, 2 }, "H", nil, f, z), 1)
+        t.eq(Q.PickStarter({ 2, 3 }, "A", { [1453] = true }, f, z), 3, "your home first")
+        t.eq(Q.PickStarter({ 1, 4 }, "A", nil, f, z), 4, "both sides counts as friendly")
+        t.eq(Q.PickStarter({ 1, 2 }, nil, nil, f, z), 1, "side unknown: QuestieDB's order")
+        t.eq(Q.PickStarter({ 9 }, "A", nil, f, z), 9, "unknown faction counts as friendly")
+        t.eq(Q.RACE_HOME.Human[1], 1453)
+    end)
+
+    t.test("quests: Ready now leaves out quests red for you (readyRed, by level)", function()
+        local ns = load()
+        local objs = {
+            { id = 1, name = "Wine Shop Advert", questLevel = 2, kind = "ready", difficulty = "grey" },
+            { id = 2, name = "Goaz Scrolls", questLevel = 20, kind = "ready", difficulty = "red" },
+            { id = 3, name = "Demons and You", questLevel = 35, kind = "ready", difficulty = "red" },
+            { id = 4, name = "Fishin' Time", questLevel = 12, kind = "ready", difficulty = "yellow" },
+        }
+        local s = ns.Quests.Shape(objs, function() return nil end)
+        t.eq(#s.ready, 2); t.eq(s.ready[1].id, 1); t.eq(s.ready[2].id, 4)
+        t.eq(#s.readyRed, 2); t.eq(s.readyRed[1].id, 2); t.eq(s.readyRed[2].id, 3)
+    end)
 end

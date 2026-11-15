@@ -490,6 +490,35 @@ return function(t)
         return function() ns.Reputation.ForZone, ns.Reputation.Faction = real.ForZone, real.Faction end
     end
 
+    t.test("zone reputation: a long Later folds to its first row; A shows all, A folds it again", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "zones" })
+        local restore = repStub(ns)
+        local f = ns.Reputation.Faction(1429, 21)
+        for i = 1, 7 do
+            f.quests[#f.quests + 1] = { id = 100 + i, amount = 10, name = "Later " .. i, questLevel = 40 + i, reqLevel = 36,
+                kind = "locked", eligibility = "locked", reason = "level 36" }
+        end
+        slash("")
+        page(ns):Open(ELWYNN)
+        local d = page(ns).detail
+        page(ns):OpenPage("rep:21")
+        t.eq(d.headers[2].text:GetText(), "Later"); t.eq(d.headers[2].count:GetText(), "8  ·  from level 35  ·  rep gains are about")
+        local function shownChips() local n = 0 for _, c in ipairs(d.repChips) do if c:IsShown() then n = n + 1 end end return n end
+        t.eq(shownChips(), 5 + 3, "Up to your level's 5, then Later's first 3")
+        local fold = d.groupFolds[1]
+        t.eq(fold:IsShown(), true); t.eq(fold.name:GetText(), "Show 5 more"); t.eq(fold.count:GetText(), "8 quests")
+        ns.Focus.FocusKey("gfold:rep:21")
+        press(ns, "PAD1")
+        t.eq(shownChips(), 5 + 8, "unfolded")
+        t.eq(ns.Focus.Current().key, "gfold:rep:21", "focus stays on the fold row")
+        t.eq(d.groupFolds[1].name:GetText(), "Show the first 3")
+        press(ns, "PAD1")
+        t.eq(shownChips(), 5 + 3, "folded again")
+        restore()
+        t.eq(#ns.Debug.errors, 0)
+    end)
+
     t.test("zone reputation: the ledger under Next up; A opens a faction's page; B returns to it", function()
         padUI = true
         _G.FACTION_STANDING_LABEL5 = "Friendly"
@@ -705,7 +734,10 @@ return function(t)
         ns.Quests.Info = function(id)
             if id == 1641 then return { name = "The Tome of Divinity", level = 12, reqLevel = 12, next = 1642 } end
             -- A breadcrumb into 1642 too, listed first (QuestieDB, as in game): not where it starts.
-            if id == 2998 then return { name = "Tome of Divinity", level = 12, reqLevel = 12, next = 1642, breadcrumbFor = 1642 } end
+            if id == 2998 then return { name = "Tome of Divinity", level = 12, reqLevel = 12, next = 1642, breadcrumbFor = 1642, exclusive = { 3681 } } end
+            -- The same breadcrumb from the Ironforge trainer (Human only, exclusive with 2998):
+            -- one Start here row with it (Phase 15 step 5).
+            if id == 3681 then return { name = "Tome of Divinity", level = 12, reqLevel = 12, next = 1642, breadcrumbFor = 1642, exclusive = { 2998 } } end
             if id == 1442 then return { name = "Seeking the Kor Gem", level = 20, reqLevel = 20, parent = 1654 } end
             if id == 1644 then return { name = "The Tome of Divinity", level = 13, reqLevel = 13 } end
             if id >= 1642 and id <= 1788 then return { name = "The Tome of Divinity", level = 12, reqLevel = 12 } end
@@ -715,9 +747,17 @@ return function(t)
             if id == 1642 then return { kind = "item", name = "Tome of Divinity" } end
             if id == 2998 then return { kind = "npc", name = "Brother Wilhelm", place = "Elwynn Forest", mapID = 1429 } end
             if id == 1787 then return { kind = "npc", name = "Henze Faulk", place = "Elwynn Forest", mapID = 1429 } end
+            if id == 3681 then return { kind = "npc", name = "Brandur Ironhammer", place = "Ironforge", mapID = 1455 } end
             return { kind = "npc", name = "Duthorian Rall", place = "Stormwind City", mapID = 1453 }
         end
-        return j, function() ns.ClassJourney.Get = real.get; ns.Quests.Info = real.info; ns.Quests.Starter = real.starter end
+        -- What steps ask (QuestieDB objectivesText); 1642 has none here (falls back to the name).
+        real.objective = ns.Quests.Objective
+        ns.Quests.Objective = function(id)
+            if id == 1643 then return "Search the Trade District of Stormwind for Stephanie Turner" end
+            if id == 2998 then return "Speak to Duthorian Rall in Stormwind" end
+            return nil
+        end
+        return j, function() ns.ClassJourney.Get = real.get; ns.Quests.Info = real.info; ns.Quests.Starter = real.starter; ns.Quests.Objective = real.objective end
     end
 
     t.test("class tab: the road, side paths, steps, the road's end, gamepad and shots", function()
@@ -773,7 +813,7 @@ return function(t)
         t.eq(cp.detail.hero.small:GetText(), "to train now")
         press(ns, "PADDDOWN")
         t.eq(ns.Focus.Current().key, "n:divinity")
-        t.eq(cp.plaque.next:GetText(), "Next: The Tome of Divinity  ·  Duthorian Rall  ·  Stormwind City")
+        t.eq(cp.plaque.next:GetText(), "Next: Search the Trade District of Stormwind for Stephanie Turner")
         t.eq(cp.detail.hero.name:GetText(), "The Tome of Divinity")
         t.eq(cp.detail.hero.kicker:GetText(), "Stop 2 of 5 on the road")
         t.eq(cp.detail.hero.score:GetText(), "1")
@@ -823,12 +863,19 @@ return function(t)
         local cur = ns.Focus.Current()
         t.eq(cur.key, "st:2:1643", "the next step after the one done")
         t.eq(cur.title, "2. The Tome of Divinity")
-        t.eq(cur.frame.name:GetText(), "Duthorian Rall  ·  Stormwind City", "same-name steps lead with who and where")
+        -- R12: steps lead with what they ask; the chain's name only where it changes (1643 shares
+        -- the stop's name, so its second line is who and where).
+        t.eq(cur.frame.name:GetText(), "Search the Trade District of Stormwind for Stephanie Turner", "the step's objective leads")
+        t.eq(cur.frame.sub:GetText(), "from Duthorian Rall  ·  Stormwind City")
         t.eq(cur.frame.glyph:GetText(), "2", "numbered ring")
         t.eq(cp.hasSections, true, "Start here and Steps")
         press(ns, "PADLTRIGGER"); press(ns, "PADLTRIGGER")
         t.eq(ns.Focus.Current().key, "ex:2998", "LT to Start here")
         t.eq(ns.Focus.Current().frame.lv:GetText(), "not counted")
+        t.eq(ns.Focus.Current().frame.name:GetText(), "Speak to Duthorian Rall in Stormwind")
+        t.eq(ns.Focus.Current().frame.sub:GetText(),
+            "Tome of Divinity  ·  from Brother Wilhelm  ·  Elwynn Forest, or Brandur Ironhammer  ·  Ironforge",
+            "two versions of one breadcrumb share a row")
         t.eq(cp.backLabel, "Road")
         press(ns, "PAD2")
         t.eq(cp.mode, "road")
@@ -2030,7 +2077,7 @@ return function(t)
         t.eq(m.status, "ready")
         t.eq(p.classPlate.title:GetText(), "The Paladin's Road")
         t.ok(p.classPanel.count:GetText():find("^Road 1 of 5") ~= nil, p.classPanel.count:GetText())
-        t.ok(p.classPanel.next:GetText():find("^Next: The Tome of Divinity") ~= nil, p.classPanel.next:GetText())
+        t.ok(p.classPanel.next:GetText():find("^Next: Search the Trade District") ~= nil, p.classPanel.next:GetText())
         local shown = {}
         for key, b in pairs(m.byKey) do if b.label:IsShown() then shown[#shown + 1] = key end end
         t.eq(table.concat(shown, ","), ns.ClassPage.Summary().stopKey, "only the next stop keeps its name")

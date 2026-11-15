@@ -18,6 +18,8 @@
 --   class <name> <race>    the same, only quests that race can take (race mask unset or has its bit);
 --                          <race> may be alliance or horde (any of that side's races)
 --   class check            Azerfolio/Data/ClassJourneys.lua against QuestieDB (IDs, class, side, left out)
+--   class starts [all]     each race's Class tab "Start here" lead-ins that start in another race's home
+--                          (capital or starting zone) though open to the whole side; all = every lead-in
 --   reps [zone filter]     quest reputation rewards per Azerfolio zone (Data/QuestAreas.lua); run from repo root
 --   reps rule [min low share]  draft zone-faction rule (defaults 5 3 0.5)
 --   reps check             Azerfolio's Systems/ReputationRules.lua on the same rows must match `reps rule`
@@ -717,6 +719,116 @@ elseif cmd == "class" then
         return (zoneName[z] or "") .. "(" .. z .. ")"
     end
     local which = arg[2]
+    if which == "starts" then
+        -- Each race's "Start here" (the Class tab's lead-ins: a stop's extras that aren't a
+        -- step's sub-quest) and the first step, with each quest's race mask and its starter's
+        -- name and zone: are any of them another race's version? A quest the race can't take is
+        -- left out by the addon (QuestRules), so only quests that suit the race are listed;
+        -- those whose mask doesn't name the race ("any") are flagged when they start in another
+        -- race's capital. Base rows; corrections not applied.
+        local data = {}
+        assert(loadfile("Azerfolio/Data/ClassJourneys.lua"))(nil, data)
+        data = data.ClassJourneyData
+        -- Each race's home areas: its capital and its starting zone (AreaTable IDs).
+        local RACE = { { "Human", 1, "Alliance", { 1519, 12 } }, { "Dwarf", 4, "Alliance", { 1537, 1 } },
+            { "NightElf", 8, "Alliance", { 1657, 141 } }, { "Gnome", 64, "Alliance", { 1537, 1 } },
+            { "Orc", 2, "Horde", { 1637, 14 } }, { "Undead", 16, "Horde", { 1497, 85 } },
+            { "Tauren", 32, "Horde", { 1638, 215 } }, { "Troll", 128, "Horde", { 1637, 14 } } }
+        local CAPITAL = { [1519] = "Stormwind", [1537] = "Ironforge", [1657] = "Darnassus", [1637] = "Orgrimmar",
+            [1497] = "Undercity", [1638] = "Thunder Bluff", [12] = "Elwynn", [1] = "Dun Morogh", [141] = "Teldrassil",
+            [14] = "Durotar", [85] = "Tirisfal", [215] = "Mulgore" }
+        local SIDEMASK = { Alliance = { 1, 4, 8, 64 }, Horde = { 2, 16, 32, 128 } }
+        local showAll = arg[3] == "all"
+        local rows, tabs = load(function(_, f) return f == 2 or f == 8 end)
+        local npcs = load(nil, "Npc")
+        local objs = load(nil, "Object")
+        -- A quest's starter for a side: the first NPC friendly to it (friendlyToFaction "A",
+        -- "H" or "AH"), else the first starter. "+n" = n more starters; "foe" = no starter is
+        -- friendly to the side.
+        local function starterOf(id, side, home)
+            local sb = tabs[id] and tabs[id][2]
+            if type(sb) ~= "table" then return "?", nil end
+            local want = side == "Alliance" and "A" or "H"
+            for i, kind in ipairs({ "npc", "object", "item" }) do
+                local l = type(sb[i]) == "table" and sb[i] or {}
+                if type(l[1]) == "number" then
+                    local pick, foe = l[1], false
+                    if kind == "npc" then
+                        foe = true
+                        -- Friendly to the side, in the race's home first.
+                        for pass = 1, 2 do
+                            for _, nid in ipairs(l) do
+                                local f = npcs[nid] and npcs[nid][13]
+                                local z = npcs[nid] and npcs[nid][9]
+                                if foe and (type(f) ~= "string" or f:find(want, 1, true)) and (pass == 2 or z == home[1] or z == home[2]) then
+                                    pick, foe = nid, false
+                                end
+                            end
+                        end
+                    end
+                    local r = kind == "npc" and npcs[pick] or kind == "object" and objs[pick] or nil
+                    local z = r and r[9]
+                    if kind == "object" and r then z = r[5] end
+                    return string.format("%s %s%s%s%s", kind, tostring(r and r[1] or pick), type(z) == "number" and (" @" .. (CAPITAL[z] or z)) or "",
+                        #l > 1 and (" +" .. (#l - 1)) or "", foe and " FOE" or ""), z, foe
+                end
+            end
+            return "?", nil
+        end
+        local function suits(m, b) return type(m) ~= "number" or m == 0 or has(m, b) end
+        local flagged = 0
+        for ci, token in ipairs({ "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE",
+            "WARLOCK", "MONK", "DRUID" }) do
+            local cb = 2 ^ (ci - 1)
+            for _, race in ipairs(RACE) do
+                local j = data[token] and data[token][race[3]]
+                if j then
+                    local lines = {}
+                    for _, s in ipairs(j.stops) do
+                        local function okq(id)
+                            local r = rows[id]
+                            return r and suits(r[6], race[2]) and (type(r[7]) ~= "number" or r[7] == 0 or has(r[7], cb))
+                        end
+                        local stepIds, any = {}, false
+                        local function walk(list)
+                            for _, q in ipairs(list or {}) do
+                                for _, id in ipairs(type(q) == "table" and q or { q }) do
+                                    stepIds[id] = true
+                                    if okq(id) then any = true end
+                                end
+                            end
+                        end
+                        walk(s.quests)
+                        for _, route in ipairs(s.routes or {}) do walk(route) end
+                        if any and (not s.raceMask or has(s.raceMask, race[2])) then
+                            for _, id in ipairs(s.extra or {}) do
+                                local r = rows[id]
+                                if okq(id) and not (r[25] and stepIds[r[25]]) then
+                                    local st, z, foe = starterOf(id, race[3], race[4])
+                                    -- Race-specific: the mask leaves out one of the side's races.
+                                    local named = false
+                                    if type(r[6]) == "number" and r[6] ~= 0 then
+                                        for _, sb in ipairs(SIDEMASK[race[3]]) do if not has(r[6], sb) then named = true end end
+                                    end
+                                    local own = z == race[4][1] or z == race[4][2]
+                                    local other = (CAPITAL[z] and not own and not named) or foe
+                                    if other then flagged = flagged + 1 end
+                                    if other or showAll then lines[#lines + 1] = string.format("  %s%-10s %6d %-28s races %-6s %s", other and "! " or "  ", s.key, id,
+                                        tostring(r[1]):sub(1, 28), named and string.format("%.0f", r[6]) or "side", st) end
+                                end
+                            end
+                        end
+                    end
+                    if #lines > 0 then
+                        print(string.format("%s %s:", token, race[1]))
+                        for _, l in ipairs(lines) do print(l) end
+                    end
+                end
+            end
+        end
+        print(flagged .. " lead-ins open to the whole side that start in another race's capital or starting zone (flagged !; `class starts all` lists every lead-in)")
+        return
+    end
     if which == "check" then
         -- Azerfolio/Data/ClassJourneys.lua against the base rows: every listed quest exists, has the
         -- class (or no class mask) and suits the side; and no one-time quest in the class's quest

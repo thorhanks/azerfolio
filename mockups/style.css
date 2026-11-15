@@ -1184,6 +1184,18 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .cstep .cqname { display: flex; flex-direction: column; min-width: 0; }
 .cstep .cqname small { font-size: var(--fs-xs); color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cstep .cqlv { font-size: var(--fs-xs); color: var(--dim); }
+/* Phase 15 step 5: Gather zones lit for your level; others dim, with the zone guide's range. */
+.pgather .gz { color: var(--dim); }
+.pgather .gz i { font-style: normal; opacity: .8; }
+.pgather .gz-fit { color: var(--text-bright, #fff); }
+.pgather .gz-fit i { opacity: 1; }
+.pgather .gz-above { opacity: .7; }
+.groupfold { margin-top: var(--s2); }
+/* Phase 15 step 5 (R12): the objective may take a second (or third) line; never cut. */
+.cstep.wrap { align-items: start; }
+.cstep.wrap .cicon { margin-top: 1px; }
+.cstep.wrap .cqname { line-height: 1.25; }
+.cstep.wrap .cqname small { white-space: normal; margin-top: 1px; }
 .cstep.st-done .cicon { background: var(--grad-gold, linear-gradient(180deg, #ffe08a, #ffcc33 55%, #b8860b)); border-color: #fff1b0; color: #5a3a06; }
 .cstep.st-done .cqname { color: var(--st-complete); }
 .cstep.st-next .cicon { border-color: #ffd9a8; color: #ffb35a; }

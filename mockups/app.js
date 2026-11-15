@@ -463,7 +463,7 @@
   // =====================================================================================
   const ui = { repBar: "equal", tab: "overview", detail: null, view: "cards", faction: "relevant", status: "all", level: "all", sort: "recommended",
     search: "", zonesScroll: 0, lastZone: null, selected: null, flyout: null, wide: false, newCrit: null, celebrate: null,
-    quests: "loaded", showUnavailable: false, openStories: new Set(), detailPage: null, look: "Alliance",
+    quests: "loaded", showUnavailable: false, openStories: new Set(), openFolds: new Set(), detailPage: null, look: "Alliance",
     repFilter: "all", repSort: "group", repSel: null, repOpen: null, watched: null, classSel: null, classPreview: "data" };
   const OPTIONS = {
     faction: { label: "Show", items: [["relevant", "Relevant to me"], ["all", "All zones"]] },
@@ -1018,8 +1018,20 @@
         <span class="lvl">${ql}</span><span class="qn">${esc(name)}</span><span class="amt">+${num(amt)}</span></button>`; };
     const now = qs.filter(q => q[3] <= CHAR.level), later = qs.filter(q => q[3] > CHAR.level);
     if (now.length) html += `<h2 class="section" data-group>Up to your level <small>${now.length} · rep gains are about</small></h2><div class="readygrid">${now.map(chip).join("")}</div>`;
-    if (later.length) html += `<h2 class="section" data-group>Later <small>${later.length} · from level ${Math.min(...later.map(q => q[3]))} · rep gains are about</small></h2><div class="readygrid">${later.map(chip).join("")}</div>`;
+    if (later.length) html += `<h2 class="section" data-group>Later <small>${later.length} · from level ${Math.min(...later.map(q => q[3]))} · rep gains are about</small></h2>`
+      + foldGrid(`rep:${z.name}|${id}`, later, chip, "quest");
     return html + `<div class="qfoot"><span class="qnote">From QuestieDB. Amounts are its base values, so approximate; done and locked states come from the Quests page in the addon.</span></div>`;
+  }
+  // Phase 15 step 5: a long group shows its first row of chips (three) and a "Show all" row; A
+  // unfolds it, A again folds it. Per session, like the finished storylines. Groups of up to six
+  // never fold. Dev bar "Step 5" off: everything shown, as today.
+  const FOLD_SHOW = 3, FOLD_MIN = 7;
+  function foldGrid(key, list, chip, noun) {
+    if (ui.step5 === "off" || list.length < FOLD_MIN) return `<div class="readygrid">${list.map(chip).join("")}</div>`;
+    const open = ui.openFolds.has(key), shown = open ? list : list.slice(0, FOLD_SHOW), rest = list.length - FOLD_SHOW;
+    return `<div class="readygrid">${shown.map(chip).join("")}</div>
+      <button class="storyfold groupfold focusable ${open ? "open" : ""}" data-unfold="${esc(key)}" data-tip="<b>${open ? "Fold" : "Show all"}</b>${open ? `Back to the first ${FOLD_SHOW}.` : `${rest} more ${noun}s, sorted by level.`}">
+        <span class="mark">${open ? "−" : "+"}</span><span class="sname">${open ? `Show the first ${FOLD_SHOW}` : `Show ${rest} more`}</span><span class="scount">${list.length} ${noun}s</span><span class="arr">${open ? "−" : "+"}</span></button>`;
   }
 
   // ==== Reputation tab (Phase 12 proposal) ====
@@ -1449,9 +1461,16 @@
     if (!r.objectives.length) return head() + `<div class="qnote">QuestieDB lists no quests in ${esc(z.name)}.</div>`;
     let html = head(p.denominator ? `<span class="qscore">${p.completed} of ${p.denominator} done<b>${pctText(p.percent)}</b></span>` : "");
     if (!p.denominator) html += `<div class="qnote">None of the ${p.unavailable} quests here are for this character, so quests don't count toward ${esc(z.name)}.</div>`;
-    if (r.ready.length) html += `<h2 class="section" data-group>Ready now <small>${r.ready.length}</small></h2>
-      <div class="readygrid">${r.ready.map(q => `<button class="qchip focusable d-${q.diff}" data-quest="${q.id}" data-tip="${qtip(q)}">
-        <span class="lvl">${q.questLevel}</span><span class="qn">${esc(q.name)}</span></button>`).join("")}</div>`;
+    // Phase 15 step 5: Ready now leaves out quests red for you (5+ levels above, the rule Next up
+    // uses); they follow as "Ready, but red for you", folded when long (Stormwind's library books,
+    // level 20-45 with no level requirement, filled Ready now for a level-10 character).
+    const rchip = (q) => `<button class="qchip focusable d-${q.diff}" data-quest="${q.id}" data-tip="${qtip(q)}">
+        <span class="lvl">${q.questLevel}</span><span class="qn">${esc(q.name)}</span></button>`;
+    const split = ui.step5 !== "off", readyNow = split ? r.ready.filter(q => q.diff !== "red") : r.ready, readyRed = split ? r.ready.filter(q => q.diff === "red") : [];
+    if (readyNow.length) html += `<h2 class="section" data-group>Ready now <small>${readyNow.length}</small></h2>
+      <div class="readygrid">${readyNow.map(rchip).join("")}</div>`;
+    if (readyRed.length) html += `<h2 class="section" data-group>Ready, but red for you <small>${readyRed.length} · 5 or more levels above you</small></h2>`
+      + foldGrid(`red:${z.name}`, readyRed, rchip, "quest");
     const singles = r.singles.filter(q => visible(q) && q.kind !== "done");
     const singlesDone = r.singles.filter(q => q.kind === "done").length;
     if (r.stories.length || singles.length) {
@@ -1517,6 +1536,36 @@
   // counted). `art` is the zone art behind the stop's header (where it starts).
   // Design round 2 (2026-11-09, after the in-game review): a Next line, numbered steps, Travels to,
   // lead-ins above the steps, zone art in the header.
+  // Phase 15 step 5 (R12): what each step asks, QuestieDB's objectivesText (first sentence of its
+  // first entry; `qdb.lua quest <id>`). A step without one falls back to the quest's name.
+  const CLASS_OBJ = {
+    3101: "Read the Consecrated Letter and speak to Brother Sammuel in Northshire Abbey",
+    2998: "Speak to Duthorian Rall in Stormwind",
+    1642: "Speak to Duthorian Rall in Stormwind", 1643: "Search the Trade District of Stormwind for Stephanie Turner",
+    1644: "Bring 10 Linen Cloth to Stephanie Turner in Stormwind", 1780: "Speak to Duthorian Rall in Stormwind",
+    1781: "Take the Symbol of Life to Gazin Tenorm in Stormwind", 1786: "Take the Symbol of Life and resurrect Henze Faulk in Elwynn",
+    1787: "Retrieve a Defias Script from the Defias Rogue Wizards in Elwynn, and return to Gazin Tenorm in Stormwind",
+    1788: "Speak to Duthorian Rall in Stormwind",
+    1649: "Speak to Duthorian Rall in Stormwind", 1650: "Find Daphne Stilwell in Westfall", 1651: "Defend Daphne Stilwell from the Defias attack",
+    1652: "Speak to Duthorian Rall in Stormwind", 1653: "Speak to Jordan Stilwell in Ironforge",
+    1654: "Using Jordan's Weapon Notes, find some Whitestone Oak Lumber, Bailor's Refined Ore Shipment, Jordan's Smithing Hammer, and a Kor Gem, and return them to Jordan Stilwell in Ironforge",
+    1442: "Bring a Kor Gem to Thundris Windweaver in Darkshore", 1655: "Bring Jordan's Ore Shipment to Bailor Stonehand in Loch Modan",
+    1806: "Wait for Jordan Stilwell to finish forging a weapon for you",
+    78088: "Bring the Althalaxx Orb to Delgren the Purifier at Maestra's Post in Ashenvale", 78089: "Bring the Althalaxx Orb to Katherine the Pure in Stormwind",
+    78090: "Find the warlock sanctum within Stormwind and seek advice on the orb",
+    78091: "Collect 14 Summoner's Salt from Blackrock Summoners in Redridge Mountains, then return to Ursula Deline in Stormwind",
+    78092: "Gather 12 Motes of Mannoroth from demons in Ashenvale", 78093: "Return the Orb Shards to Delgren",
+    1661: "Speak to Duthorian Rall in Stormwind", 8415: "Speak to Commander Ashlam Valorfist at Chillwind Camp",
+    8414: "Collect 20 Minion's Scourgestones and bring them to High Priest Thel'danis in the Western Plaguelands",
+    8416: "Bring the Inert Scourgestone to Commander Ashlan Valorfist in Chillwind Point", 8418: "Bring the voodoo feathers to Ashlam Valorfist",
+    7638: "Speak with Lord Grayson Shadowbreaker in Stormwind's Cathedral District",
+    7637: "Travel to Ironforge and get High Priest Rohan's Exorcism Censer",
+    7639: "Return the Exorcism Censer to Lord Grayson Shadowbreaker in the Cathedral District of Stormwind",
+    7640: "Use the Exorcism Censer to drive out the spirits that torment Terrordale",
+    7641: "Speak with Grimand Elmore in Stormwind's Dwarven District",
+    7642: "Bring 40 Runecloth, 6 Arcanite Bars, 10 Arthas' Tears, 5 Stratholme Holy Water vials, and 150 gold to Grimand Elmore in the Dwarven District of Stormwind",
+    7648: "Take the Arcanite Barding to Lord Grayson Shadowbreaker in Stormwind's Cathedral District for his inspection",
+  };
   const CLASS_ROAD = {
     cls: "Paladin", title: "The Paladin's Road",
     // Round 4: the antique strip (mockups/strip-art/paladin-alliance.png, 1:4) sets the size; stops
@@ -1529,7 +1578,9 @@
       { id: "divinity", kind: "road", x: 250, y: 215, lv: 12, name: "The Tome of Divinity", landmark: "cathedral", art: 1453,
         reward: "Redemption (spell)", start: "Duthorian Rall · Cathedral of Light, Stormwind City",
         alt: "Dwarf paladins take this from Tiza Battleforge in Ironforge; Humans get Stormwind's version (the other one is never counted).",
-        leadins: [[2998, "Tome of Divinity", "Brother Wilhelm", "Goldshire, Elwynn Forest", 12, "A lead-in: sends you to Duthorian Rall."],
+        // Phase 15 step 5: 2998 and 3681 are one Human breadcrumb from two trainers (exclusive in
+        // QuestieDB; 3681's race mask is Human), so they share a row; your home's trainer first.
+        leadins: [[2998, "Tome of Divinity", "Brother Wilhelm", "Goldshire, Elwynn Forest", 12, "A lead-in: sends you to Duthorian Rall.", [["Brandur Ironhammer", "Ironforge"]]],
           [1641, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 12, "The chain's start. QuestieDB flags it repeatable, so it isn't counted."]],
         steps: [[1642, "The Tome of Divinity", "the Tome of Divinity (item)", "Your bags", 12],
           [1643, "The Tome of Divinity", "Duthorian Rall", "Cathedral of Light, Stormwind City", 12],
@@ -2046,25 +2097,34 @@
       : s.state === "later" ? `<b class="dim">${togo}</b><small>level${togo === 1 ? "" : "s"} to go</small>` : `<b>${s.d}</b><small>of ${qn(s.n)}</small>`;
     // Round 2: quests that share a name (The Tome of Divinity x8) lead with who and where, and every
     // step is numbered in its ring; sub-quests sit in place, unnumbered and not counted.
-    const same = {}; counted(s).forEach(q => { same[q[1]] = (same[q[1]] || 0) + 1; });
-    let num = 0, nextGiven = false;
+    // Phase 15 step 5 (R12): every step leads with what it asks (QuestieDB's objective, CLASS_OBJ;
+    // the quest's name without one). The chain's name goes on the second line only where it
+    // changes (the stop's name counts as the first), then who gives the step and where.
+    // Dev bar "Steps": "objective" (proposed) or "name" (today).
+    const byObj = ui.classSteps !== "name";
+    let num = 0, nextGiven = false, prevName = s.name;
     const rows = s.steps.map(q => {
       const sub = q[5] === "sub", isDone = s.done.has(q[0]);
       if (!sub) num++;
       let st = s.state === "unknown" ? "unknown" : isDone ? "done" : s.state === "later" ? "later" : nextGiven ? "after" : (nextGiven = true, "next");
       if (sub && st !== "done") st = "sub";
       const icon = st === "done" ? "✓" : st === "unknown" ? "?" : sub ? "·" : num;
-      const where = `${q[2]} · ${zoneOfPlace(q[3]) ? q[3] : q[3]}`;
-      const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
-      const lead = same[q[1]] > 1 && !sub ? [cap(where), q[1]] : [q[1], where];
+      const where = `${q[2]} · ${q[3]}`;
+      const obj = CLASS_OBJ[q[0]];
+      const changed = q[1] !== prevName; prevName = q[1];
+      const lead = byObj ? [obj || q[1], `${changed && obj ? q[1] + "  ·  " : ""}from ${where}`] : [q[1], where];
       const lv = sub ? "not counted" : q[4] > s.lv ? `from ${q[4]}` : "";
-      const tip = `<b>${esc(q[1])}</b>${st === "done" ? "Done. " : st === "next" ? "Your next step. " : sub ? "Done inside the step before it; not counted (QuestieDB flags it repeatable). " : ""}${esc(q[2])} · ${esc(q[3])}.${q[4] > s.lv ? ` From level ${q[4]}.` : ""}`;
-      return `<button class="cstep focusable st-${st}" data-step="${q[0]}" data-tip="${tip}">
+      const tip = `<b>${num}. ${esc(q[1])}</b>${obj ? esc(obj) + ". " : ""}${st === "done" ? "Done. " : st === "next" ? "Your next step. " : sub ? "Done inside the step before it; not counted (QuestieDB flags it repeatable). " : ""}From ${esc(q[2])} · ${esc(q[3])}.${q[4] > s.lv ? ` From level ${q[4]}.` : ""}`;
+      return `<button class="cstep focusable st-${st} ${byObj ? "wrap" : ""}" data-step="${q[0]}" data-tip="${tip}">
         <span class="cicon">${icon}</span><span class="cqname">${esc(lead[0])}<small>${esc(lead[1])}</small></span><span class="cqlv">${lv}</span></button>`;
     }).join("");
-    const leadins = (s.leadins || []).map(q => `<button class="cstep focusable st-${s.done.has(q[0]) ? "done" : "after"} opt" data-step="${q[0]}" data-tip="<b>${esc(q[1])}</b>${esc(q[5])} ${esc(q[2])} · ${esc(q[3])}.">
-        <span class="cicon">${s.done.has(q[0]) ? "✓" : "›"}</span><span class="cqname">${esc(q[1])}<small>${esc(q[2])} · ${esc(q[3])}</small></span><span class="cqlv">not counted</span></button>`).join("");
-    box.innerHTML = heroHtml(`st-${s.state}`, s.art, pos, esc(s.name), `Reward: ${esc(s.reward)}`, score)
+    // Start here: alternatives (the same lead-in from two trainers) share one row, your home's first.
+    const leadins = (s.leadins || []).map(q => {
+      const obj = byObj && CLASS_OBJ[q[0]];
+      const givers = [`${q[2]} · ${q[3]}`].concat((byObj && q[6] || []).map(a => `${a[0]} · ${a[1]}`));
+      const from = (obj ? "from " : "") + givers.join(", or ");
+      return `<button class="cstep focusable st-${s.done.has(q[0]) ? "done" : "after"} opt ${byObj ? "wrap" : ""}" data-step="${q[0]}" data-tip="<b>${esc(q[1])}</b>${obj ? esc(obj) + ". " : ""}${esc(q[5])} ${givers.length > 1 ? "Any one of: " : ""}${esc(givers.join(", or "))}.">
+        <span class="cicon">${s.done.has(q[0]) ? "✓" : "›"}</span><span class="cqname">${esc(obj || q[1])}<small>${obj ? esc(q[1]) + "  ·  " : ""}${esc(from)}</small></span><span class="cqlv">not counted</span></button>`; }).join("");    box.innerHTML = heroHtml(`st-${s.state}`, s.art, pos, esc(s.name), `Reward: ${esc(s.reward)}`, score)
       + `<div class="cbody"><div class="scroll" id="detailscroll"><div class="cstopgrid">
       <div class="caside">
         <div class="cfacts"><div><span class="rk">Where it starts</span>${esc(shortStart(s.start))}</div><div><span class="rk">Level</span>${s.lv}</div>
@@ -2149,6 +2209,20 @@
       ["Open waters", 150, "Dustwallow Marsh, Arathi Highlands, Stranglethorn Vale, Desolace, Thousand Needles"],
       ["Deep waters", 225, "Feralas, Tanaris, The Hinterlands, Un'Goro Crater, Felwood, Western Plaguelands"]],
   };
+  // Phase 15 step 5: a Gather row's zones with their fit for your level (the addon:
+  // ProfessionRules.OrderZones with Zones.FitsLevel). fit | below | above | unknown (capitals).
+  function gatherZones(str) {
+    // The other side's zones are never lit (they suit the level, not you): after yours, dim.
+    const RANK = { fit: 0, below: 1, above: 2, unknown: 3 };
+    const side = (z) => !z || !z.faction || z.faction === "Contested" ? 1 : z.faction === (ui.look === "Horde" ? "Horde" : "Alliance") ? 0 : 2;
+    return str.split(", ").map((name, i) => {
+      const z = byName[name];
+      let fit = !z || z.minLevel == null ? "unknown" : fitsLevel(z) ? "fit" : z.maxLevel < CHAR.level ? "below" : "above";
+      if (fit === "fit" && side(z) === 2) fit = "below";
+      return { name, i, fit, z, lv: z && z.minLevel != null ? `${z.minLevel}-${z.maxLevel}` : "" };
+    }).sort((a, b) => RANK[a.fit] - RANK[b.fit] || side(a.z) - side(b.z)
+      || (a.fit === "below" ? b.z.maxLevel - a.z.maxLevel : a.fit === "above" ? a.z.minLevel - b.z.minLevel : 0) || a.i - b.i);
+  }
   const zoneName = (mapID) => { const z = window.AZF_ZONES.find(x => x.mapID === mapID) || UNTRACKED.find(x => x.mapID === mapID); return z ? z.name : null; };
   const rankOf = (cap) => PRANKS.find(r => r.cap === cap) || PRANKS[0];
   const nextRankOf = (cap) => PRANKS.find(r => r.cap > cap);
@@ -2542,9 +2616,15 @@
           if (d === "red" && s !== nextAt) d = null;
           const cls = d ? (d === "red" ? "d-red" : "d-" + PDIFF[d]) : "";
           const tagText = d ? (d === "red" ? `${s - p.skill} to go` : PDIFF_SAYS[d].replace(" gives skill", "")) : st === "now" ? "Gives skill" : st === "later" ? `${s - p.skill} to go` : "";
-          return `<button class="precipe pgather focusable st-${st} ${cls}" data-gather="${esc(n)}" data-tip="<b>${esc(n)}</b>${p.fish ? `Good places to fish from skill ${s}` : `Needs skill ${s}`}${d && d !== "red" ? `; ${PDIFF[d]} for you by the guide: ${PDIFF_SAYS[d]}` : st === "grey" ? "; no longer gives skill" : st === "later" ? ` (${s - p.skill} to go)` : ""}. ${esc(z)}.">
-            <span class="pricon">${p.fish ? "≈" : "◆"}</span><span class="prname">${esc(n)}<small>${esc(z)}</small></span><span class="prsk">${st === "grey" ? "grey" : `from ${s}`}</span><span class="prtag">${esc(tagText)}</span></button>`; }).join("")}</div>
-        <div class="qfoot"><span class="qnote">A hand-curated guide from Classic and Forever guides (docs/research/professions.md); the game doesn't list where nodes grow or fish bite.${!p.fish && ui.profColours !== "off" ? " Colours follow the guide's skills (orange from the node's skill, yellow +25, green +50, grey +100), not the game." : ""}</span></div></div>`;
+          // Phase 15 step 5: the zones that suit your level first and lit, with their level range
+          // (the Zones tab's "For my level" rule: from at most 3 above you, up to at least your
+          // level); then zones below you (safe), then above. Zone levels are the zone guide's.
+          const zl = gatherZones(z), fits = zl.filter(x => x.fit === "fit").map(x => x.name);
+          const zhtml = ui.step5 === "off" ? esc(z) : zl.slice(0, 6).map(x => `<span class="gz gz-${x.fit}">${esc(x.name)}${x.lv ? ` <i>${x.lv}</i>` : ""}</span>`).join(", ");
+          const fitTip = ui.step5 === "off" ? "" : fits.length ? ` For your level (${CHAR.level}): ${fits.join(", ")}.` : ` None of its zones suits level ${CHAR.level}.`;
+          return `<button class="precipe pgather focusable st-${st} ${cls}" data-gather="${esc(n)}" data-tip="<b>${esc(n)}</b>${p.fish ? `Good places to fish from skill ${s}` : `Needs skill ${s}`}${d && d !== "red" ? `; ${PDIFF[d]} for you by the guide: ${PDIFF_SAYS[d]}` : st === "grey" ? "; no longer gives skill" : st === "later" ? ` (${s - p.skill} to go)` : ""}.${esc(fitTip)} ${esc(zl.map(x => x.name + (x.lv ? " " + x.lv : "")).join(", "))}.">
+            <span class="pricon">${p.fish ? "≈" : "◆"}</span><span class="prname">${esc(n)}<small>${zhtml}</small></span><span class="prsk">${st === "grey" ? "grey" : `from ${s}`}</span><span class="prtag">${esc(tagText)}</span></button>`; }).join("")}</div>
+        <div class="qfoot"><span class="qnote">A hand-curated guide from Classic and Forever guides (docs/research/professions.md); the game doesn't list where nodes grow or fish bite.${!p.fish && ui.profColours !== "off" ? " Colours follow the guide's skills (orange from the node's skill, yellow +25, green +50, grey +100), not the game." : ""}${ui.step5 === "off" ? "" : ` Zones lit for your level ${CHAR.level}, with their levels from the zone guide (unofficial).`}</span></div></div>`;
     }
     box.innerHTML = tabs + `<div class="pvbody pv-${v}">${body}</div>`;
   }
@@ -2765,6 +2845,10 @@
     if (d.psearch !== undefined) return $("#profSearchInput").focus();
     if (d.map !== undefined) return toast(`Would open the world map at ${esc(ui.detail || ui.selected)}`);
     if (d.qtoggle !== undefined) { ui.showUnavailable = !ui.showUnavailable; return rerenderKeepFocus(); }
+    if (d.unfold !== undefined) {
+      if (ui.openFolds.has(d.unfold)) ui.openFolds.delete(d.unfold); else ui.openFolds.add(d.unfold);
+      render(); return setFocus($(`[data-unfold="${CSS.escape(d.unfold)}"]`));
+    }
     if (d.page) { ui.detailPage = d.page; render(); return setFocus($("#content .detail .scroll .focusable") || $("#content .detail [data-back]")); }
     if (d.na || d.rq) return; // a quest on a faction's page: details in the info line
     if (d.next) { // Next up: open the category's page focused on that item
@@ -3015,6 +3099,7 @@
   // Phase 15 step 4: the skill road's band variants, skill-up colours and item icons.
   $("#profRoadSel").addEventListener("change", (e) => { ui.profRoad = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#profColours").addEventListener("change", (e) => { ui.profColours = e.target.checked ? "on" : "off"; rerenderKeepFocus(); e.target.blur(); });
+  $("#step5").addEventListener("change", (e) => { ui.step5 = e.target.checked ? "on" : "off"; ui.classSteps = e.target.checked ? "objective" : "name"; rerenderKeepFocus(); e.target.blur(); });
   $("#profIcons").addEventListener("change", (e) => { ui.profIcons = e.target.checked ? "on" : "off"; rerenderKeepFocus(); e.target.blur(); });
   $("#claimPreview").addEventListener("change", (e) => { ui.claimPreview = e.target.checked; rerenderKeepFocus(); e.target.blur(); });
   $("#wideToggle").addEventListener("change", (e) => {

@@ -90,7 +90,7 @@ end
 --   raceBit: the character's QuestieDB race bit (nil = not known: raceMask stops are left out)
 function Rules.Stop(stop, ev, completed, raceBit)
     if stop.raceMask and not hasBit(stop.raceMask, raceBit) then return nil end
-    local list, done, routeName
+    local list, done, routeName, chosen
     if stop.routes then
         local bestScore
         for _, route in ipairs(stop.routes) do
@@ -102,7 +102,7 @@ function Rules.Stop(stop, ev, completed, raceBit)
                 -- WoWScrnShot_111026_173514.)
                 local score = (d == #l and 1e6 or 0) + d * 1000 + math.floor(100 * #l / #route)
                 if not bestScore or score > bestScore then
-                    bestScore, list, done, routeName = score, l, d, route.name
+                    bestScore, list, done, routeName, chosen = score, l, d, route.name, route
                 end
             end
         end
@@ -116,9 +116,92 @@ function Rules.Stop(stop, ev, completed, raceBit)
         local s = Rules.Step(id, ev, completed)
         if s then extra[#extra + 1] = s end
     end
+    -- The quests of the routes not shown (Start here leaves out lead-ins into them).
+    local otherRoutes
+    for _, route in ipairs(stop.routes or {}) do
+        if route ~= chosen then
+            for _, entry in ipairs(route) do
+                for _, id in ipairs(type(entry) == "table" and entry or { entry }) do
+                    otherRoutes = otherRoutes or {}
+                    otherRoutes[id] = true
+                end
+            end
+        end
+    end
     return { key = stop.key, kind = stop.kind, from = stop.from, name = stop.name, level = stop.level,
         reward = stop.reward, order = stop.order, route = routeName, steps = list, extra = extra,
+        otherRoutes = otherRoutes,
         count = #list, done = completed and done or nil, state = Rules.StopState(list, done, completed) }
+end
+
+local function idSet(v, into)
+    into = into or {}
+    if type(v) == "number" then into[v] = true
+    elseif type(v) == "table" then for _, x in ipairs(v) do idSet(x, into) end end
+    return into
+end
+
+-- Pure (Phase 15 step 5): a stop's Start here, from its lead-ins (the extras that aren't a
+-- step's sub-quest).
+--   leadins = { step... } (Rules.Step records); stop = a built stop (steps, otherRoutes);
+--   info(id) -> QuestieDB record (next, breadcrumbFor, exclusive) or nil;
+--   isHome(id) -> true when the lead-in's giver is in your race's capital or starting zone.
+-- Leaves out a lead-in into a route you aren't shown (a Human warrior's Dun Morogh stance
+-- start), and one that excludes a step on your road without leading into it (another race's
+-- version). Lead-ins that exclude each other, are breadcrumbs to the same quest, or are chain
+-- starts (not breadcrumbs) into the same quest are one row ("any
+-- one of"): Brother Wilhelm's and Brandur Ironhammer's Tome of Divinity. Within a row your
+-- home's giver comes first.
+-- Returns { { items = { step... }, done = bool } ... } in the lead-ins' order.
+function Rules.StartHere(leadins, stop, info, isHome)
+    local shown = {}
+    for _, st in ipairs(stop.steps or {}) do idSet(st.ids or st.id, shown) end
+    local other = stop.otherRoutes or {}
+    local keep, target, excl = {}, {}, {}
+    for _, ex in ipairs(leadins or {}) do
+        local r = info and info(ex.id) or {}
+        local to = (type(r.next) == "number" and r.next) or (type(r.breadcrumbFor) == "number" and r.breadcrumbFor) or nil
+        local ex2 = idSet(r.exclusive)
+        local intoOther = to and other[to] and not shown[to]
+        local blocksStep = false
+        if not (to and shown[to]) then
+            for id in pairs(ex2) do if shown[id] then blocksStep = true end end
+        end
+        if not intoOther and not blocksStep then
+            keep[#keep + 1] = ex
+            -- Grouped by what they lead into, breadcrumbs apart from chain starts: 1641 (the
+            -- Tome of Divinity's own start) also leads into 1642 but isn't an alternative to the
+            -- breadcrumbs 2998 / 3681; 1793 and 1794 (the Tome of Valor's start from the
+            -- Stormwind and Ironforge trainers, both into 1649) are (WoWScrnShot_111426_203927).
+            target[ex] = (type(r.breadcrumbFor) == "number" and ("b" .. r.breadcrumbFor))
+                or (to and ("n" .. to)) or nil
+            excl[ex] = ex2
+        end
+    end
+    local groups, groupOf = {}, {}
+    for _, ex in ipairs(keep) do
+        local g
+        for _, prev in ipairs(keep) do
+            if prev == ex then break end
+            if (target[ex] and target[ex] == target[prev]) or excl[ex][prev.id] or excl[prev][ex.id] then g = groupOf[prev]; break end
+        end
+        if not g then g = { items = {}, done = false }; groups[#groups + 1] = g end
+        g.items[#g.items + 1] = ex
+        groupOf[ex] = g
+        if ex.state == "done" then g.done = true end
+    end
+    for _, g in ipairs(groups) do
+        if isHome and #g.items > 1 then
+            local pos = {}
+            for i, ex in ipairs(g.items) do pos[ex] = i end
+            table.sort(g.items, function(a, b)
+                local ha, hb = isHome(a.id) and 0 or 1, isHome(b.id) and 0 or 1
+                if ha ~= hb then return ha < hb end
+                return pos[a] < pos[b]
+            end)
+        end
+    end
+    return groups
 end
 
 -- Pure: the one thing to do next on a built road (the Class tab's Next line, design round 2):

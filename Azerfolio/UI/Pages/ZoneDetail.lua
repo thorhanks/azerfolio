@@ -513,7 +513,7 @@ function Detail.New(page)
     scroll:SetPoint("BOTTOMRIGHT", 0, S.s2)
     d.scroll = scroll
     d.headers, d.checks, d.chips, d.nodes, d.folds, d.lines, d.texts = {}, {}, {}, {}, {}, {}, {}
-    d.repChips, d.repSums = {}, {}
+    d.repChips, d.repSums, d.groupFolds = {}, {}, {}
     d.message = T.Text(scroll.child, "md", "dim")
     d.message:SetPoint("TOPLEFT", L.listInset, -S.s4)
     d.message:SetPoint("RIGHT", scroll.child, "RIGHT", -S.s6, 0)
@@ -541,7 +541,7 @@ end
 
 local function resetPools(d)
     d.used = {}
-    for _, kind in ipairs({ "headers", "checks", "chips", "nodes", "folds", "lines", "texts", "repChips", "repSums" }) do
+    for _, kind in ipairs({ "headers", "checks", "chips", "nodes", "folds", "lines", "texts", "repChips", "repSums", "groupFolds" }) do
         for _, f in ipairs(d[kind]) do f:Hide() end
     end
     d.message:Hide()
@@ -1060,6 +1060,47 @@ local function track(d, y, story, showUnavailable, keyPrefix)
     return y + maxStack * NODE_H + S.s2, rows
 end
 
+-- Phase 15 step 5: a long chip group shows its first row (FOLD_SHOW chips) and a fold row; A
+-- shows the rest, A again folds it (page.openFolds, this session). Groups shorter than
+-- FOLD_MIN never fold.
+local FOLD_SHOW, FOLD_MIN = 3, 7
+
+-- Returns the list to draw and whether it folds (and is open).
+local function foldList(list, key, page)
+    if #list < FOLD_MIN then return list, false, false end
+    local open = page and page.openFolds and page.openFolds[key] and true or false
+    if open then return list, true, true end
+    local shown = {}
+    for i = 1, FOLD_SHOW do shown[i] = list[i] end
+    return shown, true, false
+end
+
+-- The fold row under a folded group. Returns the new y.
+local function foldRow(d, y, key, page, total, open, noun, rows, section)
+    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
+    local child = d.scroll.child
+    local b = take(d, "groupFolds", function()
+        local r = ns.Widgets.FocusRow(child, L.checkRow)
+        r.mark = T.Text(r, "sm", "gold"); r.mark:SetPoint("LEFT", S.s2, 0)
+        r.name = T.Text(r, "sm", "text"); r.name:SetPoint("LEFT", r.mark, "RIGHT", S.s2, 0)
+        r.count = T.Text(r, "xs", "dim"); r.count:SetPoint("RIGHT", -S.s3, 0)
+        r:SetScript("OnClick", function(self) if self.item then self.item.onActivate(self.item) end end)
+        return r
+    end)
+    b:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y)
+    b:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6, -y)
+    local rest = total - FOLD_SHOW
+    b.mark:SetText(open and "-" or "+")
+    b.name:SetText(open and string.format("Show the first %d", FOLD_SHOW) or string.format("Show %d more", rest))
+    b.count:SetText(total .. " " .. noun .. "s")
+    b.item = { key = "gfold:" .. key, frame = b, title = open and "Fold" or "Show all", scroll = d.scroll, topGap = L.listHeader + S.s2,
+        detail = open and string.format("Back to the first %d.", FOLD_SHOW) or string.format("%d more %ss, by level.", rest, noun),
+        actionLabel = open and "Fold" or "Show",
+        onActivate = function() if page and page.ToggleFold then page:ToggleFold(key) end end }
+    rows[#rows + 1] = { items = { b.item }, section = section }
+    return y + L.checkRow + 2
+end
+
 local function fillQuests(d, zone, page)
     local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
     local child = d.scroll.child
@@ -1086,16 +1127,25 @@ local function fillQuests(d, zone, page)
             p.unavailable, zone.name), "sm", "dim") + S.s2
     end
 
-    -- Ready now: chips, three to a row.
-    if #(q.ready or {}) > 0 then
+    -- Ready now: chips, three to a row. Then the ready quests red for you (Phase 15 step 5),
+    -- folded when long.
+    local groups = {}
+    if #(q.ready or {}) > 0 then groups[#groups + 1] = { title = "Ready now", list = q.ready, count = #q.ready .. (#q.ready == 1 and " quest" or " quests") } end
+    if #(q.readyRed or {}) > 0 then
+        groups[#groups + 1] = { title = "Ready, but red for you", list = q.readyRed, fold = "red",
+            count = #q.readyRed .. "  ·  5 or more levels above you" }
+    end
+    for _, g in ipairs(groups) do
         section = section + 1
-        y = header(d, y, "Ready now", #q.ready .. (#q.ready == 1 and " quest" or " quests"))
+        y = header(d, y, g.title, g.count)
         local width = (child:GetWidth() or 900) - L.listInset - S.s6
         local cw = math.floor((width - (CHIP_COLS - 1) * S.s2) / CHIP_COLS)
-        for i = 1, #q.ready, CHIP_COLS do
+        local list, folds, open = g.list, false, false
+        if g.fold then list, folds, open = foldList(g.list, g.fold, page) end
+        for i = 1, #list, CHIP_COLS do
             local items = {}
             for c = 0, CHIP_COLS - 1 do
-                local quest = q.ready[i + c]
+                local quest = list[i + c]
                 if quest then
                     local b = take(d, "chips", function() return newChip(child) end)
                     b:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset + c * (cw + S.s2), -y)
@@ -1111,6 +1161,7 @@ local function fillQuests(d, zone, page)
             rows[#rows + 1] = { items = items, section = section }
             y = y + CHIP_H + S.s2
         end
+        if folds then y = foldRow(d, y, g.fold, page, #g.list, open, "quest", rows, section) end
         y = y + S.s2
     end
 
@@ -1283,7 +1334,7 @@ end
 
 local REP_STATE = { locked = "Locked", unavailable = "Not for you", unknown = "Not checked" }
 
-local function fillRep(d, zone, factionID)
+local function fillRep(d, zone, factionID, page)
     local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
     local R = L.rep
     local child = d.scroll.child
@@ -1330,7 +1381,7 @@ local function fillRep(d, zone, factionID)
             local v = q.reqLevel or q.questLevel
             if v and (not from or v < from) then from = v end
         end
-        groups[#groups + 1] = { title = "Later", list = later, later = true,
+        groups[#groups + 1] = { title = "Later", list = later, later = true, fold = "rep:" .. tostring(factionID),
             count = #later .. (from and ("  ·  from level " .. from) or "") }
     end
     local cw = math.floor((width - (CHIP_COLS - 1) * S.s2) / CHIP_COLS)
@@ -1340,10 +1391,13 @@ local function fillRep(d, zone, factionID)
         local anyAmount = false
         for _, q in ipairs(g.list) do if q.amount then anyAmount = true; break end end
         y = header(d, y, g.title, g.count .. (anyAmount and "  ·  rep gains are about" or ""))
-        for i = 1, #g.list, CHIP_COLS do
+        -- Phase 15 step 5: a long Later (67 at level 10) folds to its first row.
+        local list, folds, open = g.list, false, false
+        if g.fold then list, folds, open = foldList(g.list, g.fold, page) end
+        for i = 1, #list, CHIP_COLS do
             local items = {}
             for c = 0, CHIP_COLS - 1 do
-                local q = g.list[i + c]
+                local q = list[i + c]
                 if q then
                     local b = take(d, "repChips", function() return newRepChip(child) end)
                     b:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset + c * (cw + S.s2), -y)
@@ -1379,6 +1433,7 @@ local function fillRep(d, zone, factionID)
             rows[#rows + 1] = { items = items, section = gi }
             y = y + CHIP_H + S.s2
         end
+        if folds then y = foldRow(d, y, g.fold, page, #g.list, open, "quest", rows, gi) end
         y = y + S.s2
     end
     y = text(d, y + S.s2, "From QuestieDB. Amounts are its base values, so approximate; done, locked and not-for-you states are the Quests page's.",
@@ -1402,7 +1457,7 @@ function Detail.Fill(d, zone, entry, pageKey, page)
     d.scroll:SetVerticalScroll(0)
     if pageKey == nil then return fillDashboard(d, zone, entry, page) end
     local repID = Detail.RepFaction(pageKey)
-    if repID then return fillRep(d, zone, repID) end
+    if repID then return fillRep(d, zone, repID, page) end
     if pageKey == "explore" then return fillExplore(d, zone) end
     if pageKey == "quests" then return fillQuests(d, zone, page) end
     return fillFlights(d, zone)

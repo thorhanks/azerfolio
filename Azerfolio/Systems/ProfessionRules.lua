@@ -147,11 +147,51 @@ end
 -- Pure: zones with your side's first, then contested, then the other side's (stable order
 -- within each). Gideon (Alliance) read "Copper Vein · Durotar, Mulgore, Tirisfal Glades"
 -- before (WoWScrnShot_111426_121313).
-function Rules.OrderZones(zones, territory, faction)
+function Rules.OrderZones(zones, territory, faction, levels, level)
+    if levels and type(level) == "number" then
+        local out = {}
+        for i, e in ipairs(Rules.ZonesByLevel(zones, territory, faction, levels, level)) do out[i] = e.mapID end
+        return out
+    end
     local out = {}
     for i, z in ipairs(zones or {}) do out[i] = { z = z, i = i, r = Rules.SideRank(z, territory, faction) } end
     table.sort(out, function(a, b) if a.r ~= b.r then return a.r < b.r end return a.i < b.i end)
     for i, e in ipairs(out) do out[i] = e.z end
+    return out
+end
+
+-- How far above your level a zone may start and still suit you: the Zones tab's "For my level"
+-- (Zones.LEVEL_REACH; a zone suits you from at most 3 levels above, up to at least your level).
+Rules.LEVEL_REACH = 3
+
+-- Pure (Phase 15 step 5, the Gather view): a node's zones with their fit for your level.
+--   levels = Data/Zones.lua's levels ({ [mapID] = { min, max } }); level = yours.
+-- fit: "fit" (suits your level, on your side or contested), "below" (all under your level),
+-- "above", "theirs" (suits your level but the other side's), "unknown" (no range: capitals).
+-- Order: fit, below (highest first), above (lowest first), theirs, unknown; then your side
+-- first, then the guide's order. Returns { { mapID, fit, min, max } ... }.
+function Rules.ZonesByLevel(zones, territory, faction, levels, level)
+    local RANK = { fit = 0, below = 1, above = 2, theirs = 3, unknown = 4 }
+    local out = {}
+    for i, z in ipairs(zones or {}) do
+        local lv = levels and levels[z]
+        local side = Rules.SideRank(z, territory, faction)
+        local fit = "unknown"
+        if type(lv) == "table" and type(level) == "number" then
+            if lv[1] <= level + Rules.LEVEL_REACH and lv[2] >= level then fit = side == 2 and "theirs" or "fit"
+            elseif lv[2] < level then fit = "below"
+            else fit = "above" end
+        end
+        out[#out + 1] = { mapID = z, fit = fit, min = lv and lv[1], max = lv and lv[2], i = i, side = side }
+    end
+    table.sort(out, function(a, b)
+        if RANK[a.fit] ~= RANK[b.fit] then return RANK[a.fit] < RANK[b.fit] end
+        if a.side ~= b.side then return a.side < b.side end
+        if a.fit == "below" and a.max ~= b.max then return a.max > b.max end
+        if a.fit == "above" and a.min ~= b.min then return a.min < b.min end
+        return a.i < b.i
+    end)
+    for _, e in ipairs(out) do e.i, e.side = nil, nil end
     return out
 end
 

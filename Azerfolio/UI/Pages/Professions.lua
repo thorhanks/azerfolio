@@ -36,6 +36,27 @@ local function zonesText(zones, n)
     return table.concat(out, ", ")
 end
 
+-- Phase 15 step 5: a Gather row's zones by your level (ProfessionRules.ZonesByLevel over the
+-- zone guide's levels): "Westfall 10-20" lit when it suits you, the rest dim. Returns the
+-- coloured line (the first n), the zones that suit you (names) and the plain list (all).
+local function gatherZonesText(zones, n)
+    local T = ns.Theme
+    local c = ns.character or {}
+    local list = ns.ProfessionRules.ZonesByLevel(zones, ns.ZoneData and ns.ZoneData.faction, c.faction,
+        ns.ZoneData and ns.ZoneData.levels, c.level)
+    local shown, fits, plain = {}, {}, {}
+    for _, e in ipairs(list) do
+        local name = zoneName(e.mapID)
+        if name then
+            local label = name .. (e.min and (" " .. e.min .. "-" .. e.max) or "")
+            plain[#plain + 1] = label
+            if e.fit == "fit" then fits[#fits + 1] = name end
+            if #shown < (n or 6) then shown[#shown + 1] = T.Hex(e.fit == "fit" and "white" or "dim", label) end
+        end
+    end
+    return table.concat(shown, T.Hex("dim", ", ")), fits, table.concat(plain, ", ")
+end
+
 -- "Gelman Stonehand · Stormwind City or Kelsey Fargo · Elwynn Forest" (the first two).
 local function trainersText(m)
     if not m.trainers then
@@ -1387,8 +1408,14 @@ local function build(parent)
             local r = take("gatherRows", newGatherRow, child)
             r:ClearAllPoints(); r:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y); r:SetWidth(width)
             local name = row.name or zoneName(row.mapID) or ("Zone " .. tostring(row.mapID))
-            local zones = row.name and zonesText(row.zones, 6) or ""
+            -- Named nodes and fishing brackets: zones by your level (lit when they suit you).
+            local zones, fits, allZones = "", {}, ""
+            if row.name then zones, fits, allZones = gatherZonesText(row.zones, 6) end
             if row.name and zones == "" then zones = "Where it grows isn't in the guides" end
+            local lv = ns.character and ns.character.level
+            local fitText = (row.name and allZones ~= "" and lv) and (#fits > 0
+                and (" For your level (" .. lv .. "): " .. table.concat(fits, ", ") .. ".")
+                or (" None of its zones suits level " .. lv .. ".")) or ""
             r.name:SetText(name); r.zones:SetText(zones)
             local skillTxt = row.from == nil and "skill ?" or (row.state == "grey" and "grey" or ("from " .. row.from))
             r.skill:SetText(skillTxt)
@@ -1405,12 +1432,12 @@ local function build(parent)
             r.name:SetTextColor(T.RGB(diff and T.diffColor[diff] or (row.state == "grey" and "dim" or "white")))
             local alt = row.alt and #row.alt > 0 and (" Other guides say " .. table.concat(row.alt, " or ") .. ".") or ""
             local detail
-            if g.fishing then detail = "Good places to fish from skill " .. row.from .. ". " .. zonesText(row.zones, 8) .. "."
-            elseif row.from == nil then detail = "The skill it needs isn't known yet (Forever-only)." .. alt
+            if g.fishing then detail = "Good places to fish from skill " .. row.from .. "." .. fitText .. " " .. allZones .. "."
+            elseif row.from == nil then detail = "The skill it needs isn't known yet (Forever-only)." .. alt .. fitText
             else
                 detail = "Needs skill " .. row.from .. (row.greyAt and ("; gives skill until " .. row.greyAt) or "") .. "."
                     .. ((diff and diff ~= "red") and (" " .. T.diffWord[diff]:gsub("^%l", string.upper) .. " for you by the guide: " .. T.diffSays[diff] .. ".") or "")
-                    .. alt .. (zones ~= "" and (" " .. zones .. ".") or "")
+                    .. fitText .. alt .. (allZones ~= "" and (" " .. allZones .. ".") or "")
             end
             r.item = { key = "g:" .. i, frame = r, title = name, detail = detail, scroll = page.gather.scroll, topGap = L.listHeader + S.s2 }
             rows[#rows + 1] = { items = { r.item }, section = 1 }
@@ -1418,10 +1445,12 @@ local function build(parent)
         end
         local foot = page.gather.foot
         foot:ClearAllPoints(); foot:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y - S.s3); foot:SetWidth(width)
-        foot:SetText(m.gather == "skinning"
+        local footText = m.gather == "skinning"
             and "From the zone level guide and a Classic rule (the skill a creature of each level needs); the game doesn't list it."
             or g and g.fishing and "A hand-curated guide from Classic and Forever profession guides; the game doesn't list where fish bite."
-            or "A hand-curated guide from Classic and Forever profession guides; the game doesn't list where nodes grow. Colours follow the guide's skills (orange from the node's skill, yellow +25, green +50, grey +100), not the game. Skills in doubt are open check G1.")
+            or "A hand-curated guide from Classic and Forever profession guides; the game doesn't list where nodes grow. Colours follow the guide's skills (orange from the node's skill, yellow +25, green +50, grey +100), not the game. Skills in doubt are open check G1."
+        if m.gather ~= "skinning" then footText = footText .. " Zones that suit your level are lit; their levels are the zone guide's (unofficial)." end
+        foot:SetText(footText)
         child:SetHeight(y + S.s3 + (foot:GetStringHeight() or 40) + S.s4)
         return rows
     end

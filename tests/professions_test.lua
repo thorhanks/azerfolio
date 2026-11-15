@@ -273,6 +273,19 @@ return function(t)
         local z = R.OrderZones({ 1411, 1412, 1420, 2521, 1429, 1426, 1438 }, terr, "Alliance")
         t.eq(z[1], 1429, "Elwynn first for an Alliance character"); t.eq(z[#z], 1420, "Tirisfal last")
         t.eq(R.OrderZones({ 1411, 1429 }, terr, "Horde")[1], 1411, "Durotar first for the Horde")
+        -- Phase 15 step 5: by your level (the Zones "For my level" rule), your side's first;
+        -- the other side's zones at your level after the rest; capitals (no range) last.
+        local lv = { [1429] = { 1, 10 }, [1411] = { 1, 10 }, [1436] = { 10, 20 }, [1433] = { 15, 25 }, [1418] = { 35, 45 }, [1426] = { 1, 10 } }
+        local zt = { [1429] = "Alliance", [1426] = "Alliance", [1436] = "Alliance", [1411] = "Horde", [1433] = "Alliance", [1418] = "Contested" }
+        local byLv = R.ZonesByLevel({ 1418, 1411, 1429, 1453, 1433, 1436, 1426 }, zt, "Alliance", lv, 12)
+        local order, fit = {}, {}
+        for i, e in ipairs(byLv) do order[i] = e.mapID; fit[i] = e.fit end
+        t.same(order, { 1433, 1436, 1429, 1426, 1411, 1418, 1453 }, "both fit: the guide's order")
+        t.same(fit, { "fit", "fit", "below", "below", "below", "above", "unknown" })
+        t.eq(byLv[2].min, 10); t.eq(byLv[2].max, 20)
+        local at5 = R.ZonesByLevel({ 1411, 1429 }, zt, "Alliance", lv, 5)
+        t.eq(at5[1].mapID, 1429); t.eq(at5[2].fit, "theirs", "Durotar suits level 5, but it's the Horde's")
+        t.same(R.OrderZones({ 1436, 1429 }, zt, "Alliance", lv, 12), { 1436, 1429 })
         t.eq(R.RecipeItemNames("Heavy Silk Bandage")[6], "Manual: Heavy Silk Bandage")
     end)
 

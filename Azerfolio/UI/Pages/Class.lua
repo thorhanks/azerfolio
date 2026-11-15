@@ -36,6 +36,16 @@ local function questName(id)
     return r and r.name or ("Quest " .. tostring(id))
 end
 local function starter(id) return ns.Quests.Starter and ns.Quests.Starter(id) or nil end
+-- What the quest asks (QuestieDB's objective, Phase 15 step 5), or nil.
+local function objective(id) return ns.Quests.Objective and ns.Quests.Objective(id) or nil end
+-- Is the quest's giver in your race's capital or starting zone (Quests.RACE_HOME)?
+local function isHome(id)
+    local s = starter(id)
+    local home = ns.Quests.RACE_HOME and ns.character and ns.Quests.RACE_HOME[ns.character.raceFile]
+    if not (s and s.mapID and home) then return false end
+    for _, m in ipairs(home) do if m == s.mapID then return true end end
+    return false
+end
 
 -- "Duthorian Rall · Stormwind City", "A Strange Artifact (object) · Ashenvale", nil.
 local function starterText(s)
@@ -136,6 +146,9 @@ local function nextLine(j)
             .. (where and (", then " .. where) or ""), "classPeach"
     end
     if n.kind == "step" and n.step then
+        -- Phase 15 step 5: what the step asks, which already says where (QuestieDB's objective).
+        local obj = objective(n.step.id)
+        if obj then return "Next: " .. obj, "classPeach" end
         local where = starterText(starter(n.step.id))
         return "Next: " .. questName(n.step.id) .. (where and ("  ·  " .. where) or ""), "classPeach"
     end
@@ -777,20 +790,42 @@ end
 
 -- kind: done | next | after | later | unknown | sub (in place, not counted) | lead (Start here) |
 -- progress (a stop row). glyph: the ring's text (the step's number, "?").
-local function paintStepRow(row, kind, glyph, name, sub, right)
+-- wrap (Phase 15 step 5, R12): the main and second lines wrap and the row grows to fit them
+-- (a step's objective is never cut); without it both stay one line at CT.stepRow. Returns the
+-- row's height.
+local function paintStepRow(row, kind, glyph, name, sub, right, wrap)
+    local T, CT, S = ns.Theme, ns.Theme.layout.classTab, ns.Theme.space
     local ringC = ({ done = "classBeadOn", next = "classPeach", progress = "classPeach" })[kind] or "levelRange"
     local fillC = ({ done = "complete", progress = "todo", next = "ctlOn" })[kind] or "cardBg"
     tint(row.ring, ringC); tint(row.fill, fillC)
     row.check:SetShown(kind == "done")
     row.glyph:SetShown(kind ~= "done" and glyph ~= nil)
     row.glyph:SetText(glyph or "")
-    row.glyph:SetTextColor(ns.Theme.RGB(kind == "next" and "classPeach" or "text"))
+    row.glyph:SetTextColor(T.RGB(kind == "next" and "classPeach" or "text"))
+    row.name:SetWordWrap(wrap and true or false)
+    row.sub:SetWordWrap(wrap and true or false)
     row.name:SetText(name or "")
     row.nameColor = kind == "done" and "complete" or ((kind == "later" or kind == "sub" or kind == "lead" or kind == "unknown") and "dim" or "white")
     row.sub:SetText(sub or "")
     row.lv:SetText(right or "")
     row.faint = kind == "later" or kind == "sub" or kind == "lead" or kind == "unknown"
     row:Tone()
+    local h = CT.stepRow
+    if wrap then
+        local lvW = (right and right ~= "") and (T.MeasureText(right, "xs") + S.s3) or 0
+        local textW = (row:GetWidth() or 0) - S.s2 - CT.stepIcon - S.s3 - lvW - S.s3
+        local nl = T.WrapLines(name, "sm", textW)
+        local sl = (sub and sub ~= "") and T.WrapLines(sub, "xs", textW) or 0
+        h = math.max(CT.stepRow, 4 + nl * (T.size.sm + 3) + (sl > 0 and (2 + sl * (T.size.xs + 2)) or 0) + 4)
+        -- The ring sits beside the first line, not the middle of a tall row.
+        row.ring:ClearAllPoints()
+        row.ring:SetPoint(h > CT.stepRow and "TOPLEFT" or "LEFT", S.s2, h > CT.stepRow and -((CT.stepRow - CT.stepIcon) / 2) or 0)
+    else
+        row.ring:ClearAllPoints()
+        row.ring:SetPoint("LEFT", S.s2, 0)
+    end
+    row:SetHeight(h)
+    return h
 end
 
 ---------------------------------------------------------------------------------------------
@@ -1508,54 +1543,72 @@ local function build(parent, opts)
             local req = r and r.reqLevel
             return (req and st.level and req > st.level) and ("from " .. req) or ""
         end
-        -- Start here: lead-ins and repeatable-flagged starts (optional, not counted).
-        if #leadins > 0 then
+        -- Start here: lead-ins and repeatable-flagged starts (optional, not counted). Phase 15
+        -- step 5: alternatives share a row ("from A, or B"), your home's giver first; lead-ins
+        -- into routes you aren't shown and other races' versions are left out.
+        local groups = ns.ClassJourneyRules.StartHere(leadins, st, info, isHome)
+        if #groups > 0 then
             y = header("Start here", "optional  ·  not counted", y, x - S.s2, colW + S.s2)
-            for _, ex in ipairs(leadins) do
+            for _, g in ipairs(groups) do
+                local first = g.items[1]
                 local row = stepRow(y, x - S.s2, colW + S.s2)
-                local nm = questName(ex.id)
-                local where = starterText(starter(ex.id)) or "Starter not known"
-                paintStepRow(row, ex.state == "done" and "done" or "lead", nil, nm, where, "not counted")
-                row.item = { key = "ex:" .. ex.id, frame = row, title = nm,
-                    detail = (ex.state == "done" and "Done. " or "") .. "Optional, not counted: a lead-in or the chain's start. " .. where .. "." .. idNote(ex.id),
+                local nm = questName(first.id)
+                local obj = objective(first.id)
+                local givers = {}
+                for _, ex in ipairs(g.items) do givers[#givers + 1] = starterText(starter(ex.id)) or "starter not known" end
+                local from = table.concat(givers, ", or ")
+                local h = paintStepRow(row, g.done and "done" or "lead", nil, obj or nm,
+                    obj and (nm .. "  ·  from " .. from) or cap(from), "not counted", true)
+                local ids = ""
+                for _, ex in ipairs(g.items) do ids = ids .. idNote(ex.id) end
+                row.item = { key = "ex:" .. first.id, frame = row, title = nm,
+                    detail = (g.done and "Done. " or "") .. (obj and (obj .. ". ") or "") .. "Optional, not counted: a lead-in or the chain's start. "
+                        .. (#g.items > 1 and "Any one of: " or "") .. from .. "." .. ids,
                     scroll = dscroll, topGap = L.listHeader + S.s2 }
                 rows[#rows + 1] = { items = { row.item }, section = 1 }
-                y = y + CT.stepRow + 2
+                y = y + h + 2
             end
             y = y + S.s2
         end
-        -- Steps: numbered; quests sharing a name lead with who and where; sub-quests in place.
+        -- Steps (Phase 15 step 5, R12): each leads with what it asks (QuestieDB's objective; the
+        -- quest's name without one); the second line names the chain only where it changes (the
+        -- stop's name counts as the first), then who gives it and where. Sub-quests in place.
         local kinds = stepKinds(st)
-        local names, total = {}, {}
-        for k, step in ipairs(st.steps) do local nm = questName(step.id); names[k] = nm; total[nm] = (total[nm] or 0) + 1 end
+        local prevName = st.name
+        local function lines(id)
+            local nm = questName(id)
+            local obj = objective(id)
+            local where = starterText(starter(id))
+            local changed = nm ~= prevName
+            prevName = nm
+            if not obj then return nm, where and ("from " .. where) or "Starter not known", nm, nil end
+            return obj, (changed and (nm .. "  ·  ") or "") .. (where and ("from " .. where) or "starter not known"), nm, obj
+        end
         y = header("Steps", st.done and (st.done .. " of " .. st.count .. " done") or (st.count .. " steps"), y, x - S.s2, colW + S.s2)
         for k, step in ipairs(st.steps) do
-            local nm = names[k]
-            local sw = starter(step.id)
-            local where = starterText(sw) or "Starter not known"
-            local main, second = nm, where
-            if total[nm] > 1 then main, second = cap(where), nm end
+            local main, second, nm, obj = lines(step.id)
+            local where = starterText(starter(step.id)) or "Starter not known"
             local row = stepRow(y, x - S.s2, colW + S.s2)
             local kind = kinds[k]
-            paintStepRow(row, kind, kind == "unknown" and "?" or tostring(k), main, second, lvText(step.id))
+            local h = paintStepRow(row, kind, kind == "unknown" and "?" or tostring(k), main, second, lvText(step.id), true)
             local state = kind == "done" and "Done." or kind == "next" and "Your next step." or kind == "after" and "You can do it now."
                 or kind == "later" and ("Later: " .. (whyText(step.reason) or "locked") .. ".")
                 or ("Done or not isn't known" .. (step.reason and (" (" .. whyText(step.reason) .. ")") or "") .. ".")
             row.item = { key = "st:" .. k .. ":" .. step.id, frame = row, title = string.format("%d. %s", k, nm),
-                detail = state .. " " .. where .. "." .. idNote(step.id), scroll = dscroll, topGap = L.listHeader + S.s2,
+                detail = (obj and (obj .. ". ") or "") .. state .. " From " .. where .. "." .. idNote(step.id), scroll = dscroll, topGap = L.listHeader + S.s2,
                 next = kind == "next" }
             rows[#rows + 1] = { items = { row.item }, section = 2 }
-            y = y + CT.stepRow + 2
+            y = y + h + 2
             for _, ex in ipairs(subs[k] or {}) do
                 local srow = stepRow(y, x - S.s2, colW + S.s2)
-                local snm = questName(ex.id)
+                local smain, ssecond, snm, sobj = lines(ex.id)
                 local swhere = starterText(starter(ex.id)) or "Starter not known"
-                paintStepRow(srow, ex.state == "done" and "done" or "sub", nil, snm, swhere, lvText(ex.id, true))
+                local sh = paintStepRow(srow, ex.state == "done" and "done" or "sub", nil, smain, ssecond, lvText(ex.id, true), true)
                 srow.item = { key = "sub:" .. ex.id, frame = srow, title = snm,
-                    detail = (ex.state == "done" and "Done. " or "") .. "Part of step " .. k .. "; not counted (QuestieDB flags it repeatable). "
+                    detail = (ex.state == "done" and "Done. " or "") .. (sobj and (sobj .. ". ") or "") .. "Part of step " .. k .. "; not counted (QuestieDB flags it repeatable). From "
                         .. swhere .. "." .. idNote(ex.id), scroll = dscroll, topGap = L.listHeader + S.s2 }
                 rows[#rows + 1] = { items = { srow.item }, section = 2 }
-                y = y + CT.stepRow + 2
+                y = y + sh + 2
             end
         end
         d.bar:Hide()
@@ -1567,7 +1620,7 @@ local function build(parent, opts)
         d.foot:Show()
         y = y + math.ceil(d.foot:GetStringHeight() or 14) + S.s4
         dc:SetHeight(math.max(1, y, page.factsBottom or 0))
-        page.hasLeadins = #leadins > 0
+        page.hasLeadins = #groups > 0
         return rows
     end
 
