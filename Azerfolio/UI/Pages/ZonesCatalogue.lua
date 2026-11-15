@@ -168,7 +168,7 @@ local function newCard(parent)
     c.frame = T.CardFrame(c, D.frameCorner, D.frameOut, "OVERLAY", "card-frame-a")
     -- The state and focus edge, over the frame's band (as the Dungeons cards).
     c.ring = CreateFrame("Frame", nil, c)
-    c.ring:SetPoint("TOPLEFT", c, "TOPLEFT", -1, 1); c.ring:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", 1, -1)
+    c.ring:SetAllPoints(c) -- on frame A's band, the card's own edge
     if c.ring.SetFrameLevel and c.GetFrameLevel then c.ring:SetFrameLevel(c:GetFrameLevel() + 3) end
     c.edge = W.Edge(c.ring, "OVERLAY")
     function c:SetFocused(on) self.focused = on; self:Paint() end

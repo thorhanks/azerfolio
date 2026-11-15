@@ -297,8 +297,9 @@ Negative prompt: the zone one, plus `frame, border, rounded corners, photo, tiny
 | icon-reputation | Reputation tab | A heraldic tabard hanging from a short wooden crossbar, deep green cloth with a gold embroidered border and a bold gold sunburst emblem on the chest, gently folded (added 2026-11-09; green and gold so it's neither Alliance nor Horde and stands apart from the brown journal and the parchment map) |
 | icon-class | Class tab | A knight's kite shield standing upright with a gilded rim, a winding golden road painted across its face from top to bottom, a small glowing star at the road's end (added 2026-11-10; a journey, not any one class) |
 | icon-professions | Professions tab | A heavy dark iron blacksmith's anvil seen from a three-quarter front view, a smith's hammer with a wooden handle resting across its top at an angle, a few bright orange sparks flying from the anvil's face, a warm forge glow from below and behind (added 2026-11-14, Phase 15; Codex, with icon-class, icon-reputation and icon-zones attached as the set's reference) |
+| icon-dungeons | Dungeons tab | A heavy arched dungeon gateway of dark rough-hewn stone seen from the front, an iron portcullis half raised, warm orange torchlight and a faint ember glow spilling out from the depths beyond, a small carved skull on the keystone, two iron torch brackets with flames either side (added 2026-11-15, Phase 16; Codex, with icon-professions, icon-class, icon-reputation and icon-zones attached as the set's reference; used as made) |
 
-Future tabs add one line each (for example icon-dungeons: a dark stone archway with a glowing portal).
+Future tabs add one line each.
 
 ### Small glyphs (Phase 15, 2026-11-14)
 

@@ -166,7 +166,8 @@ end
 -- "New in Forever" (its tag is the catalogue's), for a narrow tile.
 function Words.TileMeta(inst, drop)
     local n = #(inst.bosses or {})
-    local s = Words.Levels(inst) .. "  ·  " .. n .. " " .. plural(n, "boss", "bosses")
+    -- Raids say so (the kind's corner icon was dropped, owner 2026-11-15); dungeons are the default.
+    local s = (inst.kind == "raid" and "Raid  ·  " or "") .. Words.Levels(inst) .. "  ·  " .. n .. " " .. plural(n, "boss", "bosses")
     if inst.forever and (drop or 0) < 1 then s = s .. "  ·  New in Forever" end
     return s
 end
@@ -726,9 +727,9 @@ local function newCard(parent)
     if c.name.SetMaxLines then c.name:SetMaxLines(2) end
     c.name:SetPoint("BOTTOMLEFT", c.meta, "TOPLEFT", 0, 4)
     c.frame = T.CardFrame(c, D.frameCorner, D.frameOut, "OVERLAY", "card-frame-a")
-    -- The state and focus edge, over the frame's band.
+    -- The state and focus edge, on the frame's band (the card's own edge).
     c.ring = CreateFrame("Frame", nil, c)
-    c.ring:SetPoint("TOPLEFT", c, "TOPLEFT", -1, 1); c.ring:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", 1, -1)
+    c.ring:SetAllPoints(c)
     if c.ring.SetFrameLevel and c.GetFrameLevel then c.ring:SetFrameLevel(c:GetFrameLevel() + 3) end
     c.edge = W.Edge(c.ring, "OVERLAY")
     function c:SetFocused(on) self.focused = on; self:Paint() end
@@ -774,10 +775,6 @@ local function newRow(parent)
     r.mark:SetPoint("TOPLEFT"); r.mark:SetPoint("BOTTOMLEFT"); r.mark:SetWidth(3)
     r.thumb = r:CreateTexture(nil, "ARTWORK")
     r.thumb:SetPoint("LEFT", S.s2, 0)
-    r.glyph = r:CreateTexture(nil, "OVERLAY")
-    r.glyph:SetSize(D.glyph, D.glyph)
-    r.glyph:SetPoint("BOTTOMRIGHT", r.thumb, "BOTTOMRIGHT", -1, 1)
-    r.glyph:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     r.quest = newQuestBar(r)
     r.bosses = T.Text(r, "xs", "dim")
     r.bosses:SetJustifyH("LEFT"); r.bosses:SetWordWrap(false)
@@ -812,7 +809,6 @@ local function fillRow(r, e, width, known, wide)
     if r.thumb.SetDesaturation then r.thumb:SetDesaturation(D.thumbSepia)
     elseif r.thumb.SetDesaturated then r.thumb:SetDesaturated(false) end
     r.thumb:SetVertexColor(0.88, 0.8, 0.68)
-    r.glyph:SetTexture(D.kindIcon[inst.kind] or D.kindIcon.dungeon)
     local edge = known and STATE_EDGE[p.state]
     r.mark:SetShown(edge ~= nil and edge ~= false)
     if edge then local cr, cg, cb = T.RGB(edge); r.mark:SetColorTexture(cr, cg, cb, 1) end
@@ -1548,7 +1544,7 @@ local function build(parent)
         if f.SetFrameLevel then f:SetFrameLevel(rd.canvas:GetFrameLevel() + i * 3) end
         rd.layer[name] = f
     end
-    -- You: your portrait in the brass ring, "You · 10" under it.
+    -- You: your portrait in the brass ring (no "You · 10" tag: owner 2026-11-15, as the Class tab).
     local you = CreateFrame("Frame", nil, rd.layer.you)
     you:SetSize(R6.you, R6.you)
     you.icon = you:CreateTexture(nil, "ARTWORK")
@@ -1560,14 +1556,6 @@ local function build(parent)
         you.brass:SetTexture(brass); you.brass:SetPoint("CENTER")
         you.brass:SetSize((R6.you - 4) / 0.56, (R6.you - 4) / 0.56)
     else you.brass:Hide() end
-    you.tag = CreateFrame("Frame", nil, you)
-    you.tag:SetHeight(R6.youTag)
-    you.tag:SetPoint("TOP", you, "BOTTOM", 0, -4)
-    you.tag.bg = T.Solid(you.tag, "dunRoadTag", "BACKGROUND", 0.85)
-    you.tag.bg:SetAllPoints()
-    you.tag.text = T.Text(you.tag, "xs", "dunRoadInk")
-    you.tag.text:SetShadowOffset(0, 0)
-    you.tag.text:SetPoint("CENTER", 0, 0)
     rd.you = you
     rd.edge = T.Solid(rd, "divider", "BORDER")
     rd.edge:SetPoint("TOPLEFT", rd.sf, "BOTTOMLEFT"); rd.edge:SetPoint("TOPRIGHT", rd.sf, "BOTTOMRIGHT")
@@ -2755,10 +2743,6 @@ local function build(parent)
         you:SetPoint("CENTER", cv, "TOPLEFT", youX, -lay.youY)
         local ok = type(SetPortraitTexture) == "function" and pcall(SetPortraitTexture, you.icon, "player")
         if not ok then you.icon:SetColorTexture(T.RGB("classParchment")) end
-        setPx(you.tag.text, T.size.xs * ts)
-        you.tag.text:SetText("You · " .. level)
-        you.tag:SetHeight(R6.youTag * ts)
-        you.tag:SetWidth(math.ceil((you.tag.text:GetStringWidth() or 0) + 12 * ts))
         return its, byKey
     end
     page.FillPreview = fillPreview

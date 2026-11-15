@@ -255,11 +255,15 @@ end
 -- Dungeons cards' card-frame-a) drawn over `frame`'s edge, `out` units outside it, corners
 -- `corner` units square. The centre stays empty. Returns a handle with SetShown(on) and
 -- SetVertexColor(r, g, b), or nil without the art.
+-- A chrome piece's transparent margin outside its painted edge (share of the image), cropped
+-- away so the edge sits on the frame's own edge (card-frame-a: the bar runs 10-27 of 1024).
+Theme.chromeMargin = { ["card-frame-a"] = 10 / 1024 }
 function Theme.CardFrame(frame, corner, out, layer, name)
     local file, slice = Theme.Chrome(name or "frame-card")
     if not file or type(slice) ~= "table" then return nil end
     corner, out = corner or 24, out or 4
     local sx, sy = slice.x, slice.y
+    local m = Theme.chromeMargin[name or "frame-card"] or 0
     local pieces = {}
     local function piece(l, r, t, b)
         local tex = frame:CreateTexture(nil, layer or "OVERLAY", nil, 6)
@@ -268,17 +272,17 @@ function Theme.CardFrame(frame, corner, out, layer, name)
         pieces[#pieces + 1] = tex
         return tex
     end
-    local tl, tr = piece(0, sx, 0, sy), piece(1 - sx, 1, 0, sy)
-    local bl, br = piece(0, sx, 1 - sy, 1), piece(1 - sx, 1, 1 - sy, 1)
+    local tl, tr = piece(m, sx, m, sy), piece(1 - sx, 1 - m, m, sy)
+    local bl, br = piece(m, sx, 1 - sy, 1 - m), piece(1 - sx, 1 - m, 1 - sy, 1 - m)
     for _, c in ipairs({ tl, tr, bl, br }) do c:SetSize(corner, corner) end
     tl:SetPoint("TOPLEFT", frame, "TOPLEFT", -out, out)
     tr:SetPoint("TOPRIGHT", frame, "TOPRIGHT", out, out)
     bl:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", -out, -out)
     br:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", out, -out)
-    local top, bottom = piece(sx, 1 - sx, 0, sy), piece(sx, 1 - sx, 1 - sy, 1)
+    local top, bottom = piece(sx, 1 - sx, m, sy), piece(sx, 1 - sx, 1 - sy, 1 - m)
     top:SetPoint("TOPLEFT", tl, "TOPRIGHT"); top:SetPoint("BOTTOMRIGHT", tr, "BOTTOMLEFT")
     bottom:SetPoint("TOPLEFT", bl, "TOPRIGHT"); bottom:SetPoint("BOTTOMRIGHT", br, "BOTTOMLEFT")
-    local left, right = piece(0, sx, sy, 1 - sy), piece(1 - sx, 1, sy, 1 - sy)
+    local left, right = piece(m, sx, sy, 1 - sy), piece(1 - sx, 1 - m, sy, 1 - sy)
     left:SetPoint("TOPLEFT", tl, "BOTTOMLEFT"); left:SetPoint("BOTTOMRIGHT", bl, "TOPRIGHT")
     right:SetPoint("TOPLEFT", tr, "BOTTOMLEFT"); right:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT")
     local h = {}
@@ -497,19 +501,18 @@ Theme.layout.dunTab = {
     cols = 3,                  -- cards across (owner, round 2: "three across")
     cardAspect = 10 / 16,      -- card height / width (16:10)
     cardGap = 24,              -- .dcards gap var(--s6)
-    frameCorner = 14,          -- card-frame-a: about 7 px of its 256 (round 4), drawn at 14
-    frameOut = 2,              -- .cframe.subtle inset -2px
+    frameCorner = 6,           -- card-frame-a's corner, margin cropped (Theme.chromeMargin): the bar about 5 px, as the mockup's 7px border-image (owner: at 14 it read as an inner frame)
+    frameOut = 0,              -- the bar on the card's own edge
     shade = 0.65,              -- share of the card the foot's dark gradient covers (.dcshade)
     pad = 14,                  -- the foot's and the tags' inset (.dcfoot left 14, .dctags 12)
     tag = 18, tagPad = 6, tagGap = 6, -- .tag line-height 18, padding 0 6px
     questBar = 6, questBarMax = 220, -- .dcq max-width 220
     check = 28,                -- the ✓ on a card with every quest done
-    row = 52, thumb = { 64, 36 }, thumbWide = { 52, 30 }, glyph = 14,
+    row = 52, thumb = { 64, 36 }, thumbWide = { 52, 30 },
     thumbSepia = 0.45,         -- the row thumbnail's desaturation (with a warm tint)
     lvCol = 132, bossCol = 84, questCol = 170, questColWide = 150, -- .drow grid columns
     splitList = 720,           -- the wide split's list column (.dunsplit)
     banner = 216,              -- the instance page's banner (round 3, idea 1)
-    kindIcon = { dungeon = "Interface\\Icons\\INV_Misc_Key_03", raid = "Interface\\Icons\\INV_Misc_Head_Dragon_01" },
 }
 -- Task 7: the Zones tab's cards are the Dungeons cards (DESIGN round 3 "Zones cards", style.css
 -- .zcard2): the zone's art in the living Atlas's look, tags (.tag.rec, .fac), the painted standard
@@ -528,7 +531,7 @@ Theme.layout.zoneCard = {
 -- Task 7: Zone Detail's "Dungeon here" tiles (DESIGN round 2, style.css .duntile).
 Theme.layout.dunTile = {
     h = 112, min = 260, gap = 12, -- .duntiles minmax(260px, 1fr), gap var(--s3)
-    padX = 14, padY = 10, glyph = 22, questBar = 220,
+    padX = 14, padY = 10, questBar = 220,
     footY = 14,                -- the quest line's lift off the bottom (at 10 it sat on frame A's band in game, WoWScrnShot_111526_145020)
 }
 -- The instance page (Phase 16 task 5; DESIGN round 5-6, style.css .dpbody/.dpanel/.dseals/.dbv/.dqv).
@@ -549,7 +552,7 @@ Theme.layout.dunPage = {
     padX = 24, padY = 12,      -- .dov padding var(--s3) var(--s6)
     colGap = 16,               -- between the Overview's columns (.dov gap var(--s4))
     leftShare = 0.49,          -- Before you go's share (.dov 1fr / 1.05fr)
-    panelPad = 14, panelHead = 30, frameCorner = 14,
+    panelPad = 14, panelHead = 30, frameCorner = 6,
     lvl = 24,                  -- the level line (.dlvl)
     key = 28, pick = 42, sub = 24, -- keys, a pickup row, "Pick up the quests"
     seal = 26, pill = 30, pillGap = 6, compactAfter = 12, -- The run (.dseal-b, .dseals.compact past 12)
@@ -587,7 +590,7 @@ Theme.layout.dunRoad = {
     plate = 28, plateCap = 24, platePad = 28, plateFont = 14, -- one-line name plates (round 8)
     plateRows = { 39, 88 }, plateCapPx = 64, plateTex = { 512, 128 }, -- the cartouche's band and curled ends
     stone = 44, stoneDrop = 4,             -- level stones (round 8: two digits fit the face)
-    you = 34, youTag = 16,                 -- your portrait coin and its "You · 10" tag
+    you = 34,                              -- your portrait coin (no tag: owner 2026-11-15)
     sign = 28, signMinW = 150, signPad = 40, signTop = 8, post = { 3, 30 },
     gold = 7, goldStep = 6,                -- the gold progress up to You (round 7: 7 px)
     check = 24, newTag = 18,

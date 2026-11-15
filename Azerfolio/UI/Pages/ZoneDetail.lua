@@ -354,10 +354,6 @@ local function newDunTile(parent)
     local ok = type(CreateColor) == "function" and pcall(b.shade.SetGradient, b.shade, "HORIZONTAL",
         CreateColor(0.04, 0.024, 0.008, 0.88), CreateColor(0.04, 0.024, 0.008, 0.1))
     if not ok then b.shade:SetColorTexture(0.04, 0.024, 0.008, 0.55) end
-    b.glyph = b:CreateTexture(nil, "OVERLAY")
-    b.glyph:SetSize(DT.glyph, DT.glyph)
-    b.glyph:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -DT.padX + 4, DT.padY - 2)
-    b.glyph:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     b.name = T.Text(b, "lg", "gold")
     b.name:SetPoint("TOPLEFT", b, "TOPLEFT", DT.padX, -DT.padY)
     b.name:SetJustifyH("LEFT"); b.name:SetWordWrap(false)
@@ -372,7 +368,7 @@ local function newDunTile(parent)
     b.frame = T.CardFrame(b, ns.Theme.layout.dunTab.frameCorner, ns.Theme.layout.dunTab.frameOut, "OVERLAY", "card-frame-a")
     -- The state and focus edge, over the frame's band (as the Dungeons cards).
     b.ring = CreateFrame("Frame", nil, b)
-    b.ring:SetPoint("TOPLEFT", b, "TOPLEFT", -1, 1); b.ring:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, -1)
+    b.ring:SetAllPoints(b)
     if b.ring.SetFrameLevel and b.GetFrameLevel then b.ring:SetFrameLevel(b:GetFrameLevel() + 3) end
     b.edge = W.Edge(b.ring, "OVERLAY")
     function b:SetFocused(on) self.focused = on; self:Paint() end
@@ -394,11 +390,10 @@ local function paintDunTile(b, inst, e, known, width)
     local P, Words = ns.DungeonsPage.Pieces, ns.DungeonsPage.Words
     b:SetWidth(width)
     P.paintArt(b.art, inst, width, DT.h)
-    b.glyph:SetTexture(T.layout.dunTab.kindIcon[inst.kind] or T.layout.dunTab.kindIcon.dungeon)
-    local inner = width - 2 * DT.padX - DT.glyph
-    b.name:SetWidth(inner + DT.glyph)
+    local inner = width - 2 * DT.padX
+    b.name:SetWidth(inner)
     b.name:SetText(inst.name)
-    T.FitFont(b.name, inst.name, inner + DT.glyph, { "lg", "md" }, 1)
+    T.FitFont(b.name, inst.name, inner, { "lg", "md" }, 1)
     b.meta:SetWidth(inner)
     for drop = 0, 1 do
         local s = Words.TileMeta(inst, drop)

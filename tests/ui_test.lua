@@ -923,6 +923,7 @@ return function(t)
         t.eq(W.TileMeta(ns.Dungeons.Instance("deadmines")), "Lv 15-23  ·  8 bosses")
         t.ok(W.TileMeta(ns.Dungeons.Instance("hallOfThanes")):find("New in Forever", 1, true))
         t.eq(W.TileMeta(ns.Dungeons.Instance("hallOfThanes"), 1):find("New in Forever", 1, true), nil, "a narrow tile drops it")
+        t.eq(W.TileMeta(ns.Dungeons.Instance("moltenCore")):sub(1, 9), "Raid  · ", "a raid says so (no corner icon)")
         slash("")
         ns.UI.SelectTab("zones")
         local zp = page(ns)
@@ -1378,8 +1379,8 @@ return function(t)
         t.eq(dp.byKey.moltenCore.ring:GetTexture(), ns.Theme.mediaDir .. "Chrome\\medallion-ring-raid.blp")
         t.eq(dp.byKey.hallOfThanes.tagHolder.tags[1].text:GetText(), "New")
         t.eq(dp.byKey.deadmines.tagHolder.tags[1] == nil or not dp.byKey.deadmines.tagHolder.tags[1]:IsShown(), true)
-        -- You · level on the road.
-        t.eq(dp.road.you.tag.text:GetText(), "You · " .. ns.character.level)
+        -- You on the road: the portrait alone, no "You · level" tag (owner 2026-11-15).
+        t.eq(dp.road.you.tag, nil, "no tag under the portrait")
         -- A opens the page full size; B comes back to the same medallion on the road.
         ns.Focus.FocusKey("d:wailing")
         t.eq(dp.road.pv.name:GetText(), "Wailing Caverns")

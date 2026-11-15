@@ -161,6 +161,7 @@ ns.Art = {
     },
     icons = {
         ["class"] = true,
+        ["dungeons"] = true,
         ["explore"] = true,
         ["flights"] = true,
         ["overview"] = true,
