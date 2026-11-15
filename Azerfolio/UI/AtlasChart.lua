@@ -68,13 +68,18 @@ local function newTile(parent, mini)
         local ok = type(CreateColor) == "function" and pcall(t.shade.SetGradient, t.shade, "VERTICAL",
             CreateColor(0, 0, 0, 0.8), CreateColor(0, 0, 0, 0))
         if not ok then t.shade:SetColorTexture(0, 0, 0, 0.35) end
+        -- The name gets an explicit width in fillTile (an anchor-only width wasn't resolved on the
+        -- first layout, so the same tile showed "Stormwind City" on two lines in one render and
+        -- "Stormwin..." in another; review R1). Two lines, cut only past that.
         t.name = T.Text(t, "xs", "white")
-        t.name:SetPoint("BOTTOMLEFT", 5, 5); t.name:SetPoint("RIGHT", -4, 0)
-        t.name:SetJustifyH("LEFT"); t.name:SetWordWrap(true)
+        t.name:SetPoint("BOTTOMLEFT", 5, 5)
+        t.name:SetJustifyH("LEFT"); t.name:SetJustifyV("BOTTOM"); t.name:SetWordWrap(true)
+        if t.name.SetMaxLines then t.name:SetMaxLines(2) end
         t.pct = T.Text(t, "xs", "todo")
         t.pct:SetPoint("TOPRIGHT", -4, -3)
+        -- The "you are here" pin sits in the top-left corner, clear of the name and the %.
         t.pin = t:CreateTexture(nil, "OVERLAY", nil, 2)
-        t.pin:SetSize(10, 10); t.pin:SetPoint("CENTER", 0, 4)
+        t.pin:SetSize(10, 10); t.pin:SetPoint("TOPLEFT", 6, -6)
         t.pin:SetColorTexture(1, 1, 1, 1)
         local m = t:CreateMaskTexture()
         if m then
@@ -110,10 +115,12 @@ local function fillTile(t, z, w, h, here, dim, mini)
     if progress and pct > 0 then t.fill:SetWidth(math.max(1, (w - 2) * math.min(1, pct))) end
     t:SetAlpha(dim and 0.3 or 1)
     if not mini then
+        t.name:SetWidth(w - 9)
         t.name:SetText(z.name)
         t.name:SetTextColor(T.RGB(claimed and "gold" or (z.state == "untouched" and "dim" or "white")))
         t.pct:SetText(claimed and "Claimed" or (z.combined and ns.Progression.PercentText(z.combined) or ""))
-        t.pct:SetTextColor(T.RGB(claimed and "complete" or "todo"))
+        -- Orange means in progress; an untouched zone's 0% is grey, as on the cards (review R2).
+        t.pct:SetTextColor(T.RGB(claimed and "complete" or (progress and "todo" or "dim")))
         t.pin:SetShown(here)
         if t.pin.anim then if here then t.pin.anim:Play() else t.pin.anim:Stop() end end
     end

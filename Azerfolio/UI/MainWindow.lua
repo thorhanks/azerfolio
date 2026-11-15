@@ -296,6 +296,13 @@ local function buildLegend(f)
     lg:SetPoint("TOPRIGHT", f, "BOTTOMRIGHT", 0, -L.legendGap)
     lg:SetHeight(L.legendHeight)
     lg:EnableMouse(true)
+    -- The client's legend background is see-through: the game's player frame showed through the
+    -- info line (review R3). An opaque base under it, and the legend above the window's children.
+    lg:SetFrameLevel(f:GetFrameLevel() + 20)
+    local base = lg:CreateTexture(nil, "BACKGROUND", nil, -8)
+    base:SetPoint("TOPLEFT", L.legendEdge, -L.legendEdge)
+    base:SetPoint("BOTTOMRIGHT", -L.legendEdge, L.legendEdge)
+    base:SetColorTexture(0.03, 0.025, 0.02, 1)
     local bg = lg:CreateTexture(nil, "BACKGROUND")
     bg:SetPoint("TOPLEFT", L.legendEdge, -L.legendEdge)
     bg:SetPoint("BOTTOMRIGHT", -L.legendEdge, L.legendEdge)

@@ -200,6 +200,11 @@ return function(t)
         local n2 = ns.Zones.NextUp(nil, { status = "ready", ready = {} }, f)
         t.eq(#n2, 1); t.eq(n2[1].kind, "flights")
         t.eq(#ns.Zones.NextUp({ status = "untracked" }, { status = "building" }, { status = "pending" }), 0)
+        local red = { status = "ready", ready = { { id = 20, name = "Rotgath Stonebeard", questLevel = 60, difficulty = "red" },
+            { id = 21, name = "Your Package Has Arrived", questLevel = 2, difficulty = "grey" } } }
+        local n3 = ns.Zones.NextUp(nil, red, nil)
+        t.eq(#n3, 1, "red quests aren't suggested")
+        t.eq(n3[1].name, "Your Package Has Arrived")
     end)
 
     t.test("saved flight masters' lists: bad entries are dropped", function()

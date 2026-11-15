@@ -161,6 +161,20 @@ function Exploration.CurrentZone()
     return Exploration.ZoneForMap(here)
 end
 
+-- The player's map or its nearest parent that is in `set` ([mapID] = true), or nil. Capitals
+-- have no Explore achievement, so CurrentZone() is nil there, but the Atlas has a tile for them.
+function Exploration.CurrentIn(set)
+    local mapID = C_Map and try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
+    local guard = 0
+    while type(mapID) == "number" and mapID > 0 and guard < 10 do
+        if set[mapID] then return mapID end
+        local info = C_Map and try("GetMapInfo", C_Map.GetMapInfo, mapID)
+        mapID = info and info.parentMapID
+        guard = guard + 1
+    end
+    return nil
+end
+
 -- After a discovery burst: re-read the zone the player is in. If MAP_EXPLORATION_UPDATED fired
 -- (a real discovery) and that zone didn't change, the area belongs to another zone (e.g.
 -- Elwynn's "Stormwind City" is discovered on the Stormwind City map, which has no Explore

@@ -83,7 +83,11 @@ function Zones.NextUp(ex, q, f)
     end
     if q and q.status == "ready" then
         local list = {}
-        for _, o in ipairs(q.ready or {}) do list[#list + 1] = o end
+        -- Red quests (5+ levels above you) aren't a next step: Ironforge offered level-60 quests
+        -- to a level-10 character (review R4). They stay on the Quests page.
+        for _, o in ipairs(q.ready or {}) do
+            if o.difficulty ~= "red" then list[#list + 1] = o end
+        end
         table.sort(list, function(a, b)
             local ra, rb = DIFF_RANK[a.difficulty] or 9, DIFF_RANK[b.difficulty] or 9
             if ra ~= rb then return ra < rb end

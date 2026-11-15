@@ -618,12 +618,12 @@ function Catalogue.New(page)
         chart:ClearAllPoints()
         chart:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, 0)
         chart:Show()
-        local tracked, shown = {}, {}
-        for _, z in ipairs(all) do if z.tracked then tracked[#tracked + 1] = z end end
+        local tracked, shown, tiles = {}, {}, {}
+        for _, z in ipairs(all) do if z.tracked then tracked[#tracked + 1] = z; tiles[z.mapID] = true end end
         for _, z in ipairs(q.zones) do shown[z.mapID] = true end
         local w = width - L.listInset - S.s6
         local h = math.floor(w / ns.AtlasChart.SOURCE_ASPECT + 0.5)
-        local current = ns.Exploration.CurrentZone()
+        local current = ns.Exploration.CurrentIn(tiles)
         local rows, byMap = ns.AtlasChart.Draw(chart, tracked, w, h, { shown = shown, current = current,
             item = function(tile, z) return zoneItem(tile, z) end })
         local focus = { toolbarRow() }
