@@ -11,6 +11,8 @@
 --   npcs <text>            NPCs whose subName (title) contains text, with area and side
 --   rares [areaID|all]     rare, rare elite and boss NPCs (rank 4, 2, 3; cmangos ranks), by spawn area
 --   drops [npcID...]       items by NPC drop: counts by item class and NPC rank; with IDs, each NPC's items
+--   dungeons [check|find]  Azerfolio/Data/Dungeons.lua bosses vs QuestieDB NPCs (find: suggest IDs; run from repo root)
+--   instances [areaID]     boss candidates: elite NPCs that drop gear, per area outside the zones (run from repo root)
 --   objects <text|*> [areaID] game objects whose name contains text (* = all), spawn points per area
 --   recipes [areaID]       recipe items (class 9) by source; vendor recipes by the vendor's spawn area
 --   gather check           Data/Gathering.lua item IDs and Data/Professions.lua recipe prefixes (run from repo root)
@@ -343,6 +345,183 @@ elseif cmd == "drops" then
         for c, n in pairs(byClass) do print(string.format("  %-12s %d", c, n)) end
         print("weapons and armour by the dropping NPC's rank (an item may count under several):")
         for r, n in pairs(byRank) do print(string.format("  %-12s %d", r, n)) end
+    end
+elseif cmd == "dungeons" then
+    -- Azerfolio/Data/Dungeons.lua against QuestieDB (run from repo root).
+    --   find   for each boss (or group member) without `npcs`: NPCs with that exact name,
+    --          ranked by gear drops and spawns; one line per name: OK / PICK (several, best
+    --          first) / NONE, plus "npcs = {...}" suggestions per boss
+    --   check  every `npcs` ID exists, its name matches, and how much gear it drops
+    local mode = arg[2] or "check"
+    local env = {}
+    local chunk = assert(loadfile("Azerfolio/Data/Dungeons.lua"))
+    setfenv(chunk, env)
+    chunk(nil, env)
+    local data = env.DungeonData
+    local npcs = load(nil, "Npc")
+    local byName = {}
+    for id, row in pairs(npcs) do
+        if type(row[1]) == "string" then
+            local k = row[1]:lower()
+            byName[k] = byName[k] or {}
+            table.insert(byName[k], id)
+        end
+    end
+    local items, itabs = load(function(_, f) return f == 2 end, "Item")
+    local gear = {}
+    for id, row in pairs(items) do
+        if (row[12] == 2 or row[12] == 4) and itabs[id] and itabs[id][2] then
+            for _, n in ipairs(itabs[id][2]) do gear[n] = (gear[n] or 0) + 1 end
+        end
+    end
+    local want = {}
+    for _, ids in pairs(byName) do for _, id in ipairs(ids) do want[id] = true end end
+    local _, ntabs = load(function(id, f) return f == 7 end, "Npc")
+    local function spawnAreas(id)
+        local s = ntabs[id] and ntabs[id][7]
+        local o = {}
+        if type(s) == "table" then for a in pairs(s) do o[#o + 1] = a end end
+        table.sort(o)
+        return o
+    end
+    local function desc(id)
+        local r = npcs[id]
+        return string.format("%d(lvl %s-%s rank %s gear %d areas %s)", id, tostring(r[4]), tostring(r[5]),
+            tostring(r[6]), gear[id] or 0, table.concat(spawnAreas(id), ","))
+    end
+    local problems, total = 0, 0
+    for _, inst in ipairs(data.instances) do
+        for _, b in ipairs(inst.bosses) do
+            local names = b.members or { b.name }
+            total = total + 1
+            if mode == "find" and not b.npcs then
+                local picks = {}
+                for _, n in ipairs(names) do
+                    local c = {}
+                    for _, id in ipairs(byName[n:lower()] or {}) do c[#c + 1] = id end
+                    table.sort(c, function(x, y)
+                        -- Level 9999 rows are placeholder copies (seasonal or scripted): last.
+                        local px, py = npcs[x][4] == 9999, npcs[y][4] == 9999
+                        if px ~= py then return py end
+                        local gx, gy = gear[x] or 0, gear[y] or 0
+                        if gx ~= gy then return gx > gy end
+                        local sx, sy = #spawnAreas(x), #spawnAreas(y)
+                        if (sx > 0) ~= (sy > 0) then return sx > 0 end
+                        return x < y
+                    end)
+                    if #c == 0 then
+                        problems = problems + 1
+                        print(string.format("NONE %-16s %s", inst.key, n))
+                    else
+                        picks[#picks + 1] = c[1]
+                        local d = {}
+                        for i = 1, math.min(#c, 4) do d[i] = desc(c[i]) end
+                        print(string.format("%-4s %-16s %-30s %s", #c == 1 and "OK" or "PICK", inst.key, n, table.concat(d, "  ")))
+                    end
+                end
+                if #picks == #names then
+                    local s = {}
+                    for i, id in ipairs(picks) do s[i] = tostring(id) end
+                    print(string.format("  => %s | %s | npcs = { %s }", inst.key, b.name, table.concat(s, ", ")))
+                end
+            elseif mode == "check" then
+                if not b.npcs then
+                    problems = problems + 1
+                    print(string.format("MISSING %-16s %s", inst.key, b.name))
+                else
+                    if #b.npcs ~= #names then
+                        problems = problems + 1
+                        print(string.format("COUNT   %-16s %s: %d names, %d IDs", inst.key, b.name, #names, #b.npcs))
+                    end
+                    for i, id in ipairs(b.npcs) do
+                        local r = npcs[id]
+                        if not r then
+                            problems = problems + 1
+                            print(string.format("NOID    %-16s %s: %d not in QuestieDB", inst.key, b.name, id))
+                        elseif names[i] and tostring(r[1]):lower() ~= names[i]:lower() then
+                            problems = problems + 1
+                            print(string.format("NAME    %-16s %s: %d is %s", inst.key, names[i], id, tostring(r[1])))
+                        elseif not gear[id] and not b.rare and not b.optional then
+                            print(string.format("nogear  %-16s %s: %s", inst.key, names[i] or b.name, desc(id)))
+                        end
+                    end
+                end
+            end
+        end
+    end
+    print(string.format("%d instances, %d bosses, %d problems", #data.instances, total, problems))
+elseif cmd == "instances" then
+    -- Boss candidates per spawn area: elite, rare elite and boss NPCs (cmangos ranks 1-3) with
+    -- the weapons and armour QuestieDB says they drop. No area: every area with such an NPC that
+    -- drops gear, outside Azerfolio's zone areas (Data/QuestAreas.lua; run from repo root).
+    -- With an area: its candidates, one line each.
+    local only = tonumber(arg[2])
+    local env = {}
+    local chunk = assert(loadfile("Azerfolio/Data/QuestAreas.lua"))
+    setfenv(chunk, env)
+    chunk(nil, env)
+    local qa = env.QuestAreaData
+    local RANKS = { [1] = "elite", [2] = "rare elite", [3] = "boss" }
+    local items, itabs = load(function(_, f) return f == 2 end, "Item")
+    local gear = {}
+    for id, row in pairs(items) do
+        if (row[12] == 2 or row[12] == 4) and itabs[id] and itabs[id][2] then
+            for _, n in ipairs(itabs[id][2]) do
+                gear[n] = gear[n] or {}
+                table.insert(gear[n], id)
+            end
+        end
+    end
+    local npcs = load(nil, "Npc")
+    local want = {}
+    -- Forever's own NPCs have no rank (nil): keep them too.
+    for id, row in pairs(npcs) do if (RANKS[row[6]] or row[6] == nil) and gear[id] then want[id] = true end end
+    local _, ntabs = load(function(id, f) return want[id] and f == 7 end, "Npc")
+    local byArea = {}
+    for id in pairs(want) do
+        local spawns = ntabs[id] and ntabs[id][7]
+        local areas = {}
+        if type(spawns) == "table" and next(spawns) then
+            for a, pts in pairs(spawns) do areas[a] = #pts end
+        else
+            areas[npcs[id][9] or 0] = 0
+        end
+        for a, pts in pairs(areas) do
+            byArea[a] = byArea[a] or {}
+            table.insert(byArea[a], { id = id, points = pts })
+        end
+    end
+    local function tag(a)
+        if qa.dungeon[a] then return "dungeon" elseif qa.raid[a] then return "raid"
+        elseif qa.battleground[a] then return "bg" elseif qa.zone[a] then return "zone" end
+        return "-"
+    end
+    if only then
+        local list = byArea[only] or {}
+        table.sort(list, function(x, y) return (npcs[x.id][4] or 0) < (npcs[y.id][4] or 0) end)
+        print(string.format("area %d (%s): %d elite NPCs that drop gear", only, tag(only), #list))
+        for _, e in ipairs(list) do
+            local r = npcs[e.id]
+            local names = {}
+            table.sort(gear[e.id])
+            for i, it in ipairs(gear[e.id]) do
+                if i > 4 then names[#names + 1] = "..."; break end
+                names[#names + 1] = tostring(items[it][1])
+            end
+            print(string.format("  %6d %-32s %-10s lvl %s-%s spawns %-3d gear %-3d %s", e.id, tostring(r[1]), RANKS[r[6]] or "unranked",
+                tostring(r[4]), tostring(r[5]), e.points, #gear[e.id], table.concat(names, ", ")))
+        end
+    else
+        local areas = {}
+        for a in pairs(byArea) do if tag(a) ~= "zone" then areas[#areas + 1] = a end end
+        table.sort(areas)
+        for _, a in ipairs(areas) do
+            local list = byArea[a]
+            table.sort(list, function(x, y) return #gear[x.id] > #gear[y.id] end)
+            local names = {}
+            for i = 1, math.min(3, #list) do names[i] = tostring(npcs[list[i].id][1]) end
+            print(string.format("area %-6d %-8s %3d candidates  e.g. %s", a, tag(a), #list, table.concat(names, ", ")))
+        end
     end
 elseif cmd == "objects" then
     local q = assert(arg[2], "objects <text|*> [areaID]"):lower()

@@ -48,6 +48,15 @@ Research for the Dungeons tab (started 2026-11-15). Evidence levels as in plan Â
 | Owned or collected | `C_Item.GetItemCount` (bags and bank now); transmog if D4 confirms it |
 | Boss kills | Only live (`ENCOUNTER_END` / `BOSS_KILL`, D3) and lockouts while saved; no history before install |
 
+## Curated list: `Azerfolio/Data/Dungeons.lua` (2026-11-15)
+
+- **41 instances, 337 boss entries**, each with name, level range, size, entrance zones, quest area, and bosses in encounter order (where the source gives one) with rare / optional / one-of / wing flags and QuestieDB NPC IDs. Covers 24 Classic dungeons (Scarlet Monastery and Dire Maul as wings), 8 raids, and Forever's 9 new dungeons.
+- **Sources:** each instance's Warcraft Wiki page (Classic version and its "Classic lvl" field). Forever dungeons from their Warcraft Wiki pages (edited 2026-10-29 to 2026-11-15). Shaper's Terrace has no wiki page, so it comes from Warcraft Tavern's guide: ten bosses, no set order, five needed. Raids are set to their Classic level 60; the wiki's list pages show today's retail scaling (7-30), which doesn't apply. [verified-web]
+- **NPC IDs:** `luajit tools/qdb.lua dungeons find` matched every boss name to QuestieDB and ranked placeholder copies (level 9999, seasonal) last. `dungeons check` now passes: 0 problems. [verified-files]
+- **Gaps in QuestieDB loot ("nogear" in `dungeons check`):** no gear drops for the Molten Core, Blackwing Lair, Temple of Ahn'Qiraj and Naxxramas bosses, Hakkar, Ossirian, or the Sunken Temple dragons. Chest-loot encounters (The Seven, The Four Horsemen) also show none, since the loot is on an object. So raid loot tables would need curated data; dungeon loot is mostly covered.
+- **Disputed details:** Krol'dok's sixth boss Bossman Toof (on the wiki, missing from some guides). The Drowned City's boss order differs between the wiki and Warcraft Tavern. The wiki's rares (Umbra, Gill, Moontouched Wanderer, Tunnelweb Matriarch) aren't always present. Entrance zone for City of Dalaran: the wiki says Alterac Mountains, Warcraft Tavern says Silverpine.
+- **Quest areas for Forever dungeons:** Hall of Thanes (16919) and Ruins of Lordaeron (16611) have their own areas, both currently left unmapped in `Data/QuestAreas.lua`. Excavation Site (16732) is mapped onto Wetlands as a zone, and Dalaran (16544) is unmapped. The other five have no known quest area. Deciding whether these move to `dungeon` is part of the tab's design.
+
 ## Open questions
 
 - Does the journal list Forever's new dungeons, and does it give loot?

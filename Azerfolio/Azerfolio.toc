@@ -17,6 +17,7 @@ Data\StripPaths.lua
 Data\Exploration.lua
 Data\Zones.lua
 Data\QuestAreas.lua
+Data\Dungeons.lua
 Data\FlightPaths.lua
 Data\ClassJourneys.lua
 Data\Professions.lua
