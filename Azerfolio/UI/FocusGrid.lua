@@ -9,6 +9,8 @@
 -- `column` (a number, if any) says which side its group lies on when no row holds both.
 -- A row's `home` (a column index, if any) is where up/down and LT/RT land in it, whatever
 -- column you came from (the Class tab: up/down follow the road, side paths are left/right).
+-- An item that is `free` leaves its row up/down to the next row whatever its groups (the
+-- Dungeons page's wing tabs over two columns; give that row a `home` so you can get back in).
 local _, ns = ...
 
 local FocusGrid = {}
@@ -174,6 +176,14 @@ function FocusGrid:Move(dir)
         local cur = self.rows[self.row].items[self.col]
         local group = cur and cur.group
         local row = self.row + step
+        if cur and cur.free then
+            local r = self.rows[row]
+            if not r then return false end
+            local col = (r.home and r.items[r.home]) and r.home or 1
+            self.row, self.col = row, col
+            self.wantCol = self:GroupIndex(row, col)
+            return true
+        end
         while row >= 1 and row <= #self.rows do
             local r = self.rows[row]
             if r.home and r.items[r.home] then

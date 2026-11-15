@@ -30,7 +30,7 @@ local HELP = {
     "/azf shots celebrations - screenshot the class road, profession and reputation celebrations, with their sounds (development)",
     "/azf shots class - screenshot the Class tab: the road, a stop's steps, the road's end, minimum size and wide (development)",
     "/azf shots professions - screenshot the Professions tab: each profession, the road, Next up, minimum size and wide (development)",
-    "/azf shots dungeons - screenshot the Dungeons tab: Cards, List, an instance's page, minimum size and wide (development)",
+    "/azf shots dungeons - screenshot the Dungeons tab: Cards, List, the instance page's three views (the Deadmines, Blackrock Depths, a wing place, a raid), minimum size and wide (development)",
     "/azf minimap - show or hide the minimap button",
 }
 

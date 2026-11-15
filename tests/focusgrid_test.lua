@@ -163,4 +163,19 @@ return function(t)
         g:FocusKey("valor")
         t.ok(g:JumpSection(1)); t.eq(g:CurrentKey(), "nobility", "RT lands on the road stop too")
     end)
+
+    t.test("a free item leaves its row to any next row; a home row takes you back in (wing tabs)", function()
+        local G = load()
+        local g = G.New()
+        -- The Dungeons page: wing tabs over two columns (left and right groups).
+        local wings = { items = { { key = "w1", free = true }, { key = "w2", free = true } }, home = 2, section = 0 }
+        local l1 = { items = { { key = "l1", group = "left", column = 1 } }, section = 1 }
+        local r1 = { items = { { key = "r1", group = "right", column = 2 } }, section = 2 }
+        g:SetRows({ wings, l1, r1 })
+        t.eq(g:CurrentKey(), "w1")
+        t.ok(g:Move("down")); t.eq(g:CurrentKey(), "l1", "down from a wing tab into the first column")
+        t.ok(g:Move("right")); t.eq(g:CurrentKey(), "r1")
+        t.ok(g:Move("up")); t.eq(g:CurrentKey(), "w2", "up from the right column lands on the home tab")
+        t.eq(g:Move("up"), false, "nothing above")
+    end)
 end

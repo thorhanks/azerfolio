@@ -112,6 +112,8 @@ So far only previews (`/azf debug celebrate stop|road|rank|mastered|rep|exalted`
 | D6 | A dungeon quest's turn-in marks it done without `/reload` (Systems/Dungeons reads Quests' completed list, `AZF_DUNGEONS_UPDATED` "quests") | Gideon's first dungeon quest turn-in (Deadmines' quests open at 14-15; he's 10) | After the turn-in, `/azf debug dungeons deadmines`, `/reload`; `trace-report.lua dungeons deadmines`: that quest `done` and the count up by one |
 | D8 | A Dungeons card with every quest done shows the gold edge and ✓, and one with some done the orange edge; its bracket header counts it ("every quest done in 1 of n") (Phase 16 task 4; tested only with fixtures) | Gideon's first dungeon with all its quests done (the Deadmines' open at 14-15) | `/azf shots dungeons`; read the Cards shots |
 | D7 | Horde quests and places (Ragefire Chasm and Shadowfang Keep say "none for your side" on Gideon) | Thragor, task 8 | On Thragor: `/azf debug dungeons ragefire`, `/reload`; `trace-report.lua dungeons ragefire`: quests counted, givers in Orgrimmar |
+| D9 | The page's quests seal (`cel-seal-quests`, tilted with `SetRotation`) beside the score, and To do / Done with real counts, once an instance has every quest done (Phase 16 task 5; tested only with fixtures) | Gideon's first dungeon with all its quests done | Open its page; `/azf shots dungeons` or `/azf shot` |
+| D10 | Loot and keys repaint live: a dropped or bought item gets the "in your bags" check (and a key "Have") without `/reload` (`AZF_DUNGEONS_UPDATED` "bags") | Gideon picks up a boss item or a key (the Workshop Key for Gnomeregan) with the page open | Look at that boss's loot or the keys row; `/azf shot` |
 
 ## Performance
 

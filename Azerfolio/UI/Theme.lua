@@ -514,6 +514,36 @@ Theme.layout.dunTab = {
     banner = 216,              -- the instance page's banner (round 3, idea 1)
     kindIcon = { dungeon = "Interface\\Icons\\INV_Misc_Key_03", raid = "Interface\\Icons\\INV_Misc_Head_Dragon_01" },
 }
+-- The instance page (Phase 16 task 5; DESIGN round 5-6, style.css .dpbody/.dpanel/.dseals/.dbv/.dqv).
+Theme.color.dunPanel = hex("0c0703")        -- .dpanel rgba(12,7,3,.62)
+Theme.color.dunGain = hex("9fe39f")         -- a faction's "+amount" (.dfac .dfa)
+Theme.color.dunNeed = hex("e0b070")         -- "needs an earlier quest" (.dqmeta i)
+Theme.color.dunSealInk = hex("2a1608")      -- a seal's number on bronze
+Theme.color.dunSealInkRare = hex("0a1430")  -- on the blue rare seal
+Theme.color.dunSealInkOpt = hex("e8d4a4")   -- on the hollow seal
+Theme.color.dunTagRare = hex("c8d8ff")      -- the Rare tag (.tag.rare)
+Theme.color.dunTagRareBg = hex("1a2440")
+Theme.color.dunTagRareEdge = hex("6c86c0")
+Theme.color.dunTagReq = hex("ffb0a0")       -- a key's Required tag (.tag.req)
+Theme.color.dunTagReqBg = hex("4a1410")
+Theme.color.dunTagReqEdge = hex("a8352a")
+Theme.layout.dunPage = {
+    switch = 36,               -- the view switch bar (.dpvswitch)
+    padX = 24, padY = 12,      -- .dov padding var(--s3) var(--s6)
+    colGap = 16,               -- between the Overview's columns (.dov gap var(--s4))
+    leftShare = 0.49,          -- Before you go's share (.dov 1fr / 1.05fr)
+    panelPad = 14, panelHead = 30, frameCorner = 14,
+    lvl = 24,                  -- the level line (.dlvl)
+    key = 28, pick = 42, sub = 24, -- keys, a pickup row, "Pick up the quests"
+    seal = 26, pill = 30, pillGap = 6, compactAfter = 12, -- The run (.dseal-b, .dseals.compact past 12)
+    sealBig = 84,              -- the gold quests seal in the banner (.dseal)
+    facTile = 36, facCols = 2, facMax = 4, crest = 28,
+    questBar = 220,
+    bossList = 340, bossRow = 34, -- .dbv 340px | loot; .dboss.compact
+    lootHead = 64, tile = 50, tileGap = 6, icon = 36, -- .dloot.grid two columns, .dicon 36
+    filterRow = 34, questRow = 38, chip = 26, stateCol = 64, -- .dqrow
+    blur = 7, blurZoom = 0.55, -- the backdrop's soft copies (px apart) and how much of the painting it shows
+}
 
 Theme.repGroups = { home = "Home", zones = "Zones", instances = "Dungeons & raids", bgs = "Battlegrounds",
     profs = "Professions", other = "Class and events", none = "No known quests", unknown = "Sources not known" }

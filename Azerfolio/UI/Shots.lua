@@ -282,20 +282,67 @@ local function dungeonSteps()
     local function openPage()
         local p = dunPage()
         local item = ns.Focus.Current()
-        if p and item and item.entry then p:OpenInstance(item.entry.inst.key) end
+        if not (p and item and item.entry) then return end
+        if UI.shotsDunPv == nil then UI.shotsDunPv = p.pv or false end
+        p.pv = "overview"
+        p:OpenInstance(item.entry.inst.key)
     end
+    -- An instance's page (Cards, full size) in a view (task 5).
+    local function inst(key, view)
+        return function()
+            local p = open("cards")
+            if not p then return false end
+            if UI.shotsDunPv == nil then UI.shotsDunPv = p.pv or false end
+            p.pv = view
+            p:OpenInstance(key)
+            UI.RefreshHints()
+        end
+    end
+    local function view(v) return function() local p = dunPage(); if p then p:SetPageView(v); UI.RefreshHints() end end end
+    -- Down the boss list, n steps (the loot follows).
+    local function down(n) return function() for _ = 1, n do ns.Focus.Move("down") end; UI.RefreshHints() end end
     return {
         { label = "dungeons, cards", fn = function() UI.ApplyGeometry(); UI.Relayout(); open("cards") end },
         { label = "dungeons, next section", fn = function() ns.Focus.Jump(1); UI.RefreshHints() end },
         { label = "dungeons, instance page", fn = openPage },
+        { label = "dungeons, the Deadmines, overview", fn = inst("deadmines", "overview") },
+        { label = "dungeons, the Deadmines, bosses and loot", fn = view("bosses") },
+        { label = "dungeons, the Deadmines, a loot tile (the game's tooltip)", fn = function()
+            local p = dunPage()
+            if p and p.selBoss then p:EnterLoot(p.selBoss) end
+            UI.RefreshHints()
+        end },
+        { label = "dungeons, the Deadmines, a later boss", fn = function()
+            local p = dunPage()
+            if p then ns.Focus.FocusKey("b:" .. (p.selBoss or 1)) end
+            down(3)()
+        end },
+        { label = "dungeons, the Deadmines, quests", fn = view("quests") },
+        { label = "dungeons, Blackrock Depths, overview", fn = inst("blackrockDepths", "overview") },
+        { label = "dungeons, Blackrock Depths, bosses and loot", fn = view("bosses") },
+        { label = "dungeons, Blackrock Depths, bosses scrolled", fn = down(20) },
+        { label = "dungeons, Blackrock Depths, quests", fn = view("quests") },
+        { label = "dungeons, Scarlet Monastery wings", fn = inst("smLibrary", "overview") },
+        { label = "dungeons, Molten Core, bosses and loot", fn = inst("moltenCore", "bosses") },
         { label = "dungeons, list", fn = function() open("list") end },
         { label = "dungeons, list scrolled", fn = function() ns.Focus.Jump(1); ns.Focus.Jump(1); UI.RefreshHints() end },
         { label = "dungeons at minimum size", fn = function() open("cards"); UI.FitSize(minW, minH) end },
         { label = "dungeons, list at minimum size", fn = function() open("list") end },
+        { label = "dungeons, page at minimum size", fn = inst("deadmines", "overview") },
+        { label = "dungeons, Blackrock Depths at minimum size", fn = inst("blackrockDepths", "overview") },
+        { label = "dungeons, Blackrock Depths bosses at minimum size", fn = view("bosses") },
         { label = "dungeons wide, cards", fn = function() UI.FitSize(wideSize()); open("cards") end },
         { label = "dungeons wide, instance page", fn = openPage },
+        { label = "dungeons wide, Blackrock Depths", fn = inst("blackrockDepths", "overview") },
+        { label = "dungeons wide, Blackrock Depths, bosses and loot", fn = view("bosses") },
+        { label = "dungeons wide, Dire Maul wings, quests", fn = inst("dmWest", "quests") },
         { label = "dungeons wide, list", fn = function() open("list") end },
         { label = "dungeons wide, list next section", fn = function() ns.Focus.Jump(1); UI.RefreshHints() end },
+        { label = "dungeons wide, list split, into the page", fn = function()
+            local item = ns.Focus.Current()
+            if item and item.onActivate then item.onActivate(item) end
+            UI.RefreshHints()
+        end },
     }
 end
 
@@ -552,6 +599,8 @@ function UI.RunShots(which)
             dp:SetView(UI.shotsDunView)
         end
         UI.shotsDunView, UI.shotsDunFilter = nil, nil
+        if dp and UI.shotsDunPv ~= nil then dp.pv = UI.shotsDunPv or nil end
+        UI.shotsDunPv = nil
         if UI.shotsOpenedDetail then
             UI.SelectTab("zones")
             local zp = UI.GetFrame().pages.zones

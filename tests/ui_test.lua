@@ -726,14 +726,35 @@ return function(t)
     -- The Dungeons tab over the real catalogue (Data/Dungeons.lua): the Deadmines' two quests
     -- done, Wailing Caverns one of two, Shadowfang Keep Horde only; `known` false = the client
     -- doesn't say which quests are done.
+    -- opts.gear: Wailing Caverns' first boss drops items 100 (mail, for you), 101 (a sword, in
+    -- your bags) and 102 (not for you); the build exists. Wailing Caverns' quests have givers,
+    -- an earlier quest, a turn-in elsewhere and a faction reward.
     local function dunStub(ns, opts)
         local D = ns.Dungeons
-        local real = { state = D.State, cat = D.Catalogue, known = D.CompletionKnown }
+        local real = { state = D.State, cat = D.Catalogue, known = D.CompletionKnown, gear = D.BossGear, item = D.Item,
+            count = D.Count, foryou = D.ForYou, build = D.BuildResult }
         local by = {}
         local function area(key) return D.Instance(key).questArea end
         by[area("deadmines")] = { { id = 1, name = "A", level = 18, reqLevel = 14, side = "A", done = true },
             { id = 2, name = "B", level = 20, reqLevel = 14, done = true } }
-        by[area("wailing")] = { { id = 3, name = "C", level = 20, reqLevel = 15, done = true }, { id = 4, name = "D", level = 22, reqLevel = 16 } }
+        by[area("wailing")] = { { id = 3, name = "C", level = 20, reqLevel = 15, done = true,
+                giver = { name = "Nalpak", kind = "npc", area = 9999901 } },
+            { id = 4, name = "D", level = 22, reqLevel = 16, pre = { 3 }, reps = { { 81, 250 } },
+                giver = { name = "Ebru", kind = "npc", area = 9999901 }, turnin = { name = "Mebok", kind = "npc", area = 9999902 } },
+            { id = 6, name = "F", level = 21, reqLevel = 15, giver = { name = "Tome", kind = "item" } } }
+        if opts.gear then
+            D.BuildResult = function() return {} end
+            D.BossGear = function(inst, b)
+                if inst.key == "wailing" and b == inst.bosses[1] then return { 100, 101, 102 } end
+                return {}
+            end
+            D.Item = function(id)
+                return { id = id, name = "Item " .. id, quality = 3, class = id == 100 and 4 or 2, subclass = id == 100 and 3 or 7,
+                    reqLevel = 17, loaded = true }
+            end
+            D.Count = function(id) return id == 101 and 1 or 0 end
+            D.ForYou = function(id) return id ~= 102 end
+        end
         by[area("shadowfang")] = { { id = 5, name = "E", level = 22, reqLevel = 18, side = "H" } }
         D.State = function() return opts.state or { status = "ready" } end
         D.CompletionKnown = function() return opts.known ~= false end
@@ -751,7 +772,10 @@ return function(t)
             end
             return ns.DungeonRules.Catalogue(D.Character(), q, filter)
         end
-        return function() D.State = real.state; D.Catalogue = real.cat; D.CompletionKnown = real.known end
+        return function()
+            D.State = real.state; D.Catalogue = real.cat; D.CompletionKnown = real.known
+            D.BossGear, D.Item, D.Count, D.ForYou, D.BuildResult = real.gear, real.item, real.count, real.foryou, real.build
+        end
     end
 
     t.test("dungeons tab: building and unavailable say so; no counts before the build", function()
@@ -794,7 +818,7 @@ return function(t)
         t.eq(dm.check:IsShown(), true)
         t.ok(dm.quest.text:GetText():find("2 / 2 quests", 1, true), dm.quest.text:GetText())
         t.eq(wc.check:IsShown(), false)
-        t.eq(wc.quest.text:GetText(), "1 / 2 quests")
+        t.eq(wc.quest.text:GetText(), "1 / 3 quests")
         t.eq(sfk.quest.text:GetText(), "None for your side")
         t.eq(sfk.quest.well:IsShown(), false)
         t.ok(dm.meta:GetText():find("Lv 15-23", 1, true), dm.meta:GetText())
@@ -820,7 +844,7 @@ return function(t)
         t.eq(ns.db.dungeons.view, "list")
         t.eq(dp.rows[1]:IsShown(), true)
         t.eq(ns.Focus.Current().key, before)
-        t.eq(dp.byKey.wailing.quest.text:GetText(), "1 / 2 quests")
+        t.eq(dp.byKey.wailing.quest.text:GetText(), "1 / 3 quests")
         t.eq(dp.byKey.wailing.bosses:IsShown(), true)
         press(ns, "PAD4")
         t.eq(ns.db.dungeons.view, "cards")
@@ -831,9 +855,14 @@ return function(t)
         t.eq(dp.mode, "page")
         t.eq(dp.detail:IsShown(), true); t.eq(dp.list:IsShown(), false)
         t.eq(dp.detail.banner.name:GetText(), "The Deadmines")
-        t.eq(dp.detail.banner.score:GetText(), "2 / 2 quests done")
+        t.eq(dp.detail.banner.score:GetText(), "2 / 2")
+        t.eq(dp.detail.banner.scoreSub:GetText(), "quests done")
+        t.eq(dp.detail.banner.seal:IsShown(), true, "the gold quests seal: every quest done")
         press(ns, "PAD4")
-        t.eq(ns.db.dungeons.view, "cards", "Y does nothing on the page yet")
+        t.eq(ns.db.dungeons.view, "cards", "Y on the page switches the page's view, not the catalogue's")
+        t.eq(dp.pv, "bosses")
+        press(ns, "PAD4"); press(ns, "PAD4")
+        t.eq(dp.pv, "overview")
         press(ns, "PAD2")
         t.eq(dp.mode, "list")
         t.eq(ns.Focus.Current().key, "d:deadmines")
@@ -855,8 +884,168 @@ return function(t)
         ns.Focus.FocusKey("d:wailing")
         t.eq(dp.selKey, "wailing")
         t.eq(dp.detail.banner.name:GetText(), "Wailing Caverns")
-        t.eq(ns.Focus.Current().canActivate(ns.Focus.Current()), false, "nothing to move into yet")
+        t.eq(ns.Focus.Current().canActivate(ns.Focus.Current()), true, "the page has stops: A moves into it")
+        press(ns, "PAD1")
+        t.eq(dp.mode, "page")
+        t.eq(dp.list:IsShown(), true, "the list stays beside the page")
+        t.ok(ns.Focus.Current().key:find("^p:"), ns.Focus.Current().key)
+        press(ns, "PAD2")
+        t.eq(dp.mode, "list"); t.eq(ns.Focus.Current().key, "d:wailing")
         t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("dungeon page: Overview, Bosses & loot, Quests, wing tabs, X, the views kept between instances", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local restore = dunStub(ns, { gear = true })
+        local mapAt
+        _G.OpenWorldMap = function(id) mapAt = id; _G.WorldMapFrame = { IsShown = function() return true end } end
+        slash("")
+        ns.UI.SelectTab("dungeons")
+        local dp = ns.UI.GetFrame().pages.dungeons
+        local dd = dp.detail
+        dp:OpenInstance("wailing")
+        t.eq(dp.mode, "page")
+        t.eq(dd.banner.score:GetText(), "1 / 3"); t.eq(dd.banner.seal:IsShown(), false)
+        t.eq(dd.banner.wingBar:IsShown(), false, "no wings")
+        -- Overview: one pickup place for the two open quests' givers? Ebru (area) and the item.
+        t.eq(dd.ov:IsShown(), true); t.eq(dd.bv:IsShown(), false)
+        local picks = dp.pools.picks
+        t.eq(picks.used, 2, "two places: the giver's area and an item")
+        t.eq(picks.list[1].place:GetText(), "Starts from an item", "ties keep chain order: the level 21 quest first")
+        t.eq(picks.list[2].place:GetText(), "Elsewhere", "an area Azerfolio doesn't map, unnamed by the client")
+        t.ok(picks.list[2].who:GetText():find("Ebru", 1, true), picks.list[2].who:GetText())
+        t.ok(picks.list[2].who:GetText():find("1 needs an earlier quest", 1, true), picks.list[2].who:GetText())
+        t.ok(dd.ov.run.sub:GetText():find("3 items  ·  2 for you", 1, true), dd.ov.run.sub:GetText())
+        t.eq(dp.pools.pills.used, #ns.Dungeons.Instance("wailing").bosses, "a seal per boss")
+        t.eq(dp.pools.facs.used, 1); t.eq(dp.pools.facs.list[1].gain:GetText(), "+250")
+        t.eq(dd.ov.fit:GetText(), ns.DungeonsPage.Words.Fit(ns.Dungeons.Instance("wailing").levels, ns.character.level))
+        t.eq(dp.hasSections, true)
+        -- A on a pickup: Quests at that place, focus on its first quest.
+        ns.Focus.FocusKey(picks.list[2].item.key)
+        press(ns, "PAD1")
+        t.eq(dp.pv, "quests"); t.eq(dd.qv:IsShown(), true)
+        t.eq(ns.Focus.Current().key, "q:4")
+        t.ok(ns.Focus.Current().frame.meta:GetText():find("needs C", 1, true), ns.Focus.Current().frame.meta:GetText())
+        t.ok(ns.Focus.Current().frame.meta:GetText():find("turn in to Mebok", 1, true), ns.Focus.Current().frame.meta:GetText())
+        t.eq(dd.qv.filters[1].text:GetText(), "To do  2")
+        dp:SetQuestFilter("done")
+        t.eq(dp.pools.qrows.used, 1); t.eq(dp.pools.qrows.list[1].state:GetText(), ns.DungeonsPage.Words.READY)
+        dp:SetQuestFilter("all")
+        t.eq(dp.pools.qrows.used, 3)
+        -- Y: Overview; A on the first seal: Bosses & loot on that boss.
+        press(ns, "PAD4"); t.eq(dp.pv, "overview")
+        ns.Focus.FocusKey("s:1")
+        press(ns, "PAD1")
+        t.eq(dp.pv, "bosses"); t.eq(ns.Focus.Current().key, "b:1")
+        t.eq(dd.bv.count:GetText(), "3 items  ·  2 for you  ·  1 in your bags")
+        t.eq(dd.bv.kills:GetText(), "Kills aren't counted: the game keeps no record of past kills.")
+        t.eq(dp.pools.tiles.used, 2, "For you: two of three")
+        t.ok(dp.pools.tiles.list[1].kind:GetText():find("^Mail  ·  Lv .*17"), dp.pools.tiles.list[1].kind:GetText())
+        t.eq(dp.pools.tiles.list[2].have:IsShown(), true, "in your bags")
+        -- Right: into the loot (the filter row's group), then All shows the third.
+        press(ns, "PADDRIGHT")
+        t.eq(ns.Focus.Current().group, "loot")
+        dp:SetLootFilter("all")
+        t.eq(dp.pools.tiles.used, 3)
+        -- Down the boss list: the loot follows (the next boss has none).
+        ns.Focus.FocusKey("b:1")
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().key, "b:2"); t.eq(dp.selBoss, 2)
+        t.eq(dp.pools.tiles.used, 0)
+        t.ok(dd.bv.note:GetText():find("No gear known", 1, true), dd.bv.note:GetText())
+        -- X: the world map at the entrance zone.
+        press(ns, "PAD3")
+        t.eq(mapAt, ns.Dungeons.Instance("wailing").zones[1])
+        ns.UI.Show()
+        -- The view is kept for the next instance; a wing place shows its wings.
+        dp:Back()
+        dp:OpenInstance("smLibrary")
+        t.eq(dp.pv, "bosses")
+        t.eq(dd.banner.name:GetText(), "Scarlet Monastery")
+        t.eq(dd.banner.wingBar:IsShown(), true)
+        t.eq(dp.pools.wings.used, 4)
+        t.eq(dp.pageRows[1].home, 2, "Library is the second wing")
+        dp:OpenWing("smArmory")
+        t.eq(dp.selKey, "smArmory"); t.eq(ns.Focus.Current().key, "w:smArmory")
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().key, "b:1", "down from the wing tabs into the bosses")
+        t.eq(#ns.Debug.errors, 0)
+        _G.OpenWorldMap, _G.WorldMapFrame = nil, nil
+        restore()
+    end)
+
+    t.test("dungeon page: unknown completion shows ? and only All; no seal; words", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local restore = dunStub(ns, { known = false })
+        slash("")
+        ns.UI.SelectTab("dungeons")
+        local dp = ns.UI.GetFrame().pages.dungeons
+        dp:OpenInstance("deadmines")
+        t.eq(dp.detail.banner.score:GetText(), "? / 2")
+        t.eq(dp.detail.banner.seal:IsShown(), false)
+        t.eq(dp.detail.ov.sub:GetText(), "Where the quests start")
+        dp:SetPageView("quests")
+        t.eq(dp.detail.qv.filters[1].value, "all"); t.eq(dp.detail.qv.filters[2]:IsShown(), false)
+        dp:OpenInstance("shadowfang")
+        t.eq(dp.detail.banner.score:GetText(), "None for your side")
+        t.ok(dp.detail.qv.note:GetText():find("None for your side", 1, true))
+        t.eq(#ns.Debug.errors, 0)
+        local W = ns.DungeonsPage.Words
+        local data = ns.DungeonData
+        local wings = W.WingTabs(ns.Dungeons.Instance("dmWest"), data)
+        t.eq(#wings, 3); t.eq(wings[2].label, "West")
+        t.eq(W.WingTabs(ns.Dungeons.Instance("lowerSpire"), data), nil, "Blackrock Spire's two aren't wings")
+        t.eq(W.WingTabs(ns.Dungeons.Instance("deadmines"), data), nil)
+        t.eq(W.Fit({ 15, 23 }, 10), "5 levels to go"); t.eq(W.Fit({ 15, 23 }, 14), "1 level to go")
+        t.eq(W.Fit({ 15, 23 }, 20), "Right for your level"); t.eq(W.Fit({ 15, 23 }, 30), "Below you now")
+        t.eq(W.ItemType({ class = 2, subclass = 1 }), "Two-Hand Axe")
+        t.eq(W.ItemType({ class = 4, subclass = 1, equipLoc = "INVTYPE_CLOAK" }), "Cloak")
+        t.eq(W.ItemType({ class = 4, subclass = 0 }), "Jewellery or cloak")
+        t.eq(W.ItemType({ class = 4, subclass = 0, equipLoc = "INVTYPE_FINGER" }), "Ring")
+        t.eq(W.ItemType({ class = 4, subclass = 7 }), "Libram")
+        local dm = ns.Dungeons.Instance("deadmines")
+        t.eq(W.PlaceName({ kind = "zone", mapID = 1436 }, dm, function() return "Westfall" end), "Westfall")
+        t.eq(W.PlaceName({ kind = "zone", mapID = 1 }, dm, function() return nil end), "Elsewhere")
+        t.eq(W.PlaceName({ kind = "inside" }, ns.Dungeons.Instance("smLibrary")), "Inside Scarlet Monastery")
+        t.eq(W.PlaceName({ kind = "instance", instance = dm }, dm), "Inside The Deadmines")
+        t.eq(W.PlaceName({ kind = "area", area = 10074 }, dm, nil, function() return "Rut'theran" end), "Rut'theran")
+        t.eq(W.PlaceName({ kind = "area", area = 10074 }, dm, nil, function() return nil end), "Elsewhere")
+        t.eq(W.PlaceName({ kind = "object" }, dm), "Starts at an object")
+        local q1 = { quest = { name = "X" }, pre = {} }
+        local q2 = { quest = { name = "Y" }, pre = { 5, 6 } }
+        t.eq(W.PickupWho({ givers = { "A", "B", "C", "D" }, quests = { q1 } }), "A, B, C")
+        t.eq(W.PickupWho({ givers = {}, quests = { q1, q2 } }), "X, Y  ·  1 needs an earlier quest")
+        t.eq(W.RunCount(8, 27, 16), "8 bosses  ·  27 items  ·  16 for you")
+        t.eq(W.RunCount(1), "1 boss", "no item counts before QuestieDB is read")
+        t.eq(W.LootCount(3, 2, 0), "3 items  ·  2 for you"); t.eq(W.LootCount(0, 0, 0), "")
+        t.eq(select(2, W.KeyTag({ need = "required" }, 0)), "req")
+        t.eq(select(2, W.KeyTag({ need = "required" }, 1)), "have")
+        t.eq(W.KeyTag({ need = "optional" }, nil), "Optional", "unknown count claims nothing")
+        t.eq(W.BossTags({ rare = true, oneOf = "Ring of Law" })[2].text, "One of: Ring of Law")
+        t.eq(W.SealKind({ oneOf = "x" }), "boss-seal-opt"); t.eq(W.SealKind({ rare = true }), "boss-seal-rare")
+        t.eq(W.SealKind({}), "boss-seal")
+        t.eq(W.QuestState({ state = "later", quest = { reqLevel = 14 } }), "from 14")
+        local chain = { quest = { name = "The Defias Brotherhood" }, pre = { 1, 2, 3 } }
+        local names = { [1] = "The Defias Brotherhood", [2] = "Red Silk Bandanas" }
+        t.same(W.PreNames(chain, function(id) return names[id] end), { "the earlier step", "Red Silk Bandanas", "an earlier quest" })
+        local v = { quest = { name = "Q", giver = { name = "Gryan" }, turnin = { name = "Wilder" } }, pre = {}, turnin = { kind = "zone" }, turninPlace = true }
+        t.eq(W.QuestMeta(v, nil, function() return "Stormwind City" end), "from Gryan  ·  turn in to Wilder, Stormwind City")
+        t.eq(W.QuestMeta(v, nil, function() return "Stormwind City" end, 1), "from Gryan  ·  turn in to Wilder", "drop 1: the place")
+        t.eq(W.QuestMeta(v, nil, function() return "Stormwind City" end, 2), "from Gryan", "drop 2: the turn-in")
+        local obj = { quest = { name = "Q", giver = { name = "F" }, turnin = { name = "Monument" } }, pre = {}, turnin = { kind = "object" }, turninPlace = true }
+        t.eq(W.QuestMeta(obj, nil, function() return "Starts at an object" end), "from F  ·  turn in to Monument", "no place for an object")
+        local ins = { quest = { name = "Q", turnin = { name = "Marshal Windsor" } }, pre = {}, turnin = { kind = "inside" }, turninPlace = true }
+        t.eq(W.QuestMeta(ins, nil, function() return "Inside Blackrock Depths" end), "turn in to Marshal Windsor, inside Blackrock Depths")
+        t.eq(W.MorePlaces({ "A", "B", "C", "D" }, 2), "A, B and 2 more")
+        t.eq(W.MorePlaces({ "A", "B" }), "A, B"); t.eq(W.MorePlaces({ "A", "B" }, 0), "2 more")
+        t.eq(W.PickupWho({ givers = { "A", "B" }, quests = { q2 } }, 0), "1 needs an earlier quest", "no givers fit: just the earlier quests")
+        t.eq(#W.QuestFilters({ total = 6, done = 2 }, true), 3)
+        t.eq(W.QuestFilters({ total = 6, done = 2 }, true)[1][2], "To do  4")
+        t.eq(W.Gain(1250), "+1,250")
+        t.eq(W.NextPageView("quests"), "overview"); t.eq(W.PageView("nope"), "overview")
         restore()
     end)
 
@@ -867,8 +1056,9 @@ return function(t)
         slash("")
         slash("shots dungeons")
         wow.runTimers()
-        t.eq(_G.screenshotsTaken, 11)
+        t.eq(_G.screenshotsTaken, 29)
         t.eq(ns.db.dungeons.view, "list", "view restored")
+        t.eq(ns.UI.GetFrame().pages.dungeons.pv, nil, "the page's view restored")
         t.eq(ns.db.dungeons.filter, "raid", "filter restored")
         t.eq(ns.UI.GetFrame().pages.dungeons.mode, "list")
         t.eq(ns.UI.CurrentTab(), "overview")
