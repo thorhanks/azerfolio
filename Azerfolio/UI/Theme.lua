@@ -160,6 +160,40 @@ Theme.category = {
     flights = { label = "Flight paths", unit = "flight paths", icon = Theme.Icon("flights", "Interface\\Icons\\Ability_Mount_Gryphon_01") },
 }
 
+-- Small category icons (Phase 15 step 3, review 2026-11-14): painted icons blur below 24 px, so
+-- smaller places draw the flat glyph (Media\Chrome\glyph-<key>.blp, a white mask) tinted in the
+-- body-text cream (owner's pick in the mockup, small-art.html G1). 24 px and up keep the painting.
+Theme.glyphBelow = 24
+Theme.glyphTint = "text"
+function Theme.CategoryGlyph(key, size)
+    if size and size >= Theme.glyphBelow then return nil end
+    return (Theme.Chrome("glyph-" .. key))
+end
+-- Sets `tex` to category `key`'s icon for `size` (its drawn size): the glyph, tinted, below 24 px.
+function Theme.SetCategoryIcon(tex, key, size)
+    local meta = Theme.category[key]
+    local glyph = Theme.CategoryGlyph(key, size)
+    if glyph then
+        tex:SetTexture(glyph)
+        tex:SetVertexColor(Theme.RGB(Theme.glyphTint))
+    else
+        tex:SetTexture(meta and meta.icon)
+        tex:SetVertexColor(1, 1, 1)
+    end
+    return glyph ~= nil
+end
+-- The same icon as an inline |T...|t escape for text, `size` px (the glyph carries its tint).
+function Theme.CategoryInline(key, size)
+    local glyph = Theme.CategoryGlyph(key, size)
+    if glyph then
+        local r, g, b = Theme.RGB(Theme.glyphTint)
+        local c = function(v) return math.floor(v * 255 + 0.5) end
+        return "|T" .. glyph .. ":" .. size .. ":" .. size .. ":0:0:64:64:0:64:0:64:" .. c(r) .. ":" .. c(g) .. ":" .. c(b) .. "|t"
+    end
+    local meta = Theme.category[key]
+    return "|T" .. tostring(meta and meta.icon) .. ":" .. size .. ":" .. size .. "|t"
+end
+
 -- The painted card frame (frame-card, nine-slice) drawn over `frame`'s edge, `out` units
 -- outside it, corners `corner` units square. The centre stays empty. Returns a handle with
 -- SetShown(on) and SetVertexColor(r, g, b), or nil without the art.

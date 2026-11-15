@@ -355,7 +355,7 @@ local function build(parent)
             r:ClearAllPoints()
             r:SetPoint("TOPLEFT", track, "TOPLEFT", pad - S.s1, -ty)
             r:SetPoint("RIGHT", track, "RIGHT", -pad + S.s1, 0)
-            r.icon:SetTexture(meta.icon)
+            T.SetCategoryIcon(r.icon, cat.key, 18)
             r.label:SetText(meta.label)
             local pending = cat.pending ~= nil
             r.label:SetTextColor(T.RGB(pending and "dim" or "white"))

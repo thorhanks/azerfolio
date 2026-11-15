@@ -221,9 +221,10 @@ local function hexColor(s)
     return tonumber(s:sub(1, 2), 16) / 255, tonumber(s:sub(3, 4), 16) / 255, tonumber(s:sub(5, 6), 16) / 255
 end
 
--- The profession coin: the painted gold coin (Media\Chrome\coin-prof-<key>.blp) when it exists,
--- gold when mastered and greyed with a bronze tint before, like the class coins
--- (Theme.layout.classTab.dullCoin); else the stand-in, the profession's icon in a ring.
+-- The profession coin: the painted gold coin (Media\Chrome\coin-prof-<key>.blp) when mastered;
+-- before that the painted bronze coin (coin-prof-<key>-dull, Phase 15 step 3: the code tint made
+-- every trade the same brown disc at 48 px), or without it the gold one greyed with a bronze tint
+-- (Theme.layout.classTab.dullCoin). Without any art, the stand-in: the profession's icon in a ring.
 -- :Set(m, size).
 local function newCoin(parent)
     local f = CreateFrame("Frame", nil, parent)
@@ -237,14 +238,16 @@ local function newCoin(parent)
     function f:Set(m, size)
         self:SetSize(size, size)
         local file = m.key and ns.Theme.Chrome("coin-prof-" .. m.key)
+        local painted = file and not m.mastered and ns.Theme.Chrome("coin-prof-" .. m.key .. "-dull")
         self.coin:SetShown(file ~= nil)
         self.rim:SetShown(file == nil); self.icon:SetShown(file == nil)
         if file then
-            self.coin:SetTexture(file)
+            self.coin:SetTexture(painted or file)
             self.coin:SetSize(size, size)
-            if self.coin.SetDesaturated then self.coin:SetDesaturated(not m.mastered) end
+            local tinted = not m.mastered and not painted
+            if self.coin.SetDesaturated then self.coin:SetDesaturated(tinted) end
             local dull = ns.Theme.layout.classTab.dullCoin.open
-            if m.mastered then self.coin:SetVertexColor(1, 1, 1, 1) else self.coin:SetVertexColor(dull[1], dull[2], dull[3], dull[4]) end
+            if tinted then self.coin:SetVertexColor(dull[1], dull[2], dull[3], dull[4]) else self.coin:SetVertexColor(1, 1, 1, 1) end
             return
         end
         self.rim:SetSize(size, size)

@@ -318,7 +318,8 @@ function Banner.New(parent)
                     b.ring:SetColorTexture(ring[1], ring[2], ring[3], 1)
                     local inner = cat.state == "complete" and T.color.complete or look.dark
                     b.inner:SetColorTexture(inner[1], inner[2], inner[3], 1)
-                    b.icon:SetTexture(T.category[cat.key] and T.category[cat.key].icon)
+                    -- The glyph (14 px); ink on the gold disc so it doesn't vanish into it.
+                    if T.SetCategoryIcon(b.icon, cat.key, 14) and cat.state == "complete" then b.icon:SetVertexColor(T.RGB("ink")) end
                     b:Show()
                 end
             end

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Small-size art</title>
+<style>
+  :root { --bg: #0d0906; --panel: #1a120b; --edge: #5a4128; --gold: #ffd100; --text: #f0e8d8; --dim: #b5a891; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { color: var(--gold); font-size: 20px; margin: 0 0 4px; font-weight: 600; }
+  h2 { color: var(--gold); font-size: 16px; margin: 32px 0 6px; font-weight: 600; }
+  p { margin: 4px 0 10px; color: var(--dim); max-width: 860px; }
+  .note { color: var(--dim); font-size: 12px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .opt { background: var(--panel); border: 1px solid var(--edge); border-radius: 4px; padding: 12px; }
+  .opt h3 { margin: 0 0 8px; font-size: 13px; color: var(--text); font-weight: 600; }
+  .opt h3 b { color: var(--gold); margin-right: 6px; }
+  .opt.rec { border-color: #c9a227; box-shadow: 0 0 0 1px #c9a22766; }
+  .rail { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-start; }
+  .trade { width: 72px; text-align: center; font-size: 11px; color: var(--text); }
+  .trade canvas, .trade img { display: block; margin: 0 auto 3px; width: 48px; height: 48px; filter: drop-shadow(0 2px 3px #000); }
+  .trade.big canvas, .trade.big img { width: 96px; height: 96px; }
+  .tabs { display: flex; flex-direction: column; gap: 6px; }
+  .tabrow { display: flex; gap: 8px; align-items: center; }
+  .tab { width: 58px; height: 58px; background: #2a1d10; border: 1px solid #6b5332; border-radius: 6px; display: grid; place-items: center; }
+  .tab img { width: 50px; height: 50px; border-radius: 6px; }
+  .tab.off img { filter: grayscale(1); opacity: .8; }
+  .tab.new { outline: 2px solid #c9a227; outline-offset: 2px; }
+  .rows { display: flex; flex-direction: column; gap: 6px; }
+  .row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .row .bar { flex: 1; height: 6px; background: #3d342a; border-radius: 3px; overflow: hidden; }
+  .row .bar i { display: block; height: 100%; background: #ffcc33; }
+  .row .n { color: var(--dim); font-size: 12px; min-width: 44px; text-align: right; }
+  .gl { display: inline-block; flex: none; }
+  .zoom { image-rendering: pixelated; }
+  .sizes { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; margin-top: 8px; }
+  .sizes figure { margin: 0; text-align: center; font-size: 11px; color: var(--dim); }
+  .missing { color: #e08a3c; font-size: 12px; }
+  code { color: var(--text); background: #2a1d10; padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Small-size art (Phase 15 step 3)</h1>
+<p>Review items R5, R6 and the small category icons. Everything below is drawn at the game's sizes (the rail coin is 48 px, tab icons 50 px, category icons 14 to 22 px). Shown on the panel colour behind them in game.</p>
+
+<h2>1 · The Professions tab icon (R6)</h2>
+<p>The fifth tab today falls back to the stock blacksmithing icon. The new painted icon sits beside the other four, unselected tabs greyed as in game.</p>
+<div class="opt"><div class="tabs" id="tabs"></div></div>
+
+<h2>2 · Profession coins at 48 px (R5)</h2>
+<p>Gideon's five trades, none mastered. The bright gold coin is kept for Mastered.</p>
+<div class="grid" id="coins"></div>
+<p class="note">C is a sample of two coins only (Blacksmithing, Herbalism); if picked, Codex paints all twelve.</p>
+
+<h2>3 · Category icons at 14 to 22 px</h2>
+<p>Painted icons scaled down (today) against simple glyphs, tinted by the addon. Rule proposed: the painted icon at 24 px and up, the glyph below 24 px (card bars 14, Overview Tracked completion 18, zone tiles 20, Next up rows 22, inline text 14-16).</p>
+<div class="grid" id="cats"></div>
+<div class="opt" style="margin-top:12px"><h3>Glyphs, enlarged 4× (pixels as drawn at 16 px)</h3><div class="sizes" id="zoom"></div></div>
+</main>
+<script>
+const TRADES = [["blacksmithing", "Blacksmithing", "33 / 75"], ["mining", "Mining", "59 / 75"], ["cooking", "Cooking", "23 / 75"], ["firstaid", "First Aid", "42 / 75"], ["fishing", "Fishing", "20 / 75"], ["herbalism", "Herbalism", "12 / 75"]];
+const load = src => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
+
+// Draws img into a canvas, then maps each pixel: f(r,g,b) -> [r,g,b].
+function filtered(img, size, f) {
+  const c = document.createElement("canvas"); c.width = c.height = size;
+  const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(img, 0, 0, size, size);
+  const d = g.getImageData(0, 0, size, size), p = d.data;
+  for (let i = 0; i < p.length; i += 4) { const o = f(p[i], p[i + 1], p[i + 2]); p[i] = o[0]; p[i + 1] = o[1]; p[i + 2] = o[2]; }
+  g.putImageData(d, 0, 0); return c;
+}
+const lum = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
+// Today: SetDesaturated(true) then SetVertexColor(0.86, 0.66, 0.44) (Theme classTab.dullCoin.open).
+const today = (r, g, b) => { const l = lum(r, g, b); return [l * 0.86, l * 0.66, l * 0.44]; };
+// B: the gold kept, saturation 60%, a touch darker so Mastered still stands out.
+const sat60 = (r, g, b) => { const l = lum(r, g, b); const m = (v) => Math.min(255, (l + (v - l) * 0.6) * 0.92); return [m(r), m(g), m(b)]; };
+
+function trade(node, big) { const t = document.createElement("div"); t.className = "trade" + (big ? " big" : ""); if (node) t.appendChild(node); return t; }
+
+(async () => {
+  // 1 · Tabs
+  const tabs = ["overview", "zones", "reputation", "class", "professions"];
+  const tabRow = (label, active) => {
+    const row = document.createElement("div"); row.className = "tabrow";
+    row.innerHTML = `<span class="note" style="width:120px">${label}</span>` + tabs.map(t =>
+      `<div class="tab ${t === active ? "" : "off"} ${t === "professions" ? "new" : ""}"><img src="icon-art/icon-${t}.png" alt="${t}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'missing',textContent:'not made yet'}))"></div>`).join("");
+    return row;
+  };
+  const tabsEl = document.getElementById("tabs");
+  tabsEl.append(tabRow("Professions open", "professions"), tabRow("Overview open", "overview"));
+
+  // 2 · Coins
+  const imgs = {}, dull = {};
+  for (const [k] of TRADES) { imgs[k] = await load(`chrome-art/coin-prof-${k}.png`); dull[k] = await load(`chrome-art/coin-prof-${k}-dull.png`); }
+  const opts = [
+    ["A", "Today: greyed, bronze tint", k => imgs[k] && filtered(imgs[k], 96, today)],
+    ["B", "Gold kept at 60% saturation", k => imgs[k] && filtered(imgs[k], 96, sat60)],
+    ["C", "Painted dull coin (bronze, emblem lit)", k => dull[k] ? dull[k].cloneNode() : null],
+    ["–", "Mastered (bright gold, unchanged)", k => imgs[k] ? imgs[k].cloneNode() : null],
+  ];
+  const coinsEl = document.getElementById("coins");
+  for (const [id, label, make] of opts) {
+    const o = document.createElement("div"); o.className = "opt" + (id === "C" ? " rec" : "");
+    o.innerHTML = `<h3><b>${id}</b>${label}</h3>`;
+    const rail = document.createElement("div"); rail.className = "rail";
+    for (const [k, name, skill] of TRADES) {
+      const n = make(k); const t = trade(n);
+      t.insertAdjacentHTML("beforeend", n ? `${name}<br><span class="note">${skill}</span>` : `<span class="missing">${name}: no sample</span>`);
+      rail.appendChild(t);
+    }
+    o.appendChild(rail); coinsEl.appendChild(o);
+  }
+
+  // 3 · Category icons
+  const CATS = [["explore", "Exploration", "38 / 52", 73], ["quests", "Quests", "21 / 64", 33], ["flights", "Flight paths", "2 / 3", 67]];
+  const glyph = {};
+  for (const [k] of CATS) glyph[k] = await load(`chrome-art/glyph-${k}.png`);
+  // A glyph (white with alpha) tinted: multiply, like SetVertexColor.
+  const tint = (img, size, hex) => {
+    const c = document.createElement("canvas"); c.width = c.height = size; c.className = "gl";
+    const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(img, 0, 0, size, size);
+    g.globalCompositeOperation = "source-in"; g.fillStyle = hex; g.fillRect(0, 0, size, size); return c;
+  };
+  const painted = (k, size) => { const i = new Image(); i.src = `icon-art/icon-${k}.png`; i.width = i.height = size; i.className = "gl"; return i; };
+  const catOpts = [
+    ["Today", "Painted icons scaled down", (k, s) => painted(k, s)],
+    ["G1", "Glyph, cream (body text colour)", (k, s) => glyph[k] ? tint(glyph[k], s, "#f0e8d8") : null],
+    ["G2", "Glyph, gold (heading colour)", (k, s) => glyph[k] ? tint(glyph[k], s, "#ffd100") : null],
+  ];
+  const catsEl = document.getElementById("cats");
+  for (const [id, label, make] of catOpts) {
+    const o = document.createElement("div"); o.className = "opt" + (id === "G1" ? " rec" : "");
+    o.innerHTML = `<h3><b>${id}</b>${label}</h3>`;
+    for (const size of [14, 18, 22]) {
+      const rows = document.createElement("div"); rows.className = "rows"; rows.style.margin = "8px 0";
+      rows.insertAdjacentHTML("beforeend", `<span class="note">${size} px</span>`);
+      for (const [k, name, n, pct] of CATS) {
+        const r = document.createElement("div"); r.className = "row";
+        const ic = make(k, size); if (ic) r.appendChild(ic); else r.insertAdjacentHTML("beforeend", `<span class="missing">no glyph</span>`);
+        r.insertAdjacentHTML("beforeend", `<span style="width:90px">${name}</span><span class="bar"><i style="width:${pct}%"></i></span><span class="n">${n}</span>`);
+        rows.appendChild(r);
+      }
+      o.appendChild(rows);
+    }
+    catsEl.appendChild(o);
+  }
+  const zoom = document.getElementById("zoom");
+  for (const [k, name] of CATS) {
+    for (const [lab, make] of [["painted", () => { const c = document.createElement("canvas"); c.width = c.height = 16; const i = painted(k, 16); i.onload = () => c.getContext("2d").drawImage(i, 0, 0, 16, 16); return c; }], ["glyph", () => glyph[k] && tint(glyph[k], 16, "#f0e8d8")]]) {
+      const c = make(); if (!c) continue;
+      c.className = "zoom"; c.style.width = c.style.height = "64px";
+      const f = document.createElement("figure"); f.appendChild(c); f.insertAdjacentHTML("beforeend", `<figcaption>${name}, ${lab}</figcaption>`); zoom.appendChild(f);
+    }
+  }
+})();
+</script>
+</body>
+</html>

@@ -736,6 +736,12 @@ body.strip-enamel.fill-enamel .repdist .dcell { background: radial-gradient(elli
 img.cimg { width: 20px; height: 20px; border-radius: 3px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #6b4c2a; flex: none; }
 img.cimg.sm { width: 16px; height: 16px; }
 .catbar img.cimg { width: 14px; height: 14px; box-shadow: 0 0 0 1px #000; }
+/* Small category glyphs (Phase 15 step 3): a white mask tinted the body-text cream, no frame. */
+.cimg.cglyph { display: inline-block; width: 20px; height: 20px; flex: none; background: var(--text, #f0e8d8);
+  -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat; vertical-align: middle; }
+.cimg.cglyph.sm { width: 16px; height: 16px; }
+.catbar .cimg.cglyph { width: 14px; height: 14px; }
+.nextup .nitem .cimg.cglyph { grid-row: span 2; width: 22px; height: 22px; }
 .tab img { width: 40px; height: 40px; border-radius: 4px; box-shadow: 0 0 0 1px #000, 0 0 0 2px #8a6d3b; filter: saturate(.85) brightness(.85); }
 .tab.active img { filter: none; box-shadow: 0 0 0 1px #000, 0 0 0 2px var(--wow-gold), 0 0 10px rgba(255,209,0,.45); }
 /* Frame kit: a nine-slice frame drawn over the element's edge. */

@@ -783,7 +783,30 @@ return function(t)
         local coin = p.railRows[1].coin
         t.ok(coin.coin:IsShown() and not coin.rim:IsShown(), "the rail shows the painted coin")
         t.ok(not p.railRows[2].coin.coin:IsShown(), "Mining has no painted coin here: the stand-in")
+        t.ok(coin.coin:GetTexture():find("coin-prof-blacksmithing.blp", 1, true) ~= nil, "no dull coin: the gold one, tinted")
+        -- Phase 15 step 3: the painted bronze coin until mastered.
+        n.Art.chrome["coin-prof-blacksmithing-dull"] = true
+        p:Redraw()
+        t.ok(coin.coin:GetTexture():find("coin-prof-blacksmithing-dull.blp", 1, true) ~= nil, coin.coin:GetTexture())
+        coin:Set({ key = "blacksmithing", mastered = true }, 40)
+        t.ok(coin.coin:GetTexture():find("coin-prof-blacksmithing.blp", 1, true) ~= nil, "mastered: the gold coin")
         t.eq(#n.Debug.errors, 0)
+    end)
+
+    t.test("ui: category icons are glyphs below 24 px, painted from 24 up", function()
+        local state = probeState()
+        local n = boot(state)
+        local T = n.Theme
+        n.Art.chrome["glyph-quests"] = true
+        local tex = UIParent:CreateTexture()
+        t.eq(T.SetCategoryIcon(tex, "quests", 18), true)
+        t.ok(tex:GetTexture():find("glyph-quests.blp", 1, true) ~= nil, tex:GetTexture())
+        t.eq(T.SetCategoryIcon(tex, "quests", 24), false)
+        t.eq(tex:GetTexture(), T.category.quests.icon)
+        t.ok(T.CategoryInline("quests", 14):find("glyph%-quests%.blp:14:14:0:0:64:64:0:64:0:64:%d+:%d+:%d+|t") ~= nil, T.CategoryInline("quests", 14))
+        n.Art.chrome["glyph-quests"] = nil
+        t.eq(T.SetCategoryIcon(tex, "quests", 14), false, "no glyph art: the painted icon")
+        t.ok(T.CategoryInline("quests", 14):find("|T", 1, true) == 1)
     end)
 
     t.test("ui: no professions yet", function()

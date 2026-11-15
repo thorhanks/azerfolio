@@ -296,8 +296,30 @@ Negative prompt: the zone one, plus `frame, border, rounded corners, photo, tiny
 | icon-flights | Flight paths category | A gryphon in flight with wings spread wide, seen from the side, against an evening sky |
 | icon-reputation | Reputation tab | A heraldic tabard hanging from a short wooden crossbar, deep green cloth with a gold embroidered border and a bold gold sunburst emblem on the chest, gently folded (added 2026-11-09; green and gold so it's neither Alliance nor Horde and stands apart from the brown journal and the parchment map) |
 | icon-class | Class tab | A knight's kite shield standing upright with a gilded rim, a winding golden road painted across its face from top to bottom, a small glowing star at the road's end (added 2026-11-10; a journey, not any one class) |
+| icon-professions | Professions tab | A heavy dark iron blacksmith's anvil seen from a three-quarter front view, a smith's hammer with a wooden handle resting across its top at an angle, a few bright orange sparks flying from the anvil's face, a warm forge glow from below and behind (added 2026-11-14, Phase 15; Codex, with icon-class, icon-reputation and icon-zones attached as the set's reference) |
 
 Future tabs add one line each (for example icon-dungeons: a dark stone archway with a glowing portal).
+
+### Small glyphs (Phase 15, 2026-11-14)
+
+Painted icons blur below 24 px (review 2026-11-14), so the category icons have flat glyphs for small places. Black silhouette on pure white: `tools/process-art.ps1` keys the white to transparency and turns the ink white (a mask), and the addon tints it. Save as `art/source/glyph-<name>.png`; out: `Media/Chrome/glyph-<name>.blp` (64×64).
+
+```
+Simple flat interface glyph, one bold solid pure black (#000000) silhouette on a perfectly flat pure
+white (#FFFFFF) background, no shading, no gradients, no grey, no outlines in other colours, no texture,
+thick chunky shapes with wide clear gaps between parts so it still reads when shrunk to 16 pixels,
+centred, filling about 80% of the square with an even margin, symmetrical where the subject allows,
+no text, no letters, no frame, no circle background. 1:1 square.
+Subject:
+```
+
+Negative prompt: `shading, gradient, grey, colour, texture, 3D, glossy, photo, thin lines, tiny details, text, letters, border, frame, circle background, drop shadow`.
+
+| File | Subject line |
+|---|---|
+| glyph-explore | A four-pointed compass star (long north-south points, slightly shorter east-west points) inside a thick plain ring, a small white dot cut out at the centre |
+| glyph-quests | A single tall bold exclamation mark, the bar slightly wider at the top and tapering down, a round dot below it with a clear gap |
+| glyph-flights | A gryphon (eagle head, wings, lion body) flying, seen straight from the front-above with both wide feathered wings spread out to the sides and slightly raised, the head small in the middle; the wing feathers shown as three or four big separate tips on each wing |
 
 ## Class tab art (Phase 13, 2026-11-10 to 11-13)
 
@@ -725,3 +747,11 @@ Use the **chrome style block** (flat magenta, symmetrical, no text) and the clas
 | coin-prof-cooking | The same gold coin, struck with a round cooking pot with three wisps of steam, deep crisp relief |
 | coin-prof-firstaid | The same gold coin, struck with a rolled bandage and a teardrop above it (no cross), deep crisp relief |
 | coin-prof-fishing | The same gold coin, struck with a fish leaping over a fishing hook, deep crisp relief |
+
+### Dull coins (12; Phase 15 step 3, 2026-11-14)
+
+A profession you haven't mastered shows a painted bronze coin (the code-greyed gold coin read as the same brown disc for every trade at 48 px, review R5). Same coin, same emblem in the same place, struck in worn dark bronze with the emblem polished lighter against a darker field and a quiet border, so the emblem reads at 40 px. The Codex CLI made Blacksmithing and Herbalism first from their gold coins (owner picked them in `mockups/small-art.html`, option C), then the other ten in two runs with those two attached as the approved model. Save as `art/source/coin-prof-<key>-dull.png`; out: `Media/Chrome/coin-prof-<key>-dull.blp`.
+
+Style: the chrome style block with its metal line replaced by `aged dark bronze and dull pewter metal, soft shading`, and the gold coin attached as the reference. Subject line: `the same coin in worn dark bronze, <the gold coin's emblem from the table above>, deep crisp relief, the emblem polished lighter bronze against a darker field.` Prompt preamble: keep the emblem bold and readable at 40 pixels, a little lighter than the field; keep the border plain and quiet.
+
+Negative prompt: `gold, shiny gold, glow, gems, perspective, 3D render, glossy plastic, neon, busy background, text, letters, numbers, faces, crown, currency symbols, busy filigree border`.

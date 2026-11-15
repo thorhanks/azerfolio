@@ -229,7 +229,7 @@ local function fill(o, ev)
         local parts = {}
         for _, c in ipairs(z.cats or {}) do
             if not c.pending then
-                parts[#parts + 1] = "|T" .. tostring(T.category[c.key].icon) .. ":14:14|t |cffffd35a"
+                parts[#parts + 1] = T.CategoryInline(c.key, 14) .. " |cffffd35a"
                     .. c.denominator .. "|r " .. (c.denominator == 1 and UNIT_ONE[c.key] or T.category[c.key].unit)
             end
         end

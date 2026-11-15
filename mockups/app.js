@@ -1290,7 +1290,11 @@
   const hasChrome = (n) => !!(ART.chrome && ART.chrome[n]);
   const hasIcon = (n) => (ART.icons || []).includes(n);
   const ICON_OF = { explore: "explore", quests: "quests", flights: "flights" };
-  const catIcon = (key, cls = "cimg") => hasIcon(ICON_OF[key]) ? `<img class="${cls}" src="icon-art/icon-${ICON_OF[key]}.png" alt="">` : `<span class="cicon">${CATS[key].icon}</span>`;
+  // Below 24 px the flat glyph (chrome-art/glyph-<key>.png, a white mask tinted cream; Phase 15
+  // step 3, small-art.html G1); the painting only at 24 px and up ("big").
+  const catIcon = (key, cls = "cimg") => !/\bbig\b/.test(cls) && hasChrome("glyph-" + key)
+    ? `<span class="${cls} cglyph" style="--glyph:url(chrome-art/glyph-${key}.png)"></span>`
+    : hasIcon(ICON_OF[key]) ? `<img class="${cls}" src="icon-art/icon-${ICON_OF[key]}.png" alt="">` : `<span class="cicon">${CATS[key].icon}</span>`;
   function progressArt(z, opts) {
     const k = ui.look === "Horde" ? "horde" : "alliance";
     return hasPiece("banner-" + k) && hasPiece("pole-" + k) ? paintedStandard(z, opts || {}) : bannerArt(z, opts);

@@ -220,6 +220,8 @@ $PieceKinds = @{
     cartouche = @{ size = @(512, 128); fit = 'stretch'; key = $true; dir = 'Chrome'; despill = $true } # cartouche
     milestone = @{ size = @(64, 64); fit = 'fit'; key = $true; dir = 'Chrome'; despill = $true }  # milestone[-rune-gold|-rune-red]
     'ink-ring' = @{ size = @(128, 128); fit = 'fit'; inkKey = $true; dir = 'Chrome' }               # focus-ring-red
+    # Small-size glyphs (Phase 15): black on white -> a white mask with alpha, tinted by the addon.
+    glyph = @{ size = @(64, 64); fit = 'fit'; inkKey = $true; mask = $true; dir = 'Chrome' }        # glyph-explore, -quests, -flights
 }
 
 # Ink on white -> ink with alpha: a pixel's alpha is how far it is from white (its darkest channel
@@ -240,6 +242,20 @@ function Set-InkAlpha([string]$path) {
     } }
     $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
     return "ink keyed from white, $solid solid pixels"
+}
+
+# A keyed glyph -> a white mask: every pixel white, its alpha kept, so the addon's vertex colour
+# (multiplied) gives the glyph exactly that colour.
+function Set-WhiteMask([string]$path) {
+    $src = [System.Drawing.Bitmap]::FromFile($path)
+    $bmp = New-Object System.Drawing.Bitmap $src
+    $src.Dispose()
+    for ($y = 0; $y -lt $bmp.Height; $y++) { for ($x = 0; $x -lt $bmp.Width; $x++) {
+        $a = $bmp.GetPixel($x, $y).A
+        $bmp.SetPixel($x, $y, [System.Drawing.Color]::FromArgb($a, 255, 255, 255))
+    } }
+    $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
+    return 'white mask'
 }
 # The Class tab's journey strips (art/prompts.md "Class tab art"): strip-<class>-<side>-<n>, three
 # 3:4 panels top to bottom, stacked into one 512x2048 opaque DXT1 -> Media\Strips\<class>-<side>.blp
@@ -276,7 +292,8 @@ function Get-PieceKind([string]$name) {
     if ($name -eq 'cel-ribbon') { return 'ribbon' }
     if ($name -match '^cel-(laurel|seal-[a-z0-9-]+|claim-(alliance|horde))$') { return 'cel' }
     if ($name -match '^coin-[a-z]+$') { return 'coin' }
-    if ($name -match '^coin-prof-[a-z]+$') { return 'coin' } # the Professions tab's coins (Phase 14)
+    if ($name -match '^coin-prof-[a-z]+(-dull)?$') { return 'coin' } # the Professions tab's coins (Phase 14; -dull: unfinished, Phase 15)
+    if ($name -match '^glyph-[a-z0-9-]+$') { return 'glyph' }
     if ($name -eq 'you-ring') { return 'ring' }
     if ($name -match '^road-band(-gold)?$') { return 'band' }
     if ($name -eq 'cartouche') { return 'cartouche' }
@@ -488,6 +505,7 @@ function Convert-Piece([string]$inPath, [string]$name, [string]$kind) {
         $null = [AzfBlp]::ConvertAlpha($png, $blp)
     } elseif ($k.inkKey) {
         $note = Set-InkAlpha $tmp
+        if ($k.mask) { $note += ', ' + (Set-WhiteMask $tmp) }
         Copy-Item $tmp $png -Force
         $null = [AzfBlp]::ConvertAlpha($png, $blp)
     } elseif ($k.key) {

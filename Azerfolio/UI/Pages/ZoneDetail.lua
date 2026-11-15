@@ -431,7 +431,7 @@ function Detail.New(page)
         tile.icon = tile:CreateTexture(nil, "ARTWORK")
         tile.icon:SetSize(20, 20)
         tile.icon:SetPoint("TOPLEFT", S.s3, -S.s3)
-        tile.icon:SetTexture(T.category[key].icon)
+        T.SetCategoryIcon(tile.icon, key, 20)
         tile.title = T.Text(tile, "md", "gold")
         tile.title:SetPoint("LEFT", tile.icon, "RIGHT", S.s2, 0)
         tile.title:SetText(T.category[key].label)
@@ -637,7 +637,7 @@ local function fillBanner(d, zone, entry, pageKey)
         local parts, notes = {}, {}
         for _, cat in ipairs(entry.cats or {}) do
             local meta = T.category[cat.key]
-            local icon = "|T" .. meta.icon .. ":16:16|t "
+            local icon = T.CategoryInline(cat.key, 16) .. " "
             if cat.pending then
                 parts[#parts + 1] = icon .. "?"
             else
@@ -827,7 +827,7 @@ local function fillDashboard(d, zone, entry, page)
             d.nextItems[i] = b
         end
         local col = (i - 1) % NEXT_COLS
-        b.icon:SetTexture(T.category[it.kind].icon)
+        T.SetCategoryIcon(b.icon, it.kind, 22)
         b.name:SetText(it.name or "?")
         local dc = it.difficulty and DIFF_COLOR[it.difficulty]
         if dc then b.name:SetTextColor(dc[1], dc[2], dc[3]) else b.name:SetTextColor(T.RGB("white")) end
