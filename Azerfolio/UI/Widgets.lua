@@ -189,14 +189,9 @@ function W.PanelButton(parent)
     b.text = T.Text(b.labelFrame, "sm", "gold", "OVERLAY")
     b.text:SetPoint("CENTER", 0, 0)
     b.text:SetWordWrap(false)
-    -- Selected (Phase 15 step 2, review R11; owner chose the mockup's option A): the button is
-    -- pressed in, its own Down look, and a 2 px gold underline sits under it. Hover and focus
-    -- only light a button (white label, highlight), so they never read as selected.
-    b.underline = T.Solid(b.labelFrame, "gold", "OVERLAY")
-    b.underline:SetHeight(L.selectedUnderline)
-    b.underline:SetPoint("TOPLEFT", b, "BOTTOMLEFT", L.selectedUnderlineInset, -L.selectedUnderlineGap)
-    b.underline:SetPoint("TOPRIGHT", b, "BOTTOMRIGHT", -L.selectedUnderlineInset, -L.selectedUnderlineGap)
-    b.underline:Hide()
+    -- Selected (Phase 15 step 2, review R11): the button is pressed in, its own Down look. Hover
+    -- and focus only light a button (white label, highlight), so they never read as selected.
+    -- The 2 px gold underline under it was removed after the close (owner, 2026-11-14).
     -- The template draws its pressed look in its own OnMouseDown / OnMouseUp handlers (they swap
     -- the Left / Middle / Right pieces), not from the button state, so the selected one runs
     -- those handlers; SetButtonState locks the state as well where the client draws from it.
@@ -215,12 +210,21 @@ function W.PanelButton(parent)
         self.text:SetTextColor(T.RGB(lit and "white" or "gold"))
         local f = self.focused and self.LockHighlight or self.UnlockHighlight
         if f then pcall(f, self) end
-        self.underline:SetShown(self.on and not self.noUnderline and true or false)
         press(self, self.on and true or false)
     end
     function b:SetOn(on) self.on = on; paint(self) end
     function b:SetFocused(on) self.focused = on; paint(self) end
     if b.HookScript then
+        -- Shown: the template puts its up look back when the button shows (a tab opened with
+        -- its selected button raised until clicked, owner 2026-11-14), so press it again, now
+        -- and once more on the next frame in case the template's own show runs after this.
+        b:HookScript("OnShow", function(self)
+            self.pressedLook = nil
+            paint(self)
+            if C_Timer and C_Timer.After then
+                C_Timer.After(0, function() if self:IsShown() then self.pressedLook = nil; paint(self) end end)
+            end
+        end)
         b:HookScript("OnEnter", function(self) self.hover = true; paint(self) end)
         b:HookScript("OnLeave", function(self) self.hover = nil; paint(self) end)
         -- Pressed: the label dips with the button, as the game's does.
@@ -257,14 +261,12 @@ end
 -- A search field in the toolbar's own language (Phase 15 step 11; review "Smaller polish": the
 -- plain box was the only control in another style; owner chose the mockup's red panel button).
 -- The game's red panel button with an edit box over it: "Search" as the button's gold label
--- while empty (white when lit), the typed text white; pressed in, without the selected
--- underline, while typing. A click types. onChanged(text) runs on every change. .box is the
+-- while empty (white when lit), the typed text white; pressed in while typing. A click types. onChanged(text) runs on every change. .box is the
 -- EditBox (on its own frame, so the label's compact scale never touches it).
 function W.SearchBox(parent, onChanged)
     local T, L = ns.Theme, ns.Theme.layout
     local b = W.PanelButton(parent)
     b.minWidth = 0
-    b.noUnderline = true
     b.text:SetText("Search")
     local holder = CreateFrame("Frame", nil, b)
     holder:SetAllPoints()
