@@ -212,5 +212,11 @@ ns.Art = {
         ["tailoring"] = true,
     },
     dungeons = {
+        ["deadmines"] = true,
+        ["drownedCity"] = true,
+        ["hallOfThanes"] = true,
+        ["moltenCore"] = true,
+        ["scholomance"] = true,
+        ["wailing"] = true,
     },
 }
