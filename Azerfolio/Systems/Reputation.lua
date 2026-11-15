@@ -443,6 +443,21 @@ end
 -- The zone-faction table itself (debug and tests): [mapID] = { factions, rivals }, or nil.
 function Reputation.Zones() return zones end
 
+-- Celebrations (Phase 15 step 9): { [factionID] = reaction } for every faction read this
+-- session, or nil before the first read; and a faction's name as the game gave it.
+function Reputation.Reactions()
+    if next(standings) == nil then return nil end
+    local out = {}
+    for id, d in pairs(standings) do
+        if d and type(d.reaction) == "number" then out[id] = d.reaction end
+    end
+    return out
+end
+function Reputation.Name(factionID)
+    local d = standings[factionID]
+    return d and type(d.name) == "string" and d.name or nil
+end
+
 ---------------------------------------------------------------------------------------------
 -- Reputation tab (Phase 12, spec §7.9, §8.10)
 ---------------------------------------------------------------------------------------------

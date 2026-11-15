@@ -200,6 +200,17 @@ function Theme.CrestInitial(name)
     return c ~= "" and c:upper() or "?"
 end
 
+-- The game's own sounds on celebrations (Phase 15 step 9, owner's pick in the mockup): sound kit
+-- IDs for PlaySound, each plays in Forever [verified-ingame, /azfdiag sounds 2026-11-14]. 878 is
+-- SOUNDKIT.IG_QUEST_LIST_COMPLETE (the quest-complete chime), 888 the level-up fanfare, 12197
+-- the reputation level-up chime. A sound plays once, when the thing happens (with the alert when
+-- the window is closed), not again when a waiting celebration plays.
+Theme.sound = {
+    cat = 878, stop = 878, rank = 878,
+    claim = 888, road = 888, mastered = 888, exalted = 888,
+    rep = 12197,
+}
+
 -- Zone completion categories (spec §7.7), in display order: label, unit, icon. Icons: the
 -- owner's painted set when present (design round 2), else client icons (the map is the Zones
 -- tab's [verified-ingame]; the quest "!" and gryphon loaded in game, 2026-11-08).

@@ -81,6 +81,17 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | C1 | A real category completion plays its celebration (so far only previews, `/azf debug celebrate`) | The last area, last quest or last flight path of a zone | It plays over the window, or an alert shows when the window is closed and the celebration plays on the next open |
 | C2 | A real zone claim plays the claim | Every category of a zone done | Same |
 
+## More celebrations and sound (Phase 15 step 9)
+
+So far only previews (`/azf debug celebrate stop|road|rank|mastered|rep|exalted`, `/azf shots celebrations`).
+
+| ID | What to confirm | When it comes up | How to check |
+|---|---|---|---|
+| K1 | A real class road stop walked plays its celebration (the class coin strikes gold) and the quest-complete chime, once | Turning in a stop's last quest (Gideon: The Tome of Divinity at 12) | It plays over the window, or the alert with the window closed; with `/azf debug`, the trace's `celebrate` entry (`trace-report.lua kind celebrate`) |
+| K2 | A real profession rank trained plays "Journeyman <noun>" with the bronze coin: the cap read by `GetProfessionInfo` rises at the trainer while you play | Training Journeyman (Gideon's Mining or First Aid at 50) | Same |
+| K3 | A real reputation rank-up shows the toast and the reputation chime, once; does the game itself also play a sound or show its own message for it (two sounds)? | The next reaction reached (Gideon: Stormwind Honored) | The toast under the header; listen; the trace's `celebrate` entry |
+| K4 | Mastered and the road walked for real (a profession at 300, a class road finished) | Much later | Same as K1 |
+
 ## Quests (Phase 9)
 
 | ID | What to confirm | When it comes up | How to check |
@@ -96,6 +107,7 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 
 ## Done
 
+- 2026-11-14: K5, the celebration flashes animate on textures in this client: the Explored seal and the claim seal caught mid-flash, the class and profession coins gold after the strike (`/azf shots celebrations`, `WoWScrnShot_111426_224137`-`224201`).
 - 2026-11-14: G3, the game tracks a recipe you haven't learned: `/azf debug professions track 3276` (Heavy Linen Bandage, not learned) put "Heavy Linen Bandage · Linen Cloth: 4/2" in the objective tracker (`WoWScrnShot_111426_115828`); the game reported tracked, then not tracked after the second call (trace-report professions). `SetRecipeTracked` needs three arguments here (recipeID, tracked, isRecraft).
 
 - 2026-11-09: J1, a done class quest reads as done: Gideon's 3101 Consecrated Letter completed, the road's first stop "done", road 1/5, 1/37 quests, completed list known (`/azf debug class 3101 1641`, trace-report class, report #100).

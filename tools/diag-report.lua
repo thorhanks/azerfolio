@@ -1,7 +1,7 @@
 -- Summarizes the AzerfolioDiag SavedVariables dump.
 -- Usage: luajit tools/diag-report.lua [section] [param]
 -- Sections: summary (default), env, ach, explore, maps, quests, questdb [areas], taxi [nodes], zone, zones, events, art, errors,
---           criteria <achID>, ns <filter>, log [n], skin [tree [filter]], reps, spells, profs [run]
+--           criteria <achID>, ns <filter>, log [n], skin [tree [filter]], reps, spells, profs [run], sounds
 -- Set AZF_DIAG_FILE to read a different dump.
 local DEFAULT = "C:/Program Files (x86)/World of Warcraft/_forever_/WTF/Account/COMPUTERWISPERER/SavedVariables/AzerfolioDiag.lua"
 
@@ -21,6 +21,27 @@ local function count(t) local n = 0 for _ in pairs(t or {}) do n = n + 1 end ret
 local function s(v) if type(v) == "table" then local o = {} for i, x in ipairs(v) do o[i] = tostring(x) end return "{" .. table.concat(o, ",") .. "}" end return tostring(v) end
 
 local R = {}
+
+-- /azfdiag sounds (Phase 15 step 9): PlaySound, SOUNDKIT keys, candidate sounds, events.
+function R.sounds()
+    local r = DB.sounds
+    if not r then p("no sound probe; run /azfdiag sounds, then /reload"); return end
+    p("== sounds at %s", os.date("%m-%d %H:%M:%S", r.t))
+    for _, k in ipairs(keys(r.has)) do p("  %s: %s", k, tostring(r.has[k])) end
+    p("  SOUNDKIT entries: %s; matched keys:", tostring(r.kitCount))
+    local ks = keys(r.kitKeys)
+    table.sort(ks, function(a, b) return (r.kitKeys[a] or 0) < (r.kitKeys[b] or 0) end)
+    for _, k in ipairs(ks) do p("    %-48s %s", k, tostring(r.kitKeys[k])) end
+    p("  candidates:")
+    local ids = keys(r.tries)
+    table.sort(ids, function(a, b) return tonumber(a) < tonumber(b) end)
+    for _, id in ipairs(ids) do
+        local t = r.tries[id]
+        p("    %6s %-44s ok=%s willPlay=%s handle=%s", id, tostring(t.label), tostring(t.ok), tostring(t.willPlay), tostring(t.handle))
+    end
+    p("  events:")
+    for _, e in ipairs(keys(r.events)) do p("    %-34s %s", e, tostring(r.events[e])) end
+end
 
 -- /azfdiag profs: one block per run (profession window, trainer, vendor, bags). arg2 = run number
 -- for every recipe and service line instead of the summary.

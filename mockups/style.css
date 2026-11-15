@@ -1754,3 +1754,50 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .atlasview.mini[data-look="sepia"] .amap.mini .atile.withart:not(.complete):not(.here), .atlasview.mini[data-look="sepia"] .atile.isle.withart:not(.complete):not(.here) { border-color: rgba(40,24,10,.45); }
 .atlasview.mini[data-look="faded"] .amap.mini .atile.withart:not(.complete):not(.here), .atlasview.mini[data-look="faded"] .atile.isle.withart:not(.complete):not(.here) { border-color: rgba(0,0,0,.25); }
 .atlasview.mini[data-look="ink"] .amap.mini .atile.withart:not(.complete):not(.here), .atlasview.mini[data-look="ink"] .atile.isle.withart:not(.complete):not(.here) { border-color: rgba(238,220,178,.6); background: rgba(238,220,178,.06); }
+
+/* ===== Phase 15 step 9: more celebrations and sound ===== */
+/* The coin in the laurel: bronze first, a flash, then gold ("strike"); or gold popping in. */
+.celebrate .celmedal.coin .seal { border-radius: 50%; filter: drop-shadow(0 2px 4px #000); }
+.celebrate .celmedal.coin .flash { position: absolute; inset: 10%; border-radius: 50%; z-index: 3; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, rgba(255,246,200,.95), rgba(255,210,90,.45) 40%, transparent 70%); }
+.celebrate .celmedal.coin.strike .dullc { filter: grayscale(1) sepia(.6) brightness(.85) drop-shadow(0 2px 4px #000); animation: coinOut .25s 1s ease-in both; }
+.celebrate .celmedal.coin.strike .goldc { animation: coinStrike .5s 1s cubic-bezier(.3,1.6,.5,1) both; }
+.celebrate .celmedal.coin.strike .flash { animation: coinFlash .7s 1s ease-out both; }
+@keyframes coinOut { to { opacity: 0; } }
+@keyframes coinStrike { from { opacity: 0; transform: scale(1.35); } }
+@keyframes coinFlash { 0% { opacity: 0; transform: scale(.6); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
+/* Mastered: the profession's painted banner above, the medal over its lower edge. */
+.celebrate .celbanner { width: 400px; height: 200px; margin: 0 auto; border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px #000, 0 6px 16px rgba(0,0,0,.6);
+  animation: celPop .6s cubic-bezier(.2,.9,.3,1.2) both; }
+.celebrate .celbanner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.celebrate.more-mastered .celmedal { margin-top: -96px; }
+/* Exalted in full: the crest inside the laurel. */
+.celebrate .crestmedal .crest { position: absolute; left: 20%; top: 17%; width: 60%; height: 64%; z-index: 1; }
+/* The reputation toast: crest, "Honored with Stormwind", the reaction's emblem. Not modal. */
+.reptoast { position: absolute; left: 50%; top: 104px; transform: translateX(-50%); z-index: 55; display: flex; align-items: center; gap: 12px;
+  min-width: 340px; padding: 10px 18px 10px 12px; background: linear-gradient(180deg, rgba(36,26,17,.96), rgba(16,10,5,.98));
+  animation: alertIn 5s ease-in-out both; pointer-events: none; }
+.reptoast.screen { position: fixed; top: 90px; z-index: 90; }
+body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; pointer-events: none;
+  border: 18px solid transparent; border-image: url(chrome-art/frame-card.png) var(--card-slice) / 18px stretch; }
+.reptoast .crest { width: 42px; height: 46px; }
+.reptoast .crest.blank { --crest-size: 42px; }
+.reptoast .rtx { flex: 1; display: flex; flex-direction: column; }
+.reptoast .rtx small { font-size: var(--fs-xs); color: var(--dim); letter-spacing: 1px; text-transform: uppercase; }
+.reptoast .rtx b { font: var(--fs-md) var(--font); font-weight: 400; color: var(--wow-gold); }
+.reptoast.exalted .rtx b { color: #ffd24d; text-shadow: 0 0 8px rgba(255,201,51,.45); }
+.reptoast .demb { width: 34px; height: 34px; flex: none; }
+/* The sound tag: which game sound this moment plays (the mockup can't play it). */
+.soundtag { position: fixed; right: 18px; bottom: 18px; z-index: 95; padding: 8px 14px; background: rgba(0,0,0,.85); border: 1px solid #6b5a2a;
+  border-radius: 4px; color: #ffe9a8; font: 14px var(--font); opacity: 0; pointer-events: none; }
+.soundtag small { display: block; font-size: 11px; color: #b8a888; }
+.soundtag.show { animation: tagIn 4s ease-in-out both; }
+@keyframes tagIn { 0% { opacity: 0; } 8%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Step 9 follow-up: the zone seals land with the coins' flash (dev bar "Zone seals"). The
+   category seal pops in at .1 s for .6 s, so the flash comes as it settles; the claim seal
+   stamps at 1.1 s for .45 s. */
+.celebrate .celmedal.sealflash .flash { position: absolute; inset: 10%; border-radius: 50%; z-index: 3; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, rgba(255,246,200,.95), rgba(255,210,90,.45) 40%, transparent 70%); animation: coinFlash .7s .55s ease-out both; }
+.celebrate .claimseal .flash { position: absolute; inset: -10%; border-radius: 50%; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, rgba(255,246,200,.95), rgba(255,210,90,.45) 40%, transparent 70%); animation: coinFlash .7s 1.4s ease-out both; }

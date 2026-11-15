@@ -19,11 +19,13 @@ local HELP = {
     "/azf debug class [questID ...] - your class quest road: each stop's quests and state, and checks against QuestieDB",
     "/azf debug professions [track <recipeID>] - your professions: skill, rank, status, recipes and their sources, trainers, tracked recipes with ingredients (track: switch the game's tracking of a recipe)",
     "/azf debug celebrate explore|quests|flights|claim [mapID] - preview a celebration (window closed: the alert)",
+    "/azf debug celebrate stop|road|rank|mastered|rep|exalted - preview a class road, profession or reputation celebration",
     "/azf debug perf - event counts, timings and memory since debug was turned on (reset: start over; gc: collect garbage first)",
     "/azf shot - take a test screenshot (development)",
     "/azf shots - screenshot every tab and state (development)",
     "/azf shots banners - screenshot the zones with a banner offset (development)",
     "/azf shots explore - screenshot the Exploration page and its zone map: normal, minimum and wide sizes (development)",
+    "/azf shots celebrations - screenshot the class road, profession and reputation celebrations, with their sounds (development)",
     "/azf shots class - screenshot the Class tab: the road, a stop's steps, the road's end, minimum size and wide (development)",
     "/azf shots professions - screenshot the Professions tab: each profession, the road, Next up, minimum size and wide (development)",
     "/azf minimap - show or hide the minimap button",
@@ -224,8 +226,9 @@ function Commands.Handle(input)
             debugPerf(words[3])
         elseif sub == "celebrate" then
             local kind = words[3]
-            if kind ~= "explore" and kind ~= "quests" and kind ~= "flights" and kind ~= "claim" then
-                ns.Print("Usage: /azf debug celebrate explore|quests|flights|claim [mapID]")
+            if kind ~= "explore" and kind ~= "quests" and kind ~= "flights" and kind ~= "claim"
+                and not ns.Celebrations.PREVIEW_KINDS[kind or ""] then
+                ns.Print("Usage: /azf debug celebrate explore|quests|flights|claim [mapID] | stop|road|rank|mastered|rep|exalted")
             else
                 ns.Celebrations.Preview(kind, tonumber(words[4]))
             end

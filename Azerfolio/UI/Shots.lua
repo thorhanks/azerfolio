@@ -303,8 +303,39 @@ local function exploreSteps()
     return list
 end
 
+-- /azf shots celebrations (Phase 15 step 9): the class road, profession and reputation
+-- celebrations as previews (sounds included), each after the coin has struck gold. The previews
+-- use this character's own road, first profession and home city.
+local function celebrationSteps()
+    local function play(kind)
+        return function()
+            if ns.Celebration.IsShown() then ns.Celebration.Close() end
+            ns.Celebrations.Preview(kind)
+        end
+    end
+    -- First a pause with no picture: the stop's shot came out without its celebration when it
+    -- ran as the window opened (WoWScrnShot_111426_223149).
+    local list = { { label = "celebrations: the window settles", fn = function() end, skip = true, wait = 1.5 } }
+    -- The zone seals' flash (owner, 2026-11-14), caught near its peak: a category seal's at
+    -- about 0.7 s, the claim seal's at about 1.55 s (the zone you stand in).
+    list[#list + 1] = { label = "celebrate explore (flash)", fn = play("explore"), wait = 0.7 }
+    list[#list + 1] = { label = "celebrate claim (flash)", fn = play("claim"), wait = 1.55 }
+    for _, k in ipairs({ "stop", "road", "rank", "mastered" }) do
+        list[#list + 1] = { label = "celebrate " .. k, fn = play(k), wait = 2 }
+    end
+    list[#list + 1] = { label = "celebrate rep (toast)", fn = play("rep"), wait = 1 }
+    list[#list + 1] = { label = "celebrate exalted (toast)", fn = function()
+        ns.Celebration.Close(); play("exalted")()
+    end, wait = 6 } -- after the first toast has gone
+    list[#list + 1] = { label = "celebrations closed", fn = function()
+        if ns.Celebration.IsShown() then ns.Celebration.Close() end
+    end, skip = true }
+    return list
+end
+
 -- Each step changes the window, then one screenshot is taken.
 local function steps(which)
+    if which == "celebrations" or which == "celebrate" then return celebrationSteps() end
     if which == "banners" then return bannerSteps() end
     if which == "explore" then return exploreSteps() end
     if which == "class" then return classSteps() end
@@ -495,8 +526,8 @@ function UI.RunShots(which)
             return finish("Screenshots stopped: " .. tostring(err))
         end
         -- A tidy-up step, or a step with nothing to show here (fn returned false): no picture.
-        if s.skip or err == false then return C_Timer.After(SETTLE, nextStep) end
-        C_Timer.After(SETTLE, function()
+        if s.skip or err == false then return C_Timer.After(s.wait or SETTLE, nextStep) end
+        C_Timer.After(s.wait or SETTLE, function()
             local sok, serr = pcall(Screenshot)
             if not sok then ns.Debug.Error("Screenshot", serr) end
             ns.Debug.Print("shot %d: %s", i, s.label)

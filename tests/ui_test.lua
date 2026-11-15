@@ -2344,6 +2344,50 @@ return function(t)
         t.ok(wow.chat[#wow.chat]:find("Usage"), wow.chat[#wow.chat])
         t.eq(#ns.Debug.errors, 0)
     end)
+
+    -- Phase 15 step 9: a profession rank trained while you play, with the game's sound; Mastered
+    -- (preview); a reputation rank-up as a toast that never blocks the window.
+    t.test("celebrations: a profession rank trained, Mastered, and the reputation toast", function()
+        padUI = true
+        local ns = boot()
+        local played = {}
+        local prof = { "Blacksmithing", 74, 75 }
+        _G.PlaySound = function(id) played[#played + 1] = id; return true, 1 end
+        _G.GetProfessions = function() return 1 end
+        _G.GetProfessionInfo = function(slot) if slot == 1 then return prof[1], 136241, prof[2], prof[3], 1, 0, 164 end end
+        slash("")
+        ns.Celebrations.Check("first")
+        t.eq(ns.Celebration.IsShown(), false, "the first snapshot celebrates nothing")
+        prof[3] = 150 -- Journeyman trained
+        wow.fire("SKILL_LINES_CHANGED"); wow.runTimers()
+        local C = ns.Celebration
+        t.eq(C.IsShown(), true, "the rank plays over the open window")
+        local card = C.GetOverlay().card
+        t.eq(card.title:GetText(), "Journeyman Blacksmith")
+        t.ok(card.line:GetText():find("can now reach"), card.line:GetText())
+        t.eq(played[#played], 878, "the quest-complete chime")
+        press(ns, "PAD1")
+        t.eq(C.IsShown(), false)
+        slash("debug celebrate mastered")
+        t.eq(card.title:GetText(), "Blacksmithing Mastered")
+        t.ok(card.line:GetText():find("300|r of 300"), "the preview shows a mastered profession: " .. card.line:GetText())
+        t.eq(played[#played], 888, "the level-up fanfare")
+        press(ns, "PAD1")
+        ns.Celebrations.Announce({ kind = "rep", factionID = 72, reaction = 6, faction = { factionID = 72, name = "Stormwind", reaction = 6 } })
+        local toast = C.GetToast()
+        t.ok(toast ~= nil, "the toast")
+        t.eq(toast.title:GetText(), "Honored with Stormwind")
+        t.eq(played[#played], 12197, "the reputation chime")
+        t.eq(C.IsShown(), false, "not a celebration over the window")
+        t.eq(#ns.Celebrations.Queue(), 0, "never queued")
+        t.eq(ns.UI.modal, nil, "the controller stays with the page")
+        slash("debug celebrate stop")
+        t.eq(C.IsShown(), true, "a class road stop (preview)")
+        t.eq(card.title:GetText(), "Consecrated Letter")
+        t.ok(card.line:GetText():find("^Stop 1 of %d+ on the Paladin's Road is walked"), card.line:GetText())
+        _G.PlaySound, _G.GetProfessions, _G.GetProfessionInfo = nil, nil, nil
+        t.eq(#ns.Debug.errors, 0)
+    end)
     ---------------------------------------------------------------------------------------------
     -- Atlas
     ---------------------------------------------------------------------------------------------

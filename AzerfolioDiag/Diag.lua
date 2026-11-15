@@ -1878,6 +1878,85 @@ local function togglePad()
 end
 
 ---------------------------------------------------------------------------
+-- Sound probe (Phase 15 step 9): which of the game's own sounds play in Forever, and the events
+-- that tell a profession rank was trained or a reputation reaction changed.
+--   /azfdiag sounds         record PlaySound / SOUNDKIT, try each candidate (stopped at once)
+--   /azfdiag sound <id|KEY> play one, on the Master channel, so it can be heard
+---------------------------------------------------------------------------
+
+local SOUND_CANDIDATES = {
+    { 878, "IG_QUEST_LIST_COMPLETE (quest complete)" },
+    { 619, "QUESTCOMPLETED?" },
+    { 618, "QUESTADDED?" },
+    { 888, "LEVELUPSOUND (level-up fanfare)" },
+    { 12197, "UI_ReputationLevelUp?" },
+    { 12891, "UI_Alert_AchievementGained?" },
+    { 13833, "achievement toast?" },
+    { 8959, "RAID_WARNING" },
+    { 8960, "READY_CHECK" },
+    { 3332, "LOOT_WINDOW_COIN_SOUND?" },
+    { 1115, "UI_BnetToast?" },
+    { 31578, "UI_EpicLoot_Toast (retail)" },
+    { 44295, "UI_Garrison_Toast_FollowerGained (retail)" },
+}
+local SOUND_KEY_PATTERNS = { "QUEST", "LEVEL", "ACHIEV", "REPUT", "FACTION", "PROFESS", "SKILL", "TRAIN",
+    "FANFARE", "TOAST", "ALERT", "REWARD", "COMPLETE", "MAP", "GLYPH", "LOOT" }
+local SOUND_EVENTS = { "SKILL_LINES_CHANGED", "CHAT_MSG_SKILL", "LEARNED_SPELL_IN_TAB", "LEARNED_SPELL_IN_SKILL_LINE",
+    "TRAINER_UPDATE", "UPDATE_FACTION", "CHAT_MSG_COMBAT_FACTION_CHANGE", "QUEST_TURNED_IN", "ACHIEVEMENT_EARNED",
+    "NEW_RECIPE_LEARNED", "TRADE_SKILL_LIST_UPDATE" }
+
+local function probeSounds()
+    local r = { t = time(), has = {}, kitKeys = {}, tries = {}, events = {} }
+    for _, n in ipairs({ "PlaySound", "PlaySoundFile", "StopSound", "PlayMusic", "MuteSoundFile" }) do
+        r.has[n] = type(_G[n])
+    end
+    r.has.SOUNDKIT = type(SOUNDKIT)
+    if type(SOUNDKIT) == "table" then
+        local n = 0
+        for k, v in pairs(SOUNDKIT) do
+            n = n + 1
+            for _, pat in ipairs(SOUND_KEY_PATTERNS) do
+                if type(k) == "string" and k:find(pat, 1, true) then r.kitKeys[k] = v; break end
+            end
+        end
+        r.kitCount = n
+    end
+    -- Each candidate: PlaySound returns willPlay, handle; stopped at once (a blip at most).
+    if type(PlaySound) == "function" then
+        for _, c in ipairs(SOUND_CANDIDATES) do
+            local ok, willPlay, handle = pcall(PlaySound, c[1], "SFX")
+            if ok and handle and type(StopSound) == "function" then pcall(StopSound, handle) end
+            r.tries[tostring(c[1])] = { label = c[2], ok = ok, willPlay = ok and willPlay or tostring(willPlay), handle = ok and handle ~= nil }
+        end
+    end
+    local valid = C_EventUtils and C_EventUtils.IsEventValid
+    for _, e in ipairs(SOUND_EVENTS) do
+        if type(valid) == "function" then
+            local ok, v = pcall(valid, e)
+            r.events[e] = ok and v or ("error: " .. tostring(v))
+        else
+            r.events[e] = "no IsEventValid"
+        end
+    end
+    DB.sounds = r
+    local plays = 0
+    for _, t in pairs(r.tries) do if t.willPlay == true then plays = plays + 1 end end
+    local nk = 0
+    for _ in pairs(r.kitKeys) do nk = nk + 1 end
+    msg(string.format("sounds: PlaySound %s, SOUNDKIT %s (%s keys, %d matched), %d of %d candidates play. /reload to save.",
+        r.has.PlaySound, r.has.SOUNDKIT, tostring(r.kitCount), nk, plays, #SOUND_CANDIDATES))
+end
+
+local function playOne(arg)
+    if type(PlaySound) ~= "function" then msg("no PlaySound"); return end
+    local id = tonumber(arg)
+    if not id and arg and type(SOUNDKIT) == "table" then id = SOUNDKIT[arg:upper()] end
+    if not id then msg("usage: /azfdiag sound <id or SOUNDKIT key>"); return end
+    local ok, willPlay = pcall(PlaySound, id, "Master")
+    msg(string.format("sound %s (%s): %s", tostring(arg), tostring(id), ok and (willPlay and "playing" or "did not play") or ("error: " .. tostring(willPlay))))
+end
+
+---------------------------------------------------------------------------
 -- Event sniffer (counts every event name; records first few argument sets)
 ---------------------------------------------------------------------------
 
@@ -2008,6 +2087,8 @@ local HELP = {
     "/azfdiag pad    - gamepad probe: press each button once (stops after 25 s)",
     "/azfdiag skin   - record what draws the native frames (open Reputation first) and show a template test",
     "/azfdiag mapart [mapID] - record the zone's map art and explored overlays and draw them (again to hide)",
+    "/azfdiag sounds - sound probe: PlaySound, SOUNDKIT keys, which candidate sounds play, rank/reputation events",
+    "/azfdiag sound <id|KEY> - play one game sound so you can hear it",
     "/azfdiag status - show what has been recorded",
     "/azfdiag clear  - clear logs and diffs",
     "Then /reload to write results to disk.",
@@ -2034,6 +2115,8 @@ SlashCmdList.AZERFOLIODIAG = function(input)
     elseif cmd == "art" then showArt()
     elseif cmd == "pad" then togglePad()
     elseif cmd == "skin" then runSkinProbe()
+    elseif cmd == "sounds" then probeSounds()
+    elseif cmd == "sound" then playOne((input or ""):match("^%s*%S+%s+(%S+)"))
     elseif cmd == "clear" then
         DB.log, DB.diffs, DB.zoneSnapshots, DB.errors, DB.eventCounts, DB.sniff = {}, {}, {}, {}, {}, nil
         msg("cleared")

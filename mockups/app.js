@@ -1435,7 +1435,7 @@
     if (kind === "claim") {
       const claimed = { ...z, pct: 1, state: "complete", unchecked: false, cats: z.cats.map(finishCat) };
       body = `<div class="claimart">${progressArt(claimed, { animate: true, from: z.pct || 0, noRays: true })}
-          <div class="claimseal">${celPiece(`cel-claim-${k}`, "cseal", ui.look === "Horde" ? "⚔" : "🦁")}</div></div>
+          <div class="claimseal">${celPiece(`cel-claim-${k}`, "cseal", ui.look === "Horde" ? "⚔" : "🦁")}${ui.zoneFlash !== "fade" ? `<i class="flash"></i>` : ""}</div></div>
         <div class="celribbon">${celPiece("cel-ribbon", "ribbonart")}<h1>${esc(z.name)} Claimed</h1></div>
         <p>For the ${ui.look}: every area, quest and flight path you can do here is done.</p>
         <div class="celcats">${claimed.cats.map(c => `<span>${catIcon(c.key, "cimg sm")}<b>${c.total}</b> ${c.total === 1 ? c.unit.replace(/s$/, "").replace("flight paths", "flight path") : c.unit}</span>`).join("")}</div>`;
@@ -1443,8 +1443,10 @@
       const c = catOf(z, kind) || { key: kind, total: 1, label: CATS[kind].label };
       const after = { ...z, cats: z.cats.map(x => x.key === kind ? finishCat(x) : x) };
       after.pct = after.cats.reduce((s, x) => s + x.done / x.total, 0) / after.cats.length;
-      body = `<div class="celmedal">
-          ${celPiece(celSeal(kind), "seal", CATS[kind].icon)}
+      // Step 9 follow-up (dev bar "Zone seals"): the seal lands with the coins' flash.
+      const fl = ui.zoneFlash !== "fade";
+      body = `<div class="celmedal ${fl ? "sealflash" : ""}">
+          ${celPiece(celSeal(kind), "seal", CATS[kind].icon)}${fl ? `<i class="flash"></i>` : ""}
           ${celPiece("cel-laurel", "laurel")}</div>
         <div class="celribbon">${celPiece("cel-ribbon", "ribbonart")}<h1>${esc(CEL[kind].title(z))}</h1></div>
         <p>${CEL[kind].line(c)} ${esc(z.name)} is now <b>${pctText(after.pct)}</b>.</p>`;
@@ -1454,6 +1456,7 @@
       <div class="card">${body}<button class="btn focusable cel-ok">Continue <span class="glyph A">A</span></button></div>`;
     $("#window").appendChild(el);
     setFocus($(".cel-ok"));
+    playSoundTag(kind === "claim" ? "claim" : "cat");
   }  // The on-screen alert while the window is closed (shown on the page, outside the window).
   function gameAlert(z, kind) {
     const a = $("#gamealert");
@@ -1461,6 +1464,132 @@
     a.innerHTML = `<span class="aseal">${celPiece(kind === "claim" ? `cel-claim-${ui.look === "Horde" ? "horde" : "alliance"}` : celSeal(kind), "seal", CATS[kind === "claim" ? "explore" : kind].icon)}</span><span><small>Azerfolio</small>${esc(title)}</span>`;
     a.hidden = false; a.classList.remove("show"); void a.offsetWidth; a.classList.add("show");
     clearTimeout(gameAlert.t); gameAlert.t = setTimeout(() => { a.hidden = true; }, 5000);
+    playSoundTag(kind === "claim" ? "claim" : "cat");
+  }
+  // ---- Phase 15 step 9: more celebrations and the game's own sounds ----
+  // Same rules as §7.7: only a change the game confirmed in this session (before and after both
+  // read while you play). New kinds:
+  //   stop      a class road stop walked: the class coin strikes gold in the laurel
+  //   road      the whole class road walked (its last stop): the same coin, the road's name
+  //   rank      a profession rank trained (the cap rose): the bronze coin in the laurel
+  //   mastered  a profession Mastered (skill 300): its painted banner, the coin strikes gold
+  //   rep       a reputation rank-up: a toast (not modal) with the faction's crest and the reaction
+  //             emblem; Exalted is gold (dev bar "Exalted": the toast or a full celebration)
+  // Dev bar: Celebrate (each), Coin (strike / pop in), Exalted, Sound tags, Window closed.
+  // The mockup can't play the game's sounds: a tag names the sound kit each moment would play
+  // (each confirmed playing in Forever by /azfdiag sounds, 2026-11-14; owner's pick).
+  const SOUNDS = {
+    cat: ["Quest complete", "SOUNDKIT.IG_QUEST_LIST_COMPLETE (878)"],
+    claim: ["Level-up fanfare", "LEVELUPSOUND (888)"],
+    stop: ["Quest complete", "SOUNDKIT.IG_QUEST_LIST_COMPLETE (878)"],
+    road: ["Level-up fanfare", "LEVELUPSOUND (888)"],
+    rank: ["Quest complete", "SOUNDKIT.IG_QUEST_LIST_COMPLETE (878)"],
+    mastered: ["Level-up fanfare", "LEVELUPSOUND (888)"],
+    rep: ["Reputation up", "UI_ReputationLevelUp (12197)"],
+    exalted: ["Level-up fanfare", "LEVELUPSOUND (888)"],
+  };
+  function playSoundTag(kind) {
+    if (!ui.soundTags) return;
+    const s = SOUNDS[kind]; if (!s) return;
+    let t = $("#soundtag");
+    if (!t) { t = document.createElement("div"); t.id = "soundtag"; t.className = "soundtag"; $("#stage").appendChild(t); }
+    t.innerHTML = `<b>♪ ${esc(s[0])}</b><small>${esc(s[1])}</small>`;
+    t.classList.remove("show"); void t.offsetWidth; t.classList.add("show");
+  }
+  const roadStops = () => CLASS_ROAD.stops.filter(s => s.kind === "road");
+  const coinImg = (name, cls) => `<img class="${cls}" src="chrome-art/${name}.png" alt="">`;
+  // The medal: a coin inside the laurel; "strike" (dev bar Coin) shows it bronze first, then
+  // gold with a flash; "pop" shows the gold coin popping in like the category seals.
+  function coinMedal(dull, gold, strike) {
+    const s = strike && ui.coinAnim !== "pop";
+    return `<div class="celmedal coin ${s ? "strike" : ""}">
+      ${s ? coinImg(dull, "seal dullc") : ""}${coinImg(gold, "seal goldc")}<i class="flash"></i>
+      ${celPiece("cel-laurel", "laurel")}</div>`;
+  }
+  const profKey = (name) => name.toLowerCase().replace(/\s+/g, "");
+  function celebrateMore(kind) {
+    if (kind === "rep" || (kind === "exalted" && ui.exalted !== "full")) return repToast(kind === "exalted");
+    if (ui.asAlert) return moreAlert(kind);
+    closeCelebrate(true);
+    const el = document.createElement("div");
+    el.className = `celebrate cat more-${kind}`; el.id = "celebrate";
+    const cls = CLASS_ROAD.cls.toLowerCase();
+    let body;
+    if (kind === "stop" || kind === "road") {
+      const stops = roadStops(), st = stops.find(s => s.id === "divinity") || stops[0];
+      ui.celebrate = st.name;
+      const n = stops.indexOf(st) + 1;
+      const quests = kind === "road" ? stops.reduce((a, s) => a + s.steps.length, 0) : st.steps.length;
+      body = `${coinMedal(`coin-${cls}`, `coin-${cls}`, true)}
+        <div class="celribbon">${celPiece("cel-ribbon", "ribbonart")}<h1>${esc(kind === "road" ? `${CLASS_ROAD.title} Walked` : st.name)}</h1></div>
+        <p>${kind === "road"
+          ? `Every stop on your class road is done: <b>${stops.length}</b> stops, <b>${quests}</b> quests.`
+          : `Stop ${n} of ${stops.length} on ${esc(CLASS_ROAD.title.replace(/^The /, "the "))} is walked: <b>${quests}</b> quests done.<br>Reward: ${esc(st.reward)}.`}</p>`;
+    } else {
+      const ps = profModel(), p = ps.find(x => x.name === ui.profSel) || ps[0];
+      if (!p) return;
+      ui.celebrate = p.name;
+      const key = profKey(p.name);
+      if (kind === "rank") {
+        const rank = PRANKS.find(r => r.cap > p.cap) || PRANKS[PRANKS.length - 1];
+        const nxt = PRANKS[PRANKS.indexOf(rank) + 1];
+        const title = p.noun === "First Aid" ? `${rank.name} in First Aid` : `${rank.name} ${p.noun}`;
+        body = `${coinMedal(`coin-prof-${key}-dull`, `coin-prof-${key}-dull`, false)}
+          <div class="celribbon">${celPiece("cel-ribbon", "ribbonart")}<h1>${esc(title)}</h1></div>
+          <p>${esc(p.name)} can now reach <b>${rank.cap}</b>.${nxt ? ` Next: ${nxt.name} from skill ${nxt.at}.` : " The last rank: 300 masters it."}</p>`;
+      } else {
+        body = `<div class="celbanner"><img src="prof-art/${key}.png" alt=""></div>
+          ${coinMedal(`coin-prof-${key}-dull`, `coin-prof-${key}`, true)}
+          <div class="celribbon">${celPiece("cel-ribbon", "ribbonart")}<h1>${esc(p.name)} Mastered</h1></div>
+          <p>Skill <b>300</b> of 300: Artisan ${esc(p.noun === "First Aid" ? "in First Aid" : p.noun)}.</p>`;
+      }
+    }
+    if (kind === "exalted") {
+      const f = allFactions().find(x => x.id === 72) || allFactions()[0];
+      ui.celebrate = f.name;
+      body = `<div class="celmedal crestmedal">${crest(f, "cel") || ""}${celPiece("cel-laurel", "laurel")}</div>
+        <div class="celribbon">${celPiece("cel-ribbon", "ribbonart")}<h1>Exalted with ${esc(f.name.replace(/^The /, "the "))}</h1></div>
+        <p>The highest standing there is.</p>`;
+    }
+    el.innerHTML = `<div class="motes">${Array.from({ length: 18 }, (_, i) =>
+      `<i style="left:${(i * 37) % 100}%;animation-delay:-${(i * 0.7) % 6}s;animation-duration:${5 + (i % 4)}s"></i>`).join("")}</div>
+      <div class="card">${body}<button class="btn focusable cel-ok">Continue <span class="glyph A">A</span></button></div>`;
+    $("#window").appendChild(el);
+    setFocus($(".cel-ok"));
+    playSoundTag(kind);
+  }
+  // Window closed: the same on-screen alert as the zone celebrations, the coin on the left.
+  function moreAlert(kind) {
+    const a = $("#gamealert"), cls = CLASS_ROAD.cls.toLowerCase();
+    const ps = profModel(), p = ps.find(x => x.name === ui.profSel) || ps[0];
+    const st = roadStops().find(s => s.id === "divinity");
+    let icon, title;
+    if (kind === "stop") { icon = `coin-${cls}`; title = `${st.name} walked`; }
+    else if (kind === "road") { icon = `coin-${cls}`; title = `${CLASS_ROAD.title} walked`; }
+    else if (kind === "rank" && p) { const r = PRANKS.find(r => r.cap > p.cap) || PRANKS[3]; icon = `coin-prof-${profKey(p.name)}-dull`; title = `${r.name} ${p.noun}`; }
+    else if (kind === "mastered" && p) { icon = `coin-prof-${profKey(p.name)}`; title = `${p.name} Mastered`; }
+    else return;
+    a.innerHTML = `<span class="aseal">${coinImg(icon, "seal")}</span><span><small>Azerfolio</small>${esc(title)}</span>`;
+    a.hidden = false; a.classList.remove("show"); void a.offsetWidth; a.classList.add("show");
+    clearTimeout(gameAlert.t); gameAlert.t = setTimeout(() => { a.hidden = true; }, 5000);
+    playSoundTag(kind);
+  }
+  // The reputation toast: not modal, 5 seconds, inside the window under the header (window open)
+  // or at the alert's place (window closed). Several at once follow one another.
+  function repToast(exalted) {
+    const all = allFactions();
+    const f = all.find(x => x.id === 72) || all[0];
+    if (!f) return;
+    const r = exalted ? 8 : Math.min(7, Math.max(5, f.reaction + 1));
+    const host = ui.asAlert ? $("#stage") : $("#window");
+    $("#reptoast")?.remove();
+    const t = document.createElement("div");
+    t.id = "reptoast"; t.className = `reptoast ${ui.asAlert ? "screen" : "inwin"} ${r === 8 ? "exalted" : ""}`;
+    t.innerHTML = `${crest({ ...f, met: true }, "toast") || ""}
+      <span class="rtx"><small>Azerfolio · Reputation</small><b>${REACTIONS[r]} with ${esc(f.name.replace(/^The /, "the "))}</b></span>${emblem(r)}`;
+    host.appendChild(t);
+    clearTimeout(repToast.t); repToast.t = setTimeout(() => t.remove(), 5000);
+    playSoundTag(r === 8 ? "exalted" : "rep");
   }
   // ---- Zone Detail category sections (Phase 9 step 4, spec §7.3, §7.7) ----
   const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
@@ -3129,10 +3258,18 @@
   $("#celebrateSel").addEventListener("change", (e) => {
     const kind = e.target.value; e.target.value = ""; e.target.blur();
     const z = byName[ui.detail || ui.selected || CHAR.zone];
+    if (["stop", "road", "rank", "mastered", "rep", "exalted"].includes(kind)) return celebrateMore(kind);
     if (!kind || !z || !z.tracked) return;
     if (kind === "alert") return gameAlert(z, "explore");
     celebrate(z, kind);
   });
+  // Phase 15 step 9: the new celebrations' switches.
+  ui.coinAnim = "strike"; ui.exalted = "toast"; ui.soundTags = true; ui.asAlert = false; ui.zoneFlash = "flash";
+  $("#zoneFlashSel").addEventListener("change", (e) => { ui.zoneFlash = e.target.value; e.target.blur(); });
+  $("#coinSel").addEventListener("change", (e) => { ui.coinAnim = e.target.value; e.target.blur(); });
+  $("#exaltedSel").addEventListener("change", (e) => { ui.exalted = e.target.value; e.target.blur(); });
+  $("#soundTags").addEventListener("change", (e) => { ui.soundTags = e.target.checked; e.target.blur(); });
+  $("#asAlert").addEventListener("change", (e) => { ui.asAlert = e.target.checked; e.target.blur(); });
   $("#lookSel").addEventListener("change", (e) => { ui.look = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#repBarSel").addEventListener("change", (e) => { ui.repBar = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   // Standing-strip plaque background: a tinted painted fill (cloth or enamel) or round 1's top line.
