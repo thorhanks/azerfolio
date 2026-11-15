@@ -207,6 +207,31 @@ return function(t)
         t.eq(n3[1].name, "Your Package Has Arrived")
     end)
 
+    t.test("also for your level: other unclaimed zones of your side that suit you, this continent first", function()
+        local ns = load()
+        local function z(id, name, cont, lo, hi, extra)
+            local e = { mapID = id, name = name, continent = cont, minLevel = lo, maxLevel = hi, tracked = true, state = "untouched" }
+            for k, v in pairs(extra or {}) do e[k] = v end
+            return e
+        end
+        local here = z(1, "Elwynn Forest", "Eastern Kingdoms", 1, 10)
+        local list = { here,
+            z(2, "Westfall", "Eastern Kingdoms", 10, 20, { state = "progress" }),
+            z(3, "Darkshore", "Kalimdor", 10, 20),
+            z(4, "Loch Modan", "Eastern Kingdoms", 10, 20),
+            z(5, "Dun Morogh", "Eastern Kingdoms", 1, 10, { state = "complete" }),
+            z(6, "Durotar", "Kalimdor", 1, 10, { faction = "Horde" }),
+            z(7, "Stranglethorn Vale", "Eastern Kingdoms", 30, 45),
+            z(8, "Teldrassil", "Kalimdor", 1, 10),
+            z(9, "Unknown", "Eastern Kingdoms", nil, nil),
+            z(10, "Capital", "Eastern Kingdoms", 1, 60, { tracked = false, state = "untracked" }) }
+        local out = ns.Zones.AlsoForLevel(list, here, { faction = "Alliance", level = 10 })
+        t.eq(#out, 3, "three at most")
+        t.eq(out[1].name, "Loch Modan"); t.eq(out[2].name, "Westfall", "this continent first, by level then name")
+        t.eq(out[3].name, "Teldrassil", "then the other continent")
+        t.eq(#ns.Zones.AlsoForLevel(list, here, { faction = "Alliance" }), 0, "no level, no pick")
+    end)
+
     t.test("saved flight masters' lists: bad entries are dropped", function()
         local ns = load()
         local fixes = {}

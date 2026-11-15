@@ -291,31 +291,21 @@ function Catalogue.New(page)
     end
     cat.count = T.Text(tb, "xs", "dim")
 
-    -- Search: a plain edit box in a control frame. A or X focuses it; Enter or Escape leaves.
-    local search = control("tb:search", "Search", "Type part of a zone's name. Enter or Escape to finish.",
-        function() cat:FocusSearch() end, "Type", true)
-    search:SetWidth(L.searchWidth)
-    search.text:Hide()
-    local box = CreateFrame("EditBox", nil, search)
-    box:SetPoint("TOPLEFT", L.controlPad, 0); box:SetPoint("BOTTOMRIGHT", -L.controlPad, 0)
-    box:SetAutoFocus(false)
-    box:SetMaxLetters(40)
-    T.SetFont(box, "sm")
-    box:SetTextColor(T.RGB("white"))
-    box.hint = T.Text(search, "sm", "dim")
-    box.hint:SetPoint("LEFT", L.controlPad, 0)
-    box.hint:SetText("Search")
-    box:SetScript("OnTextChanged", function(self)
-        local text = self:GetText() or ""
-        self.hint:SetShown(text == "")
+    -- Search: the toolbar's red button with an edit box on it (W.SearchBox, Phase 15 step 11).
+    -- A or X focuses it; Enter or Escape leaves.
+    local search = W.SearchBox(tb, function(text)
         if text ~= (cat.searchText or "") then
             cat.searchText = text
             ns.Events.Debounce("zones-search", 0.15, function() cat:Refresh() end)
         end
     end)
-    box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-    box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    cat.search, cat.searchBox = search, box
+    search.item = { key = "tb:search", frame = search, title = "Search",
+        detail = "Type part of a zone's name. Enter or Escape to finish.",
+        onActivate = function() cat:FocusSearch() end, actionLabel = "Type" }
+    search:SetScript("OnClick", function() cat:FocusSearch() end)
+    cat.controls[#cat.controls + 1] = search
+    search:SetWidth(L.searchWidth)
+    cat.search, cat.searchBox = search, search.box
 
     cat.views = {}
     for _, v in ipairs(VIEWS) do
@@ -528,6 +518,7 @@ function Catalogue.New(page)
         local opts = self:Options(available)
         local q = ns.Zones.Query(all, opts, char())
         self.query, self.view, self.available = q, self:View(), available
+        self.all = all -- every zone's entry, for the dashboard's "Also for your level"
         self.count:SetText(q.shown == q.total and (q.total .. " zones") or string.format("%d of %d zones", q.shown, q.total))
         layoutToolbar(available)
 

@@ -241,6 +241,11 @@ The owner chose the **full native Forever look**: Azerfolio looks like the clien
   - **The zone seals match (owner, 2026-11-14):** a category's seal pops into the laurel as before and gets the coins' **flash** as it settles (about 0.55 s); the claim seal flashes right after it stamps (about 1.4 s).
   - Mockup: dev bar "Celebrate" (the step 9 group), "Coin", "Exalted", "Zone seals", "Sound tags" (names the sound), "Window closed".
 
+**Design review leftovers (Phase 15 step 11, 2026-11-14; owner chose the first option of each, built in Lua):**
+- **Search box** (Zones toolbar and the Recipes view; dev bar "Search"): "red", the toolbar's red panel button with the typed text on it (pressed in while typing); "well", a dark field framed like the buttons (same height, gold edge); "before", the plain box.
+- **Class pane for a stop you can't start yet** (dev bar "Class later"): "coin", the road's dull class coin (struck gold once walked), alone (owner, after the in-game check: no "Opens at level 12" caption); "small", the count at plaque size; "before", the count in 44 px. Also the abilities pane at a later level.
+- **The zone dashboard's gap** (no reputation ledger; dev bar "Dash gap"): "where", "Also for your level" under Next up: up to three other zones that suit your level (the Zones "For my level" rule: the guide's range, your side), this continent first, each a small card with its art (sepia while untouched), name, range and %; A opens it. "more", Next up shows up to 8. Neither shows when the zone has a reputation ledger.
+
 ## Gamepad
 
 | Input | Action |

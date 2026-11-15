@@ -215,7 +215,7 @@ function W.PanelButton(parent)
         self.text:SetTextColor(T.RGB(lit and "white" or "gold"))
         local f = self.focused and self.LockHighlight or self.UnlockHighlight
         if f then pcall(f, self) end
-        self.underline:SetShown(self.on and true or false)
+        self.underline:SetShown(self.on and not self.noUnderline and true or false)
         press(self, self.on and true or false)
     end
     function b:SetOn(on) self.on = on; paint(self) end
@@ -251,6 +251,41 @@ function W.PanelButton(parent)
         self:SetWidth(math.max(minWidth or self.minWidth or L.panelButtonMin, math.floor(w + 2 * (pad or L.panelButtonPad) + 0.5)))
     end
     hoverInfo(b)
+    return b
+end
+
+-- A search field in the toolbar's own language (Phase 15 step 11; review "Smaller polish": the
+-- plain box was the only control in another style; owner chose the mockup's red panel button).
+-- The game's red panel button with an edit box over it: "Search" as the button's gold label
+-- while empty (white when lit), the typed text white; pressed in, without the selected
+-- underline, while typing. A click types. onChanged(text) runs on every change. .box is the
+-- EditBox (on its own frame, so the label's compact scale never touches it).
+function W.SearchBox(parent, onChanged)
+    local T, L = ns.Theme, ns.Theme.layout
+    local b = W.PanelButton(parent)
+    b.minWidth = 0
+    b.noUnderline = true
+    b.text:SetText("Search")
+    local holder = CreateFrame("Frame", nil, b)
+    holder:SetAllPoints()
+    if holder.SetFrameLevel and b.GetFrameLevel then holder:SetFrameLevel(b:GetFrameLevel() + 3) end
+    local box = CreateFrame("EditBox", nil, holder)
+    box:SetPoint("TOPLEFT", L.panelButtonPad, 0); box:SetPoint("BOTTOMRIGHT", -L.panelButtonPad, 0)
+    if box.SetAutoFocus then box:SetAutoFocus(false) end
+    if box.SetMaxLetters then box:SetMaxLetters(40) end
+    T.SetFont(box, "sm")
+    if box.SetTextColor then box:SetTextColor(T.RGB("white")) end
+    box:SetScript("OnEditFocusGained", function() b:SetOn(true) end)
+    box:SetScript("OnEditFocusLost", function() b:SetOn(false) end)
+    box:SetScript("OnTextChanged", function(self)
+        local text = self:GetText() or ""
+        b.text:SetShown(text == "")
+        if onChanged then onChanged(text) end
+    end)
+    box:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+    box:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    b:SetScript("OnClick", function() box:SetFocus() end)
+    b.box = box
     return b
 end
 

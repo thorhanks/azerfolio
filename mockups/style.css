@@ -550,6 +550,30 @@ body :is(.toolbar .seg button, .toolbar .viewtoggle button, .pvtab.btn).on::afte
 .nextup .nname[class*="d-"] { color: var(--qd); }
 .nextup .nsub { font-size: var(--fs-xs); color: var(--dim); }
 .nextup .nempty { text-align: center; color: var(--dim); font-size: var(--fs-sm); padding: var(--s3); }
+/* Phase 15 step 11, dev bar "Dash gap": zones for your level under Next up (no reputation ledger) */
+.wherenext { margin-top: var(--s2); }
+.wnlist { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); }
+.wncard { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: end; height: 72px; padding: 6px var(--s2); overflow: hidden; text-align: left;
+  border: 1px solid #5f5141; border-radius: var(--r-ctl); background: #120c07; color: var(--white); font: var(--fs-sm) var(--font); cursor: pointer; }
+.wncard .wnart { position: absolute; inset: 0; }
+.wncard .wnart img { width: 100%; height: 100%; object-fit: cover; filter: brightness(.55); }
+.wncard.untouched .wnart img { filter: grayscale(.85) sepia(.35) brightness(.5); }
+.wncard::before { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(10,6,2,.9), rgba(10,6,2,.1) 70%); z-index: 1; }
+.wncard .wnname, .wncard .wnpct { position: relative; z-index: 2; text-shadow: 0 1px 2px #000; }
+.wncard .wnname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wncard .wnname small { display: block; font-size: var(--fs-xs); color: var(--dim); }
+.wncard .wnpct { font-weight: 400; color: var(--st-progress, #ff8040); }
+.wncard.untouched .wnpct { color: var(--dim); }
+/* Phase 15 step 11, dev bar "Search": the search box in the toolbar's language */
+.toolbar .search.s-red, .pvbar .search.s-red, .search.s-red { background: linear-gradient(180deg, #8a2414, #4a0f08); border: 1px solid #c99a4a; color: var(--wow-gold);
+  box-shadow: inset 0 0 0 1px #2a0602, 0 1px 2px #000; padding: 3px 8px; }
+.search.s-red input::placeholder { color: var(--wow-gold); }
+.search.s-red:focus-within { background: linear-gradient(180deg, #3a0a04, #5a160c); box-shadow: inset 0 2px 4px rgba(0,0,0,.75), inset 0 0 0 1px #2a0602; }
+.search.s-well { background: linear-gradient(180deg, #050302, #160e08); border: 1px solid #c99a4a; box-shadow: inset 0 2px 4px rgba(0,0,0,.85), 0 1px 2px #000; padding: 3px 8px; color: var(--wow-gold); }
+.search.s-well input::placeholder { color: var(--dim); }
+/* Phase 15 step 11, dev bar "Class later": the dull coin or a smaller count for a stop not open yet */
+.chero .cscore b.smallcount { font-size: 22px; }
+.chero .cscore .ccoin.big.dull { opacity: .9; }
 /* Zone reputation (Phase 11, round 2): a ledger under Next up, one line per faction. Not a
    completion category, so no state colours: the client's reaction colours (FACTION_BAR_COLORS). */
 .repsec { position: relative; padding: 0 var(--s2) var(--s2); }

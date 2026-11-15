@@ -69,10 +69,12 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 
 ## Faction crests (Phase 15 step 8)
 
+IDs F1/F2 (renamed from C1/C2 at the Phase 15 close: the Phase 10 celebrations below use C1/C2).
+
 | ID | What to confirm | When it comes up | How to check |
 |---|---|---|---|
-| C1 | The Horde capitals' crests (Orgrimmar 76, Thunder Bluff 81, Undercity 68, Darkspear Trolls 530) show on Thragor's Reputation tab, faction pages and ledgers; Gideon only shows the Alliance four and the neutrals | Next time Thragor is played | On Thragor: `/azf shots reputation`, then read the Home rows and a capital's page |
-| C2 | A met neutral faction's crest in full colour (Steamwheedle, Argent Dawn, Cenarion Circle, Timbermaw); so far every neutral is greyed (not met yet) | The first neutral faction met | `/azf shots reputation`, then read its row and page |
+| F1 | The Horde capitals' crests (Orgrimmar 76, Thunder Bluff 81, Undercity 68, Darkspear Trolls 530) show on Thragor's Reputation tab, faction pages and ledgers; Gideon only shows the Alliance four and the neutrals | Next time Thragor is played | On Thragor: `/azf shots reputation`, then read the Home rows and a capital's page |
+| F2 | A met neutral faction's crest in full colour (Steamwheedle, Argent Dawn, Cenarion Circle, Timbermaw); so far every neutral is greyed (not met yet) | The first neutral faction met | `/azf shots reputation`, then read its row and page |
 
 ## Celebrations (Phase 10)
 

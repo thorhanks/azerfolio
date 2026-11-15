@@ -194,6 +194,31 @@ function Zones.FitsLevel(z, level)
     return z.minLevel <= level + Zones.LEVEL_REACH and z.maxLevel >= level
 end
 
+-- Pure: "Also for your level" under a zone dashboard's Next up (Phase 15 step 11, owner chose
+-- the mockup's option): up to n (3) other zones that aren't claimed, are tracked, belong to your
+-- side (IsRelevant) and suit your level (FitsLevel, the "For my level" rule); here's continent
+-- first, then by minimum level, then by name. char = { faction, level }. Never more than the
+-- curated guide says: no level, no pick.
+function Zones.AlsoForLevel(list, here, char, n)
+    char, n = char or {}, n or 3
+    local out = {}
+    for _, z in ipairs(list or {}) do
+        if z.mapID ~= (here and here.mapID) and z.tracked and z.state ~= Zones.COMPLETE
+            and Zones.IsRelevant(z, char.faction) and Zones.FitsLevel(z, char.level) then
+            out[#out + 1] = z
+        end
+    end
+    local home = here and here.continent
+    table.sort(out, function(a, b)
+        local ah, bh = a.continent == home, b.continent == home
+        if ah ~= bh then return ah end
+        if a.minLevel ~= b.minLevel then return a.minLevel < b.minLevel end
+        return (a.name or "") < (b.name or "")
+    end)
+    for i = #out, n + 1, -1 do out[i] = nil end
+    return out
+end
+
 local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
 
 -- Pure: case-insensitive name match (plain text, not a pattern).

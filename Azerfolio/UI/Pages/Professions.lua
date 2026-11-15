@@ -748,32 +748,16 @@ local function build(parent)
         b:SetScript("OnClick", function() page:SetFilter(f) end)
         page.chips[#page.chips + 1] = b
     end
-    -- Search within the filter's results (owner, 2026-11-14), at the toolbar's right: a plain
-    -- edit box in a control frame, as the Zones catalogue's. A focuses it; Enter, Escape or B
-    -- leaves. The filter counts stay the filter's.
-    local search = W.Control(tb)
-    search.text:Hide()
-    local sbox = CreateFrame("EditBox", nil, search)
-    sbox:SetPoint("TOPLEFT", L.controlPad, 0); sbox:SetPoint("BOTTOMRIGHT", -L.controlPad, 0)
-    if sbox.SetAutoFocus then sbox:SetAutoFocus(false) end
-    if sbox.SetMaxLetters then sbox:SetMaxLetters(40) end
-    T.SetFont(sbox, "sm")
-    if sbox.SetTextColor then sbox:SetTextColor(T.RGB("white")) end
-    sbox.hint = T.Text(search, "sm", "dim")
-    sbox.hint:SetPoint("LEFT", L.controlPad, 0)
-    sbox.hint:SetText("Search")
-    sbox:SetScript("OnTextChanged", function(self)
-        local text = self:GetText() or ""
-        self.hint:SetShown(text == "")
+    -- Search within the filter's results (owner, 2026-11-14), at the toolbar's right: the
+    -- toolbar's red button with an edit box on it, as the Zones catalogue's (W.SearchBox, Phase
+    -- 15 step 11). A focuses it; Enter, Escape or B leaves. The filter counts stay the filter's.
+    local search = W.SearchBox(tb, function(text)
         if text ~= (page.searchText or "") then
             page.searchText = text
             ns.Events.Debounce("professions-search", 0.15, function() if page:IsShown() then page:Redraw() end end)
         end
     end)
-    sbox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-    sbox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-    search:SetScript("OnClick", function() sbox:SetFocus() end)
-    page.search, page.searchBox = search, sbox
+    page.search, page.searchBox = search, search.box
     page.searchText = ""
     -- The recipe summary sits on the view switch's bar, where "Y switches the view" is in the
     -- other views (owner, 2026-11-14: the red filter buttons left it no room; the legend shows Y).

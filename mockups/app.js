@@ -457,6 +457,10 @@
   }
   const fitsLevel = (z) => z.minLevel != null && z.minLevel <= CHAR.level + 3 && z.maxLevel >= CHAR.level;
   const relevant = (z) => z.faction !== (CHAR.faction === "Alliance" ? "Horde" : "Alliance");
+  // Phase 15 step 11: the search box's look (dev bar "Search"; review "Smaller polish": the only
+  // control in a different style). "red": the toolbar's red panel button, the typed text on it;
+  // "well": a dark field framed like the buttons (same height, gold edge); "before": plain box.
+  const searchCls = () => `s-${ui.searchLook || "red"}`;
 
   // =====================================================================================
   // UI state
@@ -801,7 +805,7 @@
       <div class="seg">${STATUS.map(([v, l]) => `<button class="focusable ${ui.status === v ? "on" : ""}" data-status="${v}" data-tip="<b>${l}</b>Show ${l.toLowerCase()} zones.">${l}</button>`).join("")}</div>
       ${sel("faction")}${sel("level")}${sel("sort")}
       <span class="count">${count} zones</span><span class="spacer"></span>
-      <label class="search focusable" data-search data-tip="<b>Search</b>Press A to type (on-screen keyboard on controller).">🔍<input id="searchInput" placeholder="Search" value="${esc(ui.search)}" tabindex="-1"></label>
+      <label class="search ${searchCls()} focusable" data-searchdata-tip="<b>Search</b>Press A to type (on-screen keyboard on controller).">🔍<input id="searchInput" placeholder="Search" value="${esc(ui.search)}" tabindex="-1"></label>
       <div class="viewtoggle">${VIEWS().map(([v, icon, l]) => `<button class="focusable ${ui.view === v ? "on" : ""}" data-view="${v}" title="${l}" data-tip="<b>${l} view</b>Y cycles the views.">${icon}</button>`).join("")}</div>
     </div>`;
   }
@@ -934,7 +938,20 @@
     const alive = `filter: saturate(${(0.12 + 0.88 * p).toFixed(2)}) brightness(${(0.3 + 0.22 * p).toFixed(2)}) blur(1.5px)`;
     return `<div class="dashgrid">
       <div class="standard ${z.state}" data-tip-none><div class="sbg" style="--alive:1"><div class="sbgi" style="${alive}">${art(z)}</div></div>${progressArt(z, { animate: true })}</div>
-      <div class="dashright"><div class="tiles row3">${exTile}${qTile}${fTile}</div>${nextUp(z, r)}${repSection(z)}</div></div>`;
+      <div class="dashright"><div class="tiles row3">${exTile}${qTile}${fTile}</div>${nextUp(z, r, !repFor(z) && ui.dashGap === "more" ? 8 : 5)}${repSection(z) || dashGap(z)}</div></div>`;
+  }
+  // Phase 15 step 11 (review "Empty areas"): a zone with no reputation ledger left about 200 px
+  // empty under Next up. "where" (dev bar "Dash gap"): up to three other zones that suit your
+  // level (the Zones "For my level" rule: the guide's range, your side), this continent first,
+  // each a small card (art, name, range, %) that opens it. "more": Next up shows up to 8.
+  function dashGap(z) {
+    if ((ui.dashGap || "where") !== "where") return "";
+    const picks = tracked.filter(x => x !== z && relevant(x) && x.state !== "complete" && fitsLevel(x))
+      .sort((a, b) => (b.continent === z.continent) - (a.continent === z.continent) || a.minLevel - b.minLevel || a.name.localeCompare(b.name)).slice(0, 3);
+    if (!picks.length) return "";
+    return `<div class="nextup wherenext"><div class="plate"><span>Also for your level</span></div>
+      <div class="wnlist">${picks.map(x => `<button class="wncard focusable ${x.state}" data-open="${esc(x.name)}" data-tip="<b>${esc(x.name)}</b>Levels ${shortLv(x)} (the zone guide's range) · ${pctText(x.pct)}. A opens it.">
+        <span class="wnart">${art(x)}</span><span class="wnname">${esc(x.name)}<small>${shortLv(x)} · ${esc(x.continent)}</small></span><b class="wnpct">${x.state === "untouched" ? "—" : pctText(x.pct)}</b></button>`).join("")}</div></div>`;
   }
 
   // ---- Zone reputation (Phase 11, spec §7.8) ----
@@ -1208,24 +1225,24 @@
   // "Next up in <zone>" (round 3): the few most useful things to do here now. The addon's
   // version comes from the systems (next areas in catalogue order, ready quests nearest your
   // level, flight paths not discovered); the page only draws it. Each opens its page on it.
-  function nextUp(z, r) {
-    const items = nextItems(z, r);
+  function nextUp(z, r, max = 5) {
+    const items = nextItems(z, r, max > 5);
     if (!items.length) return z.state === "complete" ? `<div class="nextup done"><div class="plate"><span>${esc(z.name)} is claimed</span></div>
       <div class="nempty">Every area, quest and flight path you can do here is done.</div></div>` : "";
     return `<div class="nextup"><div class="plate"><span>Next up in ${esc(z.name)}</span></div>
-      <div class="nlist">${items.slice(0, 5).map(it => `<button class="nitem focusable" data-next="${esc(it.key)}"
+      <div class="nlist">${items.slice(0, max).map(it => `<button class="nitem focusable" data-next="${esc(it.key)}"
         data-tip="<b>${esc(it.name)}</b>${esc(it.sub)}. A opens it.">${catIcon(it.cat)}
         <span class="nname ${it.diff ? `d-${it.diff}` : ""}">${esc(it.name)}</span><span class="nsub">${esc(it.sub)}</span></button>`).join("")}</div></div>`;
   }
   // The picks behind Next up and the Overview's suggestions (Zones.NextUp in the addon): two
   // areas to discover, three ready quests nearest your level, one flight path to discover.
-  function nextItems(z, r) {
+  function nextItems(z, r, more) {
     const items = [];
-    z.criteria.filter(c => !c.done).slice(0, 2).forEach(c =>
+    z.criteria.filter(c => !c.done).slice(0, more ? 3 : 2).forEach(c =>
       items.push({ key: `explore:${c.id}`, cat: "explore", name: c.name, sub: "Area to discover" }));
     if (r && r.status === "ready") {
       const rank = { yellow: 0, orange: 1, green: 2, red: 3, grey: 4 };
-      r.ready.slice().sort((a, b) => rank[a.diff] - rank[b.diff] || a.questLevel - b.questLevel).slice(0, 3).forEach(q =>
+      r.ready.slice().sort((a, b) => rank[a.diff] - rank[b.diff] || a.questLevel - b.questLevel).slice(0, more ? 4 : 3).forEach(q =>
         items.push({ key: `quest:${q.id}`, cat: "quests", name: q.name, sub: `Quest · level ${q.questLevel}`, diff: q.diff }));
     }
     const f = catOf(z, "flights");
@@ -2130,7 +2147,7 @@
     const title = `${g.levels.length > 1 ? "Levels" : "Level"} ${g.label}`;
     const prior = m.road.filter(s => s.lv <= g.levels[0]).pop() || m.road[0];
     const now = g.levels.filter(l => abilityState(l) === "available").reduce((a, l) => a + CLASS_ABILITIES[l].length, 0);
-    const score = g.state === "unknown" ? `<b class="dim">?</b><small>not known</small>` : g.state === "later" ? `<b class="dim">${g.levels[0] - CHAR.level}</b><small>level${g.levels[0] - CHAR.level === 1 ? "" : "s"} to go</small>`
+    const score = g.state === "unknown" ? `<b class="dim">?</b><small>not known</small>` : g.state === "later" ? laterScore(g.levels[0])
       : now ? `<b>${now}</b><small>to train now</small>` : doneMedal();
     const rows = g.levels.map(l => `<h2 class="section" data-group>Level ${l} <small>${MILE_STATE[abilityState(l)]}</small></h2><div class="csteps">${CLASS_ABILITIES[l].map(([nm, rk]) => {
       const st = abilityState(l), s = st === "learned" ? "done" : st === "available" ? "next" : st === "later" ? "later" : "unknown";
@@ -2247,6 +2264,15 @@
   // 2026-11-09): cel-seal-quests inside cel-laurel, small, in place of a check and "Done".
   // Round 3: the class coin replaces the borrowed celebration medal (owner, 2026-11-10).
   const doneMedal = () => classCoin("big");
+  // Phase 15 step 11 (review "Smaller polish"): a stop you can't start yet. Before: the levels to
+  // go in 44 px (the Next line already says it). "coin": the road's dull coin, struck gold once
+  // walked, with "Opens at level n" under it. "small": the count at the plaque's size.
+  function laterScore(lv) {
+    const togo = lv - CHAR.level, words = `level${togo === 1 ? "" : "s"} to go`;
+    if (ui.classLater === "before") return `<b class="dim">${togo}</b><small>${words}</small>`;
+    if (ui.classLater === "small") return `<b class="dim smallcount">${togo} ${words}</b><small>opens at level ${lv}</small>`;
+    return classCoin("big dull"); // owner: the coin alone, no caption
+  }
   function renderStopInto(box, m, id) {
     const nx = classNext(m);
     if (String(id).startsWith("a:")) return renderAbilitiesInto(box, m, id);
@@ -2266,7 +2292,7 @@
     const pos = s.kind === "road" ? `Stop ${m.road.indexOf(s) + 1} of ${m.road.length} on the road` : `Side path off ${esc(m.stops.find(x => x.id === s.from).name)}`;
     const togo = s.lv - CHAR.level;
     const score = s.state === "done" ? doneMedal() : s.state === "unknown" ? `<b class="dim">?</b><small>of ${qn(s.n)}, not known</small>`
-      : s.state === "later" ? `<b class="dim">${togo}</b><small>level${togo === 1 ? "" : "s"} to go</small>` : `<b>${s.d}</b><small>of ${qn(s.n)}</small>`;
+      : s.state === "later" ? laterScore(s.lv) : `<b>${s.d}</b><small>of ${qn(s.n)}</small>`;
     // Round 2: quests that share a name (The Tome of Divinity x8) lead with who and where, and every
     // step is numbered in its ring; sub-quests sit in place, unnumbered and not counted.
     // Phase 15 step 5 (R12): every step leads with what it asks (QuestieDB's objective, CLASS_OBJ;
@@ -2772,7 +2798,7 @@
         const rows = bands.map(([a, b, nm]) => { const rs = shown.filter(r => r.order >= a && r.order < b); return rs.length ? `<h2 class="section" data-group>${nm} <small>skill ${a || 1}–${Math.min(b, PMAX)} · ${rs.filter(r => r.known).length} of ${rs.length} known</small></h2><div class="precipes">${rs.map(r => recipeRow(p, r)).join("")}</div>` : ""; }).join("")
           || `<div class="pnote">${q ? `No recipe here matches "${esc(ui.profSearch.trim())}". Try another name, or clear the search.` : "None here."}</div>`;
         body = `<div class="prtool"><div class="pfilters">${chips}</div>
-          <label class="search focusable" data-psearch data-tip="<b>Search</b>Type part of a recipe's name to search this filter's recipes.">🔍<input id="profSearchInput" placeholder="Search" value="${esc(ui.profSearch || "")}" tabindex="-1"></label></div>
+          <label class="search ${searchCls()} focusable" data-psearchdata-tip="<b>Search</b>Type part of a recipe's name to search this filter's recipes.">🔍<input id="profSearchInput" placeholder="Search" value="${esc(ui.profSearch || "")}" tabindex="-1"></label></div>
           <div class="prsplit"><div class="prlist"><div class="scroll" id="precscroll">${rows}
             ${!PTRAINER[p.name] && p.nosource ? `<div class="pnote">You haven't opened a ${esc(p.name)} trainer's list yet: visiting one shows which recipes it teaches and the skill each needs.</div>` : ""}</div></div>
             <aside class="prdetail" id="precdetail">${recipeDetail(p, list.find(r => r.id === ui.recipeSel))}</aside></div>`;
@@ -3281,6 +3307,10 @@
   $("#atlasRampSel").addEventListener("change", (e) => { ui.atlasRamp = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#atlasPennantSel").addEventListener("change", (e) => { ui.atlasPennant = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#crestSel").addEventListener("change", (e) => { ui.crest = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  // Phase 15 step 11: the search box, the Class pane's later header, the dashboard's gap.
+  $("#searchLookSel").addEventListener("change", (e) => { ui.searchLook = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  $("#classLaterSel").addEventListener("change", (e) => { ui.classLater = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  $("#dashGapSel").addEventListener("change", (e) => { ui.dashGap = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#crestFallbackSel").addEventListener("change", (e) => { ui.crestFallback = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#profRoadSel").addEventListener("change", (e) => { ui.profRoad = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#profColours").addEventListener("change", (e) => { ui.profColours = e.target.checked ? "on" : "off"; rerenderKeepFocus(); e.target.blur(); });

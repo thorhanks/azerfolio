@@ -983,12 +983,23 @@ local function build(parent, opts)
     hero.kicker = T.Text(hero, "xs", "dim")
     hero.kicker:SetPoint("BOTTOMLEFT", hero.name, "TOPLEFT", 0, S.s1)
     -- The score: a number with a line under it, the medal when done (the check without the art).
+    -- "dull" (Phase 15 step 11, owner chose the mockup's "dull coin"): a stop or trainer level
+    -- you can't start yet shows the road's dull coin alone (owner: no caption under it), not the
+    -- levels to go in huge type (the Next line says that); without the coin art, the number and
+    -- `small` as before.
     function hero:SetScore(kind, big, small, color)
-        local medal = kind == "done" and self.medal ~= nil
-        if self.medal then self.medal:SetShown(medal) end
+        if kind == "dull" and not self.medal then kind = "later" end
+        local medal = (kind == "done" or kind == "dull") and self.medal ~= nil
+        if self.medal then
+            self.medal:SetShown(medal)
+            if self.medal.SetDesaturated then self.medal:SetDesaturated(kind == "dull") end
+            local tone = kind == "dull" and CT.dullCoin.later or { 1, 1, 1, 1 }
+            self.medal:SetVertexColor(tone[1], tone[2], tone[3])
+            self.medal:SetAlpha(kind == "dull" and 0.9 or 1)
+        end
         self.check:SetShown(kind == "done" and not medal)
-        self.score:SetShown(kind ~= "done")
-        self.small:SetShown(kind ~= "done" or not medal)
+        self.score:SetShown(kind ~= "done" and kind ~= "dull")
+        self.small:SetShown(not medal)
         self.score:SetText(big or "")
         self.score:SetTextColor(T.RGB(color or "classPeach"))
         self.small:SetText(kind == "done" and "Done" or (small or ""))
@@ -1503,7 +1514,7 @@ local function build(parent, opts)
         if st.state == "done" then
             hero:SetScore("done")
         elseif st.state == "later" and st.level and lv and st.level > lv then
-            hero:SetScore("later", tostring(st.level - lv), st.level - lv == 1 and "level to go" or "levels to go", "dim")
+            hero:SetScore("dull", tostring(st.level - lv), st.level - lv == 1 and "level to go" or "levels to go", "dim")
         elseif st.state == "later" and st.level and lv and st.level <= lv then
             -- Level reached, locked by something else (a step before it): say so, not a level
             -- (Simple Parchment read "1 · opens at level" at level 1, WoWScrnShot_111026_173511).
@@ -1743,7 +1754,7 @@ local function build(parent, opts)
         hero:SetLook(false, nil, false)
         local lv = charLevel()
         if nAvail > 0 then hero:SetScore("count", tostring(nAvail), "to train now")
-        elseif lv and first > lv then hero:SetScore("later", tostring(first - lv), first - lv == 1 and "level to go" or "levels to go", "dim")
+        elseif lv and first > lv then hero:SetScore("dull", tostring(first - lv), first - lv == 1 and "level to go" or "levels to go", "dim")
         else hero:SetScore("count", tostring(nAll), "learned", "dim") end
         local y = 0
         for _, lvl in ipairs(want) do

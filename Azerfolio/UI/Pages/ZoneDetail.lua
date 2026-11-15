@@ -19,6 +19,8 @@ local TILE_SQ = 168      -- round 3: square tiles side by side
 local NEXT_PLATE = 40    -- the "Next up" header plate's height
 local NEXT_ITEM_H = 40
 local NEXT_COLS = 3
+local ALSO_MAX = 3       -- Phase 15 step 11: "Also for your level" cards
+local ALSO_H = 72
 local DASH_OVER = 8      -- the right column's scroll frame reaches this far past it (plate ends, card frames)
 local STANDARD_W = 236   -- design round 2: narrower, the standard fills it
 local DASH_HEADER = 196  -- design round 2: the dashboard's taller header (pages keep bannerHeight)
@@ -516,6 +518,46 @@ function Detail.New(page)
     rep:Hide()
     d.rep = rep
     d.repRows = {}
+    -- "Also for your level" (Phase 15 step 11; the review's empty area under Next up): where a
+    -- zone has no reputation ledger, the plate and up to three cards for other zones that suit
+    -- your level (ns.Zones.AlsoForLevel). Each card: the zone's art (greyed while untouched),
+    -- name, the guide's range and continent, its %; A opens it. Placed by LayoutDash.
+    local also = T.Plate(col, NEXT_PLATE)
+    also.title:SetText("Also for your level")
+    also:Hide()
+    d.also = also
+    d.alsoCards = {}
+    for i = 1, ALSO_MAX do
+        local c = CreateFrame("Button", nil, col)
+        c:SetHeight(ALSO_H)
+        c.art = c:CreateTexture(nil, "BACKGROUND")
+        c.art:SetAllPoints()
+        c.shade = c:CreateTexture(nil, "BORDER")
+        c.shade:SetAllPoints()
+        c.shade:SetColorTexture(1, 1, 1, 1)
+        local ok = type(CreateColor) == "function" and pcall(c.shade.SetGradient, c.shade, "VERTICAL",
+            CreateColor(0.04, 0.024, 0.008, 0.92), CreateColor(0.04, 0.024, 0.008, 0.1))
+        if not ok then c.shade:SetColorTexture(0.04, 0.024, 0.008, 0.6) end
+        c.edge = W.Edge(c, "ARTWORK")
+        c.edge:SetColor("cardEdge")
+        c.name = T.Text(c, "sm", "white")
+        c.sub = T.Text(c, "xs", "dim")
+        c.sub:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT", S.s2, S.s2)
+        c.name:SetPoint("BOTTOMLEFT", c.sub, "TOPLEFT", 0, 2)
+        c.pct = T.Text(c, "md", "todo")
+        c.pct:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -S.s2, S.s2)
+        c.name:SetPoint("RIGHT", c.pct, "LEFT", -S.s2, 0)
+        c.name:SetJustifyH("LEFT"); c.name:SetWordWrap(false)
+        T.RowHighlight(c, "HIGHLIGHT")
+        function c:SetFocused(on)
+            self.focused = on
+            self.edge:SetColor(on and "focus" or "cardEdge"); self.edge:SetThickness(on and 2 or 1)
+        end
+        W.HoverInfo(c)
+        c:SetScript("OnClick", function(self) if self.item and self.item.onActivate then self.item.onActivate(self.item) end end)
+        c:Hide()
+        d.alsoCards[i] = c
+    end
     dash:SetScript("OnSizeChanged", function() Detail.LayoutDash(d) end)
 
     -- Pages (a scroll area) ---------------------------------------------------------------------
@@ -850,6 +892,7 @@ local function fillDashboard(d, zone, entry, page)
     if not canOpen then
         d.nextup:Hide(); d.nextup.empty:Hide(); for _, b in ipairs(d.nextItems) do b:Hide() end
         d.repList = nil; d.rep:Hide(); for _, r in ipairs(d.repRows) do r:Hide() end
+        d.alsoList = nil; d.also:Hide(); for _, c in ipairs(d.alsoCards) do c:Hide() end
         return {}
     end
     rows[#rows + 1] = { items = tileItems }
@@ -921,6 +964,46 @@ local function fillDashboard(d, zone, entry, page)
         r:Show()
         rows[#rows + 1] = { items = { r.item } }
     end
+
+    -- Also for your level (Phase 15 step 11): only where there's no ledger.
+    local also = nil
+    if not factions then
+        local all = page.catalogue and page.catalogue.all or ns.Zones.All()
+        local c = ns.character or {}
+        also = ns.Zones.AlsoForLevel(all, entry, { faction = c.faction, level = c.level })
+        if #also == 0 then also = nil end
+    end
+    d.alsoList = also
+    d.also:SetShown(also ~= nil)
+    for _, card in ipairs(d.alsoCards) do card:Hide() end
+    if also then
+        local row = { items = {} }
+        for i, z in ipairs(also) do
+            local card = d.alsoCards[i]
+            local zart = T.ZoneArt(z.mapID)
+            if zart then card.art:SetTexture(zart) else card.art:SetColorTexture(0.08, 0.05, 0.03, 1) end
+            card.mapID = zart and z.mapID or nil
+            local untouched = z.state ~= ns.Zones.PROGRESS
+            if card.art.SetDesaturated then card.art:SetDesaturated(untouched) end
+            local v = untouched and 0.5 or 0.6
+            card.art:SetVertexColor(v, v * 0.94, v * 0.86)
+            card.name:SetText(z.name)
+            local range = z.minLevel .. "–" .. z.maxLevel
+            card.sub:SetText(range .. "  ·  " .. (z.continent or ""))
+            local pct = not untouched and z.combined and ns.Progression.PercentText(z.combined) or nil
+            card.pct:SetText(pct or "—")
+            card.pct:SetTextColor(T.RGB(pct and "todo" or "dim"))
+            local target = { mapID = z.mapID, name = z.name, continent = z.continent, minLevel = z.minLevel,
+                maxLevel = z.maxLevel, faction = z.faction }
+            card.item = { key = "also:" .. z.mapID, frame = card, title = z.name,
+                detail = "Levels " .. range .. " (the zone guide's range)  ·  " .. (pct or "untouched") .. ". A opens it.",
+                scroll = d.dashScroll, topGap = NEXT_PLATE + S.s2,
+                actionLabel = "Open", onActivate = function() page:Open(target) end }
+            card:Show()
+            row.items[#row.items + 1] = card.item
+        end
+        rows[#rows + 1] = row
+    end
     Detail.LayoutDash(d)
     return rows
 end
@@ -973,6 +1056,25 @@ function Detail.LayoutDash(d)
             y = y + paintRepRow(row, fac, width, cols) + R.gap
         end
         height = height + S.s2 + y
+    end
+    -- Also for your level: the plate under Next up, then the cards side by side.
+    if d.alsoList then
+        local also = d.also
+        also:ClearAllPoints()
+        also:SetPoint("TOPLEFT", d.nextup, "BOTTOMLEFT", 0, -(below + S.s4))
+        also:SetPoint("RIGHT", d.nextup, "RIGHT", 0, 0)
+        local cw = math.floor((width - 16 - (ALSO_MAX - 1) * S.s3) / ALSO_MAX)
+        for i, z in ipairs(d.alsoList) do
+            local c = d.alsoCards[i]
+            c:ClearAllPoints()
+            c:SetPoint("TOPLEFT", also, "BOTTOMLEFT", 8 + (i - 1) * (cw + S.s3), -S.s2)
+            c:SetWidth(cw)
+            if c.mapID then
+                local top, bottom = ns.Theme.BannerCrop(c.mapID, cw, ALSO_H)
+                c.art:SetTexCoord(0, 1, top, bottom)
+            end
+        end
+        height = height + S.s4 + NEXT_PLATE + S.s2 + ALSO_H
     end
     d.dashScroll.child:SetHeight(math.max(1, height + S.s2))
 end
