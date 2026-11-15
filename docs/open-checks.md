@@ -101,7 +101,7 @@ So far only previews (`/azf debug celebrate stop|road|rank|mastered|rep|exalted`
 | Q1 | Quest difficulty colours match the game's quest log (Azerfolio uses the client's `GetQuestGreenRange` when it exists, else the classic table) | Any time, best at several levels | Compare a zone's Ready now chip colours with the same quests in the quest log or Questie's tracker |
 | Q2 | Skyborne race bits in QuestieDB's race masks (2^32 Alliance, 2^33 Horde) map to a Skyborne character's quests correctly | A Skyborne character | `/azf debug quests`, then compare the zone's quest list with Questie on that character |
 
-## Dungeons research (2026-11-15)
+## Dungeons (Phase 16)
 
 | ID | What to confirm | When it comes up | How to check |
 |---|---|---|---|
@@ -111,10 +111,8 @@ So far only previews (`/azf debug celebrate stop|road|rank|mastered|rep|exalted`
 | D5 | The dungeon build's first run after logging in stays near the 4 ms frame budget (Phase 16 task 3: once 14.8 ms on a cold login; 5.9-6.9 ms on later `/reload`s at item batch 500, now 250) | Any fresh login (not `/reload`) with debug on | Log in, wait 20 s, `/reload`; `luajit tools/trace-report.lua dungeons`: the latest build's max step and longest stretch per phase |
 | D6 | A dungeon quest's turn-in marks it done without `/reload` (Systems/Dungeons reads Quests' completed list, `AZF_DUNGEONS_UPDATED` "quests") | Gideon's first dungeon quest turn-in (Deadmines' quests open at 14-15; he's 10) | After the turn-in, `/azf debug dungeons deadmines`, `/reload`; `trace-report.lua dungeons deadmines`: that quest `done` and the count up by one |
 | D8 | A Dungeons card with every quest done shows the gold edge and ✓, and one with some done the orange edge; its bracket header counts it ("every quest done in 1 of n") (Phase 16 task 4; tested only with fixtures) | Gideon's first dungeon with all its quests done (the Deadmines' open at 14-15) | `/azf shots dungeons`; read the Cards shots |
-| D7 | Horde quests and places (Ragefire Chasm and Shadowfang Keep say "none for your side" on Gideon) | Thragor, task 8 | On Thragor: `/azf debug dungeons ragefire`, `/reload`; `trace-report.lua dungeons ragefire`: quests counted, givers in Orgrimmar |
 | D9 | The page's quests seal (`cel-seal-quests`, tilted with `SetRotation`) beside the score, and To do / Done with real counts, once an instance has every quest done (Phase 16 task 5; tested only with fixtures) | Gideon's first dungeon with all its quests done | Open its page; `/azf shots dungeons` or `/azf shot` |
 | D11 | On the Road, a medallion with every quest done wears the gold ring (`medallion-ring-gold`) with ✓ and the gold glow; one with some done the orange glow; the gold progress runs the painted road (stamps turned with `SetRotation`) as far as You past several instances (Phase 16 task 6; at level 10 You sits before the first medallion, so the gold is a few px long) | Gideon's first dungeon with quests done, and a higher level | `/azf shots dungeons`; read the "road" shots |
-| D12 | After the task 7 check: the instance page's banner button reads "Zone" / "Reputation" when opened from there, and a Zone Detail tile's quest line sits clear of frame A's bottom band (`dunTile.footY` 14) | Any time | `/azf shots links`; read the "dungeon opened from the zone" and "zone detail, the other capital" shots |
 | D13 | A claimed zone's Zones card: full colour, the painted standard top right, gold "✓ 100%", gold edge (Phase 16 task 7; Gideon has no claimed zone yet, tested with fixtures) | Gideon's first claimed zone | `/azf shots links`; read the cards shots |
 | D10 | Loot and keys repaint live: a dropped or bought item gets the "in your bags" check (and a key "Have") without `/reload` (`AZF_DUNGEONS_UPDATED` "bags") | Gideon picks up a boss item or a key (the Workshop Key for Gnomeregan) with the page open | Look at that boss's loot or the keys row; `/azf shot` |
 
@@ -126,6 +124,8 @@ So far only previews (`/azf debug celebrate stop|road|rank|mastered|rep|exalted`
 
 ## Done
 
+- 2026-11-15: D7, Horde dungeon quests and places on Thragor (`trace-report.lua dungeons ragefire` / `shadowfang`): Ragefire Chasm 6 quests (givers Thrall and Neeru Fireblade in Orgrimmar, Rahauro in Thunder Bluff, Varimathras in Undercity, Maur Grimtotem inside), Shadowfang Keep 3 (Silverpine and Undercity); the Deadmines and the Stockade "none for your side".
+- 2026-11-15: D12, on Thragor (`/azf shots links`, `WoWScrnShot_111526_150534`, `150552`): the instance page's banner button reads "Zone" from Zone Detail and "Reputation" from the Reputation tab; the tile's quest line sits clear of frame A's bottom band (Silverpine, Orgrimmar, Burning Steppes, normal and minimum).
 - 2026-11-15: D1, the client's dungeon APIs outside an instance (`/azfdiag dungeons`, two runs, Gideon in Elwynn): the encounter journal, entrances and map encounters are empty; the dungeon finder lists 28 classic dungeons and raids with one level each and placeholder bosses; `C_Item` gives quality, slot and counts; no lockouts saved. Details in `docs/research/dungeons.md`.
 - 2026-11-14: K5, the celebration flashes animate on textures in this client: the Explored seal and the claim seal caught mid-flash, the class and profession coins gold after the strike (`/azf shots celebrations`, `WoWScrnShot_111426_224137`-`224201`).
 - 2026-11-14: G3, the game tracks a recipe you haven't learned: `/azf debug professions track 3276` (Heavy Linen Bandage, not learned) put "Heavy Linen Bandage · Linen Cloth: 4/2" in the objective tracker (`WoWScrnShot_111426_115828`); the game reported tracked, then not tracked after the second call (trace-report professions). `SetRecipeTracked` needs three arguments here (recipeID, tracked, isRecraft).

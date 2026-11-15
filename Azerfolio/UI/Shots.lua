@@ -370,8 +370,9 @@ local function linkSteps()
         local n = #Rules.InZone(ns.DungeonData.instances, z.mapID)
         if n > denseN then dense, denseN = z, n end
     end
-    one = byMap[1436] or dense -- Westfall: The Deadmines
     local horde = ns.character and ns.character.faction == "Horde"
+    -- Westfall (The Deadmines); on the Horde, Silverpine Forest (Shadowfang Keep).
+    one = byMap[horde and 1421 or 1436] or dense
     local ownCap, otherCap = byMap[horde and 1454 or 1453], byMap[horde and 1453 or 1454]
     -- Focus a zone's first tile once the dashboard has settled (its column scrolls to it).
     local function focusTile(z)
