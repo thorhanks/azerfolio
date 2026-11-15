@@ -517,6 +517,18 @@ local function build(parent)
         if ns.UI.CurrentTab() == "zones" then refresh() end
     end)
 
+    -- The dungeon catalogue was read (or its quests changed): the dashboard's "Dungeon here"
+    -- tiles redraw (task 7). Item details and bag counts don't show here.
+    ns.Events.On("AZF_DUNGEONS_UPDATED", function(reason)
+        if reason == "items" or reason == "bags" then return end
+        if not page.zone or page.detailPage then return end
+        if not (page:IsShown() and page.detail:IsShown()) then page.detailRows = nil; page.dirty = true; return end
+        local current = ns.UI.CurrentTab() == "zones" and ns.Focus.Current()
+        show(page.zone, true)
+        if current and page.pendingFocusKey == nil then page.pendingFocusKey = current.key end
+        if ns.UI.CurrentTab() == "zones" then refresh() end
+    end)
+
     -- Level-ups change "Your level"; redraw next time the page shows.
     ns.Events.On("AZF_LEVEL_CHANGED", function() page.dirty = true end)
     page:SetScript("OnShow", function(self)

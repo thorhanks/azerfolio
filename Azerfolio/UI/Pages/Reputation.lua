@@ -107,6 +107,12 @@ local function reachText(f, reason)
     return T.Hex("gold", "Quests you haven't done") .. "  " .. s
 end
 
+-- A dungeon or raid source's instance (its key is the quest area; task 7), or nil.
+local function sourceInstance(s)
+    if not (s and (s.kind == "dungeon" or s.kind == "raid")) then return nil end
+    return ns.DungeonRules and ns.DungeonRules.ForQuestArea(s.key) or nil
+end
+
 local function sourceInfo(f, s)
     local T = ns.Theme
     local kind = T.repKinds[s.kind] or "Quests"
@@ -119,7 +125,9 @@ local function sourceInfo(f, s)
         return line .. (s.zoneFaction and (" A opens " .. (f.name or "it") .. " in " .. placeName(s) .. ".")
             or (" A opens " .. placeName(s) .. "."))
     end
-    if s.kind == "dungeon" or s.kind == "raid" then return line .. " The Dungeons tab will show it (later)." end
+    if s.kind == "dungeon" or s.kind == "raid" then
+        return line .. (sourceInstance(s) and " A opens it in the Dungeons tab." or "")
+    end
     return line
 end
 
@@ -753,6 +761,13 @@ local function build(parent)
                 if s.kind == "zone" and not notYou then
                     item.actionLabel = "Open"
                     item.onActivate = function() page:OpenZone(mapID, fid) end
+                end
+                -- A dungeon or raid: its page in the Dungeons tab; B comes back here (task 7).
+                local inst = sourceInstance(s)
+                if inst then
+                    local key = inst.key
+                    item.actionLabel = "Open"
+                    item.onActivate = function() ns.DungeonsPage.Open(key, "reputation") end
                 end
                 r.item = item
                 rows[#rows + 1] = { items = { item }, section = 1 }

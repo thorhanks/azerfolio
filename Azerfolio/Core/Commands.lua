@@ -31,6 +31,7 @@ local HELP = {
     "/azf shots class - screenshot the Class tab: the road, a stop's steps, the road's end, minimum size and wide (development)",
     "/azf shots professions - screenshot the Professions tab: each profession, the road, Next up, minimum size and wide (development)",
     "/azf shots dungeons - screenshot the Dungeons tab: Cards, List, the instance page's three views (the Deadmines, Blackrock Depths, a wing place, a raid), minimum size and wide (development)",
+    "/azf shots links - screenshot the Zones cards and Zone Detail's dungeon tiles, A to the instance and B back, the Reputation tab's dungeon link: normal, minimum and wide (development)",
     "/azf minimap - show or hide the minimap button",
 }
 

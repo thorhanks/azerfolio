@@ -1,6 +1,8 @@
 -- The Zones catalogue (spec §6, mockups/DESIGN.md "Zones"): a toolbar (status segments,
--- Level / Sort popups, zone count, search, Cards / List toggle) above illustrated cards
--- (default), a compact list grouped into sections, or the Atlas (UI/AtlasChart.lua). Data, filters, sorts and counts come from
+-- Level / Sort popups, zone count, search, Cards / List toggle) above the big art cards
+-- (default; Phase 16 task 7: the Dungeons cards' look, three across, 16:10, frame A, the zone's
+-- art in the living Atlas's sepia wash with colour fading in by %), a compact list grouped into
+-- sections, or the Atlas (UI/AtlasChart.lua). Data, filters, sorts and counts come from
 -- ns.Zones; this file only draws them. Cards, rows and headers are pooled and reused on every
 -- redraw. Used by UI/Pages/Zones.lua, which owns the page, Zone Detail and the split view.
 local _, ns = ...
@@ -25,7 +27,6 @@ local VIEWS = { { "cards", "Cards" }, { "list", "List" }, { "atlas", "Atlas" } }
 Catalogue.OPTIONS, Catalogue.STATUS, Catalogue.VIEWS = OPTIONS, STATUS, VIEWS
 
 local STATE_EDGE = { complete = "complete", progress = "todo" }
-local CARD_FRAME_OUT = 4 -- the painted frame's reach past each card's edge
 local STATE_PCT = { complete = "complete", progress = "todo", untouched = "dim", unknown = "dim", untracked = "dim" }
 
 local function label(option, value)
@@ -94,86 +95,159 @@ end
 -- Cards and rows
 ---------------------------------------------------------------------------------------------
 
+-- The big art cards (Phase 16 task 7; DESIGN "Dungeons tab" round 3 "Zones cards = the Dungeons
+-- cards", round 4 frame A; the mockup's card() / .zcard2). Pure helpers first.
+
+-- The full-colour layer's strength over the sepia wash: the zone's % fades it in from 18% (the
+-- living Atlas's colourMin) to full when claimed; nothing tracked, no colour. The % is the
+-- progression service's (z.percent); the UI only maps it to an alpha.
+function Catalogue.CardColour(z, colourMin)
+    colourMin = colourMin or 0.18
+    if z.state == "complete" then return 1 end
+    if z.state == "untracked" then return 0 end
+    local p = math.max(0, math.min(1, (z.percent or 0) / 100))
+    return colourMin + (1 - colourMin) * p
+end
+
+-- The tags top left: Recommended next, Your level (not once claimed), the zone's faction.
+-- { { text, style = "rec" | "lvl" | "fac", faction }, ... }
+function Catalogue.CardTags(z, rec, level)
+    local out = {}
+    if rec then out[#out + 1] = { text = "Recommended next", style = "rec" } end
+    if z.state ~= "complete" and ns.Zones.FitsLevel(z, level) then out[#out + 1] = { text = "Your level", style = "lvl" } end
+    if z.faction then out[#out + 1] = { text = z.faction, style = "fac", faction = z.faction } end
+    return out
+end
+
+-- The foot's line: "Lv 10-20  ·  Eastern Kingdoms".
+function Catalogue.CardMeta(z)
+    local lv = levelText(z) or "Lv ?"
+    if z.continent and z.continent ~= "" then return lv .. "  ·  " .. z.continent end
+    return lv
+end
+
+-- The card's %: "not tracked" without anything to track, "?" while unknown.
+function Catalogue.CardPct(z)
+    if z.state == "untracked" then return "not tracked" end
+    return percentText(z)
+end
+
 local function newCard(parent)
-    local T, L, S, W = ns.Theme, ns.Theme.layout, ns.Theme.space, ns.Widgets
+    local T, W, D, Z = ns.Theme, ns.Widgets, ns.Theme.layout.dunTab, ns.Theme.layout.zoneCard
+    local P = ns.DungeonsPage.Pieces
     local c = CreateFrame("Button", nil, parent)
     c.bg = T.Solid(c, "cardBg", "BACKGROUND")
     c.bg:SetAllPoints()
-    c.art = c:CreateTexture(nil, "BORDER")
-    c.art:SetPoint("TOPLEFT", 1, -1); c.art:SetPoint("TOPRIGHT", -1, -1)
-    c.edge = W.Edge(c, "ARTWORK")
-    c.emblem = c:CreateTexture(nil, "OVERLAY")
-    c.emblem:SetSize(L.checkIcon + 4, L.checkIcon + 4)
-    c.emblem:SetPoint("TOPRIGHT", c.art, "TOPRIGHT", -S.s2, -S.s2)
-    c.emblem:SetTexture(T.files.checkDone)
-    if c.emblem.SetDesaturated then c.emblem:SetDesaturated(true) end
-    c.emblem:SetVertexColor(T.RGB("complete"))
-    c.name = T.Text(c, "md", "white")
-    c.name:SetPoint("TOPLEFT", c.art, "BOTTOMLEFT", S.s3, -S.s2)
-    c.name:SetJustifyH("LEFT"); c.name:SetWordWrap(false)
-    c.pct = T.Text(c, "md", "text")
-    c.pct:SetPoint("TOPRIGHT", c.art, "BOTTOMRIGHT", -S.s3, -S.s2)
-    c.name:SetPoint("RIGHT", c.pct, "LEFT", -S.s2, 0)
+    -- The living Atlas's two layers: the sepia wash, the full colour over it by the zone's %.
+    c.wash = c:CreateTexture(nil, "BORDER")
+    c.wash:SetAllPoints()
+    c.colour = c:CreateTexture(nil, "BORDER", nil, 1)
+    c.colour:SetAllPoints()
+    c.shade = c:CreateTexture(nil, "ARTWORK")
+    c.shade:SetPoint("BOTTOMLEFT"); c.shade:SetPoint("BOTTOMRIGHT")
+    P.gradient(c.shade, "VERTICAL", 0.95, 0)
+    c.standard = c:CreateTexture(nil, "OVERLAY", nil, 3)
+    c.standard:SetSize(Z.standard[1], Z.standard[2])
+    c.standard:SetPoint("TOPRIGHT", c, "TOPRIGHT", -D.pad, -6)
+    c.check = c:CreateTexture(nil, "OVERLAY", nil, 3) -- the ✓ without the standard's art
+    c.check:SetSize(D.check, D.check)
+    c.check:SetPoint("TOPRIGHT", c, "TOPRIGHT", -D.pad + 4, -D.pad + 6)
+    c.check:SetTexture(T.files.checkDone)
+    if c.check.SetDesaturated then c.check:SetDesaturated(true) end
+    c.check:SetVertexColor(T.RGB("complete"))
+    c.tagHolder = CreateFrame("Frame", nil, c)
+    c.tagHolder:SetAllPoints()
     c.bars = W.CatBars(c)
-    c.bars:SetPoint("TOPLEFT", c.name, "BOTTOMLEFT", 0, -S.s2)
-    c.lv = T.Text(c, "xs", "dim")
-    c.lv:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT", S.s3, S.s3)
-    c.fac = T.Text(c, "xs", "dim")
-    c.fac:SetPoint("LEFT", c.lv, "RIGHT", S.s2, 0)
-    c.fit = T.Text(c, "xs", "fit")
-    c.fit:SetPoint("LEFT", c.fac, "RIGHT", S.s2, 0)
-    c.fit:SetText("Your level")
-    c.n = T.Text(c, "xs", "dim")
-    c.n:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -S.s3, S.s3)
-    function c:SetFocused(on)
-        self.focused = on
-        self:Paint()
-    end
-    -- The painted card frame (round 2); the plain edge then only shows focus.
-    c.frame = T.CardFrame(c, 22, CARD_FRAME_OUT)
+    c.bars:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT", D.pad, D.pad - 3)
+    c.meta = T.Text(c, "xs", "text")
+    c.meta:SetJustifyH("LEFT"); c.meta:SetWordWrap(false)
+    c.pct = T.Text(c, "xl", "white")
+    c.pct:SetJustifyH("RIGHT"); c.pct:SetWordWrap(false)
+    c.name = T.Text(c, "xl", "gold")
+    c.name:SetJustifyH("LEFT"); c.name:SetWordWrap(false)
+    c.frame = T.CardFrame(c, D.frameCorner, D.frameOut, "OVERLAY", "card-frame-a")
+    -- The state and focus edge, over the frame's band (as the Dungeons cards).
+    c.ring = CreateFrame("Frame", nil, c)
+    c.ring:SetPoint("TOPLEFT", c, "TOPLEFT", -1, 1); c.ring:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", 1, -1)
+    if c.ring.SetFrameLevel and c.GetFrameLevel then c.ring:SetFrameLevel(c:GetFrameLevel() + 3) end
+    c.edge = W.Edge(c.ring, "OVERLAY")
+    function c:SetFocused(on) self.focused = on; self:Paint() end
     function c:Paint()
-        local z = self.zone
-        if self.focused then
-            self.edge:SetColor("focus"); self.edge:SetThickness(2)
-            for i = 1, 4 do self.edge[i]:Show() end
-        elseif self.frame then
-            for i = 1, 4 do self.edge[i]:Hide() end
-        else
-            self.edge:SetColor(STATE_EDGE[z and z.state] or "cardEdge"); self.edge:SetThickness(1)
-        end
+        local state = self.zone and self.zone.state
+        local col = self.focused and "focus" or STATE_EDGE[state] or (not self.frame and "cardEdge") or nil
+        for i = 1, 4 do self.edge[i]:SetShown(col ~= nil) end
+        if col then self.edge:SetColor(col); self.edge:SetThickness(self.focused and 2 or 1) end
     end
     W.HoverInfo(c)
     return c
 end
 
-local function fillCard(c, z, width)
-    local T, L, S = ns.Theme, ns.Theme.layout, ns.Theme.space
-    local artH = math.floor(width * L.cardArtAspect + 0.5)
-    c:SetSize(width, artH + L.cardBody)
-    c.art:SetHeight(artH)
+-- Fills a card `width` wide (16:10). rec = the one "Recommended next" zone. Returns its height.
+local function fillCard(c, z, width, rec)
+    local T, S, D, Z = ns.Theme, ns.Theme.space, ns.Theme.layout.dunTab, ns.Theme.layout.zoneCard
+    local P = ns.DungeonsPage.Pieces
+    local h = math.floor(width * D.cardAspect + 0.5)
+    c:SetSize(width, h)
     local art = T.ZoneArt(z.mapID)
-    if art then c.art:SetTexture(art) else c.art:SetColorTexture(0, 0, 0, 1) end
-    local top, bottom = T.BannerCrop(z.mapID, width, artH)
-    c.art:SetTexCoord(0, 1, top, bottom)
-    local grey = z.state == "untouched" or z.state == "untracked"
-    if c.art.SetDesaturated then c.art:SetDesaturated(grey) end
-    local dim = z.state == "untracked" and 0.45 or (grey and 0.7 or 1)
-    c.art:SetVertexColor(dim, dim, dim)
-    c.emblem:SetShown(z.state == "complete")
+    local l, r, t, b = T.CoverCoords(width, h, 1024, 512)
+    for _, tex in ipairs({ c.wash, c.colour }) do
+        if art then tex:SetTexture(art); tex:SetTexCoord(l, r, t, b) else tex:SetColorTexture(0.1, 0.07, 0.04, 1) end
+    end
+    -- Part sepia, not fully grey (fully desaturated art all looked alike in game).
+    if c.wash.SetDesaturation then c.wash:SetDesaturation(Z.sepia)
+    elseif c.wash.SetDesaturated then c.wash:SetDesaturated(true) end
+    local dim = z.state == "untracked" and 0.6 or 1
+    c.wash:SetVertexColor(Z.washTint[1] * dim, Z.washTint[2] * dim, Z.washTint[3] * dim)
+    local a = art and Catalogue.CardColour(z, T.atlasLiving.colourMin) or 0
+    if c.colour.SetDesaturated then c.colour:SetDesaturated(false) end
+    c.colour:SetVertexColor(1, 1, 1)
+    c.colour:SetAlpha(a)
+    c.colour:SetShown(a > 0)
+    c.shade:SetHeight(math.floor(h * D.shade + 0.5))
+    -- Claimed: the painted standard top right (the ✓ without its art).
+    local claimed = z.state == "complete"
+    local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"
+    local std = claimed and T.Pennant(faction) or nil
+    if std then c.standard:SetTexture(std) end
+    c.standard:SetShown(std ~= nil)
+    c.check:SetShown(claimed and std == nil)
+    -- Tags top left; ones that don't fit beside the standard are left out (never cut).
+    local inner = width - 2 * D.pad
+    local room = inner + 2 - (claimed and (Z.standard[1] + S.s2) or 0)
+    local tags = Catalogue.CardTags(z, rec, char().level)
+    while #tags > 0 and P.placeTags(c.tagHolder, tags, D.pad - 2, -(D.pad - 4)) > room do tags[#tags] = nil end
+    if #tags == 0 then P.placeTags(c.tagHolder, tags, D.pad - 2, -(D.pad - 4)) end
+    -- The foot, bottom up: the category bars side by side, the meta line, the name and %.
+    c.bars:SetShown(z.state ~= "untracked")
+    local barsH = 0
+    if z.state ~= "untracked" then
+        c.bars:Set(z.cats, inner, true)
+        barsH = c.bars:GetHeight() + 4
+    end
+    c.meta:ClearAllPoints()
+    c.meta:SetPoint("BOTTOMLEFT", c, "BOTTOMLEFT", D.pad, D.pad - 3 + barsH)
+    c.meta:SetWidth(inner)
+    c.meta:SetText(Catalogue.CardMeta(z))
+    c.pct:ClearAllPoints()
+    c.pct:SetPoint("BOTTOMRIGHT", c.meta, "TOPRIGHT", 0, 4)
+    local pct = Catalogue.CardPct(z)
+    c.pct:SetText((claimed and "|TInterface\\RaidFrame\\ReadyCheck-Ready:20|t " or "") .. pct)
+    local pctSize = z.state == "untracked" and "sm" or "xl"
+    T.SetFont(c.pct, pctSize)
+    c.pct:SetTextColor(T.RGB(claimed and "complete" or (z.state == "progress" and "zoneCardPct")
+        or (z.state == "untracked" and "dim") or "white"))
+    -- Measured apart (a string's own width bounds its measure once it has one).
+    local pctW = math.ceil(T.MeasureText(pct, pctSize) + (claimed and 24 or 0)) + 1
+    c.pct:SetWidth(pctW)
+    c.name:ClearAllPoints()
+    c.name:SetPoint("BOTTOMLEFT", c.meta, "TOPLEFT", 0, 4)
     c.name:SetText(z.name)
-    c.name:SetTextColor(T.RGB(grey and "dim" or "white"))
-    c.pct:SetText(percentText(z))
-    c.pct:SetTextColor(T.RGB(STATE_PCT[z.state] or "dim"))
-    c.bars:Set(z.cats, width - 2 * S.s3, false)
-    c.lv:SetText(levelText(z) or "Lv ?")
-    -- Only faction territory is worth the room; contested is the norm.
-    local own = z.faction == "Alliance" or z.faction == "Horde"
-    c.fac:SetText(own and z.faction or "")
-    if own then c.fac:SetTextColor(T.RGB(z.faction)) end
-    c.fit:SetShown(z.state ~= "complete" and ns.Zones.FitsLevel(z, char().level))
-    c.n:SetText(z.state == "untracked" and "not tracked" or "")
+    -- A long name steps down a size before it's cut ("Stranglethorn Vale" at the minimum window).
+    T.FitFont(c.name, z.name, inner - pctW - S.s3, { "xl", "lg" }, 1)
+    c.name:SetWidth(math.max(1, inner - pctW - S.s3))
     c.zone = z
     c:Paint()
+    return h
 end
 
 local function newRow(parent)
@@ -331,9 +405,9 @@ function Catalogue.New(page)
     cat.emptyTitle:SetPoint("TOP", 0, -60)
     cat.emptyText = T.Text(scroll.child, "md", "dim")
     cat.emptyText:SetPoint("TOP", cat.emptyTitle, "BOTTOM", 0, -S.s2)
-    -- Cards re-flow when the width changes their column count.
+    -- Cards re-size with the width (three across, 16:10).
     scroll.onWidth = function(w)
-        if cat.view == "cards" and cat.columns ~= cat:Columns() then cat:Refresh() end
+        if cat.view == "cards" and math.abs((cat.cardsWidth or 0) - (w or 0)) >= 1 then cat:Refresh() end
         -- The Atlas scales with the width.
         if cat.view == "atlas" and math.abs((cat.atlasWidth or 0) - (w or 0)) >= 1 then cat.atlasWidth = w; cat:Refresh() end
     end
@@ -350,9 +424,9 @@ function Catalogue.New(page)
         return w
     end
 
+    -- The big art cards are three across at every width (task 7, as the Dungeons cards).
     function cat:Columns()
-        local inner = self:Width() - L.listInset - S.s6
-        return math.max(1, math.floor((inner + L.cardGap) / (L.cardMinWidth + L.cardGap)))
+        return T.layout.dunTab.cols
     end
 
     -- The view in use: the split view's list is always the compact list.
@@ -547,13 +621,23 @@ function Catalogue.New(page)
         end
 
         local y, inner = 0, width - L.listInset - S.s6
+        local D = T.layout.dunTab
         local cols = self:Columns()
-        self.columns = cols
-        local cardW = math.floor((inner - (cols - 1) * L.cardGap) / cols)
+        self.columns, self.cardsWidth = cols, width
+        local cardW = math.floor((inner - (cols - 1) * D.cardGap) / cols)
         -- The grid's rounding remainder goes into the gaps, so the last column ends at the edge.
-        local gap = cols > 1 and (inner - cols * cardW) / (cols - 1) or L.cardGap
-        -- Painted card frames reach CARD_FRAME_OUT past each card: headers match that edge.
-        local out = (self.view == "cards" and ns.Theme.Chrome("frame-card")) and CARD_FRAME_OUT or 0
+        local gap = cols > 1 and (inner - cols * cardW) / (cols - 1) or D.cardGap
+        -- Frame A reaches frameOut past each card: headers match that edge.
+        local out = self.view == "cards" and D.frameOut or 0
+        -- The one "Recommended next" zone (of those shown).
+        local c = char()
+        local here = C_Map and C_Map.GetBestMapForUnit and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
+        local hereZone = here and (ns.Exploration.ZoneForMap(here) or here)
+        local homeContinent
+        for _, z in ipairs(all) do if z.mapID == hereZone then homeContinent = z.continent end end
+        local rec = self.view == "cards" and ns.Zones.RecommendedNext(q.zones,
+            { faction = c.faction, level = c.level, continent = homeContinent }) or nil
+        self.recommended = rec and rec.mapID or nil
         for gi, g in ipairs(q.groups) do
             if g.title then
                 if gi > 1 then y = y + S.s3 end
@@ -562,7 +646,7 @@ function Catalogue.New(page)
                 h:SetPoint("TOPRIGHT", child, "TOPRIGHT", -S.s6 + out, -y)
                 h.text:SetText(g.title)
                 h.count:SetText(g.tracked == 0 and "not tracked" or string.format("%d of %d complete", g.complete, g.tracked))
-                y = y + L.listHeader + S.s2
+                y = y + L.listHeader + S.s2 + out
             end
             if self.view == "cards" then
                 for i = 1, #g.zones, cols do
@@ -570,17 +654,17 @@ function Catalogue.New(page)
                     for col = 0, cols - 1 do
                         local z = g.zones[i + col]
                         if z then
-                            local c = take("cards", newCard)
-                            fillCard(c, z, cardW)
-                            c:SetPoint("TOPLEFT", child, "TOPLEFT", math.floor(L.listInset + col * (cardW + gap) + 0.5), -y)
-                            items[#items + 1] = zoneItem(c, z)
-                            byMap[z.mapID] = c
-                            rowH = c:GetHeight()
+                            local card = take("cards", newCard)
+                            rowH = fillCard(card, z, cardW, rec ~= nil and z.mapID == rec.mapID)
+                            card:SetPoint("TOPLEFT", child, "TOPLEFT", math.floor(L.listInset + col * (cardW + gap) + 0.5), -y)
+                            items[#items + 1] = zoneItem(card, z)
+                            byMap[z.mapID] = card
                         end
                     end
                     rows[#rows + 1] = { items = items, section = gi }
-                    y = y + rowH + L.cardGap
+                    y = y + rowH + D.cardGap
                 end
+                y = y - D.cardGap + out + S.s2
             else
                 for _, z in ipairs(g.zones) do
                     local r = take("rows", newRow)

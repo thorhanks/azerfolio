@@ -35,6 +35,8 @@ local FILTER_INFO = { all = "Every dungeon and raid.", foryou = "Instances whose
     dungeon = "Only dungeons.", raid = "Only raids.", forever = "The nine dungeons new in Forever." }
 -- The views Y cycles: Cards · List · Road (task 6).
 local VIEWS = { { "cards", "Cards" }, { "list", "List" }, { "road", "Road" } }
+-- B's label when an instance was opened from another tab (task 7).
+local RETURN_LABEL = { zones = "Zone", reputation = "Reputation" }
 
 local function settings() return ns.db.dungeons end
 local function plural(n, one, many) return n == 1 and one or (many or (one .. "s")) end
@@ -149,6 +151,25 @@ end
 
 -- The toolbar's count.
 function Words.Count(shown, total) return string.format("%d of %d  ·  levels are a guide", shown, total) end
+
+-- Zone Detail (task 7; DESIGN round 2 "Zone Detail's dungeon tile"): the header plate over the
+-- zone's instances: "Dungeon here", "Raid here" or "n dungeons here". Takes instances or entries.
+function Words.Here(list)
+    local n = #(list or {})
+    if n == 0 then return nil end
+    if n > 1 then return n .. " dungeons here" end
+    local inst = list[1].inst or list[1]
+    return inst.kind == "raid" and "Raid here" or "Dungeon here"
+end
+
+-- A Zone Detail tile's line: "Lv 15-23  ·  8 bosses  ·  New in Forever"; `drop` 1 leaves out
+-- "New in Forever" (its tag is the catalogue's), for a narrow tile.
+function Words.TileMeta(inst, drop)
+    local n = #(inst.bosses or {})
+    local s = Words.Levels(inst) .. "  ·  " .. n .. " " .. plural(n, "boss", "bosses")
+    if inst.forever and (drop or 0) < 1 then s = s .. "  ·  New in Forever" end
+    return s
+end
 
 -- The adventurer's road (task 6; DESIGN rounds 2-8; the mockup's dunTrail) -----------------------
 -- Pure: positions in the design's units (the mockup's px; the page scales the strip to fit).
@@ -596,7 +617,13 @@ local function newTag(parent)
         elseif tag.style == "lvl" then bg, edge, ink, alpha = "fit", "fit", "white", 1
         elseif tag.style == "rare" then bg, edge, ink, alpha = "dunTagRareBg", "dunTagRareEdge", "dunTagRare", 0.9
         elseif tag.style == "req" then bg, edge, ink, alpha = "dunTagReqBg", "dunTagReqEdge", "dunTagReq", 0.9
-        elseif tag.style == "have" then bg, edge, ink, alpha = "dunTagBg", "complete", "complete", 0.75 end
+        elseif tag.style == "have" then bg, edge, ink, alpha = "dunTagBg", "complete", "complete", 0.75
+        elseif tag.style == "rec" then bg, edge, ink, alpha = "dunTagRecBg", "dunTagRecEdge", "white", 1
+        elseif tag.style == "fac" then
+            local key = "fac" .. tostring(tag.faction)
+            if not T.color[key] then key = "facContested" end
+            bg, edge, ink, alpha = key, key, "white", 1
+        end
         local r, g, b = T.RGB(bg)
         self.bg:SetColorTexture(r, g, b, alpha)
         self.edge:SetColor(edge)
@@ -1340,6 +1367,7 @@ local function build(parent)
     back:SetPoint("TOPRIGHT", -S.s4, -S.s3)
     back:SetText("Dungeons")
     back:SetScript("OnClick", function() page:Back() end)
+    banner.back = back -- its label follows B's (Refresh: "Zone" or "Reputation" when opened from there)
     banner:SetScript("OnSizeChanged", function(self)
         if self.inst then paintArt(self.art, self.inst, self:GetWidth(), self:GetHeight()) end
     end)
@@ -2887,7 +2915,9 @@ local function build(parent)
         if inPage then self.hasSections = pageSections > 1
         else self.hasSections = (self.sectionCount or 0) > 1 end
         self.sectionLabel = "Section"
-        self.backLabel = inPage and "Dungeons" or nil
+        -- Opened from another tab (Zone Detail's tile, a Reputation source): B goes back there.
+        self.backLabel = (self.returnTo and RETURN_LABEL[self.returnTo]) or (inPage and "Dungeons" or nil)
+        if d.banner and d.banner.back then d.banner.back:SetText(self.returnTo and RETURN_LABEL[self.returnTo] or "Dungeons") end
         ns.Focus.Rebuild()
         ns.UI.RefreshHints()
     end
@@ -3085,8 +3115,34 @@ local function build(parent)
         return self.focusRows or {}
     end
 
-    -- B: from the page back to the catalogue, on the same instance.
+    -- Opens an instance's page from another tab (task 7): Zone Detail's "Dungeon here" tiles and
+    -- the Reputation tab's dungeon and raid sources. B returns to `returnTo` ("zones" |
+    -- "reputation"). The caller selects the Dungeons tab first. False when the catalogue isn't
+    -- read yet (the tab then shows why).
+    function page:OpenFrom(key, returnTo)
+        if self.dirty then self.dirty = false; self:Redraw() end
+        if self.mode == "page" then self.mode = "list" end
+        self:OpenInstance(key)
+        local opened = self.mode == "page" or (self:Split() and self.selKey == key)
+        self.returnTo = returnTo
+        self:Refresh()
+        return opened
+    end
+
+    -- B: from the page back to the catalogue, on the same instance; opened from another tab,
+    -- back to that tab (the instance stays selected here).
     function page:Back()
+        local back = self.returnTo
+        if back then
+            self.returnTo = nil
+            if self.mode == "page" then
+                self.mode = "list"
+                self.pendingFocusKey = self.selKey and ("d:" .. self.selKey)
+                self:Refresh()
+            end
+            ns.UI.SelectTab(back)
+            return true
+        end
         if self.mode ~= "page" then return false end
         self.mode = "list"
         self.pendingFocusKey = self.selKey and ("d:" .. self.selKey)
@@ -3135,6 +3191,8 @@ local function build(parent)
     page:SetScript("OnShow", function(self)
         if self.dirty then self.dirty = false; self:Redraw() end
     end)
+    -- Leaving the tab another way (LB/RB) forgets where B would have returned to.
+    page:SetScript("OnHide", function(self) self.returnTo = nil end)
 
     -- The road at a new size: the strip scales to the new height; a new width keeps the scroll.
     rd:SetScript("OnSizeChanged", function(self, w, h)
@@ -3152,7 +3210,21 @@ local function build(parent)
     return page
 end
 
-ns.DungeonsPage = { Words = Words }
+-- Opens an instance's page from another tab; B comes back to `returnTo` (task 7). Returns true
+-- when its page opened (false before the catalogue is read: the tab says why).
+local function openFrom(key, returnTo)
+    if not (key and ns.UI and ns.UI.SelectTab) then return false end
+    ns.UI.SelectTab("dungeons")
+    local frame = ns.UI.GetFrame()
+    local dp = frame and frame.pages and frame.pages.dungeons
+    if not (dp and dp.OpenFrom) then return false end
+    return dp:OpenFrom(key, returnTo)
+end
+
+ns.DungeonsPage = { Words = Words, Open = openFrom,
+    -- Shared with Zone Detail's tiles and the Zones cards (task 7).
+    Pieces = { paintArt = paintArt, gradient = gradient, newTag = newTag, placeTags = placeTags,
+        newQuestBar = newQuestBar, zoneName = zoneName } }
 
 ns.UI.RegisterTab({
     id = "dungeons",

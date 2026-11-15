@@ -191,6 +191,29 @@ function Rules.Catalogue(char, questsByArea, filter, data)
     return all, shown
 end
 
+-- The entries whose entrance is in a zone (Zone Detail's "Dungeon here" tiles, task 7), in data
+-- order. Works on catalogue entries ({ inst = ... }) or on instances alike.
+function Rules.InZone(list, mapID)
+    local out = {}
+    for _, x in ipairs(list or {}) do
+        local inst = x.inst or x
+        for _, z in ipairs(inst.zones or {}) do
+            if z == mapID then out[#out + 1] = x; break end
+        end
+    end
+    return out
+end
+
+-- The instance a quest area belongs to (the Reputation tab's dungeon and raid sources, keyed by
+-- quest area): the first in data order, so a group's shared area opens its first wing.
+function Rules.ForQuestArea(areaID, data)
+    if areaID == nil then return nil end
+    for _, inst in ipairs((data or ddata()).instances) do
+        if inst.questArea == areaID then return inst end
+    end
+    return nil
+end
+
 -- Entries under their bracket headers, empty brackets left out. Each group:
 -- { bracket, entries, withQuests (entries with quests for you), complete (of those, every quest done) }.
 function Rules.Groups(entries)

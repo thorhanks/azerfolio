@@ -336,6 +336,152 @@ local function newRepChip(parent)
 end
 
 ---------------------------------------------------------------------------------------------
+-- "Dungeon here" (Phase 16 task 7; DESIGN "Dungeons tab" round 2, the mockup's dunTiles)
+---------------------------------------------------------------------------------------------
+
+-- A tile: the instance's painting edge to edge, a dark shade from the left, the name, "Lv 15-23 ·
+-- 8 bosses", the quest bar, the kind's icon bottom right, in card frame A. Pieces are the
+-- Dungeons tab's (UI/Pages/Dungeons.lua, loaded by the time a dashboard draws).
+local function newDunTile(parent)
+    local T, W, DT = ns.Theme, ns.Widgets, ns.Theme.layout.dunTile
+    local P = ns.DungeonsPage.Pieces
+    local b = CreateFrame("Button", nil, parent)
+    b:SetHeight(DT.h)
+    b.bg = T.Solid(b, "cardBg", "BACKGROUND"); b.bg:SetAllPoints()
+    b.art = b:CreateTexture(nil, "BORDER"); b.art:SetAllPoints()
+    b.shade = b:CreateTexture(nil, "ARTWORK"); b.shade:SetAllPoints()
+    b.shade:SetColorTexture(1, 1, 1, 1)
+    local ok = type(CreateColor) == "function" and pcall(b.shade.SetGradient, b.shade, "HORIZONTAL",
+        CreateColor(0.04, 0.024, 0.008, 0.88), CreateColor(0.04, 0.024, 0.008, 0.1))
+    if not ok then b.shade:SetColorTexture(0.04, 0.024, 0.008, 0.55) end
+    b.glyph = b:CreateTexture(nil, "OVERLAY")
+    b.glyph:SetSize(DT.glyph, DT.glyph)
+    b.glyph:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -DT.padX + 4, DT.padY - 2)
+    b.glyph:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    b.name = T.Text(b, "lg", "gold")
+    b.name:SetPoint("TOPLEFT", b, "TOPLEFT", DT.padX, -DT.padY)
+    b.name:SetJustifyH("LEFT"); b.name:SetWordWrap(false)
+    b.meta = T.Text(b, "xs", "text")
+    b.meta:SetPoint("TOPLEFT", b.name, "BOTTOMLEFT", 0, -3)
+    b.meta:SetJustifyH("LEFT"); b.meta:SetWordWrap(false)
+    b.quest = P.newQuestBar(b)
+    b.quest:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", DT.padX, DT.footY)
+    b.pending = T.Text(b, "xs", "dunFaint")
+    b.pending:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", DT.padX, DT.footY)
+    b.pending:SetJustifyH("LEFT")
+    b.frame = T.CardFrame(b, ns.Theme.layout.dunTab.frameCorner, ns.Theme.layout.dunTab.frameOut, "OVERLAY", "card-frame-a")
+    -- The state and focus edge, over the frame's band (as the Dungeons cards).
+    b.ring = CreateFrame("Frame", nil, b)
+    b.ring:SetPoint("TOPLEFT", b, "TOPLEFT", -1, 1); b.ring:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 1, -1)
+    if b.ring.SetFrameLevel and b.GetFrameLevel then b.ring:SetFrameLevel(b:GetFrameLevel() + 3) end
+    b.edge = W.Edge(b.ring, "OVERLAY")
+    function b:SetFocused(on) self.focused = on; self:Paint() end
+    function b:Paint()
+        local state = self.known and self.entry and self.entry.progress and self.entry.progress.state
+        local col = self.focused and "focus" or (state == "complete" and "complete") or (state == "progress" and "todo")
+            or (not self.frame and "cardEdge") or nil
+        for i = 1, 4 do self.edge[i]:SetShown(col ~= nil) end
+        if col then self.edge:SetColor(col); self.edge:SetThickness(self.focused and 2 or 1) end
+    end
+    W.HoverInfo(b)
+    b:SetScript("OnClick", function(self) if self.item and self.item.onActivate then self.item.onActivate(self.item) end end)
+    return b
+end
+
+-- Fills a tile for `width`: e = a catalogue entry (nil before the quests are read: inst only).
+local function paintDunTile(b, inst, e, known, width)
+    local T, DT = ns.Theme, ns.Theme.layout.dunTile
+    local P, Words = ns.DungeonsPage.Pieces, ns.DungeonsPage.Words
+    b:SetWidth(width)
+    P.paintArt(b.art, inst, width, DT.h)
+    b.glyph:SetTexture(T.layout.dunTab.kindIcon[inst.kind] or T.layout.dunTab.kindIcon.dungeon)
+    local inner = width - 2 * DT.padX - DT.glyph
+    b.name:SetWidth(inner + DT.glyph)
+    b.name:SetText(inst.name)
+    T.FitFont(b.name, inst.name, inner + DT.glyph, { "lg", "md" }, 1)
+    b.meta:SetWidth(inner)
+    for drop = 0, 1 do
+        local s = Words.TileMeta(inst, drop)
+        b.meta:SetText(s)
+        if T.MeasureText(s, "xs") <= inner then break end
+    end
+    b.quest:SetShown(e ~= nil)
+    b.pending:SetShown(e == nil)
+    if e then b.quest:Set(e.progress, known, math.min(DT.questBar, inner))
+    else b.pending:SetText("Reading its quests") end
+    b.entry, b.known = e, known
+    b:Paint()
+end
+
+-- The zone's instances (entrance here), with their entries once the catalogue is read.
+-- Returns a list of { inst, entry } (empty when none).
+local function dungeonsHere(mapID)
+    local Rules = ns.DungeonRules
+    if not (Rules and ns.DungeonData and ns.DungeonsPage) then return {} end
+    local st = ns.Dungeons and ns.Dungeons.State()
+    local all = st and st.status == "ready" and ns.Dungeons.Catalogue("all") or nil
+    local out = {}
+    if all then
+        for _, e in ipairs(Rules.InZone(all, mapID)) do out[#out + 1] = { inst = e.inst, entry = e } end
+    else
+        for _, inst in ipairs(Rules.InZone(ns.DungeonData.instances, mapID)) do out[#out + 1] = { inst = inst } end
+    end
+    return out
+end
+
+-- The tiles' columns for a width (style.css .duntiles: auto-fill, minmax(260px, 1fr)).
+local function dunCols(width)
+    local DT = ns.Theme.layout.dunTile
+    return math.max(1, math.floor((width + DT.gap) / (DT.min + DT.gap)))
+end
+
+-- Puts the tiles' focus items into rows of `cols` (the rows were made one per tile, so any
+-- column count fits; empty rows are skipped by FocusGrid).
+local function gridDunRows(d, cols)
+    d.dunCols = cols
+    for _, r in ipairs(d.dunRowList or {}) do r.items = {} end
+    for i, b in ipairs(d.dunUsed or {}) do
+        local r = d.dunRowList[math.floor((i - 1) / cols) + 1]
+        r.items[#r.items + 1] = b.item
+    end
+end
+
+-- Fills the "Dungeon here" section: appends its focus rows to `rows`. A opens the instance in the
+-- Dungeons tab; B there comes back to this zone.
+local function fillDungeons(d, zone, rows, width)
+    local S = ns.Theme.space
+    local here = dungeonsHere(zone.mapID)
+    for _, b in ipairs(d.dunTiles) do b:Hide() end
+    d.dunUsed, d.dunRowList = {}, {}
+    d.dunPlate:SetShown(#here > 0)
+    if #here == 0 then d.dunList = nil; return end
+    d.dunList = here
+    d.dunPlate.title:SetText(ns.DungeonsPage.Words.Here(here))
+    local known = ns.Dungeons and ns.Dungeons.CompletionKnown() or false
+    local Words = ns.DungeonsPage.Words
+    local column = d.dashScroll.child
+    for i, x in ipairs(here) do
+        local b = d.dunTiles[i]
+        if not b then b = newDunTile(column); d.dunTiles[i] = b end
+        local key, inst = x.inst.key, x.inst
+        local where = Words.Where(inst, ns.DungeonsPage.Pieces.zoneName)
+        local detail = x.entry and Words.Info(x.entry, known, where, true)
+            or string.format("%s, levels %d-%d (a guide). Its quests are still being read.",
+                inst.kind == "raid" and "Raid" or "Dungeon", inst.levels[1], inst.levels[2])
+        b.item = { key = "dun:" .. key, frame = b, title = inst.name, detail = detail .. " A opens it in the Dungeons tab.",
+            scroll = d.dashScroll, topGap = NEXT_PLATE + S.s2,
+            actionLabel = "Open", onActivate = function() ns.DungeonsPage.Open(key, "zones") end }
+        b.dunInst, b.dunEntry, b.dunKnown = inst, x.entry, known
+        b:Show()
+        d.dunUsed[i] = b
+        local r = { items = {} }
+        d.dunRowList[i] = r
+        rows[#rows + 1] = r
+    end
+    gridDunRows(d, dunCols(width))
+end
+
+---------------------------------------------------------------------------------------------
 -- Construction
 ---------------------------------------------------------------------------------------------
 
@@ -558,6 +704,11 @@ function Detail.New(page)
         c:Hide()
         d.alsoCards[i] = c
     end
+    -- "Dungeon here" (Phase 16 task 7): the plate under Next up, then one framed tile per
+    -- instance whose entrance is in the zone (also on capitals with nothing else to track).
+    d.dunPlate = T.Plate(col, NEXT_PLATE)
+    d.dunPlate:Hide()
+    d.dunTiles = {}
     dash:SetScript("OnSizeChanged", function() Detail.LayoutDash(d) end)
 
     -- Pages (a scroll area) ---------------------------------------------------------------------
@@ -889,11 +1040,20 @@ local function fillDashboard(d, zone, entry, page)
     end
     -- Nothing to open (a zone with nothing tracked): no focus stops, so the split view's A
     -- stays in the list; the tiles say why.
+    local dashW = d.dash:GetWidth() or 0
+    if dashW <= 0 then dashW = 900 end
+    local colW = dashW - STANDARD_W - S.s6
     if not canOpen then
         d.nextup:Hide(); d.nextup.empty:Hide(); for _, b in ipairs(d.nextItems) do b:Hide() end
+        d.nextCount = 0
         d.repList = nil; d.rep:Hide(); for _, r in ipairs(d.repRows) do r:Hide() end
         d.alsoList = nil; d.also:Hide(); for _, c in ipairs(d.alsoCards) do c:Hide() end
-        return {}
+        -- A capital with nothing else to track still shows its dungeon (task 7).
+        d.dashScroll:SetVerticalScroll(0)
+        local dunRows = {}
+        fillDungeons(d, zone, dunRows, colW)
+        Detail.LayoutDash(d)
+        return dunRows
     end
     rows[#rows + 1] = { items = tileItems }
 
@@ -946,6 +1106,9 @@ local function fillDashboard(d, zone, entry, page)
         table.insert(row.items, b.item)
     end
     d.nextCount = #picks
+
+    -- Dungeon here (Phase 16 task 7): under Next up, above the ledger.
+    fillDungeons(d, zone, rows, colW)
 
     -- Reputation (Phase 11): the zone's factions, hidden when there are none. Each line is a
     -- focus stop; A opens the faction's page.
@@ -1034,9 +1197,37 @@ function Detail.LayoutDash(d)
     -- The column's height for its scroll frame: the tiles, Next up and its items (or its
     -- "nothing to suggest" line), then the ledger.
     local n = d.nextCount or 0
+    local column = d.dashScroll.child
     local below = n > 0 and (S.s2 + math.ceil(n / NEXT_COLS) * (NEXT_ITEM_H + S.s2))
         or (S.s3 + (d.nextup.empty:GetStringHeight() or 14))
-    local height = DASH_OVER + TILE_SQ + S.s6 + NEXT_PLATE + below
+    -- `height` runs down the column: the tiles, then Next up (not on a zone with nothing to open).
+    local nextShown = d.nextup:IsShown()
+    local height = nextShown and (DASH_OVER + TILE_SQ + S.s6 + NEXT_PLATE + below) or (DASH_OVER + TILE_SQ)
+    -- Dungeon here (task 7): the plate, then the tiles in a grid (auto-fill, at least 260 wide).
+    if d.dunList then
+        local DT = ns.Theme.layout.dunTile
+        local top = height + (nextShown and S.s4 or S.s6)
+        local plate = d.dunPlate
+        plate:ClearAllPoints()
+        plate:SetPoint("TOPLEFT", column, "TOPLEFT", 0, -top)
+        plate:SetPoint("RIGHT", column, "RIGHT", 0, 0)
+        local cols = dunCols(width)
+        if cols ~= d.dunCols then
+            gridDunRows(d, cols)
+            -- The pane settled to another width after the fill: D-pad rows follow the new grid.
+            if ns.UI.CurrentTab and ns.UI.CurrentTab() == "zones" and d:IsShown() then ns.Focus.Rebuild() end
+        end
+        local tw = math.floor((width - (cols - 1) * DT.gap) / cols)
+        local y0 = top + NEXT_PLATE + S.s2
+        for i, b in ipairs(d.dunUsed) do
+            local c, r = (i - 1) % cols, math.floor((i - 1) / cols)
+            b:ClearAllPoints()
+            b:SetPoint("TOPLEFT", column, "TOPLEFT", DASH_OVER + c * (tw + DT.gap), -(y0 + r * (DT.h + DT.gap)))
+            paintDunTile(b, b.dunInst, b.dunEntry, b.dunKnown, tw)
+        end
+        height = y0 + math.ceil(#d.dunUsed / cols) * (DT.h + DT.gap) - DT.gap
+        below = height - (DASH_OVER + TILE_SQ + S.s6 + NEXT_PLATE)
+    end
     -- The Reputation ledger: under Next up's items (or its "nothing to suggest" line).
     if d.repList then
         local R = ns.Theme.layout.rep

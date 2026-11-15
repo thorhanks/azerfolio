@@ -222,30 +222,41 @@ return function(t)
         return table.concat(out, ",")
     end
 
-    t.test("catalogue: cards by default, four to a row at the default size, grouped by level", function()
+    t.test("catalogue: the big art cards by default, three to a row, grouped by level", function()
         padUI = true
         local ns = boot({ schemaVersion = 4, lastTab = "zones", zones = { faction = "all" } })
         slash("")
         local cat = page(ns).catalogue
         t.eq(cat:View(), "cards")
-        t.eq(cat.columns, 4)
+        t.eq(cat.columns, 3, "the big art cards: three across (task 7)")
         local rows = page(ns):GetFocusRows()
         t.eq(#rows[1].items, 11, "toolbar: 4 segments, Show, Level, Sort, search, Cards, List, Atlas")
-        t.eq(#rows[2].items, 4, "first card row")
-        t.eq(rows[2].items[1].title, "Dun Morogh"); t.eq(rows[2].items[4].title, "Teldrassil")
-        t.eq(rows[3].items[1].title, "Zephras Isle", "the bracket's fifth zone wraps")
+        t.eq(#rows[2].items, 3, "first card row")
+        t.eq(rows[2].items[1].title, "Dun Morogh"); t.eq(rows[3].items[1].title, "Teldrassil")
+        t.eq(rows[3].items[2].title, "Zephras Isle", "the bracket's fifth zone")
         t.eq(cat.headers[1].text:GetText(), "Levels 1-10")
         t.eq(cat.headers[1].count:GetText(), "1 of 4 complete", "Dun Morogh; Zephras Isle isn't tracked")
         local c = cat.byMap[1429]
+        local w, h = c:GetWidth(), c:GetHeight()
+        t.ok(math.abs(h - math.floor(w * 10 / 16 + 0.5)) < 1, "16:10: " .. w .. "x" .. h)
         t.eq(c.pct:GetText(), "40%"); t.eq(c.bars.slots[1].count:GetText(), "2/5", "exploration bar")
         t.eq(c.bars.slots[2]:IsShown(), false, "no quests (no QuestieDB): slot left empty, not 0")
-        t.eq(c.lv:GetText(), "Lv 1-10")
-        t.eq(c.fac:GetText(), "Alliance"); t.eq(cat.byMap[1411].fac:GetText(), "Horde")
-        t.eq(cat.byMap[2521].fac:GetText(), "", "Zephras Isle: contested isn't shown on cards")
-        t.eq(c.fit:IsShown(), true, "level 9 fits 1-10")
-        t.eq(cat.byMap[1426].emblem:IsShown(), true, "complete: emblem")
+        t.ok(c.meta:GetText():find("^Lv 1%-10  ·  "), c.meta:GetText())
+        local function tagTexts(card)
+            local o = {}
+            for _, tg in ipairs(card.tagHolder.tags or {}) do if tg:IsShown() then o[#o + 1] = tg.text:GetText() end end
+            return table.concat(o, ",")
+        end
+        t.eq(tagTexts(c), "Your level,Alliance", "level 9 fits 1-10; the faction")
+        t.eq(tagTexts(cat.byMap[1411]), "Your level,Horde")
+        t.ok(c.colour:IsShown() and math.abs(c.colour:GetAlpha() - (0.18 + 0.82 * 0.4)) < 0.01, "colour fades in by the %")
+        local dm = cat.byMap[1426]
+        t.eq(dm.colour:GetAlpha(), 1, "claimed: full colour")
+        t.eq(dm.standard:IsShown() or dm.check:IsShown(), true, "claimed: the standard (or the ✓ without its art)")
+        t.eq(tagTexts(dm):find("Your level"), nil, "no Your level once claimed")
         t.eq(cat.byMap[1436].pct:GetText(), "?", "Westfall: no data is not 0%")
-        t.eq(cat.byMap[2521].n:GetText(), "not tracked"); t.eq(cat.byMap[2521].pct:GetText(), "-")
+        t.eq(cat.byMap[2521].pct:GetText(), "not tracked"); t.eq(cat.byMap[2521].bars:IsShown(), false)
+        t.eq(cat.byMap[2521].colour:IsShown(), false, "nothing tracked: the sepia wash only")
         t.eq(cat.count:GetText(), "6 zones")
         t.eq(#ns.Debug.errors, 0)
     end)
@@ -897,6 +908,144 @@ return function(t)
         t.eq(dp.mode, "list"); t.eq(ns.Focus.Current().key, "d:wailing")
         t.eq(#ns.Debug.errors, 0)
         restore()
+    end)
+
+    t.test("links in (task 7): Zone Detail's Dungeon here tiles, A opens the instance, B back to the zone", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local opts = {}
+        local restore = dunStub(ns, opts)
+        local W = ns.DungeonsPage.Words
+        t.eq(W.Here({ ns.Dungeons.Instance("deadmines") }), "Dungeon here")
+        t.eq(W.Here({ ns.Dungeons.Instance("moltenCore") }), "Raid here")
+        t.eq(W.Here({ ns.Dungeons.Instance("deadmines"), ns.Dungeons.Instance("moltenCore") }), "2 dungeons here")
+        t.eq(W.Here({}), nil)
+        t.eq(W.TileMeta(ns.Dungeons.Instance("deadmines")), "Lv 15-23  ·  8 bosses")
+        t.ok(W.TileMeta(ns.Dungeons.Instance("hallOfThanes")):find("New in Forever", 1, true))
+        t.eq(W.TileMeta(ns.Dungeons.Instance("hallOfThanes"), 1):find("New in Forever", 1, true), nil, "a narrow tile drops it")
+        slash("")
+        ns.UI.SelectTab("zones")
+        local zp = page(ns)
+        local d = zp.detail
+        zp:Open({ mapID = 1436, name = "Westfall" })
+        t.eq(d.dunPlate:IsShown(), true)
+        t.eq(d.dunPlate.title:GetText(), "Dungeon here")
+        local tile = d.dunTiles[1]
+        t.eq(tile:IsShown(), true)
+        t.eq(tile.name:GetText(), "The Deadmines")
+        t.eq(tile.meta:GetText(), "Lv 15-23  ·  8 bosses")
+        t.ok(tile.quest.text:GetText():find("2 / 2 quests", 1, true), tile.quest.text:GetText())
+        t.eq(tile.item.key, "dun:deadmines")
+        t.ok(tile.item.detail:find("A opens it in the Dungeons tab.", 1, true), tile.item.detail)
+        -- A: the instance's page in the Dungeons tab; B: back to Westfall on the same tile.
+        ns.Focus.FocusKey("dun:deadmines")
+        t.eq(ns.Focus.Current().key, "dun:deadmines", "the tile is a focus stop")
+        press(ns, "PAD1")
+        t.eq(ns.UI.CurrentTab(), "dungeons")
+        local dp = ns.UI.GetFrame().pages.dungeons
+        t.eq(dp.mode, "page")
+        t.eq(dp.detail.banner.name:GetText(), "The Deadmines")
+        t.eq(dp.backLabel, "Zone")
+        t.eq(dp.detail.banner.back:GetText(), "Zone", "the banner's button says the same")
+        press(ns, "PAD2")
+        t.eq(ns.UI.CurrentTab(), "zones")
+        t.eq(zp.mode, "detail"); t.eq(zp.zone.mapID, 1436)
+        t.eq(ns.Focus.Current().key, "dun:deadmines")
+        t.eq(dp.mode, "list", "the Dungeons tab is back on its catalogue")
+        t.eq(dp.returnTo, nil)
+        -- No dungeon in Elwynn Forest; Dun Morogh's Gnomeregan has no quests mapped for the stub.
+        zp:Open({ mapID = 1429, name = "Elwynn Forest" })
+        t.eq(d.dunPlate:IsShown(), false); t.eq(d.dunTiles[1]:IsShown(), false)
+        zp:Open({ mapID = 1426, name = "Dun Morogh" })
+        t.eq(d.dunTiles[1].name:GetText(), "Gnomeregan")
+        t.eq(d.dunTiles[1].quest.text:GetText(), "No quests")
+        -- Before the catalogue is read: the tile is there, its quests aren't counted.
+        opts.state = { status = "building" }
+        ns.Events.Send("AZF_DUNGEONS_UPDATED", "build")
+        t.eq(d.dunTiles[1]:IsShown(), true)
+        t.eq(d.dunTiles[1].pending:GetText(), "Reading its quests")
+        t.eq(d.dunTiles[1].quest:IsShown(), false)
+        opts.state = nil
+        -- Leaving the Dungeons tab with LB/RB forgets the way back.
+        ns.UI.SelectTab("zones")
+        zp:Open({ mapID = 1436, name = "Westfall" })
+        ns.DungeonsPage.Open("deadmines", "zones")
+        t.eq(dp.returnTo, "zones")
+        ns.UI.SelectTab("overview")
+        t.eq(dp.returnTo, nil)
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("links in (task 7): the Reputation tab's dungeon source opens the instance; B comes back", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local restoreDun = dunStub(ns, {})
+        local restoreZone = repStub(ns)
+        local list, _, restore = tabStub(ns)
+        list[1].sources[2] = { kind = "dungeon", key = ns.Dungeons.Instance("deadmines").questArea, name = "The Deadmines",
+            count = 2, oneTime = 2, repeats = 0, done = 0, left = 2, unknown = 0, amount = 350, amountLeft = 350, quests = {} }
+        slash("")
+        ns.UI.SelectTab("reputation")
+        local rp = ns.UI.GetFrame().pages.reputation
+        ns.Focus.FocusKey("f:72")
+        press(ns, "PAD1")
+        t.eq(rp.mode, "detail")
+        local key = "s:dungeon:" .. tostring(list[1].sources[2].key)
+        ns.Focus.FocusKey(key)
+        t.eq(ns.Focus.Current().key, key)
+        t.ok(ns.Focus.Current().detail:find("A opens it in the Dungeons tab.", 1, true), ns.Focus.Current().detail)
+        press(ns, "PAD1")
+        t.eq(ns.UI.CurrentTab(), "dungeons")
+        local dp = ns.UI.GetFrame().pages.dungeons
+        t.eq(dp.detail.banner.name:GetText(), "The Deadmines")
+        t.eq(dp.backLabel, "Reputation")
+        press(ns, "PAD2")
+        t.eq(ns.UI.CurrentTab(), "reputation")
+        t.eq(rp.mode, "detail"); t.eq(ns.Focus.Current().key, key, "back on the same source")
+        t.eq(#ns.Debug.errors, 0)
+        restore(); restoreZone(); restoreDun()
+    end)
+
+    t.test("/azf shots links (task 7): cards, tiles, A and B, restored at the end", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local restore = dunStub(ns, {})
+        _G.screenshotsTaken = 0
+        slash("")
+        local labels = {}
+        for _, s in ipairs(ns.UI.ShotSteps("links")) do labels[#labels + 1] = s.label end
+        local all = table.concat(labels, ", ")
+        t.ok(all:find("zones, cards at minimum size", 1, true) and all:find("dungeon opened from the zone", 1, true)
+            and all:find("back to the zone (B)", 1, true) and all:find("zones wide, dungeon here", 1, true), all)
+        slash("shots links")
+        wow.runTimers()
+        t.eq(_G.screenshotsTaken, #labels - 2, "the fixture's map tree has neither capital: those steps take no picture")
+        t.eq(ns.UI.CurrentTab(), "overview", "tab restored")
+        t.eq(ns.UI.GetFrame():GetWidth(), 1160, "size restored")
+        t.eq(ns.UI.GetFrame().pages.dungeons.mode, "list")
+        t.eq(ns.UI.GetFrame().pages.zones.mode, "list")
+        t.eq(#ns.Debug.errors, 0, ns.Debug.errors[1] and tostring(ns.Debug.errors[1].message or ns.Debug.errors[1]))
+        restore()
+    end)
+
+    t.test("zones cards (task 7): colour by %, tags, meta and the % in words", function()
+        local ns = boot()
+        local C = ns.ZonesCatalogue
+        t.eq(C.CardColour({ state = "complete", percent = 100 }), 1)
+        t.eq(C.CardColour({ state = "untracked" }), 0)
+        t.eq(C.CardColour({ state = "untouched", percent = 0 }), 0.18, "a touch of colour under the wash")
+        t.ok(math.abs(C.CardColour({ state = "progress", percent = 50 }) - 0.59) < 1e-9)
+        t.eq(C.CardColour({ state = "unknown" }), 0.18, "unknown: no % read as 0, the floor only")
+        local z = { state = "progress", minLevel = 10, maxLevel = 20, continent = "Eastern Kingdoms", faction = "Contested" }
+        local tags = C.CardTags(z, true, 12)
+        t.eq(#tags, 3); t.eq(tags[1].text, "Recommended next"); t.eq(tags[2].text, "Your level"); t.eq(tags[3].faction, "Contested")
+        t.eq(#C.CardTags({ state = "complete", minLevel = 10, maxLevel = 20 }, false, 12), 0, "claimed: no Your level; no faction known")
+        t.eq(C.CardMeta(z), "Lv 10-20  ·  Eastern Kingdoms")
+        t.eq(C.CardMeta({ minLevel = 5, maxLevel = 5 }), "Lv 5")
+        t.eq(C.CardMeta({}), "Lv ?")
+        t.eq(C.CardPct({ state = "untracked" }), "not tracked")
+        t.eq(C.CardPct({ state = "unknown" }), "?")
     end)
 
     t.test("dungeon page: Overview, Bosses & loot, Quests, wing tabs, X, the views kept between instances", function()
@@ -1777,6 +1926,11 @@ return function(t)
         slash("")
         local cat = page(ns).catalogue
         cat:CycleView(); cat:CycleView()
+        -- One round of each view first: the cards' tag pills and the text ruler are made on first use.
+        for _ = 1, 3 do
+            for _, b in ipairs(cat.status) do b.item.onActivate(b.item) end
+            cat:CycleView()
+        end
         local before = wow.frameCount()
         for _ = 1, 5 do
             for _, b in ipairs(cat.status) do b.item.onActivate(b.item) end
@@ -1929,6 +2083,7 @@ return function(t)
         slash("")
         local page = ns.UI.GetFrame().pages.zones
         page:Open({ mapID = 1429, name = "Elwynn Forest" }); page:Back()
+        page:Open({ mapID = 1426, name = "Dun Morogh" }); page:Back() -- Gnomeregan's tile, made once
         local before = wow.frameCount()
         for _ = 1, 5 do
             page:Open({ mapID = 1429, name = "Elwynn Forest" }); page:Back()

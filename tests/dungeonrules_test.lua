@@ -285,4 +285,26 @@ return function(t)
         t.same(f[3], { factionID = 54, amount = 100, quests = 1 })
         t.eq(#R.Factions({ { reps = { { 72, -50 } } } }), 0, "losses don't count")
     end)
+
+    t.test("links in (task 7): instances by entrance zone, and by quest area", function()
+        local ns = load()
+        local R = ns.DungeonRules
+        local insts = ns.DungeonData.instances
+        local function keysOf(list)
+            local o = {}
+            for i, x in ipairs(list) do o[i] = (x.inst or x).key end
+            return table.concat(o, " ")
+        end
+        t.eq(keysOf(R.InZone(insts, 1436)), "deadmines", "Westfall")
+        t.eq(keysOf(R.InZone(insts, 1453)), "stockade", "a capital: Stormwind City")
+        t.eq(keysOf(R.InZone(insts, 1454)), "ragefire", "Orgrimmar")
+        t.eq(#R.InZone(insts, 1420), 5, "Tirisfal Glades: the Scarlet Monastery's four wings and the Ruins of Lordaeron")
+        t.eq(#R.InZone(insts, 1429), 0, "Elwynn Forest: none")
+        local all = R.Catalogue(gideon(20), {}, "all")
+        t.eq(keysOf(R.InZone(all, 1436)), "deadmines", "catalogue entries work too")
+        t.eq(R.InZone(all, 1436)[1].progress.total, 0)
+        t.eq(R.ForQuestArea(1581).key, "deadmines")
+        t.eq(R.ForQuestArea(796).key, R.InZone(insts, 1420)[1].key, "a group's shared area opens its first wing")
+        t.eq(R.ForQuestArea(123456), nil); t.eq(R.ForQuestArea(nil), nil)
+    end)
 end

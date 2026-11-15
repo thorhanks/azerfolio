@@ -267,4 +267,31 @@ return function(t)
         local none = ns.Zones.Query(catalogue(ns), { search = "Silithus" })
         t.eq(none.shown, 0); t.eq(#none.groups, 0)
     end)
+
+    t.test("recommended next (the Zones cards' tag): your side, not claimed, from two below your level", function()
+        local ns = load()
+        local function lv(lo, hi, extra)
+            local e = { minLevel = lo, maxLevel = hi }
+            for k, v in pairs(extra or {}) do e[k] = v end
+            return e
+        end
+        local list = {
+            zone(ns, 1429, "Elwynn Forest", tracked(ns, 2, 8), lv(1, 10)),               -- too low for 10
+            zone(ns, 1436, "Westfall", tracked(ns, 0, 10), lv(10, 20)),                  -- untouched
+            zone(ns, 1432, "Loch Modan", tracked(ns, 0, 10), lv(10, 20)),
+            zone(ns, 1433, "Redridge Mountains", tracked(ns, 1, 9), lv(15, 25)),         -- in progress
+            zone(ns, 1411, "Durotar", tracked(ns, 0, 11), lv(10, 20, { faction = "Horde", continent = "Kalimdor" })),
+            zone(ns, 1453, "Stormwind City", { status = "untracked" }, lv(10, 20)),
+            zone(ns, 1437, "Wetlands", tracked(ns, 12, 0), lv(10, 20)),                  -- claimed
+        }
+        local R = ns.Zones.RecommendedNext
+        t.eq(R(list, { faction = "Alliance", level = 10 }).name, "Redridge Mountains", "one in progress first")
+        list[4] = zone(ns, 1433, "Redridge Mountains", tracked(ns, 0, 10), lv(15, 25))
+        t.eq(R(list, { faction = "Alliance", level = 10 }).name, "Loch Modan", "then the lowest range, then by name")
+        t.eq(R(list, { faction = "Alliance", level = 10, continent = "Kalimdor" }).name, "Loch Modan",
+            "Durotar is the Horde's")
+        t.eq(R(list, { faction = "Horde", level = 10, continent = "Kalimdor" }).name, "Durotar", "your continent before the name")
+        t.eq(R(list, { faction = "Alliance" }), nil, "no level, no pick")
+        t.eq(R(list, { faction = "Alliance", level = 40 }), nil, "nothing that high")
+    end)
 end

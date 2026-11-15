@@ -219,6 +219,33 @@ function Zones.AlsoForLevel(list, here, char, n)
     return out
 end
 
+-- Pure: the single "Recommended next" zone on the Zones cards (DESIGN "Zones: three views", round 3
+-- "Zones cards = the Dungeons cards"; the mockup's nextForLevel): of the tracked zones on your side
+-- that aren't claimed and whose curated range starts no lower than two below your level, one
+-- already in progress first, then the lowest range, then your continent, then by name. nil
+-- without a level or a pick. char = { faction, level, continent }.
+function Zones.RecommendedNext(list, char)
+    char = char or {}
+    if type(char.level) ~= "number" then return nil end
+    local floor = math.max(1, char.level - 2)
+    local best
+    local function better(a, b)
+        local ap, bp = a.state == Zones.PROGRESS, b.state == Zones.PROGRESS
+        if ap ~= bp then return ap end
+        if a.minLevel ~= b.minLevel then return a.minLevel < b.minLevel end
+        local ah, bh = a.continent == char.continent, b.continent == char.continent
+        if ah ~= bh then return ah end
+        return (a.name or "") < (b.name or "")
+    end
+    for _, z in ipairs(list or {}) do
+        if z.tracked and z.state ~= Zones.COMPLETE and Zones.IsRelevant(z, char.faction)
+            and type(z.minLevel) == "number" and z.minLevel >= floor then
+            if not best or better(z, best) then best = z end
+        end
+    end
+    return best
+end
+
 local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
 
 -- Pure: case-insensitive name match (plain text, not a pattern).

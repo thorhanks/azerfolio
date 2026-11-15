@@ -97,10 +97,7 @@ Theme.layout = {
     searchMinWidth = 100,
     popupRow = 30,
     popupWidth = 200,
-    cardMinWidth = 240,        -- cards are at least this wide; the grid adds columns as it can
-    cardGap = 16,
-    cardArtAspect = 5 / 16,    -- art band height / width
-    cardBody = 122,            -- name line, three category bars, meta line (108 overlapped in game)
+    -- The Zones cards use layout.dunTab's (Phase 16 task 7: three across, 16:10) and zoneCard.
     zoneRow = 48,              -- list view row
     zoneThumb = { 64, 32 },
     levelBarWidth = 120,
@@ -513,6 +510,26 @@ Theme.layout.dunTab = {
     splitList = 720,           -- the wide split's list column (.dunsplit)
     banner = 216,              -- the instance page's banner (round 3, idea 1)
     kindIcon = { dungeon = "Interface\\Icons\\INV_Misc_Key_03", raid = "Interface\\Icons\\INV_Misc_Head_Dragon_01" },
+}
+-- Task 7: the Zones tab's cards are the Dungeons cards (DESIGN round 3 "Zones cards", style.css
+-- .zcard2): the zone's art in the living Atlas's look, tags (.tag.rec, .fac), the painted standard
+-- top right when claimed, the name and %, "Lv 10-20 · Eastern Kingdoms" and the category bars.
+Theme.color.dunTagRecBg = hex("9c2a1a")     -- .tag.rec
+Theme.color.dunTagRecEdge = hex("d0603c")
+Theme.color.facAlliance = hex("3d6fd1")     -- .fac.Alliance (a tag's ground)
+Theme.color.facHorde = hex("c0392b")
+Theme.color.facContested = hex("b08a2e")
+Theme.color.zoneCardPct = hex("ffd9a8")     -- .zcard2.progress .dcpct
+Theme.layout.zoneCard = {
+    sepia = 0.75,              -- the wash's desaturation (filter: sepia(.75) saturate(.55))
+    washTint = { 0.92, 0.8, 0.62 }, -- warm and a little darker (brightness(.85))
+    standard = { 24, 48 },     -- the painted standard top right when claimed (.zcstd, 1:2 cloth)
+}
+-- Task 7: Zone Detail's "Dungeon here" tiles (DESIGN round 2, style.css .duntile).
+Theme.layout.dunTile = {
+    h = 112, min = 260, gap = 12, -- .duntiles minmax(260px, 1fr), gap var(--s3)
+    padX = 14, padY = 10, glyph = 22, questBar = 220,
+    footY = 14,                -- the quest line's lift off the bottom (at 10 it sat on frame A's band in game, WoWScrnShot_111526_145020)
 }
 -- The instance page (Phase 16 task 5; DESIGN round 5-6, style.css .dpbody/.dpanel/.dseals/.dbv/.dqv).
 Theme.color.dunPanel = hex("0c0703")        -- .dpanel rgba(12,7,3,.62)

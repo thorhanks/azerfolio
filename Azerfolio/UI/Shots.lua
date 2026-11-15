@@ -356,6 +356,105 @@ local function dungeonSteps()
     }
 end
 
+-- /azf shots links (Phase 16 task 7): the Zones tab's big art cards (normal and minimum size),
+-- Zone Detail's "Dungeon here" tiles (a zone with one dungeon, the zone with the most, both
+-- capitals; normal, minimum and wide), A on a tile (the instance's page, "B Zone") and B back,
+-- then a Reputation faction's dungeon source, A to the instance and B back. The Zones view is
+-- restored at the end.
+local function linkSteps()
+    local minW, minH = ns.Config.RANGES["window.width"][1], ns.Config.RANGES["window.height"][1]
+    local Rules = ns.DungeonRules
+    local byMap, one, dense, denseN = {}, nil, nil, 0
+    for _, z in ipairs(allZones()) do
+        byMap[z.mapID] = z
+        local n = #Rules.InZone(ns.DungeonData.instances, z.mapID)
+        if n > denseN then dense, denseN = z, n end
+    end
+    one = byMap[1436] or dense -- Westfall: The Deadmines
+    local horde = ns.character and ns.character.faction == "Horde"
+    local ownCap, otherCap = byMap[horde and 1454 or 1453], byMap[horde and 1453 or 1454]
+    -- Focus a zone's first tile once the dashboard has settled (its column scrolls to it).
+    local function focusTile(z)
+        local first = z and Rules.InZone(ns.DungeonData.instances, z.mapID)[1]
+        if not first then return end
+        C_Timer.After(0.2, function() ns.Focus.FocusKey("dun:" .. first.key); UI.RefreshHints() end)
+    end
+    local function zone(z, w, h)
+        return function()
+            if not z then return false end
+            UI.SelectTab("zones")
+            local page = zonesPage()
+            if w then
+                if page and page.mode == "detail" then page:Back() end
+                UI.SelectTab("zones"); UI.FitSize(w, h)
+                if page then page:Open(z); UI.shotsOpenedDetail = true end
+            else
+                openDetail(z)
+            end
+            focusTile(z)
+            return true
+        end
+    end
+    local function cards(fn)
+        return function()
+            UI.SelectTab("zones") -- builds the page the first time
+            local page = zonesPage()
+            if page.mode == "detail" then page:Back() end
+            if UI.shotsView == nil then UI.shotsView = ns.db.zones.displayMode end
+            if ns.db.zones.displayMode ~= "cards" then ns.db.zones.displayMode = "cards"; page.catalogue:Refresh() end
+            fn()
+            UI.RefreshHints()
+        end
+    end
+    local function activate() local item = ns.Focus.Current(); if item and item.onActivate then item.onActivate(item) end; UI.RefreshHints() end
+    local function back() local p = dunPage(); if p then p:Back() end; UI.RefreshHints() end
+    -- A faction this character can raise in a dungeon or raid (the Reputation tab's sources).
+    local function dunSource()
+        local ok, all = pcall(ns.Reputation.AllFactions)
+        for _, f in ipairs(ok and all or {}) do
+            for _, s in ipairs(f.sources or {}) do
+                if (s.kind == "dungeon" or s.kind == "raid") and s.forYou ~= false and Rules.ForQuestArea(s.key) then
+                    return f.factionID, "s:" .. s.kind .. ":" .. tostring(s.key)
+                end
+            end
+        end
+    end
+    local list = {
+        { label = "zones, cards", fn = cards(function() UI.ApplyGeometry(); UI.Relayout(); ns.Focus.Jump(1) end) },
+        { label = "zones, cards, next section", fn = cards(function() ns.Focus.Jump(1) end) },
+        { label = "zones, cards, a section on", fn = cards(function() ns.Focus.Jump(1); ns.Focus.Jump(1) end) },
+        { label = "zones, cards at minimum size", fn = cards(function() UI.FitSize(minW, minH); ns.Focus.Jump(-3) end) },
+        { label = "zone detail, dungeon here", fn = zone(one) },
+        { label = "dungeon opened from the zone", fn = activate },
+        { label = "back to the zone (B)", fn = back },
+        { label = "zone detail, " .. denseN .. " dungeons here", fn = zone(dense) },
+        { label = "zone detail, capital", fn = zone(ownCap) },
+        { label = "zone detail, the other capital", fn = zone(otherCap) },
+        { label = "zone detail, dungeon here at minimum size", fn = zone(one, minW, minH) },
+        { label = "zone detail, " .. denseN .. " dungeons here at minimum size", fn = zone(dense, minW, minH) },
+        { label = "zones wide, dungeon here", fn = zone(one, wideSize()) },
+        { label = "zones wide, " .. denseN .. " dungeons here", fn = zone(dense, wideSize()) },
+        { label = "zones wide, dungeon opened", fn = activate },
+        { label = "zones wide, back (B)", fn = back },
+    }
+    local fid, key = dunSource()
+    if fid then
+        list[#list + 1] = { label = "reputation, a dungeon source", fn = function()
+            UI.ApplyGeometry(); UI.Relayout(); UI.SelectTab("reputation")
+            local rp = repPage()
+            if not rp then return false end
+            rp:OpenFaction(fid)
+            -- Focus once the page has its layout, so the row scrolls into view (it didn't at once).
+            C_Timer.After(0.2, function() ns.Focus.FocusKey(key); UI.RefreshHints() end)
+        end }
+        list[#list + 1] = { label = "dungeon opened from reputation", fn = activate }
+        list[#list + 1] = { label = "back to reputation (B)", fn = back }
+    else
+        ns.Debug.Print("shots: no faction with a dungeon or raid source for this character")
+    end
+    return list
+end
+
 -- /azf shots explore: the Exploration page and its zone map (Phase 15 step 6) for the player's
 -- zone at the normal, minimum and wide sizes, then a fully explored zone and one with no area
 -- found yet, where the character has them.
@@ -445,6 +544,7 @@ local function steps(which)
     if which == "class" then return classSteps() end
     if which == "professions" or which == "profs" then return professionSteps() end
     if which == "dungeons" or which == "dungeon" then return dungeonSteps() end
+    if which == "links" then return linkSteps() end
     if which == "reputation" or which == "rep" then
         local here = C_Map and C_Map.GetBestMapForUnit
             and ns.Debug.Try("GetBestMapForUnit", C_Map.GetBestMapForUnit, "player")
