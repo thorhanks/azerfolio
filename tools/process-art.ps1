@@ -314,6 +314,7 @@ function Get-PieceKind([string]$name) {
     if ($name -match '^coin-prof-[a-z]+(-dull)?$') { return 'coin' } # the Professions tab's coins (Phase 14; -dull: unfinished, Phase 15)
     if ($name -match '^glyph-[a-z0-9-]+$') { return 'glyph' }
     if ($name -match '^crest-[a-z0-9-]+$') { return 'coin' } # faction crests (Phase 15 step 8): 128x128, keyed, DXT5
+    if ($name -match '^boss-seal(-[a-z]+)?$') { return 'coin' } # the Dungeons tab's boss seals (round 6): numbered by the UI
     if ($name -eq 'you-ring') { return 'ring' }
     if ($name -match '^road-band(-gold)?$') { return 'band' }
     if ($name -eq 'cartouche') { return 'cartouche' }
@@ -606,7 +607,7 @@ foreach ($f in $files) {
         continue
     }
     # The Dungeons tab's paintings (art/prompts.md "Dungeons and raids"): zone-art crop, their own folders.
-    if ($f.BaseName -match '^dungeon-([A-Za-z]+)$') {
+    if ($f.BaseName -match '^dungeon-([A-Za-z0-9]+)$') { # instances, and road1..6: the adventurer's road backdrops
         $dk = $Matches[1]
         $fx = 0.5; $fy = 0.5
         $fk = "dungeon-$dk"

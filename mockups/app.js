@@ -2985,6 +2985,22 @@
     const youX = yi < 0 ? PAD - 70 : yi >= items.length - 1 ? rp[yi].x + 70 : (rp[yi].x + rp[yi + 1].x) / 2;
     ui.trailYouX = youX; ui.trailW = W;
     const firstRaid = items.findIndex(d => d.kind === "raid");
+    // Round 6: one painted region per level bracket (dungeon-road1..6), each behind its stretch of road.
+    const roads = ((window.AZF_ART || {}).dungeons || []).filter(k => /^road\d$/.test(k));
+    const regions = [];
+    if (roads.length) {
+      const regionOf = (d) => d.kind === "raid" ? 6 : d.lv[0] < 20 ? 1 : d.lv[0] < 30 ? 2 : d.lv[0] < 40 ? 3 : d.lv[0] < 50 ? 4 : 5;
+      let start = 0;
+      items.forEach((d, i) => {
+        const r = regionOf(d), next = items[i + 1];
+        if (!next || regionOf(next) !== r) {
+          const x0 = i === items.length - 1 && start === 0 ? 0 : start === 0 ? 0 : PAD + start * STEP - STEP / 2;
+          const x1 = next ? PAD + i * STEP + STEP / 2 : W;
+          if (roads.includes("road" + r)) regions.push(`<div class="trregion" style="left:${x0 - 40}px;width:${x1 - x0 + 80}px;background-image:url(dungeon-art/road${r}.png)"></div>`);
+          start = i + 1;
+        }
+      });
+    }
     const signs = [];
     let lastBracket = null;
     items.forEach((d, i) => {
@@ -3003,7 +3019,7 @@
         <span class="trcart"><b>${esc(d.name)}</b><small>Lv ${d.lv[0]}-${d.lv[1]}${d.kind === "raid" ? ` · ${d.size}` : ""}</small></span></button>`;
     }).join("");
     return `<div class="trailwin" id="trailwin"><div class="trail" style="width:${W}px;height:${H}px">
-        <div class="trground"></div><div class="trdusk"></div>${firstRaid > 0 ? `<div class="trcitadel" style="left:${PAD + firstRaid * STEP - STEP / 2}px"></div>` : ""}
+        <div class="trground"></div>${regions.join("")}<div class="trdusk ${regions.length ? "painted" : ""}"></div>${firstRaid > 0 ? `<div class="trcitadel" style="left:${PAD + firstRaid * STEP - STEP / 2}px"></div>` : ""}
         <svg class="trroad" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><path class="trbed" d="${path}"/><path class="trlane" d="${path}"/><path class="trruts" d="${path}"/>
           <clipPath id="trclip"><rect x="0" y="0" width="${youX}" height="${H}"/></clipPath><path class="trgold" d="${path}" clip-path="url(#trclip)"/></svg>
         ${signs.join("")}${marks.join("")}${meds}
@@ -3105,8 +3121,10 @@
   }
   // A chain that reuses its name ("The Defias Brotherhood" after "The Defias Brotherhood") says "the earlier step".
   const preNames = (q) => (q.pre || []).map(id => { const n = (window.AZF_QUEST_NAMES || {})[id] || `quest ${id}`; return n === q.name ? "the earlier step" : n; });
+  // Round 6: the painted seals (boss-seal, -rare, -opt) when they exist; the drawn stand-in otherwise.
   function sealHtml(b, i, cls = "") {
-    return `<span class="bseal ${b.rare ? "rare" : ""} ${b.opt || b.oneOf ? "opt" : ""} ${cls}">${i + 1}</span>`;
+    const painted = !!((window.AZF_ART || {}).chrome || {})["boss-seal"];
+    return `<span class="bseal ${b.rare ? "rare" : ""} ${b.opt || b.oneOf ? "opt" : ""} ${painted ? "painted" : ""} ${cls}">${i + 1}</span>`;
   }
   function bossLoot(d, b) {
     if (!b) return "";

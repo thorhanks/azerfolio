@@ -2140,3 +2140,12 @@ body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; po
 .dqstate { font-size: var(--fs-xs); color: var(--dim); } .dqrow.done .qn { color: var(--dim); } .dqrow.done .dqstate { color: var(--st-complete); font-size: var(--fs-md); }
 .dpbody > .dpbg { position: absolute; inset: -20px; z-index: 0; }
 .dseals.compact .dsn { display: none; } .dseals.compact .dseal-b { padding: 2px; border-radius: 50%; } .dseals.compact { gap: 6px; } .dpick.more .dpkn { font-size: 12px; }
+
+/* ---------- Round 6: painted boss seals and the road's painted regions (2026-11-15) ---------- */
+.bseal.painted { background: url(chrome-art/boss-seal.png) center / contain no-repeat; box-shadow: none; color: #2a1608; text-shadow: 0 1px 0 rgba(255,240,200,.5); font-weight: 400; }
+.bseal.painted.rare { background-image: url(chrome-art/boss-seal-rare.png); color: #0a1430; }
+.bseal.painted.opt { background-image: url(chrome-art/boss-seal-opt.png); border: 0; color: #e8d4a4; text-shadow: 0 1px 2px #000; }
+.bseal.painted.sm { width: 26px; height: 26px; }
+.trregion { position: absolute; top: 0; bottom: 0; background-size: cover; background-position: center;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%); }
+.trdusk.painted { background: linear-gradient(180deg, rgba(20,12,6,.25), rgba(20,12,6,.05) 30%, rgba(20,12,6,.05) 70%, rgba(20,12,6,.35)); }
