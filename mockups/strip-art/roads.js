@@ -13,7 +13,7 @@ window.AZF_CLASS_ROADS = {
     { id: "intro", kind: "road", from: null, name: "Verdant Note", lv: 1, reward: null, n: 1, x: 210, y: 95 },
     { id: "bear", kind: "road", from: null, name: "Body and Heart", lv: 10, reward: "Bear Form", n: 4, x: 200, y: 215 },
     { id: "nature", kind: "side", from: "bear", name: "Child of Nature", lv: 10, reward: null, n: 2, x: 60, y: 130 },
-    { id: "poison", kind: "road", from: null, name: "Power over Poison", lv: 14, reward: "Cure Poison", n: 5, x: 110, y: 360 },
+    { id: "poison", kind: "road", from: null, name: "Power over Poison", lv: 14, reward: "Cure Poison", n: 5, x: 180, y: 370 },
     { id: "aquatic", kind: "road", from: null, name: "Aquatic Form", lv: 16, reward: "Aquatic Form", n: 4, x: 230, y: 690 },
     { id: "cat", kind: "road", from: null, name: "The Great Cat Spirit", lv: 20, reward: "Cat Form", n: 5, x: 130, y: 740 },
     { id: "torwa", kind: "road", from: null, name: "A Better Ingredient", lv: 50, reward: null, n: 3, x: 230, y: 1480 }] },

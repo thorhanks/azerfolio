@@ -24,6 +24,7 @@ local HELP = {
     "/azf shot - take a test screenshot (development)",
     "/azf shots - screenshot every tab and state (development)",
     "/azf shots banners - screenshot the zones with a banner offset (development)",
+    "/azf shots zone <mapID> [...] - screenshot those zones' Zone Detail (development)",
     "/azf shots explore - screenshot the Exploration page and its zone map: normal, minimum and wide sizes (development)",
     "/azf shots celebrations - screenshot the class road, profession and reputation celebrations, with their sounds (development)",
     "/azf shots class - screenshot the Class tab: the road, a stop's steps, the road's end, minimum size and wide (development)",
@@ -238,7 +239,8 @@ function Commands.Handle(input)
     elseif cmd == "shot" then
         shot()
     elseif cmd == "shots" then
-        ns.UI.RunShots(sub)
+        -- "zone <mapID> ..." takes the rest of the line.
+        ns.UI.RunShots(sub == "zone" and table.concat(words, " ", 2) or sub)
     elseif cmd == "minimap" then
         local shown = ns.Launcher.ToggleMinimapButton()
         ns.Print(shown and "Minimap button shown." or "Minimap button hidden. Type /azf minimap to bring it back.")

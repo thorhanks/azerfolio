@@ -89,6 +89,8 @@ The title and percentage are overlaid on the left of the banner and the bottom o
 
 Even gloomy zones keep a warm accent (a lantern, a sunset edge) so the set feels unified.
 
+Fire and ash zones keep their charcoal and ash too, so red doesn't fill the frame. Where a picture still stands out as the loudest tile in the catalogue, `tools/process-art.ps1` can calm it with a saturation pass (`$ZoneSaturation`): Blasted Lands and Burning Steppes are at 85% (owner, 2026-11-14).
+
 ## 5. Image specification
 
 | Item | Value |
@@ -116,7 +118,7 @@ Even gloomy zones keep a warm accent (a lantern, a sunset edge) so the set feels
 - [ ] Landmark inside the core; still recognizable in the 9:1 banner crop.
 - [ ] No people, creatures, text, logos, frames or watermarks.
 - [ ] No pure black or white areas; the title area on the left of the banner is calm.
-- [ ] The dominant hue matches §4.
+- [ ] The dominant hue matches §4, and the picture isn't far louder than its neighbours (the red zones measured 0.62-0.66 mean saturation against a median of 0.45).
 - [ ] Reads at thumbnail size (64×36): a clear silhouette and colour.
 - [ ] Still pleasant when greyed out (untouched zones are shown desaturated).
 

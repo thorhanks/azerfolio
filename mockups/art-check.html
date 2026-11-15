@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Art checks</title>
+<!-- Phase 15 step 10: the Alliance / Horde class strips (review art item 1) and the loud red
+     zones (item 4). Strips from strip-art/, zone art from zone-art/ (both made by process-art.ps1). -->
+<style>
+  :root { --bg: #0d0906; --panel: #1a120b; --edge: #5a4128; --gold: #ffd100; --text: #f0e8d8; --dim: #b5a891; --ok: #7cc46a; --bad: #e0503c; --warn: #e08a3c; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1400px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { color: var(--gold); font-size: 20px; margin: 0 0 4px; font-weight: 600; }
+  h2 { color: var(--gold); font-size: 16px; margin: 32px 0 6px; font-weight: 600; }
+  h3 { font-size: 14px; margin: 0 0 6px; font-weight: 600; }
+  p { margin: 4px 0 10px; color: var(--dim); max-width: 920px; }
+  .pairs { display: flex; gap: 28px; overflow-x: auto; padding-bottom: 8px; }
+  .pair { flex: none; background: var(--panel); border: 1px solid var(--edge); border-radius: 4px; padding: 10px; }
+  .pair .imgs { display: flex; gap: 6px; }
+  .pair figure { margin: 0; text-align: center; font-size: 11px; color: var(--dim); }
+  .pair img { display: block; width: 170px; height: 680px; object-fit: cover; border-radius: 2px; }
+  table { border-collapse: collapse; font-size: 12px; margin-top: 8px; width: 346px; }
+  td { padding: 2px 4px; vertical-align: top; border-top: 1px solid #2c2014; }
+  td.k { color: var(--dim); white-space: nowrap; }
+  .v-ok { color: var(--ok); } .v-shared { color: var(--dim); } .v-bad { color: var(--bad); } .v-warn { color: var(--warn); }
+  .seg { display: inline-flex; border: 1px solid var(--edge); border-radius: 4px; overflow: hidden; margin: 6px 0 12px; }
+  .seg button { background: #2a1d10; color: var(--text); border: 0; padding: 6px 14px; font: inherit; cursor: pointer; border-right: 1px solid var(--edge); }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: #6b1d14; color: var(--gold); box-shadow: inset 0 -2px 0 var(--gold); }
+  .tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .tile { background: var(--panel); border: 1px solid var(--edge); border-radius: 4px; overflow: hidden; }
+  .tile img { display: block; width: 100%; aspect-ratio: 2 / 1; object-fit: cover; }
+  .tile div { padding: 4px 8px; font-size: 12px; display: flex; justify-content: space-between; }
+  .tile div span { color: var(--dim); }
+  .tile.target { border-color: #c9a227; }
+  .big { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .big figure { margin: 0; font-size: 12px; color: var(--dim); }
+  .big img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; display: block; border-radius: 3px; }
+  code { color: var(--text); background: #2a1d10; padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Art checks (Phase 15 step 10)</h1>
+<p>Two checks from the design review's art section: are the Horde class strips' landmarks Horde places, and should the loud red zone pictures be calmed?</p>
+
+<h2>1 · Class strips, Alliance vs Horde</h2>
+<p>The five pairs the review flagged. Their lower two panels look alike because the stops there are the <b>same quests in the same places for both sides</b> (class quests from level 30 or 50 up start in neutral zones: the Affray in the Barrens, Bath'rah in Alterac, Ogtinc and Xylem in Azshara, Moonglade, Felwood, Un'Goro). Each strip's first panel, where the side-only stops are, is the Horde's own. Checked against QuestieDB's quest givers and objectives.</p>
+<p><span class="v-ok">■ Horde place</span> &nbsp; <span class="v-shared">■ shared (same quest both sides)</span> &nbsp; <span class="v-warn">■ not quite</span> &nbsp; <span class="v-bad">■ wrong</span></p>
+<div class="pairs" id="pairs"></div>
+
+<h2>2 · The red zones</h2>
+<p>Measured mean saturation of all 51 zone pictures (HSV, 128×64): median <b>0.45</b>. Silithus <b>0.79</b> (#1), Blasted Lands <b>0.66</b> (#2), Burning Steppes <b>0.62</b> (#3), Orgrimmar 0.61 (#4, a capital), Searing Gorge only <b>0.48</b> (#20: its green hillside and sky keep it in the set). So two of the three named are the loud ones, and Silithus, an all-gold desert, is louder still.</p>
+<p>The toggle applies a saturation pass to the gold-framed tiles below, as <code>tools/process-art.ps1</code> would (the same matrix as CSS <code>saturate()</code>). <b>Owner's choice (2026-11-14): two at 85%, now applied in <code>process-art.ps1</code></b>, so the pictures here already carry it and "Before" shows the result; the other options add to it.</p>
+<div class="seg" id="seg"></div>
+<div class="big" id="big"></div>
+<h3 style="margin-top:18px">In the catalogue (every zone with art, A-Z)</h3>
+<div class="tiles" id="tiles"></div>
+</main>
+<script src="data.js"></script>
+<script src="zone-art/index.js" onerror="window.AZF_ART = null"></script>
+<script>
+// Horde stops: landmark painted (Theme.classStrip comments, art/prompts.md) vs where QuestieDB puts the quests.
+const ROADS = {
+  warrior: [
+    ["Simple Parchment …", "spiked-hut camp", "ok", "trainer at home (Durotar, Mulgore, Tirisfal)"],
+    ["Defensive Stance", "watch tower over savanna", "ok", "Uzzek, Far Watch Post, the Barrens (or Tirisfal's route)"],
+    ["Field of Giants", "hide tents and giant bones", "ok", "Ruga Ragetotem, the Barrens"],
+    ["Brutal Gauntlets (side)", "troll village by the sea", "ok", "Ula'elek, Durotar"],
+    ["Brutal Helm (side)", "totem mesa", "ok", "Orm Stonehoof, Thunder Bluff"],
+    ["Brutal Legguards (side)", "crypt stairs, green lamps", "ok", "Velora Nitely, Undercity"],
+    ["The Affray", "fighting pit", "shared", "Klannoc Macleod, the Barrens (both sides)"],
+    ["Whirlwind Weapon", "snowy stone circle", "shared", "Bath'rah, Alterac Mountains"],
+    ["Voodoo Feathers", "broken standard, dark gate", "shared", "Fallen Hero, Swamp of Sorrows"],
+    ["(decoration)", "waterfall and pool, top left", "warn", "copied from the Alliance panel; no stop, not a Barrens sight"],
+  ],
+  hunter: [
+    ["Etched Tablet …", "hut camp in red rock", "ok", "trainer at home"],
+    ["Taming the Beast", "tent village, water pump", "ok", "Yaw Sharpmane, Mulgore (or Thotar, Durotar)"],
+    ["(10 to 50)", "open grassland, no buildings", "shared", "no hunter class quest between pet and charm"],
+    ["The Green Drake", "hermit's camp, crimson coast", "shared", "Ogtinc, Azshara"],
+  ],
+  rogue: [
+    ["Encrypted Tablet …", "hut camp", "ok", "trainer at home"],
+    ["Shattered Hand / Deathstalkers", "lantern-lit cleft", "ok", "Therzok, Cleft of Shadow, Orgrimmar"],
+    ["Lockpicking Trial", "violet dome city", "ok", "Undercity route: Dalaran status report (the Orgrimmar route goes to Ratchet)"],
+    ["Hinott's Assistance", "mill village", "ok", "Serge Hinott, Tarren Mill"],
+    ["The Manor, Ravenholdt", "hidden manor", "shared", "Alterac Mountains"],
+    ["The Syndicate Sting", "ruined keep", "shared", "Alterac, Arathi"],
+    ["Eye of Bhossca (side)", "crimson monastery", "shared", "Scarlet Monastery"],
+    ["The Azure Key", "totem huts, arcane tower", "shared", "Xylem, Azshara"],
+  ],
+  druid: [
+    ["Verdant Note", "tents on a mesa top", "ok", "Grull Hawkwind, Camp Narache, Mulgore"],
+    ["Body and Heart", "moonlit lake, stone ring", "shared", "Moonglade (Thunder Bluff to Moonglade)"],
+    ["Child of Nature (side)", "totem mesas, longhouses", "ok", "Muln Earthfury, Thunder Bluff"],
+    ["Power over Poison", "savanna outpost with a watchtower (repainted; was a purple poison bog)", "ok", "the northern Barrens: Tonga at the Crossroads, sick gazelles on dry savanna"],
+    ["Aquatic Form", "moonlit cove shrine", "shared", "Shrine of Remulos, Moonglade"],
+    ["The Great Cat Spirit", "stone cat statue", "shared", "Moonglade"],
+    ["A Better Ingredient", "crater jungle camp", "shared", "Torwa, Un'Goro"],
+  ],
+  warlock: [
+    ["Tainted Parchment …", "starting camp in pines", "ok", "trainer at home"],
+    ["First Lessons", "little graveyard", "ok", "Venya Marthand, Deathknell, Tirisfal"],
+    ["Summon Voidwalker", "crypt temple, green braziers", "ok", "Carendin Halgar, Undercity (or Orgrimmar)"],
+    ["Summon Succubus", "seer's hut in savanna", "ok", "Grunt Dogran, the Barrens; Ken'zigla, Stonetalon"],
+    ["Orb of Soran'ruk (side)", "broken well, violet shards", "ok", "Doan Karhan, the Barrens"],
+    ["Summon Felhunter", "crypt stairs", "ok", "Jorah Annison, Undercity; Strahad, Ratchet"],
+    ["Completed Robe / Orb of Orahil (sides)", "rune tent, cliff tower", "ok", "Menara Voidrender, the Barrens; Tabetha, Dustwallow"],
+    ["Summon Felsteed", "port town with crane", "ok", "Strahad Farsan, Ratchet"],
+    ["Imps, Kroshius, Dreadsteed, Suppression", "green forest, crater, demon shrine, elven ruins", "shared", "Felwood, Burning Steppes, Dire Maul, Blasted Lands"],
+    ["(decoration)", "waterfall and pool, top left", "warn", "copied from the Alliance panel; no stop"],
+  ],
+};
+const pairs = document.getElementById("pairs");
+for (const [cls, rows] of Object.entries(ROADS)) {
+  const d = document.createElement("div"); d.className = "pair";
+  d.innerHTML = `<h3>${cls[0].toUpperCase() + cls.slice(1)}</h3><div class="imgs">` +
+    ["alliance", "horde"].map(s => `<figure><img src="strip-art/${cls}-${s}.png" alt="${cls} ${s} strip">${s}</figure>`).join("") +
+    `</div><table>${rows.map(r => `<tr><td class="k">${r[0]}</td><td class="v-${r[2]}">${r[1]}<br><span style="color:var(--dim)">${r[3]}</span></td></tr>`).join("")}</table>`;
+  pairs.appendChild(d);
+}
+
+// Zone tiles. Targets: the three loud ones measured, Searing Gorge (named in the review), Silithus (measured loudest).
+const SAT = { 1451: 0.79, 1419: 0.66, 1428: 0.62, 1454: 0.61, 1427: 0.48 };
+const OPTIONS = [
+  { label: "Before", f: {} },
+  { label: "Slight: two at 85%", f: { 1419: 0.85, 1428: 0.85 } },
+  { label: "Slight: four at 85%", f: { 1419: 0.85, 1428: 0.85, 1427: 0.85, 1451: 0.85 } },
+  { label: "Stronger: four at 75%", f: { 1419: 0.75, 1428: 0.75, 1427: 0.75, 1451: 0.75 } },
+];
+const TARGETS = [1419, 1428, 1427, 1451];
+const ids = new Set((window.AZF_ART && window.AZF_ART.ids) || []);
+const zones = (window.AZF_ZONES || []).filter(z => ids.has(z.mapID)).sort((a, b) => a.name.localeCompare(b.name));
+const name = id => (zones.find(z => z.mapID === id) || {}).name || id;
+const tiles = document.getElementById("tiles"), big = document.getElementById("big"), seg = document.getElementById("seg");
+const imgs = {};
+for (const z of zones) {
+  const t = document.createElement("div"); t.className = "tile" + (TARGETS.includes(z.mapID) ? " target" : "");
+  t.innerHTML = `<img src="zone-art/${z.mapID}.png" alt="${z.name}"><div>${z.name}<span>${SAT[z.mapID] ? "sat " + SAT[z.mapID].toFixed(2) : ""}</span></div>`;
+  tiles.appendChild(t); (imgs[z.mapID] = imgs[z.mapID] || []).push(t.querySelector("img"));
+}
+for (const id of TARGETS) {
+  const f = document.createElement("figure");
+  f.innerHTML = `<img src="zone-art/${id}.png" alt="${name(id)}"><figcaption>${name(id)} · <span class="cap"></span></figcaption>`;
+  big.appendChild(f); (imgs[id] = imgs[id] || []).push(f.querySelector("img")); f.dataset.id = id;
+}
+function apply(i) {
+  const o = OPTIONS[i];
+  for (const [id, list] of Object.entries(imgs)) for (const im of list) im.style.filter = o.f[id] ? `saturate(${o.f[id]})` : "";
+  for (const f of big.children) { const v = o.f[f.dataset.id]; f.querySelector(".cap").textContent = v ? `saturation × ${v}` : "as painted"; }
+  [...seg.children].forEach((b, j) => b.classList.toggle("on", j === i));
+}
+OPTIONS.forEach((o, i) => { const b = document.createElement("button"); b.textContent = o.label; b.onclick = () => apply(i); seg.appendChild(b); });
+apply(0);
+</script>
+</body>
+</html>

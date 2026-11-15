@@ -147,7 +147,12 @@ if (Test-Path $FocalFile) {
     (Get-Content $FocalFile -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $focal[$_.Name] = $_.Value }
 }
 
-function Convert-Image([string]$inPath, [string]$outPath, [double]$fx, [double]$fy) {
+# Zone pictures calmed with a saturation pass (the CSS saturate() matrix; 1 = as painted). Owner,
+# Phase 15 step 10 (mockups/art-check.html): the two loudest red tiles at 85% (mean HSV saturation
+# 0.66 and 0.62 against a median of 0.45); Searing Gorge (0.48) and Silithus stay as painted.
+$ZoneSaturation = @{ '1419' = 0.85; '1428' = 0.85 }   # Blasted Lands, Burning Steppes
+
+function Convert-Image([string]$inPath, [string]$outPath, [double]$fx, [double]$fy, [double]$sat = 1.0) {
     $src = [System.Drawing.Image]::FromFile($inPath)
     try {
         $ratio = $Width / $Height
@@ -164,12 +169,23 @@ function Convert-Image([string]$inPath, [string]$outPath, [double]$fx, [double]$
         $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
         $attr = New-Object System.Drawing.Imaging.ImageAttributes
         $attr.SetWrapMode([System.Drawing.Drawing2D.WrapMode]::TileFlipXY)   # no dark edge artifacts
+        if ($sat -ne 1.0) {
+            # Row-vector matrix (input channel per row, output per column), luminance weights 0.213/0.715/0.072.
+            $lr = 0.213; $lg = 0.715; $lb = 0.072; $t = 1 - $sat
+            $m = New-Object System.Drawing.Imaging.ColorMatrix
+            $m.Matrix00 = $lr * $t + $sat; $m.Matrix01 = $lr * $t; $m.Matrix02 = $lr * $t
+            $m.Matrix10 = $lg * $t; $m.Matrix11 = $lg * $t + $sat; $m.Matrix12 = $lg * $t
+            $m.Matrix20 = $lb * $t; $m.Matrix21 = $lb * $t; $m.Matrix22 = $lb * $t + $sat
+            $m.Matrix33 = 1; $m.Matrix44 = 1
+            $attr.SetColorMatrix($m)
+        }
         $g.DrawImage($src, (New-Object System.Drawing.Rectangle 0, 0, $Width, $Height), $cx, $cy, $cw, $ch, [System.Drawing.GraphicsUnit]::Pixel, $attr)
         $g.Dispose()
         $dst.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
         $dst.Dispose()
         $warn = if ($cw -lt $Width) { "  (upscaled from ${cw}px wide; generate larger for best quality)" } else { '' }
-        return "$([IO.Path]::GetFileName($inPath)) -> $([IO.Path]::GetFileName($outPath)) [crop ${cw}x${ch} at $cx,$cy]$warn"
+        $tone = if ($sat -ne 1.0) { " saturation x$sat" } else { '' }
+        return "$([IO.Path]::GetFileName($inPath)) -> $([IO.Path]::GetFileName($outPath)) [crop ${cw}x${ch} at $cx,$cy]$tone$warn"
     } finally { $src.Dispose() }
 }
 
@@ -592,7 +608,8 @@ foreach ($f in $files) {
     $fx = 0.5; $fy = 0.5
     if ($focal.ContainsKey($key)) { if ($null -ne $focal[$key].x) { $fx = [double]$focal[$key].x }; if ($null -ne $focal[$key].y) { $fy = [double]$focal[$key].y } }
     $target = Join-Path (Resolve-Path $Out).Path "$key.png"
-    $line = Convert-Image $f.FullName $target $fx $fy
+    $sat = if ($ZoneSaturation.ContainsKey($key)) { $ZoneSaturation[$key] } else { 1.0 }
+    $line = Convert-Image $f.FullName $target $fx $fy $sat
     if ((Resolve-Path $MockOut).Path -ne (Resolve-Path $Out).Path) { Copy-Item $target (Join-Path $MockOut "$key.png") -Force }
     $blp = Join-Path (Resolve-Path $BlpOut).Path "$key.blp"
     $null = [AzfBlp]::Convert($target, $blp)

@@ -337,6 +337,16 @@ end
 local function steps(which)
     if which == "celebrations" or which == "celebrate" then return celebrationSteps() end
     if which == "banners" then return bannerSteps() end
+    -- /azf shots zone <mapID> [...]: those zones' Zone Detail (the art in full colour, e.g. after
+    -- a tone pass in process-art.ps1, Phase 15 step 10).
+    if which and which:match("^zone%s") then
+        local want, list = {}, {}
+        for id in which:gmatch("%d+") do want[tonumber(id)] = true end
+        for _, z in ipairs(allZones()) do
+            if want[z.mapID] then list[#list + 1] = { label = "zone " .. z.name, fn = function() openDetail(z) end } end
+        end
+        return list
+    end
     if which == "explore" then return exploreSteps() end
     if which == "class" then return classSteps() end
     if which == "professions" or which == "profs" then return professionSteps() end

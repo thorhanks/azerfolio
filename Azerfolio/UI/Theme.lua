@@ -634,10 +634,11 @@ Theme.classStrip = {
         -- the cove shrine, the cat statue, the hermit's camp in the crater jungle.
         Alliance = { H = 1680, ["end"] = { 210, 1640 }, intro = { 230, 90 }, bear = { 260, 215 }, nature = { 75, 160 },
             poison = { 140, 360 }, aquatic = { 240, 640 }, cat = { 150, 740 }, torwa = { 230, 1480 } },
-        -- The tents on the mesa, the moonlit lake, the totem mesa (side path), the bog, the cove
-        -- shrine, the cat statue, the crater camp.
+        -- The tents on the mesa, the moonlit lake, the totem mesa (side path), the savanna outpost
+        -- (panel 1 v2, Phase 15 step 10: the Horde's poison quests are in the Barrens, not a bog),
+        -- the cove shrine, the cat statue, the crater camp.
         Horde = { H = 1680, ["end"] = { 210, 1640 }, intro = { 210, 95 }, bear = { 200, 215 }, nature = { 60, 130 },
-            poison = { 110, 360 }, aquatic = { 230, 690 }, cat = { 130, 740 }, torwa = { 230, 1480 } },
+            poison = { 180, 370 }, aquatic = { 230, 690 }, cat = { 130, 740 }, torwa = { 230, 1480 } },
     },
     WARLOCK = {
         -- The abbey, the cottage, the violet-cellared tavern, the seer's hut, the broken well

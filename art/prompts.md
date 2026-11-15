@@ -601,11 +601,11 @@ Stops: start (1) · Body and Heart, a moonlit glade (10) · Child of Nature, a c
 
 #### Druid, Horde (`strip-druid-horde-<n>`)
 
-Stops: start (1) · Body and Heart (10) · Child of Nature, a mesa city of totems (10, side path) · Power over Poison (14) · Aquatic Form (16) · The Great Cat Spirit (20) · A Better Ingredient (50).
+Stops: start (1) · Body and Heart (10) · Child of Nature, a mesa city of totems (10, side path) · Power over Poison, a crossroads outpost on dry savanna (14; the Horde's version is in the northern Barrens, not a bog) · Aquatic Form (16) · The Great Cat Spirit (20) · A Better Ingredient (50).
 
 | File | Subject |
 |---|---|
-| strip-druid-horde-1 | At the top centre a camp of tall hide tents on a grassy mesa top, early morning light; a third of the way down on the right a moonlit glade by a still lake ringed by standing stones; across from it on the far left tall flat-topped mesas with totem poles and longhouses; toward the bottom on the left a misty bog of glowing purple and green poisonous blooms. The lane as described. The bottom edge continues into forest by the sea |
+| strip-druid-horde-1 | *(v2, Phase 15 step 10: the poison bog was the Alliance's)* At the top centre a camp of tall hide tents on a grassy mesa top, early morning light; a third of the way down on the right a moonlit glade by a still lake ringed by standing stones; across from it on the far left tall flat-topped mesas with totem poles and longhouses; toward the bottom on the left a patch of dry golden savanna with pale wilting grass and a few lone acacia trees, where a small outpost of spiked timber walls and hide roofs stands beside a tall wooden watchtower. The lane as described. The bottom edge continues into forest by the sea. Give the current panel as an extra reference and keep its layout: the lane, the tents, the lake and the mesas where they are |
 | strip-druid-horde-2 | The same as `strip-druid-alliance-2`: the moonlit cove with its half-sunken shrine near the top on the right, the great stone cat statue at the jungle's edge a third down on the left, then wild forest and hills |
 | strip-druid-horde-3 | The same as `strip-druid-alliance-3`: the steaming volcanic crater jungle, the hermit's camp by a hot spring two thirds down on the right, the star at the bottom centre |
 
