@@ -33,13 +33,34 @@ local function cropArt(tex, mapID, w, h)
     end
 end
 
-local function setArt(tex, z, w, h)
-    local art = ns.Theme.ZoneArt(z.mapID)
-    if art then tex:SetTexture(art) else tex:SetColorTexture(0.1, 0.07, 0.04, 1) end
-    cropArt(tex, z.mapID, w, h)
-    local grey = z.state == "untouched" or z.state == "untracked"
-    if tex.SetDesaturated then tex:SetDesaturated(grey) end
-    if grey then tex:SetVertexColor(0.55, 0.55, 0.55) else tex:SetVertexColor(1, 1, 1) end
+-- The colour layer's strength for a zone (Phase 15 step 7): none untouched, full when claimed,
+-- in between it follows the zone's % (from the progression service, via ns.Zones; the UI only
+-- maps it to an alpha). Pure: tested in tests/atlas_test.lua.
+function Chart.ColourAlpha(state, percent, colourMin)
+    if state == "complete" then return 1 end
+    if state ~= "progress" then return 0 end
+    local p = math.max(0, math.min(1, (percent or 0) / 100))
+    return colourMin + (1 - colourMin) * p
+end
+
+-- Two layers: the sepia wash (always) and the zone's full-colour art over it.
+local function setArt(t, z, w, h)
+    local T = ns.Theme
+    local V = T.atlasLiving
+    local art = T.ZoneArt(z.mapID)
+    for _, tex in ipairs({ t.art, t.colour }) do
+        if art then tex:SetTexture(art) else tex:SetColorTexture(0.1, 0.07, 0.04, 1) end
+        cropArt(tex, z.mapID, w, h)
+    end
+    if t.art.SetDesaturated then t.art:SetDesaturated(true) end
+    t.art:SetVertexColor(V.washTint[1], V.washTint[2], V.washTint[3])
+    t.art:SetAlpha(V.washAlpha)
+    if t.colour.SetDesaturated then t.colour:SetDesaturated(false) end
+    t.colour:SetVertexColor(1, 1, 1)
+    local a = Chart.ColourAlpha(z.state, z.percent, V.colourMin)
+    t.colour:SetAlpha(a)
+    t.colour:SetShown(a > 0)
+    return a
 end
 
 ---------------------------------------------------------------------------------------------
@@ -51,8 +72,15 @@ local function newTile(parent, mini)
     local t = mini and CreateFrame("Frame", nil, parent) or W.FocusRow(parent, 40)
     t.bg = t:CreateTexture(nil, "BACKGROUND")
     t.bg:SetAllPoints(); t.bg:SetColorTexture(0.1, 0.07, 0.04, 1)
-    t.art = t:CreateTexture(nil, "BORDER")
+    t.art = t:CreateTexture(nil, "BORDER") -- the wash
     t.art:SetPoint("TOPLEFT", 1, -1); t.art:SetPoint("BOTTOMRIGHT", -1, 1)
+    t.colour = t:CreateTexture(nil, "BORDER", nil, 1) -- the full colour over it
+    t.colour:SetAllPoints(t.art)
+    -- The painted standard on a claimed tile, in its top-right corner (over the edge).
+    t.pennant = t:CreateTexture(nil, "OVERLAY", nil, 3)
+    local P = mini and T.atlasLiving.pennantMini or T.atlasLiving.pennant
+    t.pennant:SetSize(P[1], P[2])
+    t.pennant:SetPoint("TOPRIGHT", t, "TOPRIGHT", mini and 1 or 2, mini and 2 or 3)
     t.well = t:CreateTexture(nil, "ARTWORK", nil, 2)
     t.well:SetPoint("BOTTOMLEFT", 1, 1); t.well:SetPoint("BOTTOMRIGHT", -1, 1)
     t.well:SetHeight(mini and 2 or 3); t.well:SetColorTexture(0, 0, 0, 0.65)
@@ -99,15 +127,28 @@ end
 
 local function fillTile(t, z, w, h, here, dim, mini)
     local T = ns.Theme
+    local V = T.atlasLiving
     t:SetSize(w, h)
-    setArt(t.art, z, w - 2, h - 2)
+    local colour = setArt(t, z, w - 2, h - 2)
     local claimed = z.state == "complete"
+    -- The tile's base: clear under a wash, so the chart shows through; opaque when claimed.
+    t.bg:SetAlpha(claimed and 1 or 0)
     if claimed then
         t.edge:SetColor("complete"); t.edge:SetThickness(mini and 1 or 2)
     elseif here then
         t.edge:SetColor("white"); t.edge:SetThickness(2)
     else
-        t.edge:SetColor("black", 0.85); t.edge:SetThickness(1)
+        for i = 1, 4 do t.edge[i]:SetColorTexture(V.edge[1], V.edge[2], V.edge[3], V.edge[4]) end
+        t.edge:SetThickness(1)
+    end
+    local faction = (ns.character and ns.character.faction == "Horde") and "Horde" or "Alliance"
+    local standard = claimed and T.Pennant(faction) or nil
+    if standard then t.pennant:SetTexture(standard) end
+    t.pennant:SetShown(standard ~= nil)
+    if t.shade then
+        local ok = type(CreateColor) == "function" and pcall(t.shade.SetGradient, t.shade, "VERTICAL",
+            CreateColor(0, 0, 0, colour >= 1 and 0.8 or V.shade), CreateColor(0, 0, 0, 0))
+        if not ok then t.shade:SetColorTexture(0, 0, 0, colour >= 1 and 0.35 or 0.2) end
     end
     local pct = z.percent and z.percent / 100 or 0
     local progress = z.state == "progress"
@@ -119,8 +160,10 @@ local function fillTile(t, z, w, h, here, dim, mini)
         -- One long word ("Riverglades", "Stranglethorn") was cut at 12 px: 10 px first (Phase 15
         -- step 2), cut only past that.
         T.FitFont(t.name, z.name, w - 9, { "xs", "xxs" }, 2)
-        t.name:SetTextColor(T.RGB(claimed and "gold" or (z.state == "untouched" and "dim" or "white")))
-        t.pct:SetText(claimed and "Claimed" or (z.combined and ns.Progression.PercentText(z.combined) or ""))
+        -- Parchment cream on a wash (step 7; the grey "dim" was for the old grey photo).
+        t.name:SetTextColor(T.RGB(claimed and "gold" or (z.state == "untouched" and "text" or "white")))
+        -- Claimed: the standard says it; the word only without the art.
+        t.pct:SetText(claimed and (standard and "" or "Claimed") or (z.combined and ns.Progression.PercentText(z.combined) or ""))
         -- Orange means in progress; an untouched zone's 0% is grey, as on the cards (review R2).
         t.pct:SetTextColor(T.RGB(claimed and "complete" or (progress and "todo" or "dim")))
         t.pin:SetShown(here)

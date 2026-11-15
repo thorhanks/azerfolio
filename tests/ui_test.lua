@@ -2351,7 +2351,13 @@ return function(t)
         t.eq(elwynn.pin:IsShown(), true, "you are here")
         local function x(f) local _, _, _, px = f:GetPoint(1); return px end
         t.ok(x(westfall) < x(elwynn), "Westfall west of Elwynn")
-        t.eq(cat.byMap[1426].pct:GetText(), "Claimed", "Dun Morogh claimed")
+        -- Step 7: claimed shows the painted standard, not the word; colour fades in with the %.
+        local dun = cat.byMap[1426]
+        t.eq(dun.pct:GetText(), "", "Dun Morogh claimed: no word")
+        t.eq(dun.pennant:IsShown(), true, "Dun Morogh claimed: the standard")
+        t.eq(dun.colour:GetAlpha(), 1, "claimed: full colour")
+        t.ok(math.abs(elwynn.colour:GetAlpha() - (0.18 + 0.82 * 0.4)) < 0.01, "Elwynn at 40%: part colour")
+        t.eq(elwynn.pennant:IsShown(), false)
         t.eq(cat.byMap[1411]:GetAlpha() < 1, true, "Durotar outside the filters: dimmed, not hidden")
         t.eq(chart.isleCap:IsShown(), false, "Zephras Isle isn't tracked here, so no uncharted card")
         press(ns, "PAD1")

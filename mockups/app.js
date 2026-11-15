@@ -668,17 +668,35 @@
     const w = r - l, h = bt - tp;
     list.forEach(p => { p.box = { left: (p.x - p.w / 2 - l) / w * 100, top: (p.y - p.h / 2 - tp) / h * 100, width: p.w / w * 100, height: p.h / h * 100 }; });
     return { list, ratio: w / h };
-  }  function atlasTile(p, visible, mini) {
-    const z = p.z, b = p.box, here = z.name === CHAR.zone;
+  }
+  // Phase 15 step 7, a living Atlas (dev bar "Atlas look", "Colour in", "Pennant"): an untouched
+  // zone is a faint wash on the chart, not a grey photo; its colour comes in with its % (the
+  // progression service's, never the UI's). Two art layers: the wash below, the colour above
+  // (its alpha or its height follows the %). Claimed: full colour, gold edge, a pennant.
+  function atlasArt(z) {
+    const p = z.state === "complete" ? 1 : z.state === "progress" ? Math.max(0, Math.min(1, z.pct || 0)) : 0;
+    return `<span class="aart wash">${art(z)}</span><span class="aart colour" style="--p:${p.toFixed(3)}">${art(z)}</span>`;
+  }
+  function atlasPennant(mini) {
+    if (ui.atlasPennant === "drawn") return mini ? `<span class="apennant drawn">${pennant()}</span>` : pennant();
+    if (ui.atlasPennant === "text") return mini ? "" : "Claimed";
+    const k = ui.look === "Horde" ? "horde" : "alliance";
+    return `<span class="apennant"><img src="banner-art/banner-${k}.png" alt=""></span>`;
+  }
+  // Dev bar "Preview claimed" on the Atlas: zones past 85% shown claimed (design preview only;
+  // no scenario has a claimed zone).
+  const atlasZone = (z) => ui.claimPreview && z.state === "progress" && z.pct >= 0.85 ? { ...z, pct: 1, state: "complete" } : z;
+  function atlasTile(p, visible, mini) {
+    const z = atlasZone(p.z), b = p.box, here = z.name === CHAR.zone;
     const cls = `atile ${p.R.city ? "capital" : ""} ${z.state} ${here ? "here" : ""} ${visible && !visible.has(z.name) ? "dim" : ""}`;
     const style = `left:${b.left}%;top:${b.top}%;width:${b.width}%;height:${b.height}%`;
     // The Overview's chart: the zone's art in a small block, its progress as a thin bar.
-    if (mini) return `<i class="${cls} withart" style="${style}"><span class="aart">${art(z)}</span>${z.state === "progress"
-      ? `<span class="abar"><b style="width:${Math.round((z.pct || 0) * 100)}%"></b></span>` : ""}</i>`;
+    if (mini) return `<i class="${cls} withart" style="${style}">${atlasArt(z)}${z.state === "progress"
+      ? `<span class="abar"><b style="width:${Math.round((z.pct || 0) * 100)}%"></b></span>` : ""}${z.state === "complete" ? atlasPennant(true) : ""}</i>`;
     const tip = `<b>${esc(z.name)}</b>${pctText(z.pct)} · ${z.cats.map(c => `${c.label} ${c.done}/${c.total}`).join(" · ")}${here ? " · You are here" : ""}`;
     return `<button class="${cls} focusable" style="${style}" data-open="${esc(z.name)}" data-tip="${tip}">
-      <span class="aart">${art(z)}</span>
-      <span class="aname">${esc(z.name)}</span><span class="apct">${z.state === "complete" ? pennant() : pctText(z.pct)}</span>
+      ${atlasArt(z)}
+      <span class="aname">${esc(z.name)}</span><span class="apct">${z.state === "complete" ? atlasPennant(false) : pctText(z.pct)}</span>
       ${z.state === "progress" ? `<span class="abar"><i style="width:${Math.round(z.pct * 100)}%"></i></span>` : ""}
       ${here ? `<span class="apin"></span>` : ""}</button>`;
   }
@@ -688,13 +706,15 @@
     return `<div class="amap ${mini ? "mini" : ""}" style="aspect-ratio:${P.ratio.toFixed(3)}">${P.list.map(p => atlasTile(p, visible, mini)).join("")}</div>`;
   }
 
+  function atlasAttrs() { return `data-look="${ui.atlasLook || "sepia"}" data-ramp="${ui.atlasRamp || "ramp"}"`; }
   // Overview thumbnail: one focus stop that opens the full Atlas view.
   function miniAtlas() {
     return `<button class="minimap focusable" data-atlas data-tip="<b>Atlas</b>Every tracked zone at its place, coloured by progress. Press A to open.">
-      <div class="atlasview mini">
+      <div class="atlasview mini" ${atlasAttrs()}>
         <div class="aregion ka">${atlasMap("KA", null, true)}</div>
         <div class="aregion sea">${tracked.filter(z => !(window.AZF_RECTS || {})[z.mapID]).map(z =>
-          `<i class="atile isle ${z.state} ${z.name === CHAR.zone ? "here" : ""}" style="--p:${Math.round((z.pct || 0) * 100)}%"></i>`).join("")}</div>
+          ui.atlasLook === "grey" ? `<i class="atile isle ${z.state} ${z.name === CHAR.zone ? "here" : ""}" style="--p:${Math.round((z.pct || 0) * 100)}%"></i>`
+          : `<i class="atile isle withart ${z.state} ${z.name === CHAR.zone ? "here" : ""}">${atlasArt(z)}${z.state === "complete" ? atlasPennant(true) : ""}</i>`).join("")}</div>
         <div class="aregion ek">${atlasMap("EK", null, true)}</div>
         <span class="minicap">Open Atlas ›</span></div></button>`;
   }
@@ -707,7 +727,7 @@
     const unplaced = tracked.filter(z => !(window.AZF_RECTS || {})[z.mapID]);
     const loose = unplaced.map((z, i) => atlasTile({ z, R: { city: false }, box: { left: 0, top: 0, width: 100, height: 100 } }, visible)
       .replace('class="atile', 'class="atile isle'));
-    return `<div class="atlasview">
+    return `<div class="atlasview" ${atlasAttrs()}>
       <div class="aregion ka"><div class="aname-plate">${CONT.KA}</div>${atlasMap("KA", visible)}</div>
       <div class="aregion sea">${loose.map(h => `<div class="isleslot">${h}<div class="islecap">Uncharted waters</div></div>`).join("")}</div>
       <div class="aregion ek"><div class="aname-plate">${CONT.EK}</div>${atlasMap("EK", visible)}</div></div>
@@ -3097,6 +3117,9 @@
   setStrip("cloth");
   $("#stripSel").addEventListener("change", (e) => { setStrip(e.target.value); e.target.blur(); });
   // Phase 15 step 4: the skill road's band variants, skill-up colours and item icons.
+  $("#atlasLookSel").addEventListener("change", (e) => { ui.atlasLook = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  $("#atlasRampSel").addEventListener("change", (e) => { ui.atlasRamp = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  $("#atlasPennantSel").addEventListener("change", (e) => { ui.atlasPennant = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#profRoadSel").addEventListener("change", (e) => { ui.profRoad = e.target.value; rerenderKeepFocus(); e.target.blur(); });
   $("#profColours").addEventListener("change", (e) => { ui.profColours = e.target.checked ? "on" : "off"; rerenderKeepFocus(); e.target.blur(); });
   $("#step5").addEventListener("change", (e) => { ui.step5 = e.target.checked ? "on" : "off"; ui.classSteps = e.target.checked ? "objective" : "name"; rerenderKeepFocus(); e.target.blur(); });

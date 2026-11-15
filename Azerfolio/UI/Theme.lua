@@ -150,6 +150,29 @@ function Theme.Chrome(name)
     return Theme.mediaDir .. "Chrome\\" .. name .. ".blp", c
 end
 
+-- A living Atlas (Phase 15 step 7, mockups/DESIGN.md "A living Atlas"): an untouched zone is a
+-- sepia wash on the chart (its art desaturated, tinted warm, at half strength, the tile's base
+-- clear); its colour fades in over the wash with the zone's % (colourMin + (1 - colourMin) * %);
+-- a claimed tile gets the painted standard (Theme.Pennant) in its top-right corner.
+Theme.atlasLiving = {
+    washTint = { 1, 0.84, 0.6 },   -- vertex colour on the desaturated art (sepia)
+    washAlpha = 0.5,
+    colourMin = 0.18,              -- a touched zone's colour at 0%
+    edge = { 0.16, 0.09, 0.03, 0.65 }, -- a thin dark-brown edge on unclaimed tiles
+    shade = 0.5,                   -- the name's shade under a wash (0.8 over full colour)
+    pennant = { 16, 32 },          -- the standard on an Atlas tile (1:2 canvas)
+    pennantMini = { 9, 18 },       -- on the Overview's thumbnail
+}
+
+-- The painted standard's cloth for a side (Media\Banner\banner-<side>, listed in Data/Art.lua),
+-- or nil without the art.
+function Theme.Pennant(faction)
+    local key = faction == "Horde" and "horde" or "alliance"
+    local art = ns.Art and ns.Art.banner
+    if art and art["banner-" .. key] then return Theme.mediaDir .. "Banner\\banner-" .. key .. ".blp" end
+    return nil
+end
+
 -- Zone completion categories (spec §7.7), in display order: label, unit, icon. Icons: the
 -- owner's painted set when present (design round 2), else client icons (the map is the Zones
 -- tab's [verified-ingame]; the quest "!" and gryphon loaded in game, 2026-11-08).

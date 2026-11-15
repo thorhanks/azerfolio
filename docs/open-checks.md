@@ -61,6 +61,12 @@ Phase 11 (v1.3) stays open until R1 and R2 are done: its "done when" asks for ga
 | X1 | A partly explored zone: the lit pieces sit where the discovered areas are, the rest under fog (seen so far only on Elwynn, fully explored, and Alterac, 0/15) | Any time: Westfall (3/14 on Gideon) | Open Westfall's Exploration page and take `/azf shot`; compare with the game's world map (M) |
 | X2 | A new area's piece appears on the map without `/reload` | Discovering a new area with the Exploration page open, or opening it right after | `/azf shot` before and after |
 
+## A living Atlas (Phase 15 step 7)
+
+| ID | What to confirm | When it comes up | How to check |
+|---|---|---|---|
+| A1 | A claimed zone's tile shows the painted standard in its top-right corner (Atlas 16×32, Overview thumbnail 9×18), full colour and the gold edge, no "Claimed" word; Thragor's is the Horde cloth (Gideon has no claimed zone yet) | The first zone claimed on any character | `/azf shots` (zones, atlas; overview), then read the tile |
+
 ## Celebrations (Phase 10)
 
 | ID | What to confirm | When it comes up | How to check |

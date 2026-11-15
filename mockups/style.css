@@ -973,7 +973,7 @@ body.chrome .celebrate .card::before { content: ""; position: absolute; inset: -
 .atile .apct svg.pennant { width: 16px; height: 20px; }
 .atile .abar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 3; background: rgba(0,0,0,.6); }
 .atile .abar i { display: block; height: 100%; background: var(--grad-progress); }
-.atile.untouched .aart, .atile.untracked .aart { filter: grayscale(.9) brightness(.55); }
+.atile.untouched .aart, .atile.untracked .aart { filter: grayscale(.9) brightness(.55); } /* before step 7; now the [data-look="grey"] wash */
 .atile.untouched .aname { color: var(--dim); }
 .atile.complete { border-color: #c9a227; box-shadow: 0 0 0 1px #6b4c0a, 0 0 12px rgba(255,200,60,.45); }
 .atile.complete .aname { color: var(--wow-gold); }
@@ -1038,8 +1038,8 @@ body.chrome .atlasview { border-radius: 2px; }
 .atlasview.mini .amap.mini .atile.withart { background: #1a120a; border: 1px solid rgba(0,0,0,.85); border-radius: 2px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.7); }
 .atlasview.mini .atile.withart .aart { position: absolute; inset: 0; }
 .atlasview.mini .atile.withart .aart > * { width: 100%; height: 100%; object-fit: cover; display: block; }
-.atlasview.mini .atile.withart.untouched .aart { filter: grayscale(.85) brightness(.6); }
-.atlasview.mini .atile.withart.untouched { border-color: rgba(0,0,0,.85); }
+.atlasview.mini[data-look="grey"] .atile.withart.untouched .aart.wash { filter: grayscale(.85) brightness(.6); }
+.atlasview.mini[data-look="grey"] .atile.withart.untouched { border-color: rgba(0,0,0,.85); }
 .atlasview.mini .atile.withart.complete { border-color: #e2bb4f; box-shadow: 0 0 0 1px #6b4c0a, 0 0 6px rgba(255,200,60,.6); }
 .atlasview.mini .atile.withart.here { outline: 2px solid #fff; outline-offset: 0; z-index: 4; }
 .atlasview.mini .atile.withart .abar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(0,0,0,.65); }
@@ -1690,3 +1690,40 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .pdhead.withicon .picon { grid-row: span 2; }
 .pdhead.withicon .ptracked { grid-column: 2; }
 .pings.withicon .ping { grid-template-columns: 52px 18px 1fr; }
+
+/* Phase 15 step 7: a living Atlas (dev bar "Atlas look", "Colour in", "Pennant"). Two art layers per
+   tile: the wash (how an untouched zone looks) and the colour above it, whose alpha or height follows
+   the zone's % from the progression service. Claimed: full colour, gold edge, a pennant. */
+.atile .aart.colour { z-index: 0; }
+.atlasview[data-look] .atile .aart.colour { filter: none; }
+.atlasview[data-look] .atile:is(.untouched, .untracked) .aart.colour { opacity: 0; }
+.atlasview[data-ramp="ramp"] .atile.progress .aart.colour { opacity: calc(.18 + .82 * var(--p)); }
+.atlasview[data-ramp="fill"] .atile.progress .aart.colour { clip-path: inset(calc((1 - var(--p)) * 100%) 0 0 0); }
+.atlasview[data-ramp="fill"] .atile.progress .aart.colour::before { content: none; }
+.atlasview[data-ramp="step"] .atile.progress .aart.colour { opacity: 1; }
+/* Before: the grey photo, colour all at once. */
+.atlasview[data-look="grey"] .atile .aart.wash { filter: grayscale(.9) brightness(.55); }
+.atlasview[data-look="grey"] .atile.progress .aart.colour { opacity: 1 !important; clip-path: none !important; }
+/* The washes: the chart shows through the tile. */
+.atlasview:not([data-look="grey"]) .atile:not(.complete) { background: transparent; }
+.atlasview:not([data-look="grey"]) .amap.mini .atile.withart:not(.complete), .atlasview.mini:not([data-look="grey"]) .atile.isle.withart:not(.complete) { background: transparent; }
+.atlasview[data-look="sepia"] .atile .aart.wash { filter: grayscale(1) sepia(.9) brightness(.95) contrast(.8); opacity: .5; }
+.atlasview[data-look="sepia"] .atile:not(.complete):not(.here) { border-color: rgba(30,18,8,.65); }
+.atlasview[data-look="faded"] .atile .aart.wash { filter: grayscale(1) brightness(.9); opacity: .3; }
+.atlasview[data-look="faded"] .atile:not(.complete):not(.here) { border-color: rgba(0,0,0,.35); }
+.atlasview[data-look="ink"] .atile .aart.wash { opacity: 0; }
+.atlasview[data-look="ink"] .atile:not(.complete):not(.here) { border: 1px solid rgba(238,220,178,.55); box-shadow: inset 0 0 0 1px rgba(20,12,4,.35); background: rgba(238,220,178,.05); }
+.atlasview[data-look="ink"] .atile.progress .aart.wash { opacity: 0; }
+.atlasview:not([data-look="grey"]) .atile:is(.untouched, .untracked)::after { background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.5)); }
+.atlasview[data-look="ink"] .atile:is(.untouched, .untracked)::after { background: none; }
+.atlasview:not([data-look="grey"]) .atile.untouched .aname { color: rgba(240,226,192,.9); }
+/* The pennant: the painted standard (Media\Banner\banner-<side>) planted in the tile's corner. */
+.atile .apct .apennant img { display: block; height: 30px; margin: -4px -6px 0 0; filter: drop-shadow(0 1px 2px #000); }
+.atlasview.mini .amap.mini .atile.withart { overflow: visible; } .atlasview.mini .atile .apennant { position: absolute; right: -1px; top: -2px; z-index: 3; }
+.atlasview.mini .atile .apennant img { display: block; height: 18px; filter: drop-shadow(0 1px 1px #000); }
+.atlasview.mini .atile .apennant.drawn svg { display: block; width: 9px; height: 12px; margin: 2px 2px 0 0; }
+/* The Overview's thumbnail: the same washes, no dark block edges. */
+.atlasview.mini[data-look] .amap.mini .atile.withart:not(.complete):not(.here), .atlasview.mini[data-look] .atile.isle.withart:not(.complete):not(.here) { box-shadow: none; opacity: 1; }
+.atlasview.mini[data-look="sepia"] .amap.mini .atile.withart:not(.complete):not(.here), .atlasview.mini[data-look="sepia"] .atile.isle.withart:not(.complete):not(.here) { border-color: rgba(40,24,10,.45); }
+.atlasview.mini[data-look="faded"] .amap.mini .atile.withart:not(.complete):not(.here), .atlasview.mini[data-look="faded"] .atile.isle.withart:not(.complete):not(.here) { border-color: rgba(0,0,0,.25); }
+.atlasview.mini[data-look="ink"] .amap.mini .atile.withart:not(.complete):not(.here), .atlasview.mini[data-look="ink"] .atile.isle.withart:not(.complete):not(.here) { border-color: rgba(238,220,178,.6); background: rgba(238,220,178,.06); }

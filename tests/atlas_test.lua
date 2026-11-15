@@ -71,4 +71,19 @@ return function(t)
         t.eq(A.Layout({}), nil)
         t.eq(A.Layout({ { mapID = 1, rect = { 0, 0, 0, 0 } } }), nil, "an empty rectangle has no place")
     end)
+
+    -- Phase 15 step 7: a zone's colour fades in over the sepia wash with its % (from ns.Zones).
+    t.test("atlas: the colour layer follows the zone's state and %", function()
+        wow.install()
+        local ns = {}
+        wow.loadAddonFile("Azerfolio/UI/AtlasChart.lua", "Azerfolio", ns)
+        local a = ns.AtlasChart.ColourAlpha
+        t.eq(a("untouched", 0, 0.18), 0, "untouched: the wash alone")
+        t.eq(a("untracked", nil, 0.18), 0, "untracked: the wash alone")
+        t.eq(a("complete", 100, 0.18), 1, "claimed: full colour")
+        t.eq(a("progress", 0, 0.18), 0.18, "touched at 0%: faint")
+        t.ok(math.abs(a("progress", 50, 0.18) - 0.59) < 1e-9, "half way")
+        t.eq(a("progress", 140, 0.18), 1, "never past full")
+        t.eq(a("progress", nil, 0.18), 0.18, "no % yet: faint, not guessed")
+    end)
 end
