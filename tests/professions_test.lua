@@ -305,6 +305,12 @@ return function(t)
         t.eq(g.nextRow.name, "Truesilver Deposit")
         local last = g.rows[#g.rows]
         t.eq(last.name, "Heavy Thorium Vein"); t.eq(last.state, "unknown")
+        -- Phase 15 step 4: the guide's colours (orange from the skill, yellow +25, green +50, grey +100).
+        t.eq(R.NodeDifficulty(65, 59), "red"); t.eq(R.NodeDifficulty(1, 1), "optimal"); t.eq(R.NodeDifficulty(1, 25), "optimal")
+        t.eq(R.NodeDifficulty(1, 26), "medium"); t.eq(R.NodeDifficulty(1, 51), "easy"); t.eq(R.NodeDifficulty(1, 101), "trivial")
+        t.eq(R.NodeDifficulty(nil, 50), nil)
+        g = R.Gather("mining", 59)
+        t.eq(g.rows[1].diff, "easy", "Copper (1) at 59: green"); t.eq(g.rows[2].diff, "red", "Tin needs 65")
         local h = R.Gather("herbalism", 1)
         t.eq(h.rows[1].state, "gives"); t.eq(h.nextRow.name, "Earthroot")
         t.eq(R.SkinningSkill(10), 1); t.eq(R.SkinningSkill(15), 50); t.eq(R.SkinningSkill(20), 100)

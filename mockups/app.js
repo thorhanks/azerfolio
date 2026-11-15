@@ -2255,6 +2255,15 @@
     // gold ink trained, red ink train now, faded later) and the scale's numbers on cartouches too.
     const rkey = p.name.toLowerCase().replace(/[^a-z]/g, "");
     const painted = ((window.AZF_ART || {}).profRoads || []).includes(rkey) && !ui.plainRoad;
+    // Phase 15 step 4 (R7): the Class tab's road band (road-band / road-band-gold) along the painted
+    // lane, and a taller strip. Variants (dev bar "Prof road"):
+    //   band  - 190 tall; the whole painting width-fit at the top, plain parchment ground under it
+    //           for the scale (nothing of the painting is cut; the landmarks are the size they are now)
+    //   cover - 190 tall; the painting cover-fit (landmarks 1.5x larger, but a third of it is cut:
+    //           the first village and the volcanic forge fall off the ends)
+    //   old   - before: 132 tall, the black stat bar.
+    const variant = ui.profRoad || "fit142"; // owner's choice 2026-11-14
+    if (variant !== "old") return profRoadBand(p, rkey, painted, variant);
     // The art's lane is at row 150 of 256 (process-art.ps1 $RoadLaneRow); this strip (7.6:1) shows its whole height.
     const W = 1000, H = 132, x0 = 30, x1 = W - 56, y = painted ? Math.round(H * 150 / 256) : 74;
     const X = (s) => x0 + (Math.max(1, Math.min(PMAX, s)) - 1) / (PMAX - 1) * (x1 - x0);
@@ -2289,6 +2298,85 @@
       ${PRANKS.slice(1).map(r => hit(r.at, rankTip(p, r), r.name)).join("")}${hit(PMAX, coinTip, "end", 54)}</div>`;
   }
 
+  // R7 variants (see profRoad). The painting is drawn in the SVG at an exact rect so the band can
+  // sit on its lane (row 150 of 256). The band: road-band / road-band-gold (256x64, the band in 18
+  // rows), tiled along the straight lane as the Lua will (texture windows, gold up to your skill,
+  // earth to your cap, earth under a dark wash past the gate).
+  const PROAD_V = {
+    band: { H: 190, fit: "width" },     // whole painting, ground below
+    fit142: { H: 142, fit: "cover", posX: 0.01 }, // the tallest that keeps every landmark (village at art x 20 .. fortress at 1815)
+    cover: { H: 190, fit: "cover", posX: 0.25 },  // landmarks 1.5x, a third cut
+  };
+  function profRoadBand(p, rkey, painted, variant) {
+    const V = PROAD_V[variant] || PROAD_V.band;
+    const W = 1000, H = V.H, AW = 2048, AH = 256, LANE = 150;
+    let s = W / AW; if (V.fit === "cover") s = Math.max(s, H / AH);
+    const aw = AW * s, ah = AH * s, ox = (W - aw) * (V.posX || 0), oy = 0;
+    const y = painted ? oy + LANE * s : Math.round(H * 0.45);
+    const x0 = 30, x1 = W - 56;
+    const X = (v) => x0 + (Math.max(1, Math.min(PMAX, v)) - 1) / (PMAX - 1) * (x1 - x0);
+    const xs = X(p.skill), xc = X(p.cap);
+    const pct = (v, of) => (v / of * 100).toFixed(2) + "%";
+    // The band: 16 units thick (the painted lane is about 22 units at this width).
+    const T = 16, k = T / 18, bh = 64 * k, bw = 256 * k, by = y - bh / 2;
+    // Whole texture widths side by side (the band tiles), clipped to the stretch (Lua: texture
+    // windows per piece, as the Class tab stamps).
+    const band = (a, b, file) => {
+      if (b <= a) return "";
+      let out = "";
+      for (let x = x0 - 8; x < b; x += bw) {
+        if (x + bw <= a) continue;
+        const l = Math.max(a, x), r = Math.min(b, x + bw);
+        const u0 = (l - x) / bw * 256, u1 = (r - x) / bw * 256;
+        out += `<svg x="${l.toFixed(2)}" y="${by.toFixed(2)}" width="${(r - l + 0.4).toFixed(2)}" height="${bh.toFixed(2)}" viewBox="${u0.toFixed(2)} 0 ${(u1 - u0).toFixed(2)} 64" preserveAspectRatio="none" overflow="hidden"><image href="chrome-art/${file}.png" width="256" height="64"/></svg>`;
+      }
+      return out;
+    };
+    const ticks = [1, 75, 150, 225, 300].map(v => `<g class="ptick"><path d="M${X(v)} ${y + T / 2 + 3} v3"/></g>`).join("");
+    const tickCarts = [1, 75, 150, 225, 300].map(v => `<span class="pcart ptk" style="left:${pct(X(v), W)};top:${pct(y + T / 2 + 6, H)}">${v}</span>`).join("");
+    const rankCarts = [];
+    const stones = PRANKS.slice(1).map(r => {
+      const passed = p.cap >= r.cap, now = !passed && p.next === r && p.skill >= r.at;
+      const img = passed ? "milestone-rune-gold" : now ? "milestone-rune-red" : "milestone";
+      const sx = X(r.at), sy = y - 30;
+      rankCarts.push(`<span class="pcart prk ${passed ? "passed" : now ? "now" : "later"}" style="left:${pct(sx + 18, W)};top:${pct(sy, H)}">${r.name}</span>`);
+      return `<g class="pstone ${passed ? "passed" : now ? "now" : "later"}" transform="translate(${sx.toFixed(1)} ${sy.toFixed(1)})"><image href="chrome-art/${img}.png" x="-16" y="-19" width="32" height="36"/></g>`;
+    }).join("");
+    const you = `<g class="you" transform="translate(${xs.toFixed(1)} ${y.toFixed(1)})"><circle r="14" class="youface"/><text y="5" class="youinit">${esc(CHAR.name[0])}</text>
+      <image href="chrome-art/you-ring.png" x="-23" y="-25" width="46" height="46"/></g>`;
+    const gate = p.cap < PMAX ? `<g class="pgate" transform="translate(${xc.toFixed(1)} ${y.toFixed(1)})"><path d="M-3 -14 V14 M3 -14 V14 M-7 -8 H7 M-7 0 H7 M-7 8 H7"/></g>` : "";
+    const hit = (v, tip, key, w = 44) => `<button class="phit focusable" data-pstop="${key}" style="left:${(X(v) / W * 100).toFixed(2)}%;width:${w}px" data-tip="${tip}"></button>`;
+    const coinTip = p.mastered ? `<b>${esc(p.name)} mastered</b>Skill ${PMAX} of ${PMAX}.` : `<b>${esc(p.name)} mastered</b>At skill ${PMAX}. ${PMAX - p.skill} to go.`;
+    // Below a width-fit painting: its plain ground carried on (a fade from the painting's last rows).
+    const ground = painted && ah < H ? `<defs><linearGradient id="pground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d6b26a"/><stop offset="1" stop-color="#c9a35c"/></linearGradient></defs>
+      <rect x="0" y="${(oy + ah - 1).toFixed(1)}" width="${W}" height="${(H - ah + 1).toFixed(1)}" fill="url(#pground)"/>` : "";
+    const art = painted ? `<image href="prof-art/road-${rkey}.png" x="${ox.toFixed(1)}" y="${oy}" width="${aw.toFixed(1)}" height="${ah.toFixed(1)}" preserveAspectRatio="none"/>` : "";
+    return `<div class="proad band${painted ? " painted" : ""}" style="aspect-ratio:${W} / ${H}"><svg viewBox="0 0 ${W} ${H}" class="cmapart proadart" aria-hidden="true">
+        ${ground}${art}
+        ${band(x0 - 8, Math.min(xc, x1 + 8), "road-band")}
+        ${xc < x1 ? `<g class="band-shut">${band(xc, x1 + 8, "road-band")}</g>` : ""}
+        ${band(x0 - 8, p.mastered ? x1 + 8 : xs, "road-band-gold")}
+        ${ticks}${gate}${stones}${p.mastered ? "" : you}</svg>${tickCarts}${rankCarts.join("")}
+      <div class="pendcoin" style="left:${((x1 + 22) / W * 100).toFixed(2)}%;top:${pct(y, H)}">${profCoin(p)}</div>
+      ${PRANKS.slice(1).map(r => hit(r.at, rankTip(p, r), r.name)).join("")}${hit(PMAX, coinTip, "end", 54)}</div>`;
+  }
+
+  // R9: the game's skill-up colours (TradeSkillTypeColor: optimal orange, medium yellow, easy
+  // green, trivial grey). Recipes: from the game's own relativeDifficulty (mockup: a sample from
+  // the recipe's grey skill, -40 yellow, -20 green; the probe decides what the addon can read).
+  // Gathering nodes: from the hand-curated table (orange from its skill, yellow +25, green +50,
+  // grey +100; red below it), a guide, never game data.
+  const PDIFF = { optimal: "orange", medium: "yellow", easy: "green", trivial: "grey" };
+  const PDIFF_SAYS = { optimal: "always gives skill", medium: "usually gives skill", easy: "rarely gives skill", trivial: "no skill" };
+  const recipeDiff = (p, r) => !r.known ? null : p.skill >= r.grey ? "trivial" : p.skill >= r.grey - 20 ? "easy" : p.skill >= r.grey - 40 ? "medium" : "optimal";
+  const nodeDiff = (skill, at) => skill < at ? "red" : skill >= at + 100 ? "trivial" : skill >= at + 50 ? "easy" : skill >= at + 25 ? "medium" : "optimal";
+  // R10: the item's icon (the game's, from the crafted item) with its quality on the icon's border;
+  // the name keeps the difficulty colour, as in the game's own profession window. Mockup: a painted
+  // stand-in square (no game icons here) and a sample quality (most crafted goods common, some gear uncommon).
+  const QUALITY = ["poor", "common", "uncommon", "rare", "epic"];
+  const sampleQuality = (r) => (/Plate|Mail|Axe|Sword|Mace|Hammer|Shield|Helm|Gauntlets|Breastplate|Leggings|Bracers|Belt|Boots/.test(r.name) && hash(r.name) % 3 === 0) ? 2 : 1;
+  const itemIcon = (name, q = 1, cls = "") => `<span class="picon q-${QUALITY[q]} ${cls}" style="--ih:${hash(name || "?") % 360}" title="item icon (stand-in)"><i></i></span>`;
+
   const SRC_TEXT = {
     trainer: (s) => `Trainer · skill ${s.skill}`,
     vendor: (s) => { const z = s.maps.map(zoneName).filter(Boolean); return `Vendor · ${s.npc}${z.length ? ", " + z.slice(0, 2).join(", ") : ""}`; },
@@ -2320,19 +2408,22 @@
   }
   const ingText = (ings) => ings.map(g => `${g.name} ${g.have === null ? "?" : g.have} / ${g.q}`).join(", ");
   function ingLines(ings) {
-    return `<div class="pings">${ings.map(g => `<div class="ping ${g.ok ? "ok" : ""}"><span class="pinq">${g.have === null ? "?" : g.have} / ${g.q}</span><span class="pinn">${esc(g.name)}<small>${esc(g.where)}</small></span></div>`).join("")}</div>`;
+    const icons = ui.profIcons !== "off";
+    return `<div class="pings ${icons ? "withicon" : ""}">${ings.map(g => `<div class="ping ${g.ok ? "ok" : ""}"><span class="pinq">${g.have === null ? "?" : g.have} / ${g.q}</span>${icons ? itemIcon(g.name, 1, "sm") : ""}<span class="pinn">${esc(g.name)}<small>${esc(g.where)}</small></span></div>`).join("")}</div>`;
   }
   const isTracked = (id) => !!(ui.tracked && ui.tracked.has(id));
   function recipeRow(p, r) {
     const st = r.state;
-    const sk = r.learnAt !== null && !r.known ? `learn ${r.learnAt}` : r.known ? (p.skill < r.grey ? `until ${r.grey}` : "grey") : `grey ${r.grey}`;
+    const d = ui.profColours === "off" ? null : recipeDiff(p, r);
+    const sk = d ? (d === "trivial" ? "grey" : `grey at ${r.grey}`) : r.learnAt !== null && !r.known ? `learn ${r.learnAt}` : r.known ? (p.skill < r.grey ? `until ${r.grey}` : "grey") : `grey ${r.grey}`;
     const tag = st === "known" ? "✓" : st === "now" ? "Learn now" : "";
     const tracked = isTracked(r.id);
-    return `<button class="precipe focusable st-${st} ${tracked ? "tracked" : ""} ${r.id === ui.recipeSel ? "selected" : ""}" data-recipe="${r.id}"
-      data-tip="<b>${esc(r.name)}</b>${st === "known" ? "Known" : st === "now" ? "You can learn it now" : st === "later" ? "Not yet" : "No known source"}. X ${tracked ? "stops tracking it" : "tracks it in the game's objective tracker"}.">
-      <span class="pricon">${SRC_GLYPHS[(r.sources[0] || {}).k] || "·"}</span>
+    const icons = ui.profIcons !== "off";
+    return `<button class="precipe focusable st-${st} ${d ? "d-" + PDIFF[d] : ""} ${tracked ? "tracked" : ""} ${r.id === ui.recipeSel ? "selected" : ""}" data-recipe="${r.id}"
+      data-tip="<b>${esc(r.name)}</b>${st === "known" ? "Known" : st === "now" ? "You can learn it now" : st === "later" ? "Not yet" : "No known source"}${d ? `; ${PDIFF[d]}: ${PDIFF_SAYS[d]}` : ""}. X ${tracked ? "stops tracking it" : "tracks it in the game's objective tracker"}.">
+      ${icons ? itemIcon(r.name, sampleQuality(r)) : `<span class="pricon">${SRC_GLYPHS[(r.sources[0] || {}).k] || "·"}</span>`}
       <span class="prname">${esc(r.name)}${tracked ? `<em class="ptracked">Tracked</em>` : ""}</span>
-      <span class="prsk">${esc(sk)}</span><span class="prtag">${esc(tag)}</span></button>`;
+      <span class="prsk">${icons ? `<i class="psrcg">${SRC_GLYPHS[(r.sources[0] || {}).k] || ""}</i>` : ""}${esc(sk)}</span><span class="prtag">${esc(tag)}</span></button>`;
   }
   // The focused recipe (Recipes view, right): what it is, how to get it, what it needs.
   function recipeDetail(p, r) {
@@ -2341,9 +2432,12 @@
     const state = r.state === "known" ? "Known" : r.state === "now" ? "You can learn it now" : r.state === "later" ? (r.learnAt !== null ? `Learn at skill ${r.learnAt}` : "Not yet: the skill to learn it shows once the game has shown its recipe item") : r.sod ? "In the game's Season of Discovery list; may not be offered on Forever" : "No trainer you've visited or recipe item is known to teach it";
     const srcs = r.sources.length ? r.sources.map(s => `<div class="pdsrc"><span class="pricon">${SRC_GLYPHS[s.k]}</span>${esc(SRC_TEXT[s.k](s))}</div>`).join("") : `<div class="pdsrc dim">${esc(srcLine(r))}</div>`;
     const short = ings ? ings.filter(g => !g.ok) : [];
-    return `<div class="pdhead st-${r.state}"><h3>${esc(r.name)}</h3><div class="pdstate">${esc(state)}</div>
+    const d = ui.profColours === "off" ? null : recipeDiff(p, r), icons = ui.profIcons !== "off", q = sampleQuality(r);
+    return `<div class="pdhead st-${r.state} ${icons ? "withicon" : ""}">${icons ? itemIcon(r.name, q, "big") : ""}<h3 ${icons ? `class="qn-${QUALITY[q]}"` : ""}>${esc(r.name)}</h3><div class="pdstate">${esc(state)}</div>
         ${tracked ? `<em class="ptracked">Tracked</em>` : ""}</div>
-      <div class="pdfacts"><div><span class="rk">Learn at</span>${r.learnAt !== null ? r.learnAt : "?"}</div><div><span class="rk">Gives skill until</span>${r.grey}${p.skill >= r.grey ? " (grey)" : ""}</div><div><span class="rk">Category</span>${esc(r.cat || "—")}</div></div>
+      <div class="pdfacts"><div><span class="rk">Learn at</span>${r.learnAt !== null ? r.learnAt : "?"}</div>${d
+        ? `<div><span class="rk">Difficulty</span><span class="pdiff d-${PDIFF[d]}">${PDIFF[d][0].toUpperCase() + PDIFF[d].slice(1)}</span> <small class="dim">${PDIFF_SAYS[d]}${d !== "trivial" ? ` · grey at ${r.grey}` : ""}</small></div>`
+        : `<div><span class="rk">Gives skill until</span>${r.grey}${p.skill >= r.grey ? " (grey)" : ""}</div>`}<div><span class="rk">Category</span>${esc(r.cat || "—")}</div></div>
       <h4 class="pdh">How to get it</h4>${srcs}
       <h4 class="pdh">Ingredients ${ings ? `<small>${short.length ? `missing ${short.length}` : "you have everything for one"}</small>` : ""}</h4>
       ${ings ? ingLines(ings) : `<div class="pnote">Not in the mockup's sample for this recipe; the addon reads them from the game for any recipe.</div>`}
@@ -2408,7 +2502,7 @@
       const trackedRecipes = p.rec.list.filter(r => isTracked(r.id));
       const tracked = trackedRecipes.length ? trackedRecipes.map(r => { const ings = reagentsOf(p, r), short = ings ? ings.filter(g => !g.ok) : [];
           return `<div class="ptrackcard framed"><button class="precipe ptrackhead focusable tracked" data-recipe="${r.id}" data-tip="<b>${esc(r.name)}</b>Tracked in the game's objective tracker.${ings ? ` Needs ${esc(ingText(ings))}.` : ""} A opens it in Recipes; X stops tracking it.">
-            <span class="pricon ptrackicon">⚑</span><span class="prname">${esc(r.name)}<small>${ings ? (short.length ? `Missing ${short.map(g => g.name).join(", ")}` : "You have everything for one") : "Ingredients not known"}</small></span>
+            ${ui.profIcons !== "off" ? itemIcon(r.name, sampleQuality(r)) : `<span class="pricon ptrackicon">⚑</span>`}<span class="prname">${esc(r.name)}<small>${ings ? (short.length ? `Missing ${short.map(g => g.name).join(", ")}` : "You have everything for one") : "Ingredients not known"}</small></span>
             <span class="prsk"></span><span class="prtag">${ings && !short.length ? "Ready" : ""}</span></button>${ings ? ingLines(ings) : ""}</div>`; }).join("")
         : `<div class="pnote">Nothing tracked. In Recipes, X tracks a recipe in the game's objective tracker.</div>`;
       body = `<div class="pbanner tone-${p.tone} ${p.mastered ? "done" : ""}"><div class="pheroart">${profCoin({ ...p, mastered: true }, "ghost")}</div>
@@ -2441,9 +2535,16 @@
       const G = GATHER[p.gather || (p.fish ? "fishing" : "")];
       body = `<div class="scroll pgscroll"><h2 class="section" data-group>${p.fish ? "Where to fish" : "Where to gather"} <small>a guide, not game data · your skill ${p.skill}</small></h2><div class="precipes">${G.map(([n, s, z]) => {
           const st = p.skill >= s + 100 ? "grey" : p.skill >= s ? "now" : "later";
-          return `<button class="precipe pgather focusable st-${st}" data-gather="${esc(n)}" data-tip="<b>${esc(n)}</b>${p.fish ? `Good places to fish from skill ${s}` : `Needs skill ${s}`}${st === "grey" ? "; no longer gives skill" : st === "later" ? ` (${s - p.skill} to go)` : ""}. ${esc(z)}.">
-            <span class="pricon">${p.fish ? "≈" : "◆"}</span><span class="prname">${esc(n)}<small>${esc(z)}</small></span><span class="prsk">${st === "grey" ? "grey" : `from ${s}`}</span><span class="prtag">${st === "now" ? "Gives skill" : st === "later" ? `${s - p.skill} to go` : ""}</span></button>`; }).join("")}</div>
-        <div class="qfoot"><span class="qnote">A hand-curated guide from Classic and Forever guides (docs/research/professions.md); the game doesn't list where nodes grow or fish bite.</span></div></div>`;
+          // R9: a node's colour from the guide's skill (not for fishing brackets: they aren't nodes).
+          // Red (can't gather it yet) only on the next node up; the ones after it stay dim, not a wall of red.
+          const nextAt = (G.find(g => g[1] > p.skill) || [])[1];
+          let d = !p.fish && ui.profColours !== "off" ? nodeDiff(p.skill, s) : null;
+          if (d === "red" && s !== nextAt) d = null;
+          const cls = d ? (d === "red" ? "d-red" : "d-" + PDIFF[d]) : "";
+          const tagText = d ? (d === "red" ? `${s - p.skill} to go` : PDIFF_SAYS[d].replace(" gives skill", "")) : st === "now" ? "Gives skill" : st === "later" ? `${s - p.skill} to go` : "";
+          return `<button class="precipe pgather focusable st-${st} ${cls}" data-gather="${esc(n)}" data-tip="<b>${esc(n)}</b>${p.fish ? `Good places to fish from skill ${s}` : `Needs skill ${s}`}${d && d !== "red" ? `; ${PDIFF[d]} for you by the guide: ${PDIFF_SAYS[d]}` : st === "grey" ? "; no longer gives skill" : st === "later" ? ` (${s - p.skill} to go)` : ""}. ${esc(z)}.">
+            <span class="pricon">${p.fish ? "≈" : "◆"}</span><span class="prname">${esc(n)}<small>${esc(z)}</small></span><span class="prsk">${st === "grey" ? "grey" : `from ${s}`}</span><span class="prtag">${esc(tagText)}</span></button>`; }).join("")}</div>
+        <div class="qfoot"><span class="qnote">A hand-curated guide from Classic and Forever guides (docs/research/professions.md); the game doesn't list where nodes grow or fish bite.${!p.fish && ui.profColours !== "off" ? " Colours follow the guide's skills (orange from the node's skill, yellow +25, green +50, grey +100), not the game." : ""}</span></div></div>`;
     }
     box.innerHTML = tabs + `<div class="pvbody pv-${v}">${body}</div>`;
   }
@@ -2911,6 +3012,10 @@
   const setStrip = (v) => { ["cloth", "enamel", "line"].forEach(k => document.body.classList.toggle(`strip-${k}`, k === v)); };
   setStrip("cloth");
   $("#stripSel").addEventListener("change", (e) => { setStrip(e.target.value); e.target.blur(); });
+  // Phase 15 step 4: the skill road's band variants, skill-up colours and item icons.
+  $("#profRoadSel").addEventListener("change", (e) => { ui.profRoad = e.target.value; rerenderKeepFocus(); e.target.blur(); });
+  $("#profColours").addEventListener("change", (e) => { ui.profColours = e.target.checked ? "on" : "off"; rerenderKeepFocus(); e.target.blur(); });
+  $("#profIcons").addEventListener("change", (e) => { ui.profIcons = e.target.checked ? "on" : "off"; rerenderKeepFocus(); e.target.blur(); });
   $("#claimPreview").addEventListener("change", (e) => { ui.claimPreview = e.target.checked; rerenderKeepFocus(); e.target.blur(); });
   $("#wideToggle").addEventListener("change", (e) => {
     ui.wide = e.target.checked; ui.detail = null;

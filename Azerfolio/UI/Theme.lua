@@ -619,6 +619,30 @@ Theme.color.profGo = hex("e08a3c")     -- train now / recipes to learn (orange)
 Theme.color.profReady = hex("7cc46a")  -- a tracked recipe you have everything for; have >= need
 Theme.color.profShort = hex("d79a7a")  -- have < need (red-tan)
 Theme.color.profTracked = hex("6fa8ff") -- the Tracked tag (blue)
+-- Phase 15 step 4 (R9): the game's skill-up colours (its TradeSkillTypeColor), by
+-- Enum.TradeskillRelativeDifficulty name; "red" for a gathering node you can't gather yet.
+Theme.color.diffOptimal = { 1.00, 0.50, 0.25 }
+Theme.color.diffMedium = { 1.00, 1.00, 0.00 }
+Theme.color.diffEasy = { 0.25, 0.75, 0.25 }
+Theme.color.diffTrivial = { 0.50, 0.50, 0.50 }
+Theme.color.diffRed = { 1.00, 0.13, 0.13 }
+Theme.diffColor = { optimal = "diffOptimal", medium = "diffMedium", easy = "diffEasy", trivial = "diffTrivial", red = "diffRed" }
+Theme.diffWord = { optimal = "orange", medium = "yellow", easy = "green", trivial = "grey", red = "red" }
+Theme.diffSays = { optimal = "always gives skill", medium = "usually gives skill", easy = "rarely gives skill", trivial = "no skill", red = "can't be gathered yet" }
+
+-- (R10) An item quality's colour (0 poor .. 4 epic and up) from the game (C_Item.GetItemQualityColor
+-- [verified-ingame]), else the classic values; nil for an unknown quality.
+local QUALITY_FALLBACK = { [0] = { 0.62, 0.62, 0.62 }, [1] = { 1, 1, 1 }, [2] = { 0.12, 1, 0 }, [3] = { 0, 0.44, 0.87 }, [4] = { 0.64, 0.21, 0.93 }, [5] = { 1, 0.5, 0 } }
+function Theme.QualityRGB(q)
+    if type(q) ~= "number" then return nil end
+    if C_Item and type(C_Item.GetItemQualityColor) == "function" then
+        local ok, r, g, b = pcall(C_Item.GetItemQualityColor, q)
+        if ok and type(r) == "number" and type(g) == "number" and type(b) == "number" then return r, g, b end
+    end
+    local c = QUALITY_FALLBACK[q]
+    if c then return c[1], c[2], c[3] end
+    return nil
+end
 Theme.layout.profTab = {
     rail = 116,          -- the rail's width (mockup 116 px)
     railRow = 84,        -- coin, name, skill (74 let "33 / 75" spill past the row, owner 2026-11-14)
@@ -631,14 +655,19 @@ Theme.layout.profTab = {
     bannerMax = 220,     -- the banner (the road strip sits below it since 2026-11-14; mockup 220 px)
     bannerMin = 130,     -- at the window's minimum size
     listsMin = 200,      -- Next up | Tracked keep at least this much
-    road = 112,          -- the parchment strip in the banner's foot
+    -- Phase 15 step 4 (R7, owner: "Band 142, uncut"): the strip is as tall as the painting can be
+    -- shown without cutting a landmark (roadArtSpan stays in view), between road and roadMax:
+    -- 138 at the 1160 window, 115 at the minimum width, 190 in the wide window.
+    road = 112,          -- the strip's least height
+    roadMax = 190,
+    roadArtSpan = { 20, 1815 }, -- the painting's columns that must show (first village .. last forge)
+    roadBand = 16,       -- the road band's thickness (px; the Class tab's road-band, 18 of 64 rows)
+    roadShut = 0.55,    -- the band past your cap, behind the gate (alpha, desaturated)
     roadFrame = 18, roadFrameOut = 5, -- its gilded card frame: corner size, how far outside the strip
     roadGap = 14,        -- between Next up / Tracked and the road strip under them (owner, 2026-11-14)
     roadFoot = 20,       -- from the page's bottom edge to the road strip (pinned to the foot; 12 read tight, owner 2026-11-14)
     roadArt = { 2048, 256 }, -- the painted skill road (Media\ProfRoads), shown cover-fit
     roadArtLane = 150,   -- the art's lane row (process-art.ps1 $RoadLaneRow puts it there)
-    roadLaneAt = 0.36,   -- where the bar sits on the painted road: its share of the strip's height from the bottom
-    roadBar = 22,        -- the gilded road's height
     roadPadL = 30,       -- 1 sits here
     roadPadR = 80,       -- room for the coin after 300
     stone = { 30, 34 },  -- a rank stone (milestone art)
@@ -651,8 +680,11 @@ Theme.layout.profTab = {
     toolbar = 40,
     detail = 380,        -- the focused recipe's column (mockup 380 px)
     recipeRow = 28,
+    recipeIcon = 22,     -- the crafted item's icon on a row (Phase 15 step 4)
+    detailIcon = 40,     -- and in the recipe detail
+    ingIcon = 16,        -- on an ingredient line
     recipeSrc = 64,      -- "Trainer" / "Vendor" / "Drop"
-    recipeSkill = 64,    -- "learn 40" / "until 60" / "grey"
+    recipeSkill = 92,    -- "learn 40" / "grey at 110" / "grey" (76 wrapped "grey at 100", WoWScrnShot_111426_195940)
     recipeState = 72,    -- "Learn now" / ✓ / "from 55"
     detailLine = 34,     -- a source or an ingredient line (text and a sub line)
     detailLinePad = 4,   -- such a line's text from its top edge

@@ -1,7 +1,7 @@
 -- Professions (Phase 14 step 4; spec §8.12; docs/research/professions.md): this character's
 -- professions from the game, plus what the game shows only while a window is open, recorded per
 -- character (AzerfolioCharDB.professions):
---   windows[skillLine]  = { time, rows = { { id, name, learned, grey, category } }, categories = { [id] = name } }
+--   windows[skillLine]  = { time, rows = { { id, name, learned, grey, category, item, quality, icon } }, categories = { [id] = name } }
 --                         the profession window's whole recipe list, read when it opens
 --   trainers[skillLine] = { time, services = { [name] = { kind, skill, cost } } }
 --                         profession trainers' lists, merged by service name (a later visit
@@ -79,10 +79,17 @@ local function readWindow()
             -- The crafted item from the recipe's hyperlink ("|Hitem:227684:..." [verified-ingame,
             -- probe run 4]), so an ingredient can say "Craft it: <recipe>".
             local item = type(info.hyperlink) == "string" and tonumber(info.hyperlink:match("item:(%d+)")) or nil
+            -- Phase 15 step 4: the crafted item's quality from the link ("|cnIQ2:" = uncommon)
+            -- and its icon (the recipe's icon is the item's) [verified-ingame, probe runs 7-8].
+            local quality = type(info.hyperlink) == "string" and tonumber(info.hyperlink:match("|cnIQ(%d+)")) or nil
             rows[#rows + 1] = { id = id, name = info.name, learned = info.learned and true or false,
                 grey = type(info.maxTrivialLevel) == "number" and info.maxTrivialLevel or nil,
                 category = type(info.categoryID) == "number" and info.categoryID or 0,
-                item = item and item > 0 and item or nil }
+                item = item and item > 0 and item or nil, quality = quality,
+                icon = type(info.icon) == "number" and info.icon or nil,
+                -- The skill-up colour as the open window gives it (learned recipes only: an
+                -- unlearned one reads 0 whatever it is) [verified-ingame].
+                diff = info.learned and type(info.relativeDifficulty) == "number" and info.relativeDifficulty or nil }
             local cat = info.categoryID
             if type(cat) == "number" and cat > 0 and cats[cat] == nil and type(T.GetCategoryInfo) == "function" then
                 local c = try("GetCategoryInfo", T.GetCategoryInfo, cat)
@@ -92,7 +99,11 @@ local function readWindow()
     end
     for k, v in pairs(cats) do if v == false then cats[k] = nil end end
     if #rows == 0 then return nil end
-    return line, { time = time and time() or nil, rows = rows, categories = cats }
+    -- Your skill when the colours were read (GetProfessionInfo; the window's own skillLevel read 0
+    -- in the probe), so a recorded colour is used only while the skill is still the same.
+    local skill
+    for _, s in ipairs(Prof.Skills()) do if s.skillLine == line then skill = s.skill end end
+    return line, { time = time and time() or nil, rows = rows, categories = cats, skill = skill }
 end
 
 local function recordWindow()
@@ -188,6 +199,62 @@ local function isPlayerSpell(id)
     return v and true or false
 end
 
+-- Phase 15 step 4 (R9, R10; docs/research/professions.md "Skill-up colour and item icons").
+-- Enum.TradeskillRelativeDifficulty [verified-ingame]: 0 orange .. 3 grey.
+local DIFFICULTY = { [0] = "optimal", [1] = "medium", [2] = "easy", [3] = "trivial" }
+
+local function recipeInfo(id)
+    local T = rawget(_G, "C_TradeSkillUI")
+    if type(T) ~= "table" or type(T.GetRecipeInfo) ~= "function" then return nil end
+    local ok, info = pcall(T.GetRecipeInfo, id)
+    return ok and type(info) == "table" and info or nil
+end
+
+-- A known recipe's skill-up colour now ("optimal" | "medium" | "easy" | "trivial"), or nil
+-- when it isn't known. r = a recipe from Get, skill = the profession's skill now. In order:
+--   1. the game, live: GetRecipeInfo with the window shut answers learned + relativeDifficulty
+--      only for the profession whose window was opened last [verified-ingame, 2026-11-14 trace:
+--      First Aid read 1 yellow / 1 grey, Blacksmithing's 16 known all "learned false"];
+--   2. grey once your skill reaches the game's maxTrivialLevel (recorded from the window);
+--   3. the colour recorded when the window was last read, only while your skill is the same.
+-- Otherwise nil: no colour (unknown stays unknown). Read each time a row is drawn, not cached.
+function Prof.Difficulty(r, skill)
+    if type(r) ~= "table" or not r.known then return nil end
+    local info = recipeInfo(r.id)
+    if info and info.learned and DIFFICULTY[info.relativeDifficulty] then return DIFFICULTY[info.relativeDifficulty] end
+    if type(r.grey) == "number" and type(skill) == "number" and skill >= r.grey then return "trivial" end
+    if r.recDiff and r.recSkill and r.recSkill == skill then return r.recDiff end
+    return nil
+end
+
+-- An item's icon (file ID): C_Item.GetItemIconByID answers for items not cached too
+-- [verified-ingame: 227684]. Cached; nil when the game gives none.
+local icons = {}
+function Prof.ItemIcon(itemID)
+    if type(itemID) ~= "number" then return nil end
+    if icons[itemID] ~= nil then return icons[itemID] or nil end
+    local v
+    if C_Item and type(C_Item.GetItemIconByID) == "function" then
+        local ok, r = pcall(C_Item.GetItemIconByID, itemID)
+        if ok and (type(r) == "number" or type(r) == "string") then v = r end
+    end
+    icons[itemID] = v or false
+    return v
+end
+
+-- An item's quality (0 poor .. 4 epic) when the game knows it: C_Item.GetItemQualityByID only
+-- answers for cached items [verified-ingame], so nil stays nil (no colour, unknown stays unknown).
+local qualities = {}
+function Prof.ItemQuality(itemID)
+    if type(itemID) ~= "number" then return nil end
+    if qualities[itemID] then return qualities[itemID] end
+    if C_Item and type(C_Item.GetItemQualityByID) == "function" then
+        local ok, q = pcall(C_Item.GetItemQualityByID, itemID)
+        if ok and type(q) == "number" then qualities[itemID] = q; return q end
+    end
+    return nil
+end
+
 -- The continent a map lies on (walking its parents to a Continent map), cached; nil when not known.
 local CONTINENT = (rawget(_G, "Enum") and Enum.UIMapType and Enum.UIMapType.Continent) or 2
 local continents = {}
@@ -248,13 +315,28 @@ function Prof.Get()
             for i, r in ipairs(win.rows) do
                 rows[i] = { id = r.id, name = r.name, learned = r.learned, grey = r.grey, category = r.category,
                     categoryName = type(win.categories) == "table" and win.categories[r.category] or nil }
-                output[r.id] = r.item
+                output[r.id] = r
                 if sourcesReady then itemsByName[r.name] = Src.RecipeItem(s.skillLine, r.name) end
             end
             recipes = R.Recipes(rows, { skill = m.skill, trainer = trainerSkills(tr), known = isPlayerSpell,
                 items = itemsByName, tracked = tracked })
-            -- Output item for each recipe, for "Craft it" (rows recorded before step 5 have none).
-            for _, r in ipairs(recipes.list) do r.item = output[r.id] end
+            -- Output item for each recipe, for "Craft it" (rows recorded before step 5 have none),
+            -- its icon and quality (recorded since Phase 15 step 4). The skill-up colour isn't
+            -- kept here: Prof.Difficulty reads it each time a row is drawn.
+            for _, r in ipairs(recipes.list) do
+                local o = output[r.id] or {}
+                r.item, r.quality, r.icon = o.item, o.quality, o.icon
+                r.recDiff = DIFFICULTY[o.diff]
+                r.recSkill = win.skill
+                if r.known and not (r.quality and r.icon) then
+                    local info = recipeInfo(r.id)
+                    if info and info.learned then
+                        r.quality = r.quality or (type(info.hyperlink) == "string" and tonumber(info.hyperlink:match("|cnIQ(%d+)"))) or nil
+                        r.icon = r.icon or (type(info.icon) == "number" and info.icon) or nil
+                    end
+                end
+                if not r.quality and r.item then r.quality = Prof.ItemQuality(r.item) end
+            end
         end
         if m.next and sourcesReady then
             m.trainers = R.TrainersFor(Src.Trainers(s.skillLine), m.next.name, side, ns.ZoneData and ns.ZoneData.faction, near)
@@ -486,6 +568,17 @@ function Prof.DebugReport(args)
             for k, n in pairs(kinds) do ks[#ks + 1] = k .. " " .. n .. " [" .. sample[k] .. "]" end
             table.sort(ks)
             line = line .. "; first sources " .. table.concat(ks, ", ")
+            -- Phase 15 step 4: the known recipes' skill-up colours as the game reads them now.
+            local dc, icons, quals = {}, 0, 0
+            for _, r in ipairs(m.recipes.list) do
+                if r.known then local d = Prof.Difficulty(r, m.skill) or "none"; dc[d] = (dc[d] or 0) + 1 end
+                if r.icon or (r.item and Prof.ItemIcon(r.item)) then icons = icons + 1 end
+                if r.quality then quals = quals + 1 end
+            end
+            local ds = {}
+            for k, n in pairs(dc) do ds[#ds + 1] = k .. " " .. n end
+            table.sort(ds)
+            line = line .. string.format("; known colours %s; icons %d, qualities %d", #ds > 0 and table.concat(ds, ", ") or "-", icons, quals)
         end
         ns.Print("  " .. line)
         entry.profs[tostring(m.name)] = line

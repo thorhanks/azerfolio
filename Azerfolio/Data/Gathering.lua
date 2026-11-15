@@ -37,6 +37,9 @@ ns.GatheringData = {
     -- A node gives skill until this many points past the skill it needs (orange, yellow, green,
     -- then grey at +100). CL; no Forever source states it, so the UI says "a guide".
     greyAfter = 100,
+    -- The colour steps before grey (Phase 15 step 4, R9): orange from the node's skill, yellow
+    -- from +25, green from +50 (CL guides; shown as the guide's colours, never the game's).
+    yellowAfter = 25, greenAfter = 50,
 
     mining = {
         { name = "Copper Vein", skill = 1, zones = STARTERS, items = { 2770, 2835 }, src = "FG (Forever adds a Poor Copper Vein in starter zones, WT)" },

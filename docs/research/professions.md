@@ -59,6 +59,14 @@ Runs: 1 nothing open, 2 First Aid window, 3 Cooking trainer, 4 First Aid trainer
 
 Consequences: a profession's full recipe list and learned state come from its window (record once per character, then keep it live with `IsPlayerSpell`); the skill to learn a trainer recipe comes from a trainer visit; where to get the rest has to come from QuestieDB's recipe items (by name: "Plans: X", "Recipe: X"), with no source shown when none matches.
 
+## Skill-up colour and item icons (Phase 15 step 4, Gideon, 2026-11-14, runs 7-8)
+
+Report: `luajit tools/diag-report.lua profs` ("difficulty enum", "info", "item", "learned recipes at skill").
+
+- **Difficulty** [verified-ingame]: `Enum.TradeskillRelativeDifficulty` is Optimal 0, Medium 1, Easy 2, Trivial 3 (orange, yellow, green, grey). `C_TradeSkillUI.GetRecipeInfo(recipeID)` answers **with the window shut** (run 7): Rough Sharpening Stone (learned) `relativeDifficulty` 1, `maxTrivialLevel` 55, `numSkillUps` 1; the same as with the Blacksmithing window open (run 8). At skill 33 the 16 learned smithing recipes read 10 orange, 4 yellow, 2 grey (Sharpening Wheel grey at 20; Copper Chain Belt orange, grey at 110), which matches Classic's thresholds. **Unlearned recipes read 0 and trivial 0 with the window shut** (and 0 with it open), so the colour means nothing for them: only learned recipes are coloured. Whether the shut value follows a skill-up without the window [inferred: the client computes it from your skill; SKILL_LINES_CHANGED re-reads it; open check G5].
+- **Item icons** [verified-ingame]: `C_Item.GetItemIconByID(itemID)` gives the icon even for an item not in the cache (Forever's Sulfuron Hammer 227684: icon 134400, `IsItemDataCachedByID` false); `GetItemInfoInstant` gives nothing for it. `GetRecipeInfo(...).icon` is the crafted item's icon (same file IDs), shut too. The global `GetItemIcon` / `GetItemInfo` / `GetItemQualityColor` don't exist; the `C_Item` versions do.
+- **Quality** [verified-ingame]: `C_Item.GetItemQualityByID` answers only for cached items (nil for 227684). The recipe's own hyperlink carries the crafted item's quality as `|cnIQ<n>:` (Rough Copper Vest IQ2, Linen Bandage IQ1), shut or open, so a recipe's quality comes from its link; a reagent's from `GetItemQualityByID` when cached, else unknown (no colour). `C_Item.GetItemQualityColor(q)` gives r, g, b, hex (epic a335ee); `ITEM_QUALITY_COLORS` exists.
+
 ## Owner's answers (2026-11-13)
 
 - Only this character's professions.

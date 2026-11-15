@@ -105,6 +105,41 @@ function R.profs()
                     if only or k <= 6 then p("    source %7d %s", e.id, tostring(e.text):gsub("\n", " | ")) end
                 end
             end
+            -- Phase 15 step 4: skill-up colour (relativeDifficulty) and item icons / quality.
+            if r.shutInfo then
+                local e = {}
+                for _, k in ipairs(keys(r.diffEnum)) do e[#e + 1] = k .. "=" .. tostring(r.diffEnum[k]) end
+                p("  difficulty enum: %s", #e > 0 and table.concat(e, " ") or tostring(r.diffEnum))
+                for _, i in ipairs(r.shutInfo) do
+                    if i.none then p("    info %-7s none (%s)", tostring(i.id), i.none)
+                    else p("    info %-7s %-28s learned %-5s diff %s trivial %s ups %s icon %s link %s", tostring(i.id), tostring(i.name), tostring(i.learned),
+                        tostring(i.diff), tostring(i.trivial), tostring(i.ups), tostring(i.icon), tostring(i.link):gsub("|", "!")) end
+                end
+            end
+            if r.items then
+                local has = {}
+                for _, k in ipairs(keys(r.has)) do if k:find("Item") or k:find("QUALITY") then has[#has + 1] = k .. " " .. tostring(r.has[k]) end end
+                p("  item APIs: %s", table.concat(has, ", "))
+                for _, i in ipairs(r.items) do
+                    local inst, info = i.instant or {}, i.info or {}
+                    p("    item %-7s cached %-5s iconByID %s GetItemIcon %s instant(icon %s class %s/%s) quality %s | info %s q %s | color %s %s",
+                        tostring(i.id), tostring(i.cached), tostring(i.iconByID), tostring(i.getItemIcon), tostring(inst[5]), tostring(inst[6]), tostring(inst[7]),
+                        tostring(i.quality), tostring(info.name), tostring(info.quality), s(i.colorC), s(i.color))
+                end
+            end
+            if w and w.learnedDiff then
+                local counts = {}
+                for _, e in ipairs(w.learnedDiff) do counts[tostring(e.diff)] = (counts[tostring(e.diff)] or 0) + 1 end
+                local o = {} for k, v in pairs(counts) do o[#o + 1] = "diff " .. k .. ": " .. v end
+                table.sort(o)
+                p("  learned recipes at skill %s: %s", tostring(w.skillNow), table.concat(o, ", "))
+                for k, e in ipairs(w.learnedDiff) do
+                    if only or k <= 20 then
+                        p("    %7d %-32s diff %s trivial %s ups %s icon %s itemIcon %s link %s", e.id, tostring(e.name), tostring(e.diff), tostring(e.trivial),
+                            tostring(e.ups), tostring(e.icon), tostring(e.itemIcon), (tostring(e.link):gsub("|", "!")))
+                    end
+                end
+            end
             local t = r.trainer
             if t then
                 p("  trainer: %d services", t.count or 0)

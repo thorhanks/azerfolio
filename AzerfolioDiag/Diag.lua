@@ -1306,6 +1306,69 @@ local function dumpProfessions()
             end
         end
     end
+    -- Phase 15 step 4 (R9): the skill-up colour. GetRecipeInfo's relativeDifficulty
+    -- (Enum.TradeskillRelativeDifficulty: Optimal 0 orange, Medium 1 yellow, Easy 2 green,
+    -- Trivial 3 grey on retail) with the window shut, on the nine test spells; and the enum itself.
+    local E = rawget(_G, "Enum")
+    r.diffEnum = E and safePlain(E.TradeskillRelativeDifficulty) or nil
+    r.shutInfo = {}
+    for _, id in ipairs({ 3275, 3276, 2660, 2657, 2330, 2387, 2385, 2538, 7418 }) do
+        local info = T and T.GetRecipeInfo and try("GetRecipeInfo", T.GetRecipeInfo, id)
+        r.shutInfo[#r.shutInfo + 1] = type(info) == "table" and { id = id, name = info.name, learned = info.learned,
+            diff = info.relativeDifficulty, trivial = info.maxTrivialLevel, ups = info.numSkillUps, icon = info.icon,
+            link = info.hyperlink } or { id = id, none = type(info) }
+    end
+    -- Phase 15 step 4 (R10): item icons and quality, cached or not. Linen Cloth 2589, Copper Bar
+    -- 2840, Rough Sharpening Stone 2862, Linen Bandage 1251, Copper Ore 2770, Coarse Thread 2320,
+    -- Sulfuron Hammer 17193 (likely not cached), Forever's Sulfuron Hammer 227684, Silk Cloth 4306.
+    r.has.GetItemIcon = type(rawget(_G, "GetItemIcon"))
+    r.has.GetItemInfo = type(rawget(_G, "GetItemInfo"))
+    r.has.GetItemQualityColor = type(rawget(_G, "GetItemQualityColor"))
+    r.has.ITEM_QUALITY_COLORS = type(rawget(_G, "ITEM_QUALITY_COLORS"))
+    local CI = rawget(_G, "C_Item")
+    for _, f in ipairs({ "GetItemIconByID", "GetItemInfoInstant", "GetItemQualityByID", "GetItemInfo",
+        "IsItemDataCachedByID", "RequestLoadItemDataByID", "GetItemQualityColor" }) do
+        r.has["C_Item." .. f] = CI and type(CI[f]) or "nil"
+    end
+    r.items = {}
+    for _, id in ipairs({ 2589, 2840, 2862, 1251, 2770, 2320, 17193, 227684, 4306 }) do
+        local e = { id = id }
+        if CI and CI.IsItemDataCachedByID then e.cached = try("C_Item.IsItemDataCachedByID", CI.IsItemDataCachedByID, id) end
+        if CI and CI.GetItemIconByID then e.iconByID = try("C_Item.GetItemIconByID", CI.GetItemIconByID, id) end
+        if GetItemIcon then e.getItemIcon = try("GetItemIcon", GetItemIcon, id) end
+        if CI and CI.GetItemInfoInstant then e.instant = packArgs(try("C_Item.GetItemInfoInstant", CI.GetItemInfoInstant, id)) end
+        if CI and CI.GetItemQualityByID then e.quality = try("C_Item.GetItemQualityByID", CI.GetItemQualityByID, id) end
+        local info = (CI and CI.GetItemInfo) or rawget(_G, "GetItemInfo")
+        if info then
+            local p = packArgs(try("GetItemInfo", info, id))
+            e.info = { name = p[1], link = p[2], quality = p[3], n = p.n }
+        end
+        if e.quality and CI and CI.GetItemQualityColor then e.colorC = packArgs(try("C_Item.GetItemQualityColor", CI.GetItemQualityColor, e.quality)) end
+        if e.quality and GetItemQualityColor then e.color = packArgs(try("GetItemQualityColor", GetItemQualityColor, e.quality)) end
+        -- Ask the client to load it, so a second run shows whether it arrives later.
+        if CI and CI.RequestLoadItemDataByID then try("C_Item.RequestLoadItemDataByID", CI.RequestLoadItemDataByID, id) end
+        r.items[#r.items + 1] = e
+    end
+    -- With the window open: the learned recipes' relativeDifficulty against your skill now, and
+    -- the recipe's own icon field next to the crafted item's icon.
+    if r.window then
+        local skill
+        if type(r.window.base) == "table" then skill = r.window.base.skillLevel end
+        local child = T.GetChildProfessionInfo and try("GetChildProfessionInfo", T.GetChildProfessionInfo)
+        r.window.skillNow = type(child) == "table" and child.skillLevel or skill
+        r.window.learnedDiff = {}
+        for _, e in ipairs(r.window.recipes) do
+            if e.learned and #r.window.learnedDiff < 60 then
+                local info = try("GetRecipeInfo", T.GetRecipeInfo, e.id)
+                local item = tonumber(e.item)
+                r.window.learnedDiff[#r.window.learnedDiff + 1] = { id = e.id, name = e.name, diff = e.diff, trivial = e.trivial,
+                    ups = e.ups, icon = type(info) == "table" and info.icon or nil,
+                    itemIcon = item and CI and CI.GetItemIconByID and try("C_Item.GetItemIconByID", CI.GetItemIconByID, item) or nil,
+                    link = type(info) == "table" and info.hyperlink or nil }
+            end
+        end
+    end
+
     -- Each run is kept (window, trainer and vendor are usually separate runs).
     DB.profs = nil
     DB.profRuns = DB.profRuns or {}

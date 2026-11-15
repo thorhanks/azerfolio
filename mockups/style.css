@@ -1652,3 +1652,29 @@ body.chrome .gamealert::before { content: ""; position: absolute; inset: -4px; p
 .pbtn.focused { box-shadow: 0 0 0 1px rgba(255,230,0,.65); color: var(--white); }
 .pnote.big { margin: var(--s6); font-size: var(--fs-md); }
 .pgscroll { position: absolute; inset: 0; padding: var(--s3) var(--s6) var(--s4); }
+
+/* Phase 15 step 4 (R7): the skill road drawn with the Class tab's road band; the painting is an SVG image. */
+.pjroad .proad.band { background: #d6b26a; }
+.proadart .band-shut { opacity: .4; filter: grayscale(.6); } /* past your cap: the road fades out behind the gate */
+/* R9: the game's skill-up colours (TradeSkillTypeColor) on a recipe's or node's name. */
+.precipe.d-orange .prname, .pdiff.d-orange { color: #ff8040; }
+.precipe.d-yellow .prname, .pdiff.d-yellow { color: #ffff00; }
+.precipe.d-green .prname, .pdiff.d-green { color: #40bf40; }
+.precipe.d-grey .prname, .pdiff.d-grey { color: #808080; }
+.precipe.d-red .prname { color: #ff2020; }
+.precipe.d-orange, .precipe.d-yellow, .precipe.d-green, .precipe.d-red { opacity: 1; }
+.precipe.st-known .prname small { color: var(--dim); }
+.precipe .prsk .psrcg { font-style: normal; color: var(--dim); margin-right: 6px; }
+/* R10: the item's icon (stand-in here) with its quality on the border; the game's quality colours. */
+.picon { position: relative; width: 22px; height: 22px; flex: none; border-radius: 3px; border: 1px solid #9d9d9d; box-shadow: inset 0 0 0 1px #000;
+  background: radial-gradient(circle at 35% 30%, hsl(var(--ih) 45% 62%), hsl(var(--ih) 40% 30%) 60%, hsl(var(--ih) 35% 14%)); }
+.picon i { position: absolute; inset: 3px; border-radius: 2px; background: linear-gradient(135deg, rgba(255,255,255,.35), transparent 45%, rgba(0,0,0,.35)); }
+.picon.q-poor { border-color: #9d9d9d; } .picon.q-common { border-color: #c8c8c8; } .picon.q-uncommon { border-color: #1eff00; }
+.picon.q-rare { border-color: #0070dd; } .picon.q-epic { border-color: #a335ee; }
+.picon.big { width: 40px; height: 40px; border-width: 2px; }
+.picon.sm { width: 18px; height: 18px; align-self: center; }
+.qn-poor { color: #9d9d9d !important; } .qn-uncommon { color: #1eff00 !important; } .qn-rare { color: #0070dd !important; } .qn-epic { color: #a335ee !important; }
+.pdhead.withicon { display: grid; grid-template-columns: 40px 1fr; column-gap: var(--s3); align-items: center; }
+.pdhead.withicon .picon { grid-row: span 2; }
+.pdhead.withicon .ptracked { grid-column: 2; }
+.pings.withicon .ping { grid-template-columns: 52px 18px 1fr; }

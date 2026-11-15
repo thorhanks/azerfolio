@@ -430,6 +430,20 @@ local function nodeState(from, skill, greyAfter, to)
     return "gives"
 end
 
+-- Pure (Phase 15 step 4, R9): a node's skill-up colour by the curated table, in the game's
+-- difficulty names: "red" (can't gather it yet), "optimal" (orange), "medium" (yellow), "easy"
+-- (green), "trivial" (grey); nil when its skill or yours isn't known. A guide, not game data.
+function Rules.NodeDifficulty(from, skill)
+    if type(from) ~= "number" or type(skill) ~= "number" then return nil end
+    local G = gdata()
+    local d = skill - from
+    if d < 0 then return "red" end
+    if d >= (G.greyAfter or 100) then return "trivial" end
+    if d >= (G.greenAfter or 50) then return "easy" end
+    if d >= (G.yellowAfter or 25) then return "medium" end
+    return "optimal"
+end
+
 -- Pure: the Gather view's rows and the node you're on and the next.
 --   kind = "mining" | "herbalism" | "skinning" | "fishing"
 --   zoneLevels = Data/Zones.lua's levels (skinning only)
@@ -476,6 +490,8 @@ function Rules.Gather(kind, skill, zoneLevels)
     for _, r in ipairs(rows) do
         r.state = nodeState(r.from, skill, greyAfter, r.to)
         if r.state == "later" then r.togo = r.from - skill end
+        -- Named nodes get the guide's colour (skinning's zone rows don't: a zone spans a range).
+        if r.name then r.diff = Rules.NodeDifficulty(r.from, skill) end
         if r.from and type(skill) == "number" then
             if r.from <= skill and r.state == "gives" then current = r end -- the highest one still giving skill
             if r.from > skill and not nextRow then nextRow = r end

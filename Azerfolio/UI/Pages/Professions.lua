@@ -120,9 +120,13 @@ local function sourceText(s)
     return "Recipe item · where it drops isn't known"
 end
 
--- "learn 40" / "until 60" / "grey" / "grey 100", for a list row.
+-- "learn 40" / "grey at 60" / "grey" / "grey 100", for a list row (Phase 15 step 4: a known
+-- recipe's colour is on its name; the column keeps the game's grey skill).
 local function recipeSkillText(r, skill)
-    if r.known then return r.givesSkill and ("until " .. r.grey) or "grey" end
+    if r.known then
+        if r.diff == "trivial" then return "grey" end
+        return r.givesSkill and ("grey at " .. r.grey) or "grey"
+    end
     if r.learnAt then return "learn " .. r.learnAt end
     return r.grey and ("grey " .. r.grey) or ""
 end
@@ -154,7 +158,7 @@ local function nextUpText(it, m)
     end
     if it.kind == "skillup" then
         local names = {}
-        for _, r in ipairs(it.recipes) do names[#names + 1] = r.name .. " (until " .. r.grey .. ")" end
+        for _, r in ipairs(it.recipes) do names[#names + 1] = r.name .. " (grey at " .. r.grey .. ")" end
         return "Still gives skill", table.concat(names, ", "), nil, "recipes:foryou"
     end
     if it.kind == "gather" then
@@ -215,6 +219,31 @@ local function piece(parent, name, layer, sub)
     t:SetTexture(file)
     t:SetPoint("CENTER")
     return t
+end
+
+-- (Phase 15 step 4, R10) An item's icon in a 1 px border of its quality's colour (dark when the
+-- quality isn't known). :Set(icon, quality); hidden without an icon.
+local function newItemIcon(parent, size)
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetSize(size, size)
+    f.border = f:CreateTexture(nil, "BORDER")
+    f.border:SetAllPoints()
+    f.icon = f:CreateTexture(nil, "ARTWORK")
+    f.icon:SetPoint("TOPLEFT", 1, -1); f.icon:SetPoint("BOTTOMRIGHT", -1, 1)
+    f.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    function f:Set(icon, quality)
+        self:SetShown(icon ~= nil)
+        if not icon then return end
+        self.icon:SetTexture(icon)
+        local r, g, b = ns.Theme.QualityRGB(quality)
+        if r then self.border:SetColorTexture(r, g, b, 1) else self.border:SetColorTexture(0, 0, 0, 0.9) end
+    end
+    f:Hide()
+    return f
+end
+
+local function itemIconOf(itemID, recorded)
+    return recorded or (itemID and ns.Professions.ItemIcon(itemID)) or nil
 end
 
 local function hexColor(s)
@@ -337,6 +366,9 @@ local function newTrackCard(parent)
     c.bg:SetAllPoints()
     c.edge = T.CardFrame(c, 16, 3)
     if not c.edge then c.line = W.Edge(c, "BORDER"); c.line:SetColor("cardEdge") end
+    -- The crafted item's icon before the name (Phase 15 step 4); the name moves right when shown.
+    c.icon = newItemIcon(c, PT.recipeIcon)
+    c.icon:SetPoint("TOPLEFT", c, "TOPLEFT", S.s3, -S.s2)
     c.name = T.Text(c, "sm", "white")
     c.name:SetPoint("TOPLEFT", c, "TOPLEFT", S.s3, -S.s2)
     c.name:SetPoint("RIGHT", c, "RIGHT", -70, 0)
@@ -351,7 +383,7 @@ local function newTrackCard(parent)
     function c:Line(i)
         local l = self.lines[i]
         if not l then
-            l = { q = T.Text(self, "xs", "text"), n = T.Text(self, "xs", "white"), w = T.Text(self, "xs", "dim") }
+            l = { q = T.Text(self, "xs", "text"), n = T.Text(self, "xs", "white"), w = T.Text(self, "xs", "dim"), i = newItemIcon(self, PT.ingIcon) }
             l.q:SetWidth(52); l.q:SetJustifyH("RIGHT")
             l.n:SetJustifyH("LEFT"); l.n:SetWordWrap(false)
             l.w:SetJustifyH("LEFT"); l.w:SetWordWrap(false)
@@ -367,8 +399,10 @@ end
 local function newRecipeRow(parent)
     local T, PT, W, S = ns.Theme, ns.Theme.layout.profTab, ns.Widgets, ns.Theme.space
     local r = W.FocusRow(parent, PT.recipeRow)
+    r.icon = newItemIcon(r, PT.recipeIcon)
+    r.icon:SetPoint("LEFT", r, "LEFT", S.s1, 0)
     r.src = T.Text(r, "xs", "dim")
-    r.src:SetPoint("LEFT", r, "LEFT", S.s1, 0)
+    r.src:SetPoint("LEFT", r, "LEFT", S.s1 + PT.recipeIcon + S.s1, 0)
     r.src:SetWidth(PT.recipeSrc); r.src:SetJustifyH("LEFT")
     r.state = T.Text(r, "xs", "profGo")
     r.state:SetPoint("RIGHT", r, "RIGHT", -S.s2, 0)
@@ -400,8 +434,16 @@ local function newDetailLine(parent)
     -- Anchored to the row, not to the label beside it: an empty label collapsed and the text
     -- hung below the highlight; with a sub line the pair spilled past it (owner, 2026-11-14).
     -- One line: centred on the row; with a sub line: from the row's top.
+    -- An ingredient line has the item's icon before its name (Phase 15 step 4).
+    l.icon = newItemIcon(l, PT.ingIcon)
     function l:Place(twoLines)
         local x = S.s1 + PT.detailLeft + S.s1
+        self.icon:ClearAllPoints()
+        if self.icon:IsShown() then
+            if twoLines then self.icon:SetPoint("TOPLEFT", self, "TOPLEFT", x, -PT.detailLinePad)
+            else self.icon:SetPoint("LEFT", self, "LEFT", x, 0) end
+            x = x + PT.ingIcon + S.s1
+        end
         self.left:ClearAllPoints(); self.text:ClearAllPoints()
         if twoLines then
             self.left:SetPoint("TOPLEFT", self, "TOPLEFT", S.s1, -PT.detailLinePad)
@@ -576,15 +618,15 @@ local function build(parent)
         t:SetPoint("BOTTOMRIGHT", road, "BOTTOMRIGHT", sh[1], -sh[1] - 3)
         road.shadow[i] = t
     end
-    road.bar = T.GildedBar(road, PT.roadBar)
-    road.bar:SetFrameLevel(base + 1)
-    -- Past your cap: the road darkened behind a gate (on a frame above the gilded bar).
+    -- Phase 15 step 4 (R7): the road is the Class tab's band (road-band / road-band-gold) laid
+    -- along the painted lane in pieces (paintRoad), gilded up to your skill, faded past your cap.
+    road.bands = {}
+    -- The gate across the road at your cap (on a frame above the band).
     road.over = CreateFrame("Frame", nil, road)
     road.over:SetAllPoints()
     road.over:SetFrameLevel(base + 2)
-    road.closed = T.Solid(road.over, "black", "ARTWORK", 0.45)
     road.gate = {}
-    for i = 1, 4 do road.gate[i] = T.Solid(road.over, "classNotch", "OVERLAY") end -- brass on the darkened road
+    for i = 1, 4 do road.gate[i] = T.Solid(road.over, "classInk", "OVERLAY") end
     road.ticks = {}
     for i, s in ipairs({ 1, 75, 150, 225, 300 }) do
         -- Owner (2026-11-14): the scale's numbers on cartouches, like the ranks' names.
@@ -725,6 +767,8 @@ local function build(parent)
     det.scroll = W.Scroll(det)
     det.scroll:SetPoint("TOPLEFT", S.s4, -S.s3); det.scroll:SetPoint("BOTTOMRIGHT", -S.s3, S.s2)
     local dc = det.scroll.child
+    det.icon = newItemIcon(dc, PT.detailIcon)
+    det.icon:SetPoint("TOPLEFT")
     det.name = T.Text(dc, "lg", "gold")
     det.name:SetPoint("TOPLEFT"); det.name:SetPoint("RIGHT", dc, "RIGHT", -S.s4, 0)
     det.name:SetJustifyH("LEFT")
@@ -889,49 +933,85 @@ local function build(parent)
         local x0, x1 = PT.roadPadL, w - PT.roadPadR
         local max = ns.ProfessionData.maxSkill
         local function X(s) return x0 + (math.max(1, math.min(max, s)) - 1) / (max - 1) * (x1 - x0) end
-        -- The painted road fills the strip (cover, centred) and the bar runs on its lane at half height.
+        -- The painted road (owner, "Band 142, uncut"): cover-fit, keeping roadArtSpan (the
+        -- first village to the last forge) in view; the band runs on the art's lane.
         local painted = m.key and ns.Art and ns.Art.profRoads and ns.Art.profRoads[m.key] and true or false
         road.paper:SetShown(not painted); road.art:SetShown(painted)
-        local barY = math.floor(PT.road * PT.roadLaneAt + 0.5) -- from the strip's bottom to the bar's centre (room for the scale's cartouches)
+        local h = road:GetHeight() or PT.road
+        if h <= 0 then h = PT.road end
+        local AW, AH = PT.roadArt[1], PT.roadArt[2]
+        local v = PT.roadArtLane / AH
+        local barY = h * (1 - v) -- from the strip's bottom to the band's centre
         if painted then
             road.art:SetTexture(T.mediaDir .. "ProfRoads\\" .. m.key .. ".blp")
-            local h = road:GetHeight() or PT.road
-            if h <= 0 then h = PT.road end
-            -- Cover-fit; where the strip is wider than the art, the rows kept put the art's lane
-            -- at roadLaneAt of the strip (room below for the scale), and the bar on that lane.
-            local l, r, t, b = T.CoverCoords(w, h, PT.roadArt[1], PT.roadArt[2])
-            local v = PT.roadArtLane / PT.roadArt[2]
-            local f = b - t -- share of the art's height that shows
-            if f < 1 then
-                b = math.min(1, v + PT.roadLaneAt * f)
-                t = b - f
-                if t < 0 then t, b = 0, f end
+            local s = math.max(w / AW, h / AH)
+            local fx, fy = w / (AW * s), h / (AH * s) -- shares of the art's width and height that show
+            local mid = (PT.roadArtSpan[1] + PT.roadArtSpan[2]) / 2 / AW
+            local l = math.max(0, math.min(1 - fx, mid - fx / 2))
+            local t, b = 0, 1
+            if fy < 1 then -- wider than the art: keep the lane where it sits at full height
+                b = math.min(1, v + (1 - v) * fy)
+                t = b - fy
+                if t < 0 then t, b = 0, fy end
             end
-            road.art:SetTexCoord(l, r, t, b)
+            road.art:SetTexCoord(l, l + fx, t, b)
             barY = h * (b - v) / (b - t)
         end
-        road.bar:ClearAllPoints()
-        road.bar:SetPoint("LEFT", road, "BOTTOMLEFT", x0 - PT.roadBar * 0.45, barY)
-        road.bar:SetWidth(x1 - x0 + PT.roadBar * 0.9)
-        road.bar:Set((m.skill or 0) / max, m.mastered and "complete" or nil)
+        -- The band in pieces, each a window of the tiling texture (as the Class tab stamps it):
+        -- gold up to your skill, earth to your cap, faded earth behind the gate.
         local cap = m.cap or max
         local closed = not m.mastered and cap < max
-        road.closed:SetShown(closed)
+        local xs = m.mastered and (x1 + 8) or X(m.skill or 1)
+        local xc = closed and X(cap) or (x1 + 8)
+        local CT = T.layout.classTab
+        local earth, gold = T.Chrome("road-band"), T.Chrome("road-band-gold")
+        local k = PT.roadBand / CT.bandRows            -- px per texture pixel
+        local tileW, tileH = CT.bandTexW * k, CT.bandPx * k
+        local used = 0
+        local function band(a, b, file, alpha, fallback)
+            if b <= a then return end
+            local start = x0 - 8
+            local x = start + math.floor((a - start) / tileW) * tileW
+            while x < b do
+                local l, r = math.max(a, x), math.min(b, x + tileW)
+                if r > l then
+                    used = used + 1
+                    local tex = road.bands[used]
+                    if not tex then tex = road:CreateTexture(nil, "BORDER", nil, 1); road.bands[used] = tex end
+                    tex:ClearAllPoints()
+                    if file then
+                        tex:SetTexture(file)
+                        tex:SetTexCoord((l - x) / tileW, (r - x) / tileW, 0, 1)
+                        tex:SetSize(r - l + 0.5, tileH)
+                        if tex.SetDesaturated then tex:SetDesaturated(alpha < 1) end
+                        tex:SetVertexColor(1, 1, 1, alpha)
+                    else
+                        tex:SetTexCoord(0, 1, 0, 1)
+                        tex:SetColorTexture(T.RGB(fallback)); tex:SetAlpha(alpha)
+                        tex:SetSize(r - l + 0.5, PT.roadBand * 0.6)
+                    end
+                    tex:SetPoint("LEFT", road, "BOTTOMLEFT", l, barY)
+                    tex:Show()
+                end
+                x = x + tileW
+            end
+        end
+        band(x0 - 8, xs, gold, 1, "complete")
+        band(math.max(x0 - 8, xs), xc, earth, 1, "classRoad")
+        band(math.max(xs, xc), x1 + 8, earth, PT.roadShut, "classRoad")
+        for i = used + 1, #road.bands do road.bands[i]:Hide() end
         for _, g in ipairs(road.gate) do g:SetShown(closed) end
         if closed then
-            local xc = X(cap)
-            road.closed:ClearAllPoints()
-            road.closed:SetPoint("LEFT", road, "BOTTOMLEFT", xc, barY)
-            road.closed:SetSize(math.max(1, x1 - xc + 4), PT.roadBar - 6)
             -- The gate: two posts and two bars across the road at your cap.
-            road.gate[1]:ClearAllPoints(); road.gate[1]:SetPoint("CENTER", road, "BOTTOMLEFT", xc - 3, barY); road.gate[1]:SetSize(2, PT.roadBar + 10)
-            road.gate[2]:ClearAllPoints(); road.gate[2]:SetPoint("CENTER", road, "BOTTOMLEFT", xc + 3, barY); road.gate[2]:SetSize(2, PT.roadBar + 10)
-            road.gate[3]:ClearAllPoints(); road.gate[3]:SetPoint("CENTER", road, "BOTTOMLEFT", xc, barY + 5); road.gate[3]:SetSize(12, 2)
-            road.gate[4]:ClearAllPoints(); road.gate[4]:SetPoint("CENTER", road, "BOTTOMLEFT", xc, barY - 5); road.gate[4]:SetSize(12, 2)
+            local post = PT.roadBand + 12
+            road.gate[1]:ClearAllPoints(); road.gate[1]:SetPoint("CENTER", road, "BOTTOMLEFT", xc - 3, barY); road.gate[1]:SetSize(2, post)
+            road.gate[2]:ClearAllPoints(); road.gate[2]:SetPoint("CENTER", road, "BOTTOMLEFT", xc + 3, barY); road.gate[2]:SetSize(2, post)
+            road.gate[3]:ClearAllPoints(); road.gate[3]:SetPoint("CENTER", road, "BOTTOMLEFT", xc, barY + 5); road.gate[3]:SetSize(14, 2)
+            road.gate[4]:ClearAllPoints(); road.gate[4]:SetPoint("CENTER", road, "BOTTOMLEFT", xc, barY - 5); road.gate[4]:SetSize(14, 2)
         end
         for _, tk in ipairs(road.ticks) do
             local x = X(tk.skill)
-            tk.line:ClearAllPoints(); tk.line:SetPoint("TOP", road, "BOTTOMLEFT", x, barY - PT.roadBar / 2 - 1); tk.line:SetSize(1, 3)
+            tk.line:ClearAllPoints(); tk.line:SetPoint("TOP", road, "BOTTOMLEFT", x, barY - PT.roadBand / 2 - 1); tk.line:SetSize(1, 3)
             tk.cart:ClearAllPoints(); tk.cart:SetPoint("TOP", tk.line, "BOTTOM", 0, 0)
         end
         local items = {}
@@ -942,7 +1022,7 @@ local function build(parent)
                 b.stone:SetShown(file ~= nil); b.disc:SetShown(file == nil)
                 if file then b.stone:SetTexture(file) else tint(b.disc, st.state == "trained" and "complete" or st.state == "now" and "classRedInk" or "classInkFaded") end
                 b:ClearAllPoints()
-                b:SetPoint("BOTTOM", road, "BOTTOMLEFT", X(st.at), barY + PT.roadBar / 2 + 4)
+                b:SetPoint("BOTTOM", road, "BOTTOMLEFT", X(st.at), barY + PT.roadBand / 2 + 6)
                 b.cart:SetText(st.rank.name)
                 b.label:SetTextColor(T.RGB(STONE_INK[st.state] or "classInkFaded"))
                 b.item = { key = "stone:" .. st.rank.name, frame = b, title = rankTitle(m, st.rank), detail = stoneInfo(m, st) }
@@ -1019,6 +1099,13 @@ local function build(parent)
                 c:SetPoint("TOPLEFT", child, "TOPLEFT", S.s4, -y - 4)
                 c:SetWidth(math.max(1, width - 4))
                 c.name:SetText(r.name)
+                local icon = itemIconOf(r.item, r.icon)
+                c.icon:Set(icon, r.quality)
+                c.name:ClearAllPoints()
+                c.name:SetPoint("TOPLEFT", c, "TOPLEFT", S.s3 + (icon and (PT.recipeIcon + S.s2) or 0), -S.s2)
+                c.name:SetPoint("RIGHT", c, "RIGHT", -70, 0)
+                local qr, qg, qb = T.QualityRGB(r.quality)
+                if qr then c.name:SetTextColor(qr, qg, qb) else c.name:SetTextColor(T.RGB("white")) end
                 local sum, tag = ingredientSummary(rg)
                 c.sum:SetText(sum); c.tag:SetText(tag or "")
                 local h = PT.cardHead
@@ -1028,7 +1115,10 @@ local function build(parent)
                     l.q:ClearAllPoints(); l.q:SetPoint("TOPLEFT", c, "TOPLEFT", 0, -h)
                     l.q:SetText(string.format("%s / %d", it.have == nil and "?" or tostring(it.have), it.need))
                     l.q:SetTextColor(T.RGB(it.ok and "profReady" or (it.have ~= nil and "profShort" or "dim")))
-                    l.n:ClearAllPoints(); l.n:SetPoint("TOPLEFT", l.q, "TOPRIGHT", S.s2, 0)
+                    local ii = ns.Professions.ItemIcon(it.itemID)
+                    l.i:Set(ii, ns.Professions.ItemQuality(it.itemID))
+                    l.i:ClearAllPoints(); l.i:SetPoint("TOPLEFT", l.q, "TOPRIGHT", S.s2, 1)
+                    l.n:ClearAllPoints(); l.n:SetPoint("TOPLEFT", l.q, "TOPRIGHT", S.s2 + (ii and (PT.ingIcon + S.s1) or 0), 0)
                     l.n:SetText(it.name or ("Item " .. it.itemID))
                     l.w:ClearAllPoints(); l.w:SetPoint("TOPLEFT", l.n, "TOPRIGHT", S.s2, 0); l.w:SetPoint("RIGHT", c, "RIGHT", -S.s3, 0)
                     l.w:SetText(whereText(it.where))
@@ -1036,7 +1126,7 @@ local function build(parent)
                     h = h + PT.ingRow
                     parts[#parts + 1] = string.format("%s %s / %d", it.name or ("item " .. it.itemID), it.have == nil and "?" or tostring(it.have), it.need)
                 end
-                for i = #(rg and rg.items or {}) + 1, #c.lines do local l = c.lines[i]; l.q:Hide(); l.n:Hide(); l.w:Hide() end
+                for i = #(rg and rg.items or {}) + 1, #c.lines do local l = c.lines[i]; l.q:Hide(); l.n:Hide(); l.w:Hide(); l.i:Hide() end
                 c:SetHeight(h + S.s2)
                 local id = r.id
                 c.item = { key = "track:" .. id, frame = c, title = r.name,
@@ -1066,6 +1156,7 @@ local function build(parent)
         det.name:SetShown(r ~= nil); det.state:SetShown(r ~= nil); det.facts:SetShown(r ~= nil)
         det.howH:SetShown(r ~= nil); det.ingH:SetShown(r ~= nil); det.track:SetShown(r ~= nil); det.tracked:SetShown(false)
         det.note:SetShown(r == nil)
+        det.icon:Hide()
         if not r then
             det.note:ClearAllPoints(); det.note:SetPoint("TOPLEFT"); det.note:SetPoint("RIGHT", dc, "RIGHT", -S.s2, 0)
             det.note:SetText("Choose a recipe.")
@@ -1074,6 +1165,16 @@ local function build(parent)
         end
         local width = math.max(1, (dc:GetWidth() or PT.detail) - S.s2)
         det.name:SetText(r.name)
+        r.diff = r.known and ns.Professions.Difficulty(r, m.skill) or nil
+        -- R10: the crafted item's icon beside the name, and the name in its quality's colour
+        -- where the game gives the quality (else the heading's gold).
+        local icon = itemIconOf(r.item, r.icon)
+        det.icon:Set(icon, r.quality)
+        det.name:ClearAllPoints()
+        det.name:SetPoint("TOPLEFT", dc, "TOPLEFT", icon and (PT.detailIcon + S.s3) or 0, 0)
+        det.name:SetPoint("RIGHT", dc, "RIGHT", -S.s4, 0)
+        local qr, qg, qb = T.QualityRGB(r.quality)
+        if qr then det.name:SetTextColor(qr, qg, qb) else det.name:SetTextColor(T.RGB("gold")) end
         local st, color = recipeStateText(r)
         det.state:SetText(st); det.state:SetTextColor(T.RGB(color))
         det.tracked:SetShown(r.tracked)
@@ -1083,17 +1184,30 @@ local function build(parent)
         det.facts:SetPoint("TOPLEFT", r.tracked and det.tracked or det.state, "BOTTOMLEFT", 0, -S.s2)
         det.facts:SetPoint("RIGHT", dc, "RIGHT", -S.s2, 0)
         -- "Learn at ?" read like a typo (review 2026-11-14): say what isn't known.
-        det.facts:SetText(string.format("%s   ·   %s%s   ·   %s",
+        -- R9: a known recipe's difficulty in the game's colour and words ("Yellow: usually
+        -- gives skill · grey at 55"); otherwise the grey skill as before.
+        local skillPart
+        if r.diff then
+            local cr, cg, cb = T.RGB(T.diffColor[r.diff])
+            local word = T.diffWord[r.diff]
+            skillPart = string.format("|cff%02x%02x%02x%s|r: %s%s", math.floor(cr * 255 + 0.5), math.floor(cg * 255 + 0.5), math.floor(cb * 255 + 0.5), word:sub(1, 1):upper() .. word:sub(2),
+                T.diffSays[r.diff], (r.diff ~= "trivial" and r.grey) and (" · grey at |cffffffff" .. r.grey .. "|r") or "")
+        else
+            skillPart = (r.grey and ("Gives skill until |cffffffff" .. r.grey .. "|r") or "Gives skill until: not known yet")
+                .. ((r.grey and m.skill and m.skill >= r.grey) and " (grey)" or "")
+        end
+        det.facts:SetText(string.format("%s   ·   %s   ·   %s",
             r.learnAt and ("Learn at |cffffffff" .. r.learnAt .. "|r") or "Learn at: not known yet",
-            r.grey and ("Gives skill until |cffffffff" .. r.grey .. "|r") or "Gives skill until: not known yet",
-            (r.grey and m.skill and m.skill >= r.grey) and " (grey)" or "", r.categoryName or "No category"))
+            skillPart, r.categoryName or "No category"))
         local y = (det.name:GetStringHeight() or 20) + (det.state:GetStringHeight() or 14) + (r.tracked and 18 or 0)
             + (det.facts:GetStringHeight() or 14) + S.s4 + S.s3
+        if icon then y = math.max(y, PT.detailIcon + (r.tracked and 18 or 0) + (det.facts:GetStringHeight() or 14) + S.s4 + S.s3) end
         local function line(left, text, sub, item)
             local l = take("detailLines", newDetailLine, dc)
             l:ClearAllPoints(); l:SetPoint("TOPLEFT", dc, "TOPLEFT", 0, -y); l:SetWidth(width)
             l.left:SetText(left or ""); l.text:SetText(text or ""); l.sub:SetText(sub or "")
             l.sub:SetShown(sub ~= nil)
+            l.icon:Set(item.icon, item.quality)
             l:Place(sub ~= nil)
             l:SetHeight(sub and PT.detailLine or 22)
             l.item = item
@@ -1123,7 +1237,8 @@ local function build(parent)
             local have = it.have == nil and "?" or tostring(it.have)
             local l = line(have .. " / " .. it.need, it.name or ("Item " .. it.itemID), whereText(it.where),
                 { key = "ing:" .. i, title = it.name or ("Item " .. it.itemID),
-                  detail = string.format("You have %s, it needs %d. %s.", have, it.need, whereText(it.where)) })
+                  detail = string.format("You have %s, it needs %d. %s.", have, it.need, whereText(it.where)),
+                  icon = ns.Professions.ItemIcon(it.itemID), quality = ns.Professions.ItemQuality(it.itemID) })
             l.left:SetTextColor(T.RGB(it.ok and "profReady" or (it.have ~= nil and "profShort" or "dim")))
         end
         if not rg then
@@ -1211,7 +1326,11 @@ local function build(parent)
                     row:ClearAllPoints(); row:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y); row:SetWidth(width)
                     row.src:SetText(SOURCE_TAG[r.sources[1] and r.sources[1].kind or ""] or "")
                     row.name:SetText(r.name .. (r.tracked and "  |cff6fa8ffTracked|r" or ""))
-                    row.name:SetTextColor(T.RGB(r.state == "nosource" and "dim" or "white"))
+                    r.diff = r.known and ns.Professions.Difficulty(r, m.skill) or nil
+                    -- A known recipe's name in the game's skill-up colour (R9); the item's
+                    -- quality on its icon's border (R10).
+                    row.name:SetTextColor(T.RGB(r.diff and T.diffColor[r.diff] or (r.state == "nosource" and "dim" or "white")))
+                    row.icon:Set(itemIconOf(r.item, r.icon), r.quality)
                     row.skill:SetText(recipeSkillText(r, m.skill))
                     row.check:SetShown(r.state == "known")
                     row.state:SetShown(r.state ~= "known")
@@ -1220,6 +1339,7 @@ local function build(parent)
                     row:SetSelected(r.id == page.recipeSel)
                     local id = r.id
                     local st = recipeStateText(r)
+                    if r.diff then st = st .. "; " .. T.diffWord[r.diff] .. ": " .. T.diffSays[r.diff] end
                     row.item = { key = "r:" .. id, frame = row, title = r.name, recipe = r, scroll = page.rlist.scroll,
                         topGap = L.listHeader + S.s2, group = "list", column = 1,
                         detail = st .. ". X " .. (r.tracked and "stops tracking it." or "tracks it in the game's objective tracker."),
@@ -1274,16 +1394,23 @@ local function build(parent)
             r.skill:SetText(skillTxt)
             local stateTxt = row.state == "gives" and "Gives skill" or row.state == "later" and (row.togo .. " to go")
                 or row.state == "current" and "Your skill" or row.state == "unknown" and "Not known" or ""
+            -- R9: a node's colour by the guide (ProfessionRules.NodeDifficulty): red only on the
+            -- next node up, the ones after it plain, so the list isn't a wall of red.
+            local diff = row.diff
+            if diff == "red" and not (g.nextRow and row.from == g.nextRow.from) then diff = nil end
+            if diff and diff ~= "red" then stateTxt = T.diffSays[diff]:gsub(" gives skill", ""):gsub("^%l", string.upper) end
             r.state:SetText(stateTxt)
-            r.state:SetTextColor(T.RGB((row.state == "gives" or row.state == "current") and "profReady" or "dim"))
-            r.name:SetTextColor(T.RGB(row.state == "grey" and "dim" or "white"))
+            r.state:SetTextColor(T.RGB(diff and diff ~= "red" and T.diffColor[diff]
+                or ((row.state == "gives" or row.state == "current") and "profReady" or "dim")))
+            r.name:SetTextColor(T.RGB(diff and T.diffColor[diff] or (row.state == "grey" and "dim" or "white")))
             local alt = row.alt and #row.alt > 0 and (" Other guides say " .. table.concat(row.alt, " or ") .. ".") or ""
             local detail
             if g.fishing then detail = "Good places to fish from skill " .. row.from .. ". " .. zonesText(row.zones, 8) .. "."
             elseif row.from == nil then detail = "The skill it needs isn't known yet (Forever-only)." .. alt
             else
-                detail = "Needs skill " .. row.from .. (row.greyAt and ("; gives skill until " .. row.greyAt) or "") .. "." .. alt
-                    .. (zones ~= "" and (" " .. zones .. ".") or "")
+                detail = "Needs skill " .. row.from .. (row.greyAt and ("; gives skill until " .. row.greyAt) or "") .. "."
+                    .. ((diff and diff ~= "red") and (" " .. T.diffWord[diff]:gsub("^%l", string.upper) .. " for you by the guide: " .. T.diffSays[diff] .. ".") or "")
+                    .. alt .. (zones ~= "" and (" " .. zones .. ".") or "")
             end
             r.item = { key = "g:" .. i, frame = r, title = name, detail = detail, scroll = page.gather.scroll, topGap = L.listHeader + S.s2 }
             rows[#rows + 1] = { items = { r.item }, section = 1 }
@@ -1293,8 +1420,9 @@ local function build(parent)
         foot:ClearAllPoints(); foot:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset, -y - S.s3); foot:SetWidth(width)
         foot:SetText(m.gather == "skinning"
             and "From the zone level guide and a Classic rule (the skill a creature of each level needs); the game doesn't list it."
-            or "A hand-curated guide from Classic and Forever profession guides; the game doesn't list where nodes grow or fish bite. Skills in doubt are open check G1.")
-        child:SetHeight(y + 70)
+            or g and g.fishing and "A hand-curated guide from Classic and Forever profession guides; the game doesn't list where fish bite."
+            or "A hand-curated guide from Classic and Forever profession guides; the game doesn't list where nodes grow. Colours follow the guide's skills (orange from the node's skill, yellow +25, green +50, grey +100), not the game. Skills in doubt are open check G1.")
+        child:SetHeight(y + S.s3 + (foot:GetStringHeight() or 40) + S.s4)
         return rows
     end
 
@@ -1306,9 +1434,21 @@ local function build(parent)
 
     -- Sizes the banner to the window: as tall as the mockup when there's room, shorter at the
     -- minimum size, so the road below it and Next up / Tracked (listsMin) still fit.
-    local function sizeBanner()
+    -- listsH: the room Next up / Tracked need for their content (Phase 15 step 4: they're sized
+    -- to it; the banner gives way, down to bannerMin, rather than a Next up line being clipped by
+    -- the road, WoWScrnShot_111426_195943).
+    local function sizeBanner(listsH)
         local h = (body:GetHeight() or 0)
-        local below = S.s2 + PT.listsMin + PT.roadGap + PT.roadFrameOut + PT.road + PT.roadFoot
+        -- The road strip first: as tall as the painting shows uncut at this width (owner, Phase
+        -- 15 step 4: "Band 142, uncut"; 138 at 1160, 115 at the minimum width, 190 at most).
+        local rw = road:GetWidth() or 0
+        local rh = PT.road
+        if rw > 0 then
+            rh = math.floor(math.max(PT.road, math.min(PT.roadMax,
+                rw * PT.roadArt[2] / (PT.roadArtSpan[2] - PT.roadArtSpan[1]))) + 0.5)
+        end
+        road:SetHeight(rh)
+        local below = S.s2 + math.max(PT.listsMin, listsH or 0) + PT.roadGap + PT.roadFrameOut + rh + PT.roadFoot
         local bh = math.max(PT.bannerMin, math.min(PT.bannerMax, h - below))
         banner:SetHeight(bh)
     end
@@ -1359,9 +1499,11 @@ local function build(parent)
         gather:SetShown(self.view == "gather")
         if self.view == "journey" then
             sizeBanner()
+            local nexts, tracks = paintNext(m), paintTracked(m)
+            local need = math.max(page.nextCol.scroll.child:GetHeight() or 0, page.trackCol.scroll.child:GetHeight() or 0)
+            sizeBanner(L.plate + S.s2 + need + S.s2)
             paintBanner(m)
             local roadItems = paintRoad(m)
-            local nexts, tracks = paintNext(m), paintTracked(m)
             -- Top to bottom as drawn (owner, 2026-11-14: the road sits at the page's foot):
             -- Next up (left) and Tracked (right) side by side, up/down staying in a column; then
             -- the road. LT/RT jump between the two sections.
