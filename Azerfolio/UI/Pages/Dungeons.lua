@@ -9,7 +9,7 @@
 --     the quest bar); in the wide window the list sits beside the instance's page and the page
 --     follows focus;
 --   * level-bracket groups with sticky headers (LT/RT), "every quest done in n of m".
--- The Road view is task 6: until it's built, Y cycles Cards · List only.
+--   * Road (task 6): every instance in level order on the adventurer's road (see paintRoad).
 -- The instance page (task 5; rounds 3-6, docs/reviews/2026-11-15-dungeon-page-review.md option A;
 -- the mockup's renderDungeonInto): A opens it (wide List: it sits beside the list, A moves in).
 --   * the banner: painting, name (the place for wings), blurb, meta, tags, the wing tabs of Scarlet
@@ -33,8 +33,8 @@ local FILTERS = { { "all", "All" }, { "foryou", "For your level" }, { "dungeon",
     { "forever", "New in Forever" } }
 local FILTER_INFO = { all = "Every dungeon and raid.", foryou = "Instances whose level range suits yours (the zone guide's rule).",
     dungeon = "Only dungeons.", raid = "Only raids.", forever = "The nine dungeons new in Forever." }
--- The views Y cycles. The Road (task 6) joins once it's built.
-local VIEWS = { { "cards", "Cards" }, { "list", "List" } }
+-- The views Y cycles: Cards · List · Road (task 6).
+local VIEWS = { { "cards", "Cards" }, { "list", "List" }, { "road", "Road" } }
 
 local function settings() return ns.db.dungeons end
 local function plural(n, one, many) return n == 1 and one or (many or (one .. "s")) end
@@ -55,7 +55,7 @@ end
 
 local Words = {}
 
--- The view shown for a saved view (the Road isn't built yet: Cards).
+-- The view shown for a saved view (Cards for anything else).
 function Words.View(v)
     for _, x in ipairs(VIEWS) do if x[1] == v then return v end end
     return "cards"
@@ -149,6 +149,200 @@ end
 
 -- The toolbar's count.
 function Words.Count(shown, total) return string.format("%d of %d  ·  levels are a guide", shown, total) end
+
+-- The adventurer's road (task 6; DESIGN rounds 2-8; the mockup's dunTrail) -----------------------
+-- Pure: positions in the design's units (the mockup's px; the page scales the strip to fit).
+
+local Road = {}
+
+-- The road's order: dungeons by level range, then raids; ties keep data order.
+function Road.Order(entries)
+    local tmp = {}
+    for i, e in ipairs(entries or {}) do tmp[i] = { e = e, i = i } end
+    table.sort(tmp, function(a, b)
+        local ia, ib = a.e.inst, b.e.inst
+        local ra, rb = ia.kind == "raid", ib.kind == "raid"
+        if ra ~= rb then return rb end
+        if ia.levels[1] ~= ib.levels[1] then return ia.levels[1] < ib.levels[1] end
+        if ia.levels[2] ~= ib.levels[2] then return ia.levels[2] < ib.levels[2] end
+        return a.i < b.i
+    end)
+    local out = {}
+    for i, x in ipairs(tmp) do out[i] = x.e end
+    return out
+end
+
+-- The painted region behind an instance (round 6): 1-5 by the first level's bracket, 6 the raids.
+function Road.Region(inst)
+    if inst.kind == "raid" then return 6 end
+    local l = inst.levels[1]
+    if l < 20 then return 1 elseif l < 30 then return 2 elseif l < 40 then return 3 elseif l < 50 then return 4 end
+    return 5
+end
+
+-- A bracket sign's words: "Levels 13-19", "Raids · level 60".
+function Road.Sign(inst)
+    if inst.kind == "raid" then return "Raids · level 60" end
+    local b = ns.DungeonRules and ns.DungeonRules.Bracket(inst)
+    return "Levels " .. ((b and b.key) or tostring(inst.levels[1]))
+end
+
+-- The road laid out (the mockup's dunTrail). o: { H, level, step, pad, fade, top, bottom, zig,
+-- signMin, tex = { w, h }, flat (the road's height share without painted lanes), art = {
+-- road1 = true, ... }, lanes = { road1 = { ... } } }. Returns { W, regions = { x0, w, core0,
+-- core1, key }, painted, roadY(x), pts = { x, roadY, y, above }, youX, youY, signs = { x, text,
+-- raid }, stones = { x, y, level }, citadel (x where the raids begin, or nil) }.
+function Road.Layout(items, o)
+    local n = #items
+    local H, step, pad = o.H, o.step, o.pad
+    local W = pad * 2 + step * math.max(0, n - 1)
+    local out = { W = W, regions = {}, pts = {}, signs = {}, stones = {} }
+    -- One region per bracket, behind its stretch of road, cross-faded into the next.
+    local start = 1
+    for i, e in ipairs(items) do
+        local r = Road.Region(e.inst)
+        local nxt = items[i + 1]
+        if not nxt or Road.Region(nxt.inst) ~= r then
+            local x0 = start == 1 and 0 or (pad + (start - 1) * step - step / 2)
+            local x1 = nxt and (pad + (i - 1) * step + step / 2) or W
+            local key = "road" .. r
+            if o.art and o.art[key] then
+                out.regions[#out.regions + 1] = { x0 = x0 - o.fade / 2, w = x1 - x0 + o.fade, core0 = x0, core1 = x1, key = key,
+                    lane = o.lanes and o.lanes[key] }
+            end
+            start = i + 1
+        end
+    end
+    local painted = #out.regions > 0
+    for _, r in ipairs(out.regions) do if type(r.lane) ~= "table" or #r.lane < 2 then painted = false end end
+    out.painted = painted
+    local tw, th = o.tex[1], o.tex[2]
+    -- Round 7: the painted road's height at x through the region's cover crop.
+    local function laneIn(r, x)
+        local s = math.max(r.w / tw, H / th)
+        local offX, offY = (r.w - tw * s) / 2, (H - th * s) / 2
+        local u = math.max(0, math.min(1, (x - r.x0 - offX) / (tw * s)))
+        local L = r.lane
+        local f = u * (#L - 1)
+        local i = math.floor(f)
+        local t = f - i
+        local a, b = L[i + 1], L[math.min(#L, i + 2)]
+        return offY + (a * (1 - t) + b * t) * th * s
+    end
+    local flat = H * (o.flat or 0.556)
+    local function roadY(x)
+        if not painted then return flat end
+        local here, near, nd = {}, nil, nil
+        for _, r in ipairs(out.regions) do
+            if x >= r.x0 and x <= r.x0 + r.w then here[#here + 1] = r end
+            local d = math.min(math.abs(x - r.x0), math.abs(x - r.x0 - r.w))
+            if not nd or d < nd then near, nd = r, d end
+        end
+        if #here == 0 then return laneIn(near, x) end
+        if #here == 1 then return laneIn(here[1], x) end
+        local a, b = here[1], here[2]
+        local t = math.max(0, math.min(1, (x - b.x0) / math.max(1, a.x0 + a.w - b.x0)))
+        return laneIn(a, x) * (1 - t) + laneIn(b, x) * t
+    end
+    out.roadY = roadY
+    -- Medallions zigzag above and below the road, kept clear of the signs and the bottom (round 8).
+    for i = 1, n do
+        local x = pad + (i - 1) * step
+        local ry = roadY(x)
+        local above = i % 2 == 1
+        out.pts[i] = { x = x, roadY = ry, above = above,
+            y = math.max(o.top, math.min(H - o.bottom, ry + (above and -o.zig or o.zig))) }
+    end
+    -- You: on the road past the last dungeon whose range starts at or below your level.
+    local yi = 0
+    for i, e in ipairs(items) do
+        if e.inst.kind ~= "raid" and e.inst.levels[1] <= o.level then yi = i end
+    end
+    out.youIndex = yi
+    if n == 0 or yi == 0 then out.youX = pad - 70
+    elseif yi >= n then out.youX = out.pts[yi].x + 70
+    else out.youX = (out.pts[yi].x + out.pts[yi + 1].x) / 2 end
+    out.youY = roadY(out.youX)
+    -- Bracket signs (the first far enough in that its plate isn't cut, round 7) and level stones
+    -- where a new starting level begins.
+    local lastSign, lastL
+    for i, e in ipairs(items) do
+        local text = Road.Sign(e.inst)
+        if text ~= lastSign then
+            out.signs[#out.signs + 1] = { x = math.max(o.signMin, pad + (i - 1) * step - step / 2), text = text,
+                raid = e.inst.kind == "raid" }
+            lastSign = text
+        end
+        if e.inst.kind ~= "raid" and e.inst.levels[1] ~= lastL then
+            out.stones[#out.stones + 1] = { x = out.pts[i].x, y = out.pts[i].roadY, level = e.inst.levels[1] }
+            lastL = e.inst.levels[1]
+        end
+        if e.inst.kind == "raid" and not out.citadel and i > 1 then out.citadel = pad + (i - 1) * step - step / 2 end
+    end
+    return out
+end
+
+-- Where the road opens: the your-level instance nearest You (the latest that suits you and
+-- starts at or below your level, else the first that suits you), else the one beside You, else
+-- the first. Returns an index (nil when the road is empty).
+function Road.Start(items, level)
+    local best, first, beside
+    for i, e in ipairs(items) do
+        if e.fit then
+            first = first or i
+            if e.inst.levels[1] <= level then best = i end
+        end
+        if e.inst.kind ~= "raid" and e.inst.levels[1] <= level then beside = i end
+    end
+    if #items == 0 then return nil end
+    return best or first or beside or 1
+end
+
+-- The horizontal scroll that keeps x (a medallion's centre, px) at least `margin` inside a
+-- `view` px window onto a `total` px road; the current scroll when it already is.
+function Road.Scroll(x, cur, view, total, margin)
+    local max = math.max(0, total - view)
+    margin = math.min(margin, view / 2)
+    local new = cur
+    if x < cur + margin then new = x - margin
+    elseif x > cur + view - margin then new = x - view + margin end
+    return math.max(0, math.min(max, new))
+end
+
+-- The preview card's meta line: "Dungeon · 5 players · Westfall · Lv 15-23". `drop` 1 shortens
+-- the kind ("Dungeon", "Raid · 40"), 2 leaves out the zone too.
+function Road.Meta(inst, where, drop)
+    drop = drop or 0
+    local parts = {}
+    if drop >= 1 then parts[1] = Words.Kind(inst)
+    elseif inst.kind == "raid" then parts[1] = "Raid · " .. tostring(inst.size) .. " players"
+    else parts[1] = "Dungeon · " .. tostring(inst.size or 5) .. " players" end
+    if drop < 2 and where and where ~= "" then parts[#parts + 1] = where end
+    parts[#parts + 1] = Words.Levels(inst)
+    return table.concat(parts, "  ·  ")
+end
+
+-- The preview's boss chips: the non-rare bosses' names; `fits(name)` says whether the next chip
+-- fits. Returns the names shown and the number of bosses not shown ("+n more", rares included),
+-- at most `max` chips.
+function Road.Chips(bosses, max, fits)
+    local names, full = {}, false
+    for _, b in ipairs(bosses or {}) do
+        if not b.rare and not full then
+            if #names < max and (not fits or fits(b.name, #names + 1)) then names[#names + 1] = b.name
+            else full = true end
+        end
+    end
+    return names, #(bosses or {}) - #names
+end
+
+-- "27 items in its loot" (nil before the build says).
+function Road.LootWords(n)
+    if type(n) ~= "number" then return nil end
+    return string.format("%d %s in its loot", n, plural(n, "item"))
+end
+
+Words.Road = Road
 
 -- The instance page (task 5) ------------------------------------------------------------------
 
@@ -879,6 +1073,150 @@ end
 -- Page
 ---------------------------------------------------------------------------------------------
 
+-- The road's pieces (task 6) -------------------------------------------------------------------
+
+local function maskCircle(owner, tex)
+    local m = owner.CreateMaskTexture and owner:CreateMaskTexture()
+    if not m then return end
+    m:SetAllPoints(tex)
+    m:SetTexture(ns.Theme.circleMask, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    pcall(tex.AddMaskTexture, tex, m)
+end
+
+-- A one-line name plate: the cartouche sliced at its parchment band (round 8: rows 39-87 of
+-- 128, the curled ends 64 px of 512 each side, drawn 24 px), the name centred in dark ink.
+-- :SetText(name) sizes it.
+local function newPlate(parent)
+    local T, R6 = ns.Theme, ns.Theme.layout.dunRoad
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetHeight(R6.plate)
+    local file = T.Chrome("cartouche")
+    if file then
+        local v0, v1 = R6.plateRows[1] / R6.plateTex[2], R6.plateRows[2] / R6.plateTex[2]
+        local cap = R6.plateCapPx / R6.plateTex[1]
+        local function part(u0, u1)
+            local t = f:CreateTexture(nil, "BACKGROUND")
+            t:SetTexture(file); t:SetTexCoord(u0, u1, v0, v1)
+            return t
+        end
+        local l, m, r = part(0, cap), part(cap, 1 - cap), part(1 - cap, 1)
+        l:SetPoint("TOPLEFT"); l:SetPoint("BOTTOMLEFT"); l:SetWidth(R6.plateCap)
+        r:SetPoint("TOPRIGHT"); r:SetPoint("BOTTOMRIGHT"); r:SetWidth(R6.plateCap)
+        m:SetPoint("TOPLEFT", l, "TOPRIGHT"); m:SetPoint("BOTTOMRIGHT", r, "BOTTOMLEFT")
+    else
+        T.Solid(f, "classParchment", "BACKGROUND", 0.92):SetAllPoints()
+    end
+    f.text = T.Text(f, "sm", "dunRoadInk")
+    f.text:SetShadowOffset(0, 0)
+    f.text:SetWordWrap(false)
+    f.text:SetPoint("CENTER", f, "CENTER", 0, 1)
+    function f:SetText(s)
+        self.text:SetText(s)
+        self:SetWidth(math.ceil((self.text:GetStringWidth() or 0) + 2 * R6.platePad))
+    end
+    return f
+end
+
+-- A medallion: the painting in a circle inside the painted ring (bronze, blood-red for raids,
+-- gold with laurels when every quest is done), a soft glow for progress, your level and focus,
+-- ✓, the New tag, and its plate above or below.
+local RING = { complete = "medallion-ring-gold", raid = "medallion-ring-raid" }
+local GLOW = { focus = { 1, 0.92, 0.45, 1 }, complete = { 1, 0.82, 0, 0.8 }, fit = { 1, 0.86, 0.47, 0.75 },
+    progress = { 0.88, 0.54, 0.24, 0.8 } }
+local function newMedallion(parent)
+    local T, R6, W = ns.Theme, ns.Theme.layout.dunRoad, ns.Widgets
+    local m = CreateFrame("Button", nil, parent)
+    m.glow = m:CreateTexture(nil, "BACKGROUND")
+    m.glow:SetPoint("CENTER")
+    local glow = T.Chrome("glow-soft")
+    if glow then m.glow:SetTexture(glow) else m.glow:SetColorTexture(1, 1, 1, 0.25) end
+    if m.glow.SetBlendMode then m.glow:SetBlendMode("ADD") end
+    m.disc = m:CreateTexture(nil, "BORDER", nil, 0)
+    m.disc:SetPoint("CENTER")
+    m.disc:SetColorTexture(0.07, 0.047, 0.024, 1)
+    maskCircle(m, m.disc)
+    m.art = m:CreateTexture(nil, "BORDER", nil, 1)
+    m.art:SetPoint("CENTER")
+    maskCircle(m, m.art)
+    m.ring = m:CreateTexture(nil, "ARTWORK")
+    m.ring:SetPoint("CENTER")
+    m.check = m:CreateTexture(nil, "OVERLAY")
+    m.check:SetSize(R6.check, R6.check)
+    m.check:SetTexture(T.files.checkDone)
+    if m.check.SetDesaturated then m.check:SetDesaturated(true) end
+    m.check:SetVertexColor(T.RGB("complete"))
+    m.tagHolder = CreateFrame("Frame", nil, m)
+    m.tagHolder:SetAllPoints()
+    m.plate = newPlate(parent)
+    -- Size and look from the entry: size (104 or 118), ring, glow, sepia.
+    function m:Paint()
+        local e, size = self.entry, self.size or R6.med
+        local state = self.known and e.progress.state or nil
+        local ring = T.Chrome(RING[state == "complete" and "complete" or (e.inst.kind == "raid" and "raid" or "")] or "medallion-ring")
+        self.ring:SetSize(size, size)
+        self.ring:SetShown(ring ~= nil)
+        if ring then self.ring:SetTexture(ring) end
+        local inner = math.floor(size * R6.artShare + 0.5)
+        self.art:SetSize(inner, inner); self.disc:SetSize(inner, inner)
+        local g = self.focused and "focus" or (state == "complete" and "complete") or (e.fit and "fit")
+            or (state == "progress" and "progress") or nil
+        self.glow:SetShown(g ~= nil)
+        if g then
+            local c = GLOW[g]
+            local gs = size * R6.glow * (g == "focus" and 1.12 or 1)
+            self.glow:SetSize(gs, gs)
+            self.glow:SetVertexColor(c[1], c[2], c[3], c[4])
+        end
+        self.check:ClearAllPoints()
+        self.check:SetPoint("TOPRIGHT", self, "TOPRIGHT", 0, 4)
+        self.check:SetShown(state == "complete")
+    end
+    function m:SetFocused(on)
+        self.focused = on and true or false
+        local sc = self.focused and R6.focusScale or 1
+        if self.SetScale then self:SetScale(sc) end
+        if self.at then
+            self:ClearAllPoints()
+            self:SetPoint("CENTER", parent, "TOPLEFT", self.at[1] / sc, -self.at[2] / sc)
+        end
+        if self.SetFrameLevel and self.baseLevel then self:SetFrameLevel(self.baseLevel + (self.focused and 2 or 0)) end
+        self:Paint()
+    end
+    W.HoverInfo(m)
+    return m
+end
+
+-- A bracket sign on the painted header plate on a post.
+local function newSign(parent)
+    local T, R6 = ns.Theme, ns.Theme.layout.dunRoad
+    local f = T.Plate(parent, R6.sign)
+    T.SetFont(f.title, "sm")
+    f.post = f:CreateTexture(nil, "BACKGROUND")
+    f.post:SetSize(R6.post[1], R6.post[2])
+    f.post:SetPoint("TOP", f, "BOTTOM", 0, 0)
+    f.post:SetColorTexture(1, 1, 1, 1)
+    local r, g, b = T.RGB("dunRoadPost")
+    local ok = type(CreateColor) == "function" and pcall(f.post.SetGradient, f.post, "VERTICAL",
+        CreateColor(r, g, b, 0), CreateColor(r, g, b, 1))
+    if not ok then f.post:SetColorTexture(r, g, b, 0.6) end
+    return f
+end
+
+-- A level stone on the road (milestone art), the level on its face.
+local function newStone(parent)
+    local T, R6 = ns.Theme, ns.Theme.layout.dunRoad
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetSize(R6.stone, R6.stone)
+    f.art = f:CreateTexture(nil, "ARTWORK")
+    f.art:SetAllPoints()
+    local file = T.Chrome("milestone")
+    if file then f.art:SetTexture(file) else f.art:SetColorTexture(0.55, 0.48, 0.38, 1) end
+    f.text = T.Text(f, "xs", "dunRoadInk")
+    f.text:SetShadowOffset(0, 0)
+    f.text:SetPoint("CENTER", f, "CENTER", 0, -R6.stoneDrop)
+    return f
+end
+
 local function build(parent)
     local T, L, S, W = ns.Theme, ns.Theme.layout, ns.Theme.space, ns.Widgets
     local D, P = L.dunTab, L.dunPage
@@ -1145,6 +1483,110 @@ local function build(parent)
     d.ov, d.bv, d.qv = ov, bv, qv
     page.detail = d
 
+    -- The Road (task 6): the strip scrolls sideways (its canvas laid out in the design's px and
+    -- scaled to fit), the preview card under it.
+    local R6 = L.dunRoad
+    local rd = CreateFrame("Frame", nil, page)
+    rd:Hide()
+    rd.sf = CreateFrame("ScrollFrame", nil, rd)
+    rd.sf:SetPoint("TOPLEFT"); rd.sf:SetPoint("TOPRIGHT")
+    if rd.sf.SetClipsChildren then rd.sf:SetClipsChildren(true) end
+    rd.child = CreateFrame("Frame", nil, rd.sf)
+    rd.child:SetSize(1, 1)
+    rd.sf:SetScrollChild(rd.child)
+    rd.canvas = CreateFrame("Frame", nil, rd.child)
+    rd.canvas:SetPoint("TOPLEFT")
+    rd.ground = T.Solid(rd.canvas, "dunRoadGround", "BACKGROUND", 1)
+    rd.ground:SetAllPoints()
+    -- The dusk (round 6, painted): the top and the bottom darken a little.
+    rd.duskTop = rd.canvas:CreateTexture(nil, "BORDER", nil, 0)
+    rd.duskTop:SetPoint("TOPLEFT"); rd.duskTop:SetPoint("TOPRIGHT")
+    gradient(rd.duskTop, "VERTICAL", 0, 0.25)
+    rd.duskBottom = rd.canvas:CreateTexture(nil, "BORDER", nil, 0)
+    rd.duskBottom:SetPoint("BOTTOMLEFT"); rd.duskBottom:SetPoint("BOTTOMRIGHT")
+    gradient(rd.duskBottom, "VERTICAL", 0.35, 0)
+    -- The raids' citadel band darkens toward the end (.trcitadel).
+    rd.citadel = rd.canvas:CreateTexture(nil, "BORDER", nil, 1)
+    rd.citadel:SetPoint("TOPRIGHT"); rd.citadel:SetPoint("BOTTOMRIGHT")
+    rd.citadel:SetColorTexture(1, 1, 1, 1)
+    if not (type(CreateColor) == "function" and pcall(rd.citadel.SetGradient, rd.citadel, "HORIZONTAL",
+        CreateColor(0.24, 0.055, 0.024, 0), CreateColor(0.12, 0.024, 0.016, 0.5))) then
+        rd.citadel:SetColorTexture(0.12, 0.024, 0.016, 0.3)
+    end
+    rd.layer = {} -- frames above the painting: signs, stones, medallions, You
+    for i, name in ipairs({ "signs", "stones", "meds", "you" }) do
+        local f = CreateFrame("Frame", nil, rd.canvas)
+        f:SetAllPoints()
+        if f.SetFrameLevel then f:SetFrameLevel(rd.canvas:GetFrameLevel() + i * 3) end
+        rd.layer[name] = f
+    end
+    -- You: your portrait in the brass ring, "You · 10" under it.
+    local you = CreateFrame("Frame", nil, rd.layer.you)
+    you:SetSize(R6.you, R6.you)
+    you.icon = you:CreateTexture(nil, "ARTWORK")
+    you.icon:SetSize(R6.you - 4, R6.you - 4); you.icon:SetPoint("CENTER")
+    maskCircle(you, you.icon)
+    you.brass = you:CreateTexture(nil, "OVERLAY")
+    local brass = T.Chrome("you-ring")
+    if brass then
+        you.brass:SetTexture(brass); you.brass:SetPoint("CENTER")
+        you.brass:SetSize((R6.you - 4) / 0.56, (R6.you - 4) / 0.56)
+    else you.brass:Hide() end
+    you.tag = CreateFrame("Frame", nil, you)
+    you.tag:SetHeight(R6.youTag)
+    you.tag:SetPoint("TOP", you, "BOTTOM", 0, -4)
+    you.tag.bg = T.Solid(you.tag, "dunRoadTag", "BACKGROUND", 0.85)
+    you.tag.bg:SetAllPoints()
+    you.tag.text = T.Text(you.tag, "xs", "dunRoadInk")
+    you.tag.text:SetShadowOffset(0, 0)
+    you.tag.text:SetPoint("CENTER", 0, 0)
+    rd.you = you
+    rd.edge = T.Solid(rd, "divider", "BORDER")
+    rd.edge:SetPoint("TOPLEFT", rd.sf, "BOTTOMLEFT"); rd.edge:SetPoint("TOPRIGHT", rd.sf, "BOTTOMRIGHT")
+    rd.edge:SetHeight(2)
+    -- The preview card: the painting in frame A, then name and tags, blurb, meta, bosses, the foot.
+    local pv = CreateFrame("Frame", nil, rd)
+    pv:SetPoint("TOPLEFT", rd.sf, "BOTTOMLEFT", 0, -2); pv:SetPoint("BOTTOMRIGHT")
+    pv.artBox = CreateFrame("Frame", nil, pv)
+    pv.artBox:SetPoint("TOPLEFT", pv, "TOPLEFT", R6.previewPadX, -R6.previewPadY)
+    pv.artBox:SetPoint("BOTTOMLEFT", pv, "BOTTOMLEFT", R6.previewPadX, R6.previewPadY)
+    pv.artBox:SetWidth(R6.previewArt)
+    pv.art = pv.artBox:CreateTexture(nil, "BORDER")
+    pv.art:SetAllPoints()
+    pv.frame = T.CardFrame(pv.artBox, L.dunTab.frameCorner, L.dunTab.frameOut, "OVERLAY", "card-frame-a")
+    pv.body = CreateFrame("Frame", nil, pv)
+    pv.body:SetPoint("TOPLEFT", pv.artBox, "TOPRIGHT", R6.previewGap, 0)
+    pv.body:SetPoint("BOTTOMRIGHT", pv, "BOTTOMRIGHT", -R6.previewPadX, R6.previewPadY)
+    pv.name = T.Text(pv.body, "xl", "gold")
+    pv.name:SetJustifyH("LEFT"); pv.name:SetWordWrap(false)
+    pv.tagHolder = CreateFrame("Frame", nil, pv.body)
+    pv.tagHolder:SetSize(1, D.tag)
+    pv.blurb = T.Text(pv.body, "sm", "text")
+    pv.blurb:SetJustifyH("LEFT"); pv.blurb:SetJustifyV("TOP")
+    pv.meta = T.Text(pv.body, "sm", "text")
+    pv.meta:SetJustifyH("LEFT"); pv.meta:SetWordWrap(false)
+    pv.chips = {}
+    pv.quest = newQuestBar(pv.body)
+    pv.keys = T.Text(pv.body, "xs", "dunRoadKey")
+    pv.keys:SetJustifyH("LEFT"); pv.keys:SetWordWrap(false)
+    pv.loot = T.Text(pv.body, "xs", "dim")
+    pv.loot:SetJustifyH("LEFT"); pv.loot:SetWordWrap(false)
+    pv.goText = T.Text(pv.body, "sm", "gold")
+    pv.goText:SetPoint("BOTTOMRIGHT", pv.body, "BOTTOMRIGHT", 0, 2)
+    pv.goText:SetText("Open")
+    pv.go = T.Glyph(pv.body, "A")
+    T.SetGlyph(pv.go, "A")
+    pv.go:SetPoint("RIGHT", pv.goText, "LEFT", -4, 0)
+    rd.pv = pv
+    rd.sf:EnableMouseWheel(true)
+    rd.sf:SetScript("OnMouseWheel", function(self, delta)
+        local range = math.max(0, (rd.child:GetWidth() or 0) - (self:GetWidth() or 0))
+        local new = (self:GetHorizontalScroll() or 0) - delta * R6.step * (rd.scale or 1)
+        self:SetHorizontalScroll(math.max(0, math.min(range, new)))
+        page.roadScroll = self:GetHorizontalScroll()
+    end)
+    page.road = rd
+
     -- Pools of the page's pieces, reset on each paint.
     local pools = {}
     local function pool(name, make, parentFrame) pools[name] = { list = {}, used = 0, make = make, parent = parentFrame } end
@@ -1158,6 +1600,26 @@ local function build(parent)
     pool("tiles", newTile, bv.lootScroll.child)
     pool("qheaders", W.Header, qv.scroll.child)
     pool("qrows", newQuestRow, qv.scroll.child)
+    pool("rregions", function(p) return p:CreateTexture(nil, "BACKGROUND", nil, 2) end, rd.canvas)
+    pool("rbands", function(p) return p:CreateTexture(nil, "ARTWORK", nil, 1) end, rd.canvas)
+    pool("rsigns", newSign, rd.layer.signs)
+    pool("rstones", newStone, rd.layer.stones)
+    pool("rmeds", function(p)
+        local m = newMedallion(p)
+        m:HookScript("OnHide", function(self) self.plate:Hide() end)
+        return m
+    end, rd.layer.meds)
+    pool("rchips", function(p)
+        local c = CreateFrame("Frame", nil, p)
+        c:SetHeight(R6.chip)
+        T.Solid(c, "black", "BACKGROUND", 0.35):SetAllPoints()
+        c.edge = W.Edge(c, "BORDER")
+        c.edge:SetColor("dunRoadChip")
+        c.text = T.Text(c, "xs", "white")
+        c.text:SetPoint("CENTER", 0, 0)
+        c.text:SetWordWrap(false)
+        return c
+    end, pv.body)
     local function get(name)
         local p = pools[name]
         p.used = p.used + 1
@@ -1204,6 +1666,8 @@ local function build(parent)
         end
         list.edge:SetShown(page:Split())
         back:SetShown(not page:Split())
+        rd:ClearAllPoints()
+        rd:SetPoint("TOPLEFT", tb, "BOTTOMLEFT"); rd:SetPoint("BOTTOMRIGHT")
     end
 
     local function layoutToolbar()
@@ -1240,10 +1704,14 @@ local function build(parent)
         return f
     end
 
-    local function toolbarRow()
+    -- The toolbar's row; on the road, up from it lands on the Road button.
+    local function toolbarRow(home)
         local items = {}
-        for _, b in ipairs(controls) do items[#items + 1] = b.item end
-        return { items = items, section = 0 }
+        for i, b in ipairs(controls) do
+            items[#items + 1] = b.item
+            if home and b.item.key == home then home = i end
+        end
+        return { items = items, section = 0, home = type(home) == "number" and home or nil }
     end
 
     local function entryFor(key)
@@ -1957,6 +2425,316 @@ local function build(parent)
     end
     page.OpenMapAt = openMap
 
+    -- The Road (task 6) -------------------------------------------------------------------------
+
+    -- Text on the scaled strip keeps its own size (px / scale), so names stay readable when the
+    -- strip shrinks for a short window.
+    local function setPx(fs, px)
+        local ok = fs:SetFont(T.fonts.body, px, "")
+        if not ok and GameFontNormal then fs:SetFontObject(GameFontNormal) end
+    end
+
+    -- The strip's scale and height and the preview's height for the road's frame: the strip at
+    -- full size when the preview still gets its height, else smaller (the preview at its least).
+    local function roadSizes()
+        local h = rd:GetHeight() or 0
+        if h <= 1 then
+            local f = ns.UI.GetFrame()
+            h = (f and f:GetHeight() or 740) - 140 - L.toolbarHeight
+        end
+        local sc = math.min(1, (h - R6.preview) / R6.H)
+        if sc < 0.9 then sc = math.max(R6.minScale, math.min(1, (h - R6.previewMin) / R6.H)) end
+        local stripH = math.floor(R6.H * sc + 0.5)
+        return sc, stripH, math.max(R6.previewMin, h - stripH - 2)
+    end
+
+    local function roadViewWidth()
+        local w = rd.sf:GetWidth() or 0
+        if w <= 1 then w = width(page) end
+        return w
+    end
+
+    -- Keeps the medallion at design x inside the view (D-pad walks, focus follows).
+    local function roadScrollTo(x, fresh)
+        local lay, sc = rd.layout, rd.scale or 1
+        if not lay then return end
+        local view = roadViewWidth()
+        local cur = fresh or rd.sf:GetHorizontalScroll() or 0
+        local new = Road.Scroll(x * sc, cur, view, lay.W * sc, R6.margin * sc)
+        rd.sf:SetHorizontalScroll(new)
+        page.roadScroll = new
+    end
+
+    -- The preview card for an instance (follows focus): painting, name and tags, blurb, meta,
+    -- the non-rare bosses, the quest bar, keys, the loot count, A Open. Parts that don't fit
+    -- are left out (the tags, the blurb, then the bosses), never cut.
+    local function fillPreview(e)
+        reset("rchips")
+        if not e then pv:Hide(); hideRest("rchips"); return end
+        pv:Show()
+        local inst = e.inst
+        local pw = pv:GetWidth() or 0
+        if pw <= 1 then pw = roadViewWidth() end
+        local ph = rd.pvH or R6.preview
+        local innerH = math.max(60, math.min(ph, R6.previewMax) - 2 * R6.previewPadY)
+        local artW = math.min(R6.previewArt, math.floor(innerH * 2.2))
+        pv.artBox:ClearAllPoints()
+        pv.artBox:SetPoint("TOPLEFT", pv, "TOPLEFT", R6.previewPadX, -R6.previewPadY)
+        pv.artBox:SetSize(artW, innerH)
+        paintArt(pv.art, inst, artW, innerH)
+        local bw = math.max(100, pw - 2 * R6.previewPadX - artW - R6.previewGap)
+        pv.body:ClearAllPoints()
+        pv.body:SetPoint("TOPLEFT", pv.artBox, "TOPRIGHT", R6.previewGap, 0)
+        pv.body:SetSize(bw, innerH)
+        -- Name and tags (the tags go when they don't fit beside the name).
+        pv.name:ClearAllPoints(); pv.name:SetPoint("TOPLEFT", pv.body, "TOPLEFT", 0, 0)
+        pv.name:SetWidth(bw)
+        pv.name:SetText(inst.name)
+        local nw = math.min(bw, math.ceil(pv.name:GetStringWidth() or 0))
+        pv.name:SetWidth(math.max(1, nw + 1))
+        pv.tagHolder:ClearAllPoints()
+        pv.tagHolder:SetPoint("LEFT", pv.name, "RIGHT", S.s3, 0)
+        local tags = Words.Tags(e)
+        local tw = placeTags(pv.tagHolder, tags, 0, 0, "LEFT")
+        if nw + S.s3 + tw > bw then placeTags(pv.tagHolder, {}, 0, 0, "LEFT") end
+        local y = T.size.xl + 6
+        -- The foot first (it stays): the quest bar, keys and the loot count, A Open.
+        local qbW = math.min(D.questBarMax, math.floor(bw * 0.4))
+        local qh = pv.quest:Set(e.progress, page.known, qbW)
+        pv.quest:ClearAllPoints(); pv.quest:SetPoint("BOTTOMLEFT", pv.body, "BOTTOMLEFT", 0, 0)
+        local goW = (pv.goText:GetStringWidth() or 30) + L.glyphSize + 8
+        local fx = qbW + S.s6
+        local room = bw - fx - goW - S.s4
+        local keyNames = {}
+        for _, k in ipairs(ns.Dungeons.Keys and ns.Dungeons.Keys(inst) or {}) do keyNames[#keyNames + 1] = k.key.name end
+        local keyText = #keyNames > 0 and ("|TInterface\\Icons\\INV_Misc_Key_04:14|t " .. table.concat(keyNames, ", ")) or ""
+        local lootN
+        if ns.Dungeons.BuildResult() ~= nil then
+            lootN = 0
+            for _, o in ipairs(bossLoot(inst)) do lootN = lootN + #(o.ids or {}) end
+        end
+        local lootText = Road.LootWords(lootN) or ""
+        pv.keys:SetText(keyText); pv.loot:SetText(lootText)
+        local kw, lw = (keyText ~= "" and pv.keys:GetStringWidth() or 0), (lootText ~= "" and pv.loot:GetStringWidth() or 0)
+        local showKeys = keyText ~= "" and kw <= room
+        local showLoot = lootText ~= "" and lw + (showKeys and kw + S.s6 or 0) <= room
+        pv.keys:ClearAllPoints(); pv.keys:SetPoint("BOTTOMLEFT", pv.body, "BOTTOMLEFT", fx, 2)
+        pv.loot:ClearAllPoints()
+        pv.loot:SetPoint("BOTTOMLEFT", pv.body, "BOTTOMLEFT", fx + (showKeys and kw + S.s6 or 0), 2)
+        pv.keys:SetShown(showKeys); pv.loot:SetShown(showLoot)
+        local footTop = innerH - math.max(qh, T.size.sm + 4) - S.s2
+        -- The meta line (drops the players, then the zone).
+        local where = Words.Where(inst, zoneName)
+        pv.meta:SetWidth(bw)
+        for drop = 0, 2 do
+            pv.meta:SetText(Road.Meta(inst, where, drop))
+            if (pv.meta:GetStringWidth() or 0) <= bw then break end
+        end
+        -- The blurb (up to two lines) and the bosses, while they fit above the foot.
+        local metaH, chipsH = T.size.sm + 4, R6.chip + S.s2
+        local blurb = inst.blurb or ""
+        pv.blurb:SetWidth(bw); pv.blurb:SetWordWrap(true)
+        pv.blurb:SetText(blurb)
+        local lines = blurb ~= "" and math.ceil((pv.blurb:GetStringWidth() or 0) / bw) or 0
+        local blurbH = lines * (T.size.sm + 3)
+        local withChips = y + metaH + chipsH <= footTop
+        local withBlurb = lines > 0 and lines <= 2 and y + blurbH + metaH + (withChips and chipsH or 0) <= footTop
+        pv.blurb:SetShown(withBlurb)
+        if withBlurb then
+            pv.blurb:ClearAllPoints(); pv.blurb:SetPoint("TOPLEFT", pv.body, "TOPLEFT", 0, -y)
+            pv.blurb:SetHeight(blurbH)
+            y = y + blurbH + 2
+        end
+        pv.meta:ClearAllPoints(); pv.meta:SetPoint("TOPLEFT", pv.body, "TOPLEFT", 0, -y)
+        y = y + metaH + 2
+        if withChips then
+            -- A chip per non-rare boss while it fits (room kept for "+n more").
+            local x = 0
+            local _, more = Road.Chips(inst.bosses, R6.chips, function(name)
+                local c = get("rchips")
+                c.text:SetText(name)
+                c.text:SetTextColor(T.RGB("white"))
+                local cw = math.ceil((c.text:GetStringWidth() or 0) + 2 * R6.chipPad)
+                if x + cw > bw - 80 then pools.rchips.used = pools.rchips.used - 1; c:Hide(); return false end
+                c:SetWidth(cw)
+                c:SetPoint("TOPLEFT", pv.body, "TOPLEFT", x, -y)
+                x = x + cw + R6.chipGap
+                return true
+            end)
+            if more > 0 then
+                local c = get("rchips")
+                c.text:SetText(string.format("+%d more", more))
+                c.text:SetTextColor(T.RGB("dim"))
+                c:SetWidth(math.ceil((c.text:GetStringWidth() or 0) + 2 * R6.chipPad))
+                c:SetPoint("TOPLEFT", pv.body, "TOPLEFT", x, -y)
+            end
+        end
+        hideRest("rchips")
+        page.previewKey = inst.key
+    end
+
+    -- Paints the road for the shown entries. Returns the focus row's items and byKey.
+    local function paintRoad(shown, known)
+        reset("rregions", "rbands", "rsigns", "rstones", "rmeds")
+        local level = myLevel()
+        local items = Road.Order(shown)
+        local sc, stripH, pvH = roadSizes()
+        rd.scale, rd.pvH = sc, pvH
+        local ts = 1 / sc
+        rd.sf:SetHeight(stripH)
+        local lay = Road.Layout(items, { H = R6.H, level = level, step = R6.step, pad = R6.pad, fade = R6.fade,
+            top = R6.top, bottom = R6.bottom, zig = R6.zig, signMin = R6.signMin, tex = R6.tex, flat = R6.flat,
+            art = ns.Art and ns.Art.dungeons, lanes = ns.DungeonRoad and ns.DungeonRoad.lanes })
+        rd.layout, rd.items = lay, items
+        local cv = rd.canvas
+        cv:SetSize(lay.W, R6.H)
+        if cv.SetScale then cv:SetScale(sc) end
+        rd.child:SetSize(math.ceil(lay.W * sc), stripH)
+        rd.duskTop:SetHeight(R6.H * 0.3); rd.duskBottom:SetHeight(R6.H * 0.3)
+        rd.duskTop:SetShown(lay.painted); rd.duskBottom:SetShown(lay.painted)
+        rd.citadel:SetShown(lay.citadel ~= nil)
+        if lay.citadel then rd.citadel:SetWidth(math.max(1, lay.W - lay.citadel)) end
+        -- The six painted regions, each behind its stretch, fading into the next.
+        local hasGradient = type(CreateColor) == "function"
+        for _, r in ipairs(lay.regions) do
+            local file = T.mediaDir .. "Dungeons\\" .. r.key .. ".blp"
+            local l, rr, t, b = T.CoverCoords(r.w, R6.H, R6.tex[1], R6.tex[2])
+            local function u(x) return l + (x - r.x0) / r.w * (rr - l) end
+            local f = math.min(R6.fade, r.w / 2)
+            for _, seg in ipairs({ { r.x0, r.x0 + f, 0, 1 }, { r.x0 + f, r.x0 + r.w - f, 1, 1 }, { r.x0 + r.w - f, r.x0 + r.w, 1, 0 } }) do
+                if seg[2] - seg[1] >= 0.5 then
+                    local tex = get("rregions")
+                    tex:SetTexture(file)
+                    tex:SetTexCoord(u(seg[1]), u(seg[2]), t, b)
+                    tex:SetSize(seg[2] - seg[1], R6.H)
+                    tex:SetPoint("TOPLEFT", cv, "TOPLEFT", seg[1], 0)
+                    local ok = hasGradient and pcall(tex.SetGradient, tex, "HORIZONTAL",
+                        CreateColor(1, 1, 1, seg[3]), CreateColor(1, 1, 1, seg[4]))
+                    if not ok then tex:SetVertexColor(1, 1, 1, (seg[3] + seg[4]) / 2) end
+                end
+            end
+        end
+        -- The gold progress (7 px) along the painted road up to You, in short stamps of the gilded
+        -- band turned to follow it; without painted lanes an earth band runs on past You.
+        local CT = L.classTab
+        local k = R6.gold / CT.bandRows
+        local win = R6.goldStep / k
+        local n = 0
+        local function band(xa, xb, file, colour)
+            local x = xa
+            while x < xb - 0.01 do
+                local x2 = math.min(xb, x + R6.goldStep)
+                local y1, y2 = lay.roadY(x), lay.roadY(x2)
+                local dx, dy = x2 - x, y2 - y1
+                local len = math.sqrt(dx * dx + dy * dy)
+                local tex = get("rbands")
+                if file then
+                    tex:SetTexture(file)
+                    local uu = (n * win) % (CT.bandTexW - win)
+                    tex:SetTexCoord(uu / CT.bandTexW, (uu + win) / CT.bandTexW, 0, 1)
+                    tex:SetSize(len + 0.8, CT.bandPx * k)
+                    tex:SetVertexColor(1, 1, 1, 0.95)
+                else
+                    tex:SetTexCoord(0, 1, 0, 1)
+                    local r, g, b = T.RGB(colour)
+                    tex:SetColorTexture(r, g, b, 0.9)
+                    tex:SetSize(len + 0.8, R6.gold)
+                end
+                if tex.SetRotation then tex:SetRotation(-math.atan2(dy, dx)) end
+                tex:SetPoint("CENTER", cv, "TOPLEFT", (x + x2) / 2, -(y1 + y2) / 2)
+                x, n = x2, n + 1
+            end
+        end
+        local youX = math.max(0, math.min(lay.W, lay.youX))
+        if #items > 0 then
+            band(0, youX, T.Chrome("road-band-gold"), "complete")
+            if not lay.painted then band(youX, lay.W, T.Chrome("road-band"), "classRoad") end
+        end
+        -- Bracket signs on posts, level stones on the road.
+        for _, s in ipairs(lay.signs) do
+            local f = get("rsigns")
+            setPx(f.title, T.size.sm * ts)
+            f.title:SetText(s.text)
+            f.title:SetTextColor(T.RGB(s.raid and "dunRoadRaid" or "gold"))
+            f:SetHeight(R6.sign * ts)
+            f:SetWidth(math.max(R6.signMinW * ts, math.ceil((f.title:GetStringWidth() or 0) + 2 * R6.signPad * ts)))
+            f:SetPoint("TOP", cv, "TOPLEFT", s.x, -R6.signTop)
+        end
+        for _, st in ipairs(lay.stones) do
+            local f = get("rstones")
+            f:SetSize(R6.stone * ts, R6.stone * ts)
+            setPx(f.text, 13 * ts)
+            f.text:SetPoint("CENTER", f, "CENTER", 0, -R6.stoneDrop * ts)
+            f.text:SetText(tostring(st.level))
+            f:SetPoint("CENTER", cv, "TOPLEFT", st.x, -st.y)
+        end
+        -- The medallions.
+        local its, byKey = {}, {}
+        local base = rd.layer.meds.GetFrameLevel and rd.layer.meds:GetFrameLevel() or 1
+        for i, e in ipairs(items) do
+            local p = lay.pts[i]
+            local m = get("rmeds")
+            local key = e.inst.key
+            m.entry, m.known = e, known
+            m.size = e.fit and R6.medFit or R6.med
+            m:SetSize(m.size, m.size)
+            m.at, m.baseLevel = { p.x, p.y }, base + 1
+            local inner = math.floor(m.size * R6.artShare + 0.5)
+            paintArt(m.art, e.inst, inner, inner)
+            local state = known and e.progress.state or nil
+            local far = e.inst.kind ~= "raid" and e.inst.levels[1] > level + 8 and (state == nil or state == "untouched")
+            local desat = state == "complete" and 0 or (far and R6.sepiaFar or R6.sepia)
+            if m.art.SetDesaturation then m.art:SetDesaturation(desat)
+            elseif m.art.SetDesaturated then m.art:SetDesaturated(desat >= 0.5) end
+            if state == "complete" then m.art:SetVertexColor(1, 1, 1)
+            elseif far then m.art:SetVertexColor(0.8, 0.72, 0.6)
+            else m.art:SetVertexColor(1, 0.95, 0.86) end
+            placeTags(m.tagHolder, e.inst.forever and { { text = "New", style = "new" } } or {}, -6, -4)
+            for _, t in ipairs(m.tagHolder.tags or {}) do
+                setPx(t.text, T.size.xs * ts); t:SetHeight(D.tag * ts)
+                if t:IsShown() then t:Set({ text = "New", style = "new" }) end
+            end
+            m.plate:ClearAllPoints()
+            m.plate:SetHeight(R6.plate * ts)
+            setPx(m.plate.text, R6.plateFont * ts)
+            m.plate:SetText(e.inst.name)
+            m.plate:SetWidth(math.ceil((m.plate.text:GetStringWidth() or 0) + 2 * R6.platePad * ts))
+            if p.above then m.plate:SetPoint("BOTTOM", cv, "TOPLEFT", p.x, -(p.y - m.size / 2))
+            else m.plate:SetPoint("TOP", cv, "TOPLEFT", p.x, -(p.y + m.size / 2)) end
+            m.plate:Show()
+            m:SetFocused(false)
+            m:SetScript("OnClick", function() page:OpenInstance(key) end)
+            if not m.previewHooked then
+                m.previewHooked = true
+                m:HookScript("OnEnter", function(self)
+                    local driving = ns.Gamepad and ns.Gamepad.PadDriving and ns.Gamepad.PadDriving()
+                    if self.entry and not driving then page.roadSel = self.entry.inst.key; fillPreview(self.entry) end
+                end)
+            end
+            local where = Words.Where(e.inst, zoneName)
+            m.item = { key = "d:" .. key, frame = m, title = e.inst.name, detail = Words.Info(e, known, where, false),
+                entry = e, road = i, actionLabel = "Open", onActivate = function() page:OpenInstance(key) end }
+            byKey[key] = m
+            its[i] = m.item
+        end
+        hideRest("rregions", "rbands", "rsigns", "rstones", "rmeds")
+        -- You, on the road with the gold up to you.
+        you:ClearAllPoints()
+        you:SetShown(#items > 0)
+        you:SetSize(R6.you * ts, R6.you * ts)
+        you.icon:SetSize((R6.you - 4) * ts, (R6.you - 4) * ts)
+        if brass then you.brass:SetSize((R6.you - 4) * ts / 0.56, (R6.you - 4) * ts / 0.56) end
+        you:SetPoint("CENTER", cv, "TOPLEFT", youX, -lay.youY)
+        local ok = type(SetPortraitTexture) == "function" and pcall(SetPortraitTexture, you.icon, "player")
+        if not ok then you.icon:SetColorTexture(T.RGB("classParchment")) end
+        setPx(you.tag.text, T.size.xs * ts)
+        you.tag.text:SetText("You · " .. level)
+        you.tag:SetHeight(R6.youTag * ts)
+        you.tag:SetWidth(math.ceil((you.tag.text:GetStringWidth() or 0) + 12 * ts))
+        return its, byKey
+    end
+    page.FillPreview = fillPreview
+
     -- The empty states: building, unavailable (with the reason), nothing for this filter.
     local function emptyState(st, shown)
         if st.status == "unavailable" then
@@ -1990,11 +2768,14 @@ local function build(parent)
         local wList = width(scroll, split and D.splitList or nil)
         self.drawnWidth = scroll:GetWidth() or 0
         local inner = wList - L.listInset - S.s6
-        local rows, byKey, headerYs = { toolbarRow() }, {}, {}
+        -- The Road takes the page while there's something on it; else the list's empty state shows.
+        local roadOn = view == "road" and shown ~= nil and #shown > 0
+        self.roadOn = roadOn
+        local rows, byKey, headerYs = { toolbarRow(roadOn and "tb:view:road" or nil) }, {}, {}
         local title, text = emptyState(st, shown)
         self.emptyTitle:SetShown(title ~= nil); self.emptyText:SetShown(title ~= nil)
         if title then self.emptyTitle:SetText(title); self.emptyText:SetText(text) end
-        local groups = shown and #shown > 0 and ns.DungeonRules.Groups(shown) or {}
+        local groups = (not roadOn) and shown and #shown > 0 and ns.DungeonRules.Groups(shown) or {}
         local cols = D.cols
         local cardW = math.floor((inner - (cols - 1) * D.cardGap) / cols)
         local gap = cols > 1 and (inner - cols * cardW) / (cols - 1) or D.cardGap
@@ -2050,6 +2831,31 @@ local function build(parent)
             end
         end
         child:SetHeight(math.max(1, y))
+        if roadOn then
+            local its, rk = paintRoad(shown, known)
+            byKey = rk
+            -- Opening the road (from another view, or the first time): on the your-level
+            -- instance nearest You, scrolled so You sits a third of the way in.
+            local items = rd.items
+            local fresh = self.roadFresh or not (self.roadSel and rk[self.roadSel])
+            if fresh then
+                local si = Road.Start(items, myLevel())
+                self.roadSel = si and items[si].inst.key or nil
+                local pend = self.pendingFocusKey
+                if self.roadSel and (pend == nil or pend:sub(1, 2) == "d:") then self.pendingFocusKey = "d:" .. self.roadSel end
+            end
+            local si = 1
+            for i, e in ipairs(items) do if e.inst.key == self.roadSel then si = i end end
+            local view = roadViewWidth()
+            local start = fresh and (rd.layout.youX * rd.scale - view * R6.openAt) or (self.roadScroll or 0)
+            roadScrollTo(rd.layout.pts[si].x, math.max(0, start))
+            self.roadFresh = false
+            rows[#rows + 1] = { items = its, section = 1, home = si }
+            self.roadRow = rows[#rows]
+            fillPreview(items[si])
+        else
+            self.roadRow = nil
+        end
         self.focusRows, self.byKey, self.headerYs = rows, byKey, headerYs
         self.sectionCount = #groups
         -- The page: the one open (a filter may hide it in the list, but its page stays), or in
@@ -2070,7 +2876,8 @@ local function build(parent)
     function page:Refresh()
         local inPage, split = self.mode == "page", self:Split()
         tb:SetShown(split or not inPage)
-        list:SetShown(split or not inPage)
+        list:SetShown((split or not inPage) and not self.roadOn)
+        rd:SetShown(not inPage and self.roadOn == true)
         d:SetShown(inPage or (split and self.selKey ~= nil))
         if inPage and not split then sticky:Hide() end
         local pageSections, seen = 0, {}
@@ -2207,6 +3014,14 @@ local function build(parent)
 
     -- Split: the page follows the focused instance. Bosses & loot: the loot follows the boss.
     function page:OnFocusChanged(item)
+        -- The road: the preview follows focus, the strip keeps it in view, and up/down come back to it.
+        if item and item.road and self.roadOn and self.mode == "list" then
+            self.roadSel = item.entry.inst.key
+            if self.roadRow then self.roadRow.home = item.road end
+            if rd.layout and rd.layout.pts[item.road] then roadScrollTo(rd.layout.pts[item.road].x) end
+            fillPreview(item.entry)
+            return
+        end
         if self:Split() and self.mode == "list" and item and item.entry and item.entry.inst.key ~= self.selKey then
             self.selKey = item.entry.inst.key
             fillPage(item.entry)
@@ -2229,13 +3044,14 @@ local function build(parent)
 
     -- A view, keeping focus on the focused instance (or the toolbar button that chose it).
     function page:SetView(value, keepFocus)
+        if Words.View(value) == "road" and self:View() ~= "road" then self.roadFresh = true end
         settings().view = value
         local cur = ns.Focus.Current()
         self.pendingFocusKey = (keepFocus and cur and cur.key) or ("tb:view:" .. Words.View(value))
         self:Redraw()
     end
 
-    -- Y: Cards -> List -> Cards (the Road joins in task 6).
+    -- Y: Cards -> List -> Road -> Cards.
     function page:CycleView()
         if self.mode ~= "list" then return false end
         self:SetView(Words.NextView(settings().view), true)
@@ -2320,10 +3136,19 @@ local function build(parent)
         if self.dirty then self.dirty = false; self:Redraw() end
     end)
 
+    -- The road at a new size: the strip scales to the new height; a new width keeps the scroll.
+    rd:SetScript("OnSizeChanged", function(self, w, h)
+        if not (page.roadOn and page:IsShown() and self:IsShown()) then return end
+        if math.abs((page.roadDrawnH or 0) - (h or 0)) < 1 and math.abs((page.roadDrawnW or 0) - (w or 0)) < 1 then return end
+        page.roadDrawnW, page.roadDrawnH = w, h
+        changed()
+    end)
+
     page.wide = ns.UI.IsWide()
     page:Redraw()
     local first = page.focusRows and page.focusRows[2] and page.focusRows[2].items[1]
-    if first then page.pendingFocusKey = first.key end
+    if page.roadOn and page.roadSel then page.pendingFocusKey = "d:" .. page.roadSel
+    elseif first then page.pendingFocusKey = first.key end
     return page
 end
 

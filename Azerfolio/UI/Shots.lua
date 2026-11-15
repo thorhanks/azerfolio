@@ -262,8 +262,8 @@ local function professionSteps()
     return out
 end
 
--- /azf shots dungeons (Phase 16 task 4): the Dungeons tab's Cards and List, the next section,
--- an instance's page, at the minimum size and wide (Cards full width, List split). The view and
+-- /azf shots dungeons (Phase 16 tasks 4-6): the Dungeons tab's Cards, List and Road, the next
+-- section, instances' pages, at the minimum size and wide (Cards and Road full width, List split). The view and
 -- filter are restored at the end.
 local function dunPage() return UI.GetFrame().pages.dungeons end
 local function dungeonSteps()
@@ -301,6 +301,8 @@ local function dungeonSteps()
     local function view(v) return function() local p = dunPage(); if p then p:SetPageView(v); UI.RefreshHints() end end end
     -- Down the boss list, n steps (the loot follows).
     local function down(n) return function() for _ = 1, n do ns.Focus.Move("down") end; UI.RefreshHints() end end
+    -- Along the road, n steps right (the strip scrolls, the preview follows).
+    local function right(n) return function() for _ = 1, n do ns.Focus.Move("right") end; UI.RefreshHints() end end
     return {
         { label = "dungeons, cards", fn = function() UI.ApplyGeometry(); UI.Relayout(); open("cards") end },
         { label = "dungeons, next section", fn = function() ns.Focus.Jump(1); UI.RefreshHints() end },
@@ -326,7 +328,13 @@ local function dungeonSteps()
         { label = "dungeons, Molten Core, bosses and loot", fn = inst("moltenCore", "bosses") },
         { label = "dungeons, list", fn = function() open("list") end },
         { label = "dungeons, list scrolled", fn = function() ns.Focus.Jump(1); ns.Focus.Jump(1); UI.RefreshHints() end },
+        -- The Road (task 6): it opens on the your-level instance nearest You (LT lands there).
+        { label = "dungeons, road", fn = function() open("road") end },
+        { label = "dungeons, road walked right", fn = right(7) },
+        { label = "dungeons, road, the raids", fn = function() ns.Focus.FocusKey("d:naxxramas"); UI.RefreshHints() end },
         { label = "dungeons at minimum size", fn = function() open("cards"); UI.FitSize(minW, minH) end },
+        { label = "dungeons, road at minimum size", fn = function() open("road") end },
+        { label = "dungeons, road at minimum size, walked", fn = right(12) },
         { label = "dungeons, list at minimum size", fn = function() open("list") end },
         { label = "dungeons, page at minimum size", fn = inst("deadmines", "overview") },
         { label = "dungeons, Blackrock Depths at minimum size", fn = inst("blackrockDepths", "overview") },
@@ -336,6 +344,8 @@ local function dungeonSteps()
         { label = "dungeons wide, Blackrock Depths", fn = inst("blackrockDepths", "overview") },
         { label = "dungeons wide, Blackrock Depths, bosses and loot", fn = view("bosses") },
         { label = "dungeons wide, Dire Maul wings, quests", fn = inst("dmWest", "quests") },
+        { label = "dungeons wide, road", fn = function() open("road") end },
+        { label = "dungeons wide, road walked right", fn = right(16) },
         { label = "dungeons wide, list", fn = function() open("list") end },
         { label = "dungeons wide, list next section", fn = function() ns.Focus.Jump(1); UI.RefreshHints() end },
         { label = "dungeons wide, list split, into the page", fn = function()

@@ -61,6 +61,8 @@ end
 function frameMethods:SetVerticalScroll(v) self.vscroll = v end
 function frameMethods:GetVerticalScroll() return self.vscroll or 0 end
 function frameMethods:GetVerticalScrollRange() return 0 end
+function frameMethods:SetHorizontalScroll(v) self.hscroll = v end
+function frameMethods:GetHorizontalScroll() return self.hscroll or 0 end
 -- No layout engine: edges are unknown (code must cope with nil before the first layout).
 function frameMethods:GetTop() return nil end
 function frameMethods:GetBottom() return nil end

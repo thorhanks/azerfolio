@@ -838,7 +838,7 @@ return function(t)
         t.eq(dp.hasSections, true)
         ns.Focus.Jump(1)
         t.eq(ns.Focus.Current().entry.bracket.key, "20-29")
-        -- Y: List (saved), focus stays on the instance; Y again: Cards (the Road isn't in the cycle yet).
+        -- Y: List (saved), focus stays on the instance; Y again: the Road; Y again: Cards.
         local before = ns.Focus.Current().key
         press(ns, "PAD4")
         t.eq(ns.db.dungeons.view, "list")
@@ -847,8 +847,12 @@ return function(t)
         t.eq(dp.byKey.wailing.quest.text:GetText(), "1 / 3 quests")
         t.eq(dp.byKey.wailing.bosses:IsShown(), true)
         press(ns, "PAD4")
+        t.eq(ns.db.dungeons.view, "road")
+        t.eq(dp.road:IsShown(), true); t.eq(dp.list:IsShown(), false)
+        press(ns, "PAD4")
         t.eq(ns.db.dungeons.view, "cards")
-        t.eq(W.View("road"), "cards", "the Road shows Cards until it's built")
+        t.eq(dp.road:IsShown(), false)
+        t.eq(W.View("road"), "road"); t.eq(W.View("trail"), "cards", "anything else shows Cards")
         -- A: the page; B back to the same card.
         ns.Focus.FocusKey("d:deadmines")
         press(ns, "PAD1")
@@ -1049,14 +1053,14 @@ return function(t)
         restore()
     end)
 
-    t.test("/azf shots dungeons covers Cards, List, the page, minimum and wide; restores the view", function()
+    t.test("/azf shots dungeons covers Cards, List, Road, the page, minimum and wide; restores the view", function()
         padUI = true
         local ns = boot({ schemaVersion = 4, lastTab = "overview", dungeons = { filter = "raid", view = "list" } })
         local restore = dunStub(ns, {})
         slash("")
         slash("shots dungeons")
         wow.runTimers()
-        t.eq(_G.screenshotsTaken, 29)
+        t.eq(_G.screenshotsTaken, 36)
         t.eq(ns.db.dungeons.view, "list", "view restored")
         t.eq(ns.UI.GetFrame().pages.dungeons.pv, nil, "the page's view restored")
         t.eq(ns.db.dungeons.filter, "raid", "filter restored")
@@ -1084,7 +1088,188 @@ return function(t)
         t.eq(W.QuestText({ total = 0, none = "unmapped" }, true), "Quests not mapped")
         t.eq(W.QuestText({ total = 0, none = "none" }, true), "No quests")
         t.eq(W.QuestText({ total = 1, done = 0 }, true), "0 / 1 quest")
-        t.eq(W.NextView("cards"), "list"); t.eq(W.NextView("list"), "cards")
+        t.eq(W.NextView("cards"), "list"); t.eq(W.NextView("list"), "road"); t.eq(W.NextView("road"), "cards")
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("dungeons road: order, regions, signs, stones, You, the start and the scroll (pure)", function()
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local R = ns.DungeonsPage.Words.Road
+        local function e(key, kind, a, b, fit) return { inst = { key = key, kind = kind, levels = { a, b }, size = kind == "raid" and 40 or 5 }, fit = fit } end
+        local list = { e("mc", "raid", 60, 60), e("dm", "dungeon", 15, 23), e("rfc", "dungeon", 15, 21), e("hot", "dungeon", 13, 18, true),
+            e("wc", "dungeon", 17, 24, true), e("sm", "dungeon", 26, 36), e("brd", "dungeon", 52, 60) }
+        local items = R.Order(list)
+        local keys = {}
+        for i, x in ipairs(items) do keys[i] = x.inst.key end
+        t.eq(table.concat(keys, " "), "hot rfc dm wc sm brd mc", "levels first, ties by range end, raids last")
+        t.eq(R.Region(items[1].inst), 1); t.eq(R.Region(items[5].inst), 2); t.eq(R.Region(items[6].inst), 5); t.eq(R.Region(items[7].inst), 6)
+        t.eq(R.Sign(items[1].inst), "Levels 13-19"); t.eq(R.Sign(items[7].inst), "Raids · level 60")
+        local RT = ns.Theme.layout.dunRoad
+        local o = { H = RT.H, level = 16, step = RT.step, pad = RT.pad, fade = RT.fade, top = RT.top, bottom = RT.bottom,
+            zig = RT.zig, signMin = RT.signMin, tex = RT.tex, flat = RT.flat,
+            art = { road1 = true, road2 = true, road5 = true, road6 = true }, lanes = ns.DungeonRoad.lanes }
+        local lay = R.Layout(items, o)
+        t.eq(lay.W, 130 * 2 + 156 * 6)
+        t.eq(#lay.regions, 4)
+        t.eq(lay.regions[1].core0, 0); t.eq(lay.regions[1].x0, -40)
+        t.eq(lay.regions[1].core1, 130 + 3 * 156 + 78, "region 1 ends half a step past its last instance")
+        t.eq(lay.regions[2].core0, lay.regions[1].core1)
+        t.eq(lay.regions[4].core1, lay.W)
+        t.eq(lay.painted, true)
+        -- The road's height comes from the lane through the region's cover crop.
+        local r1 = lay.regions[1]
+        local s = math.max(r1.w / 1024, RT.H / 512)
+        local u = (130 - r1.x0 - (r1.w - 1024 * s) / 2) / (1024 * s)
+        local L = ns.DungeonRoad.lanes.road1
+        local f = u * (#L - 1)
+        local i0 = math.floor(f)
+        local want = (RT.H - 512 * s) / 2 + (L[i0 + 1] * (1 - (f - i0)) + L[i0 + 2] * (f - i0)) * 512 * s
+        t.ok(math.abs(lay.pts[1].roadY - want) < 0.01, lay.pts[1].roadY .. " vs " .. want)
+        -- Across a fade the height blends both regions (no jump).
+        local seam = lay.regions[2].x0
+        t.ok(math.abs(lay.roadY(seam) - lay.roadY(seam - 0.5)) < 2, "continuous at the fade's start")
+        -- Medallions alternate above and below, kept between 132 and H - 86.
+        t.eq(lay.pts[1].above, true); t.eq(lay.pts[2].above, false)
+        for _, p in ipairs(lay.pts) do t.ok(p.y >= 132 and p.y <= RT.H - 86, p.y) end
+        -- You at 16: past the last dungeon starting at or below 16 (dm, the third), before wc.
+        t.eq(lay.youIndex, 3)
+        t.eq(lay.youX, (lay.pts[3].x + lay.pts[4].x) / 2)
+        t.eq(lay.youY, lay.roadY(lay.youX))
+        -- Signs: one per bracket, the first at least 110 in; the raids'.
+        t.eq(#lay.signs, 4)
+        t.eq(lay.signs[1].x, 110); t.eq(lay.signs[1].text, "Levels 13-19")
+        t.eq(lay.signs[4].raid, true)
+        -- Stones where a new starting level begins: 13, 15, 17, 26, 52 (not the raid).
+        local lv = {}
+        for i, st in ipairs(lay.stones) do lv[i] = st.level end
+        t.eq(table.concat(lv, ","), "13,15,17,26,52")
+        t.eq(lay.stones[2].x, lay.pts[2].x); t.eq(lay.stones[2].y, lay.pts[2].roadY)
+        t.eq(lay.citadel, 130 + 6 * 156 - 78)
+        -- Without painted lanes the road is flat; You before the first when every range is above you.
+        local flat = R.Layout(items, { H = 410, level = 5, step = 156, pad = 130, fade = 80, top = 132, bottom = 86, zig = 80,
+            signMin = 110, tex = { 1024, 512 }, flat = 0.556, art = {} })
+        t.eq(flat.painted, false)
+        t.eq(flat.pts[1].roadY, 410 * 0.556)
+        t.eq(flat.youX, 60)
+        local beyond = R.Layout({ items[1] }, { H = 410, level = 60, step = 156, pad = 130, fade = 80, top = 132, bottom = 86,
+            zig = 80, signMin = 110, tex = { 1024, 512 }, art = {} })
+        t.eq(beyond.youX, 200, "past the last")
+        -- Where the road opens: the latest that suits you and starts at or below your level.
+        t.eq(R.Start(items, 16), 1, "hot fits and starts at 13")
+        items[4].fit = true
+        t.eq(R.Start(items, 17), 4, "wc (17) is nearer You")
+        t.eq(R.Start(items, 12), 1, "the first that suits you when none starts at or below")
+        for _, x in ipairs(items) do x.fit = false end
+        t.eq(R.Start(items, 30), 5, "none suits: the one beside You")
+        t.eq(R.Start(items, 5), 1)
+        t.eq(R.Start({}, 10), nil)
+        -- The scroll keeps a medallion inside the view by the margin, clamped to the road.
+        t.eq(R.Scroll(500, 0, 1000, 3000, 190), 0, "already inside")
+        t.eq(R.Scroll(950, 0, 1000, 3000, 190), 140)
+        t.eq(R.Scroll(100, 400, 1000, 3000, 190), 0, "clamped at the start")
+        t.eq(R.Scroll(2990, 0, 1000, 3000, 190), 2000, "clamped at the end")
+        -- The preview's words.
+        local dm = ns.Dungeons.Instance("deadmines")
+        t.eq(R.Meta(dm, "Westfall"), "Dungeon · 5 players  ·  Westfall  ·  Lv 15-23")
+        t.eq(R.Meta(dm, "Westfall", 1), "Dungeon  ·  Westfall  ·  Lv 15-23")
+        t.eq(R.Meta(dm, "Westfall", 2), "Dungeon  ·  Lv 15-23")
+        t.eq(R.Meta(ns.Dungeons.Instance("moltenCore"), "Blackrock Mountain"), "Raid · 40 players  ·  Blackrock Mountain  ·  Lv 60-60")
+        local names, more = R.Chips(dm.bosses, 7)
+        t.eq(#names, 7); t.eq(more, #dm.bosses - 7)
+        for _, n in ipairs(names) do t.ok(n ~= "Miner Johnson", "rares left out") end
+        local few, more2 = R.Chips(dm.bosses, 7, function(_, i) return i <= 2 end)
+        t.eq(#few, 2); t.eq(more2, #dm.bosses - 2)
+        t.eq(R.LootWords(27), "27 items in its loot"); t.eq(R.LootWords(1), "1 item in its loot"); t.eq(R.LootWords(nil), nil)
+    end)
+
+    t.test("dungeons road: Y opens it on the your-level instance nearest You; D-pad walks it; preview, A, B", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview" })
+        local restore = dunStub(ns, {})
+        slash("")
+        ns.UI.SelectTab("dungeons")
+        local dp = ns.UI.GetFrame().pages.dungeons
+        local R = ns.DungeonsPage.Words.Road
+        dp:SetView("road")
+        t.eq(dp.roadOn, true)
+        t.eq(dp.road:IsShown(), true); t.eq(dp.list:IsShown(), false)
+        t.eq(dp.hasSections, false)
+        local items = R.Order(dp.all)
+        local start = items[R.Start(items, ns.character.level)].inst.key
+        -- From the toolbar button focus stays there; down lands on the start.
+        t.eq(ns.Focus.Current().key, "tb:view:road")
+        t.eq(dp.roadSel, start)
+        press(ns, "PADDDOWN")
+        t.eq(ns.Focus.Current().key, "d:" .. start)
+        t.eq(dp.road.pv.name:GetText(), ns.Dungeons.Instance(start).name, "the preview shows it")
+        -- Every instance is a stop on one row, in road order.
+        t.eq(#dp.focusRows, 2)
+        t.eq(#dp.focusRows[2].items, 41)
+        t.eq(dp.focusRows[2].items[1].key, "d:" .. items[1].inst.key)
+        t.eq(dp.focusRows[2].items[41].entry.inst.kind, "raid")
+        -- Right walks the road; the preview and the scroll follow.
+        local scroll0 = dp.road.sf:GetHorizontalScroll()
+        for _ = 1, 8 do press(ns, "PADDRIGHT") end
+        local cur = ns.Focus.Current()
+        t.eq(cur.key, "d:" .. items[cur.road].inst.key)
+        t.eq(dp.road.pv.name:GetText(), cur.entry.inst.name)
+        t.ok(dp.road.sf:GetHorizontalScroll() >= scroll0, "scrolled along")
+        press(ns, "PADDLEFT")
+        t.eq(ns.Focus.Current().road, cur.road - 1)
+        -- Up: the Road button; down: back to the same medallion.
+        local here = ns.Focus.Current().key
+        press(ns, "PADDUP"); t.eq(ns.Focus.Current().key, "tb:view:road")
+        press(ns, "PADDDOWN"); t.eq(ns.Focus.Current().key, here)
+        -- The Deadmines' medallion: every quest done (gold ring, ✓), its plate, New on Forever's.
+        local m = dp.byKey.deadmines
+        t.eq(m.check:IsShown(), true)
+        t.eq(m.ring:GetTexture(), ns.Theme.mediaDir .. "Chrome\\medallion-ring-gold.blp")
+        t.eq(m.plate.text:GetText(), "The Deadmines")
+        t.eq(dp.byKey.moltenCore.ring:GetTexture(), ns.Theme.mediaDir .. "Chrome\\medallion-ring-raid.blp")
+        t.eq(dp.byKey.hallOfThanes.tagHolder.tags[1].text:GetText(), "New")
+        t.eq(dp.byKey.deadmines.tagHolder.tags[1] == nil or not dp.byKey.deadmines.tagHolder.tags[1]:IsShown(), true)
+        -- You · level on the road.
+        t.eq(dp.road.you.tag.text:GetText(), "You · " .. ns.character.level)
+        -- A opens the page full size; B comes back to the same medallion on the road.
+        ns.Focus.FocusKey("d:wailing")
+        t.eq(dp.road.pv.name:GetText(), "Wailing Caverns")
+        t.eq(dp.road.pv.quest.text:GetText(), "1 / 3 quests")
+        press(ns, "PAD1")
+        t.eq(dp.mode, "page"); t.eq(dp:Split(), false)
+        t.eq(dp.road:IsShown(), false)
+        press(ns, "PAD2")
+        t.eq(dp.mode, "list"); t.eq(dp.road:IsShown(), true)
+        t.eq(ns.Focus.Current().key, "d:wailing")
+        -- A filter keeps the road (raids only: one region, seven stops).
+        dp:SetFilter("raid")
+        t.eq(#dp.focusRows[2].items, 7)
+        t.eq(#dp.road.layout.regions, 1)
+        dp:SetFilter("all")
+        -- Y back to Cards, then to the road again: it opens on the start again.
+        ns.Focus.FocusKey("d:moltenCore")
+        press(ns, "PAD4"); t.eq(ns.db.dungeons.view, "cards")
+        press(ns, "PAD4"); press(ns, "PAD4"); t.eq(ns.db.dungeons.view, "road")
+        t.eq(ns.Focus.Current().key, "d:" .. start, "Y onto the road: the your-level instance")
+        -- Wide: still full width, no split.
+        ns.UI.FitSize(1640, 740)
+        t.eq(dp:Split(), false); t.eq(dp.road:IsShown(), true)
+        t.eq(#ns.Debug.errors, 0)
+        restore()
+    end)
+
+    t.test("dungeons road: unknown completion shows ? and no gold rings", function()
+        padUI = true
+        local ns = boot({ schemaVersion = 4, lastTab = "overview", dungeons = { view = "road" } })
+        local restore = dunStub(ns, { known = false })
+        slash("")
+        ns.UI.SelectTab("dungeons")
+        local dp = ns.UI.GetFrame().pages.dungeons
+        t.eq(dp.roadOn, true)
+        t.eq(dp.byKey.deadmines.check:IsShown(), false)
+        t.eq(dp.byKey.deadmines.ring:GetTexture(), ns.Theme.mediaDir .. "Chrome\\medallion-ring.blp")
+        ns.Focus.FocusKey("d:deadmines")
+        t.eq(dp.road.pv.quest.text:GetText(), "? / 2 quests")
         t.eq(#ns.Debug.errors, 0)
         restore()
     end)

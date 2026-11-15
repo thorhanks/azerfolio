@@ -544,6 +544,42 @@ Theme.layout.dunPage = {
     filterRow = 34, questRow = 38, chip = 26, stateCol = 64, -- .dqrow
     blur = 7, blurZoom = 0.55, -- the backdrop's soft copies (px apart) and how much of the painting it shows
 }
+-- The adventurer's road (Phase 16 task 6; DESIGN rounds 3-8, style.css .trail*/.trmed/.trpv;
+-- the mockup's dunTrail). The strip is laid out in the mockup's px (H 410) and scaled down to
+-- fit a shorter window, the preview card under it.
+Theme.color.dunRoadGround = hex("1e140b")    -- under the painted regions (.trground)
+Theme.color.dunRoadInk = hex("2a1608")       -- a plate's name, a stone's level (.trcart, .trlv)
+Theme.color.dunRoadTag = hex("fff0c8")       -- You's tag (.tryou b rgba(255,240,200,.85))
+Theme.color.dunRoadPost = hex("5a3f24")      -- a sign's post (.trsign::after)
+Theme.color.dunRoadRaid = hex("ffb0a0")      -- the raids' sign (.trsign.raid)
+Theme.color.dunRoadKey = hex("e2b84a")       -- a key in the preview (.trpvkey)
+Theme.color.dunRoadChip = hex("4a3622")      -- a boss chip's edge (.trpvbosses span)
+Theme.layout.dunRoad = {
+    H = 410, step = 156, pad = 130,       -- the strip's height, between medallions, the ends (design px)
+    fade = 80,                             -- a region's cross-fade into the next (.trregion mask 80px)
+    top = 132, bottom = 86, zig = 80,      -- medallions: clear of the signs and the bottom; off the road (round 8)
+    signMin = 110,                         -- the first sign's middle at least this far in (round 7)
+    tex = { 1024, 512 },                   -- a region panel (road1..6)
+    flat = 0.556,                          -- the road's height share without painted lanes (ROAD 228 of 410)
+    minScale = 0.62,                       -- the strip's smallest scale (the minimum window)
+    med = 104, medFit = 118,               -- a medallion; your-level ones larger (.trmed.fit)
+    artShare = 0.78,                       -- the painting inside the painted ring (round 8: 78%)
+    glow = 1.55,                           -- the soft glow (glow-soft) per medallion size
+    focusScale = 1.12,                     -- .focused.trmed scale(1.12)
+    sepia = 0.3, sepiaFar = 0.78,          -- partial sepia; far above you and untouched (.trmed.far)
+    plate = 28, plateCap = 24, platePad = 28, plateFont = 14, -- one-line name plates (round 8)
+    plateRows = { 39, 88 }, plateCapPx = 64, plateTex = { 512, 128 }, -- the cartouche's band and curled ends
+    stone = 44, stoneDrop = 4,             -- level stones (round 8: two digits fit the face)
+    you = 34, youTag = 16,                 -- your portrait coin and its "You · 10" tag
+    sign = 28, signMinW = 150, signPad = 40, signTop = 8, post = { 3, 30 },
+    gold = 7, goldStep = 6,                -- the gold progress up to You (round 7: 7 px)
+    check = 24, newTag = 18,
+    preview = 170, previewMin = 132, previewMax = 230, -- the preview card under the strip
+    previewArt = 320, previewPadY = 12, previewPadX = 24, previewGap = 16,
+    chips = 7, chip = 22, chipPad = 8, chipGap = 6,
+    margin = 190,                          -- keep the focused medallion this far inside the view (px, scaled)
+    openAt = 0.35,                         -- the road opens with You this far across the view
+}
 
 Theme.repGroups = { home = "Home", zones = "Zones", instances = "Dungeons & raids", bgs = "Battlegrounds",
     profs = "Professions", other = "Class and events", none = "No known quests", unknown = "Sources not known" }
