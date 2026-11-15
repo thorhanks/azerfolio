@@ -2852,6 +2852,157 @@
   // =====================================================================================
   // Render + hints
   // =====================================================================================
+  // =====================================================================================
+  // Dungeons tab (round 1, 2026-11-15). Data: mockups/dungeon-data.js (`qdb.lua dungeons js`):
+  // Azerfolio/Data/Dungeons.lua (curated from Warcraft Wiki) with each boss's own gear and the
+  // instance's quests from QuestieDB. Honest data: a dungeon's progress is its quests (the game
+  // confirms those); boss kills aren't counted (the game keeps no record of past kills); loot is
+  // a collection, never counted. Item quality and "in your bags" are stand-ins here (C_Item in game).
+  // =====================================================================================
+  const DUN = window.AZF_DUNGEONS || [];
+  const DUN_FILTERS = [["all", "All"], ["foryou", "For your level"], ["dungeon", "Dungeons"], ["raid", "Raids"], ["forever", "New in Forever"]];
+  const DUN_BRACKETS = [[1, 19, "Levels 13-19"], [20, 29, "Levels 20-29"], [30, 39, "Levels 30-39"], [40, 49, "Levels 40-49"], [50, 60, "Levels 50-60"]];
+  const WEAPON_SUB = { 0: "Axe", 1: "Two-Hand Axe", 2: "Bow", 3: "Gun", 4: "Mace", 5: "Two-Hand Mace", 6: "Polearm", 7: "Sword", 8: "Two-Hand Sword",
+    10: "Staff", 13: "Fist Weapon", 15: "Dagger", 16: "Thrown", 18: "Crossbow", 19: "Wand", 20: "Fishing Pole" };
+  const ARMOR_SUB = { 0: "Jewellery or cloak", 1: "Cloth", 2: "Leather", 3: "Mail", 4: "Plate", 6: "Shield", 7: "Libram", 8: "Idol", 9: "Totem" };
+  const PALADIN_BIT = 2; // the class mask bit QuestieDB uses for Paladin (Gideon); mockup only
+  const zoneById = (id) => (window.AZF_ZONES || []).find(z => z.mapID === id) || { mapID: id, name: { 1453: "Stormwind City", 1454: "Orgrimmar", 1455: "Ironforge", 2548: "Riverglades" }[id] || "Unknown" };
+  // Mockup quest completion: none for Gideon today; Veteran has done some low dungeons' quests (SAMPLE).
+  function dunQuestDone(q) {
+    if (ui.scenarioName !== "veteran") return false;
+    return q[2] <= 26 && q[0] % 3 !== 0;
+  }
+  function dunModel() {
+    const lvl = CHAR.level, side = CHAR.faction === "Horde" ? "H" : "A";
+    return DUN.map(d => {
+      const quests = d.quests.filter(q => (!q[4] || q[4] === side) && (!q[5] || (q[5] & PALADIN_BIT)))
+        .map(q => ({ id: q[0], name: q[1], level: q[2], req: q[3], cls: q[5] > 0, done: dunQuestDone(q) }));
+      const done = quests.filter(q => q.done).length;
+      const zones = d.zones.map(zoneById);
+      const fit = d.lv[0] <= lvl + 3 && d.lv[1] >= lvl;
+      return { ...d, quests0: d.quests.length, minLevel: d.lv[0], maxLevel: d.lv[1], quests, qDone: done, qTotal: quests.length, zones, fit,
+        loot: d.bosses.reduce((n, b) => n + b.loot.length, 0),
+        state: quests.length === 0 ? "untracked" : done === quests.length ? "complete" : done > 0 ? "progress" : "untouched" };
+    });
+  }
+  function dunShown() {
+    const all = dunModel(), f = ui.dunFilter || "all";
+    const list = all.filter(d => f === "all" || (f === "foryou" ? d.fit : f === "forever" ? d.forever : d.kind === f));
+    return { all, list };
+  }
+  const dunGlyph = (d) => d.kind === "raid" ? "☠" : "⛫";
+  function dunTags(d) {
+    return `${d.forever ? `<span class="tag new">New in Forever</span>` : ""}${d.fit ? `<span class="tag lvl">Your level</span>` : ""}${d.kind === "raid" ? `<span class="tag">Raid · ${d.size}</span>` : d.size !== 5 ? `<span class="tag">${d.size} players</span>` : ""}`;
+  }
+  function dunQuestCell(d) {
+    if (!d.qTotal) return `<span class="dq none">${!d.qa ? "Quests not mapped" : d.quests0 ? "None for your side" : "No quests"}</span>`;
+    return `<span class="dq">${bar(d.qDone / d.qTotal)}<span class="dqn"><b>${d.qDone}</b> / ${d.qTotal} quests</span></span>`;
+  }
+  function dunRow(d) {
+    const z = d.zones[0];
+    const tip = `<b>${esc(d.name)}</b>${d.kind === "raid" ? `Raid, ${d.size} players` : "Dungeon"} in ${esc(d.zones.map(x => x.name).join(" / "))}, levels ${d.lv[0]}-${d.lv[1]} (a guide). ${d.bosses.length} bosses.`
+      + (d.qTotal ? ` ${d.qDone} of ${d.qTotal} quests done.` : d.qa ? " No quests for you here." : " Its quests aren't mapped to it yet.") + " A opens it.";
+    return `<button class="drow focusable ${d.state} ${d.key === ui.dunSel && ui.wide ? "selected" : ""}" data-dun="${d.key}" data-tip="${tip}">
+      <span class="thumb">${art(z)}<i class="dglyph">${dunGlyph(d)}</i></span>
+      <span class="dwho"><span class="dname">${esc(d.name)}${dunTags(d)}</span><span class="dwhere">${esc(d.zones.map(x => x.name).join(" / "))}</span></span>
+      <span class="lv">Lv ${d.lv[0]}-${d.lv[1]}${levelbar(d)}</span>
+      <span class="dbosses">${d.bosses.length} bosses</span>
+      ${dunQuestCell(d)}</button>`;
+  }
+  function renderDungeons() {
+    const { all, list } = dunShown();
+    const f = ui.dunFilter || "all";
+    const tools = `<div class="toolbar">
+      <div class="seg">${DUN_FILTERS.map(([v, l]) => `<button class="focusable ${f === v ? "on" : ""}" data-dfilter="${v}" data-tip="<b>${l}</b>${v === "all" ? "Every dungeon and raid." : v === "foryou" ? "Instances whose level range suits yours (the zone guide's rule)." : v === "forever" ? "The nine dungeons new in Forever." : `Only ${l.toLowerCase()}.`}">${l}</button>`).join("")}</div>
+      <span class="spacer"></span><span class="count">${list.length} of ${all.length} · levels are a guide</span></div>`;
+    let body = "";
+    if (!list.length) body = `<div class="empty"><b>Nothing here</b>Try another filter.</div>`;
+    else {
+      const groups = DUN_BRACKETS.map(([a, b, t]) => [t, list.filter(d => d.kind === "dungeon" && d.lv[0] >= a && d.lv[0] <= b)])
+        .concat([["Raids", list.filter(d => d.kind === "raid")]]);
+      body = groups.map(([title, items]) => {
+        if (!items.length) return "";
+        const withQ = items.filter(d => d.qTotal), doneAll = withQ.filter(d => d.state === "complete").length;
+        return `<div class="group-h" data-group>${title} <small>${withQ.length ? `every quest done in ${doneAll} of ${withQ.length}` : `${items.length}`}</small></div><div class="rows">${items.map(dunRow).join("")}</div>`;
+      }).join("");
+    }
+    if (ui.wide) {
+      if (!ui.dunSel || !list.some(d => d.key === ui.dunSel)) ui.dunSel = (list[0] || {}).key || null;
+      content.innerHTML = `<div class="rephdr">${tools}</div><div class="split dunsplit"><div class="listpane"><div class="scroll" id="scroll">${body}</div></div><div class="detailpane" id="detailpane"></div></div>`;
+      renderDungeonInto($("#detailpane"), all.find(d => d.key === ui.dunSel), { back: false });
+    } else {
+      content.innerHTML = `<div class="rephdr">${tools}</div><div class="scroll" id="scroll">${body}</div>`;
+    }
+    ($(".split") || $("#scroll")).style.top = $(".rephdr").offsetHeight + "px";
+  }
+  // Quality stand-in (the game's C_Item.GetItemQualityByID in the addon): raid loot epic, the rest rare.
+  const dunQuality = (d) => d.kind === "raid" ? 4 : 3;
+  const QNAME = { 2: "Uncommon", 3: "Rare", 4: "Epic" };
+  function itemType(it) { return it[4] === 2 ? (WEAPON_SUB[it[5]] || "Weapon") : (ARMOR_SUB[it[5]] || "Armour"); }
+  // Mockup "in your bags or bank": Veteran owns a couple of low dungeons' drops (SAMPLE).
+  const dunOwned = (it) => ui.scenarioName === "veteran" && it[3] <= 22 && it[0] % 4 === 0;
+  function bossLoot(d, b) {
+    if (!b) return "";
+    const q = dunQuality(d);
+    const head = `<div class="dloothead"><h3>${esc(b.n)}</h3><span class="dim">${b.loot.length ? `${b.loot.length} items it drops` : ""}</span></div>`;
+    if (!b.loot.length) return head + `<div class="dnoloot">${d.kind === "raid"
+      ? "No loot known for this boss. QuestieDB lists no gear for most raid bosses; a curated table would fill this in."
+      : "No gear known for this boss. Some bosses drop only trade goods or quest items, or their loot sits in a chest."}</div>`;
+    return head + `<div class="dloot">${b.loot.map(it => {
+      const own = dunOwned(it);
+      return `<button class="ditem focusable q${q}" data-ditem="${it[0]}" data-tip="<b>${esc(it[1])}</b>${QNAME[q]} ${esc(itemType(it).toLowerCase())}, item level ${it[2]}, requires level ${it[3]}.${own ? " You have one (bags or bank)." : ""} Drops from ${esc(b.n)}.">
+        <span class="dicon">${it[4] === 2 ? "⚔" : "⛨"}</span><span class="diname">${esc(it[1])}</span><span class="ditype">${esc(itemType(it))}</span>
+        <span class="direq ${it[3] > CHAR.level ? "later" : ""}">Lv ${it[3]}</span>${own ? `<span class="tag own">✓ Have</span>` : ""}</button>`;
+    }).join("")}</div>`;
+  }
+  function renderDungeonInto(container, d, opts) {
+    if (!d) { container.innerHTML = `<div class="empty"><b>Select a dungeon</b></div>`; return; }
+    const z = d.zones[0];
+    const score = d.qTotal ? `<div class="pagescore ${d.state}">${d.qDone} / ${d.qTotal}<small>quests done</small></div>`
+      : `<div class="pagescore dim">${d.qa ? "No quests" : "Quests not mapped"}</div>`;
+    const hero = `<div class="detail-hero slim dhero">${art(z)}<div class="shade"></div>
+      ${opts.back ? `<button class="btn dark back focusable" data-back data-tip="Back to all dungeons (B)">‹ Dungeons</button>` : ""}
+      <div class="info"><div><h1>${esc(d.name)} <span class="dherotags">${dunTags(d)}</span></h1>
+        <div class="sub"><span>${d.kind === "raid" ? `Raid · ${d.size} players` : `Dungeon · ${d.size} players`}</span><span>· ${esc(d.zones.map(x => x.name).join(" / "))}</span><span>· Lv ${d.lv[0]}-${d.lv[1]}</span></div></div>
+      ${score}</div></div>`;
+    if (!ui.dunBoss || !d.bosses.some(b => b.n === ui.dunBoss)) ui.dunBoss = (d.bosses.find(b => b.loot.length) || d.bosses[0]).n;
+    let lastWing = null;
+    const bosses = d.bosses.map((b, i) => {
+      const wing = b.wing && b.wing !== lastWing ? `<div class="dwing">${esc(b.wing)}</div>` : "";
+      lastWing = b.wing || lastWing;
+      const tags = `${b.rare ? `<span class="tag rare">Rare</span>` : ""}${b.opt ? `<span class="tag">Optional</span>` : ""}${b.oneOf ? `<span class="tag">One of: ${esc(b.oneOf)}</span>` : ""}`;
+      const tip = `<b>${esc(b.n)}</b>Boss ${i + 1} of ${d.bosses.length}${b.rare ? ", a rare: not always there" : ""}${b.opt ? ", optional" : ""}${b.oneOf ? `, one of the ${esc(b.oneOf)} bosses (one per run)` : ""}. ${b.loot.length ? `${b.loot.length} items in its loot; right to browse them.` : "No gear known."}`;
+      return `${wing}<button class="dboss focusable ${b.n === ui.dunBoss ? "selected" : ""} ${b.rare || b.opt || b.oneOf ? "side" : ""}" data-dboss="${esc(b.n)}" data-tip="${tip}">
+        <span class="dbn">${i + 1}</span><span class="dbname">${esc(b.n)}${tags}</span><span class="dbloot">${b.loot.length ? `${b.loot.length} items` : "–"}</span></button>`;
+    }).join("");
+    const lvl = CHAR.level;
+    const chip = (q) => `<button class="qchip focusable d-${difficulty(q.level, lvl)} ${q.done ? "done" : ""}" data-dquest="${q.id}"
+      data-tip="<b>${esc(q.name)}</b>Level ${q.level}${q.req ? `, from level ${q.req}` : ""}. ${q.done ? "Done." : q.req > lvl ? `Opens at level ${q.req}.` : "Ready for you."}${q.cls ? " A class quest." : ""}">
+      <span class="lvl">${q.level}</span><span class="qn">${esc(q.name)}</span>${q.done ? `<span class="qdone">✓</span>` : ""}</button>`;
+    // Ready now leaves out quests red for you (5+ levels above: Phase 15 step 5's rule).
+    const open = d.quests.filter(q => !q.done && q.req <= lvl);
+    const ready = open.filter(q => difficulty(q.level, lvl) !== "red"), red = open.filter(q => difficulty(q.level, lvl) === "red");
+    const later = d.quests.filter(q => !q.done && q.req > lvl), done = d.quests.filter(q => q.done);
+    const qgroup = (t, qs) => qs.length ? `<div class="dqh">${t} <small>${qs.length}</small></div><div class="qchips">${qs.sort((a, b) => a.level - b.level).map(chip).join("")}</div>` : "";
+    const quests = d.qTotal ? qgroup("Ready now", ready) + qgroup("Ready, but red for you", red) + qgroup("Later", later) + qgroup("Done", done)
+      : `<div class="dnoloot">${d.qa ? "No quests for your side and class here." : "This dungeon's quests aren't mapped to it yet: QuestieDB files them under their zones. (A design question for this tab.)"}</div>`;
+    container.innerHTML = `<div class="detail dpage">${hero}<div class="scroll dscroll">
+      <div class="dcols"><section class="dsec"><div class="group-h" data-group>Bosses <small>${d.bosses.length} · in encounter order</small></div>
+          <div class="dbosslist">${bosses}</div>
+          <p class="dnote">Boss kills aren't counted: the game keeps no record of past kills. From now on Azerfolio can mark the ones it sees (check D3).</p></section>
+        <section class="dsec dlootsec" id="dlootpane">${bossLoot(d, d.bosses.find(b => b.n === ui.dunBoss))}</section></div>
+      <section class="dsec"><div class="group-h" data-group>Quests <small>${d.qTotal ? `${d.qDone} of ${d.qTotal} done` : ""}</small></div>${quests}
+        <p class="dnote">Quests count when QuestieDB files them under this instance; your side and class only.</p></section>
+      <p class="dnote src">Bosses and levels: Warcraft Wiki (curated, unofficial). Loot: QuestieDB, each boss's own gear. Item quality and "Have" come from the game in the addon; stand-ins here.</p>
+    </div></div>`;
+  }
+  function restoreDun() {
+    if (ui.dunOpen && !ui.wide) return setFocus($(`#content [data-dboss="${CSS.escape(ui.dunBoss || "")}"]`) || $("#content .dboss") || $("[data-back]"));
+    const sc = $("#scroll");
+    if (sc) { sc.style.scrollBehavior = "auto"; sc.scrollTop = ui.dunScroll || 0; sc.style.scrollBehavior = ""; }
+    setFocus($(`#scroll [data-dun="${ui.dunSel}"]`) || $("#scroll .focusable") || $(".toolbar .focusable"));
+  }
+
   const HINTS = {
     overview: [["A", "A", "Select"], ["LT", "LT/RT", "Section"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
     zones: [["A", "A", "Open"], ["Y", "Y", "View"], ["X", "X", "Search"], ["LT", "LT/RT", "Section"], ["B", "B", "Close"]],
@@ -2868,10 +3019,14 @@
     profs: [["A", "A", "Open"], ["Y", "Y", "View"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
     profsIn: [["DP", "✥", "Select"], ["A", "A", "Open"], ["X", "X", "Track"], ["Y", "Y", "View"], ["LT", "LT/RT", "Section"], ["B", "B", "Professions"]],
     profsGather: [["DP", "✥", "Select"], ["Y", "Y", "View"], ["B", "B", "Professions"]],
+    dun: [["A", "A", "Open"], ["LT", "LT/RT", "Section"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
+    dunWide: [["A", "A", "Details"], ["LT", "LT/RT", "Section"], ["LB", "LB/RB", "Tabs"], ["B", "B", "Close"]],
+    dunPage: [["DP", "✥", "Select"], ["LT", "LT/RT", "Section"], ["B", "B", "Dungeons"]],
   };
   function screen() {
     if (ui.tab === "class") return "class";
     if (ui.tab === "professions") return "profs";
+    if (ui.tab === "dungeons") return ui.wide ? "dunWide" : ui.dunOpen ? "dunPage" : "dun";
     if (ui.tab === "reputation") return ui.wide ? "repWide" : ui.repOpen ? "repPage" : "rep";
     return ui.tab === "zones" ? (ui.detail && !ui.wide ? "detail" : ui.wide ? "zonesWide" : "zones") : "overview";
   }
@@ -2881,6 +3036,8 @@
     const sc = screen();
     if (sc === "class") renderClass();
     else if (sc === "profs") renderProfessions();
+    else if (sc === "dun" || sc === "dunWide") renderDungeons();
+    else if (sc === "dunPage") renderDungeonInto(content, dunModel().find(d => d.key === ui.dunOpen), { back: true });
     else if (sc === "rep" || sc === "repWide") renderReputation();
     else if (sc === "repPage") renderFactionInto(content, allFactions().find(f => f.id === ui.repOpen), { back: true });
     else if (sc === "overview") renderOverview();
@@ -2913,9 +3070,10 @@
   function setTab(tab) {
     if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
     if (ui.tab === "reputation" && !ui.repOpen) ui.repScroll = $("#scroll")?.scrollTop || 0;
+    if (ui.tab === "dungeons" && !ui.dunOpen) ui.dunScroll = $("#scroll")?.scrollTop || 0;
     ui.tab = tab; ui.flyout = null;
     render();
-    if (tab === "zones" && !ui.detail) restoreCatalog(); else if (tab === "reputation") restoreRep(); else if (tab === "class") restoreClass(); else if (tab === "professions") restoreProf(); else focusFirst();
+    if (tab === "zones" && !ui.detail) restoreCatalog(); else if (tab === "reputation") restoreRep(); else if (tab === "class") restoreClass(); else if (tab === "professions") restoreProf(); else if (tab === "dungeons") restoreDun(); else focusFirst();
   }
   // The Reputation list: back to the faction you were on (or the first one), scroll kept.
   function restoreRep() {
@@ -2924,7 +3082,7 @@
     if (sc) { sc.style.scrollBehavior = "auto"; sc.scrollTop = ui.repScroll || 0; sc.style.scrollBehavior = ""; }
     setFocus($(`#scroll [data-faction="${ui.repSel}"]`) || $("#scroll .focusable") || $(".toolbar .focusable"));
   }
-  const TABS = ["overview", "zones", "reputation", "class", "professions"];
+  const TABS = ["overview", "zones", "reputation", "class", "professions", "dungeons"];
   const nextTab = (d) => TABS[(TABS.indexOf(ui.tab) + d + TABS.length) % TABS.length];
   function openZone(name, crit) {
     if (ui.tab === "zones" && !ui.detail) ui.zonesScroll = $("#scroll")?.scrollTop || 0;
@@ -2942,6 +3100,9 @@
     if (ui.tab === "class" && focused && focused.closest("#detailpane")) { setHints("class"); return restoreClass(); }
     if (ui.tab === "professions" && focused && focused.closest("#precdetail")) return setFocus($(`#precscroll [data-recipe="${ui.recipeSel}"]`) || $("#precscroll .focusable"));
     if (ui.tab === "professions" && focused && focused.closest("#detailpane")) { setHints("profs"); return restoreProf(); }
+    if (ui.tab === "dungeons" && focused && focused.closest("#dlootpane")) return setFocus($(`[data-dboss="${CSS.escape(ui.dunBoss || "")}"]`));
+    if (ui.tab === "dungeons" && ui.dunOpen && !ui.wide) { ui.dunOpen = null; render(); return restoreDun(); }
+    if (ui.tab === "dungeons" && ui.wide && focused && focused.closest("#detailpane")) return setFocus($(`.drow[data-dun="${ui.dunSel}"]`));
     if (ui.tab === "reputation" && ui.repOpen) { ui.repOpen = null; render(); return restoreRep(); }
     if (ui.tab === "reputation" && ui.wide && focused && focused.closest("#detailpane")) return setFocus($(`.frep[data-faction="${ui.repSel}"]`));
     // A category page goes back to the zone's overview, focused on that category's tile.
@@ -3014,6 +3175,14 @@
     if (d.goto) { ui.classSel = d.goto; renderStopInto($("#detailpane"), classModel(), d.goto); setHints("class"); return restoreClass(); }
     if (d.step) return; // a quest step: details in the info line
     if (d.rfilter) { ui.repFilter = d.rfilter; render(); return setFocus($(`[data-rfilter="${d.rfilter}"]`)); }
+    if (d.dfilter) { ui.dunFilter = d.dfilter; render(); return setFocus($(`[data-dfilter="${d.dfilter}"]`)); }
+    if (d.dun) { // Dungeons: open the instance's page (wide: move into it)
+      ui.dunSel = d.dun; ui.dunBoss = null;
+      if (ui.wide) return setFocus($("#detailpane .dboss.selected") || $("#detailpane .dboss") || el);
+      ui.dunScroll = $("#scroll")?.scrollTop || 0; ui.dunOpen = d.dun; render(); return restoreDun();
+    }
+    if (d.dboss) return setFocus($("#dlootpane .ditem") || el); // A on a boss: into its loot
+    if (d.ditem || d.dquest) return; // details in the info line
     if (d.faction) { // Reputation tab: open the faction's page (wide: move into it)
       const id = Number(d.faction); ui.repSel = id;
       if (ui.wide) return setFocus($("#detailpane .srow") || el);
@@ -3138,6 +3307,23 @@
       setHints("profs");
     }
     if (ui.tab === "professions" && el.closest("#detailpane")) setHints(ui.profView === "gather" ? "profsGather" : "profsIn");
+    if (ui.tab === "dungeons") {
+      // The list's focus moves the wide split's page; a boss's focus shows its loot beside it.
+      if (ui.wide && el.dataset.dun && el.dataset.dun !== ui.dunSel) {
+        ui.dunSel = el.dataset.dun; ui.dunBoss = null;
+        $$(".drow.selected").forEach(r => r.classList.remove("selected"));
+        el.classList.add("selected");
+        renderDungeonInto($("#detailpane"), dunModel().find(x => x.key === ui.dunSel), { back: false });
+      }
+      if (el.dataset.dboss && el.dataset.dboss !== ui.dunBoss) {
+        ui.dunBoss = el.dataset.dboss;
+        $$(".dboss.selected").forEach(r => r.classList.remove("selected"));
+        el.classList.add("selected");
+        const d = dunModel().find(x => x.key === (ui.wide ? ui.dunSel : ui.dunOpen));
+        $("#dlootpane").innerHTML = bossLoot(d, d.bosses.find(b => b.n === ui.dunBoss));
+      }
+      setHints(el.closest("#detailpane") || (ui.dunOpen && !ui.wide && el.closest(".dpage")) ? "dunPage" : ui.wide ? "dunWide" : "dun");
+    }
     if (ui.tab === "professions" && el.dataset.recipe && el.closest("#precscroll") && Number(el.dataset.recipe) !== ui.recipeSel) {
       ui.recipeSel = Number(el.dataset.recipe);
       $$("#precscroll .precipe.selected").forEach(r => r.classList.remove("selected"));
