@@ -418,6 +418,25 @@ Facts the build rests on [verified-ingame, Gideon]: `GetProfessions` / `GetProfe
 
 **Done when:** each of this character's professions shows its skill, cap, rank and next rank from the game; Mastered only at 300; recipes are a collection with honest counts (known source only) that never counts toward completion; sources, ingredients and tracking work as the design says; the tab and the Overview panel work with the gamepad at both window widths; tests pass; checked in game on Gideon with `/azf shots`; and the owner approves. *(Built 2026-11-14; open checks G1 and G4 wait on play; painted banners and coins wait on the art.)*
 
+### Phase 15 — Design review polish
+
+Owner's choice 2026-11-14: address the whole design review ([docs/reviews/2026-11-14-design-review.md](docs/reviews/2026-11-14-design-review.md); its "Top 12" numbers are cited as R1-R12). Design changes go through the mockup first; client APIs not verified yet get a probe before they're relied on; art is generated with the Codex CLI from `art/prompts.md`. Nothing in the "Not suggested" list comes back.
+
+**Tasks** (one commit each, after the owner's approval)
+1. Quick fixes (R1-R4): Atlas tile names (one wrap rule, cut only past two lines, the pin clear of the name); untouched tiles' % grey; the legend box opaque over the game's own frames; Next up (zone dashboard) leaves out quests that are red for you. Checked in game with `/azf shots`.
+2. UI consistency (R11 and the UI section): the selected state of toolbar buttons, the Overview's Zones row in the gilded housing, reaction names in the standing strip at every width, "+100" without the tilde, the cut texts the review lists, an info line that may take two lines, the Overview footer, "Learn at: not known yet", non-applying category tiles that don't open. Mockup first for the toolbar.
+3. Small-size art (R5, R6): a painted `icon-professions` tab icon; painted dull profession coins (or a brighter tint) for the rail and the Overview; simple glyphs for category icons at 20 px and below. Codex CLI; prompts in `art/prompts.md`.
+4. Professions (R7, R9, R10): the skill road drawn with the Class tab's road band along the painted lane, taller; recipes and gathering nodes in the game's difficulty colours; item icons (and quality colour where known) on recipes, reagents and Tracked. Probe first: the trade skill's difficulty and item icons in Forever. Mockup first.
+5. Smaller UX (R12 and the UX / player sections): class steps lead with the step's objective (QuestieDB), "Start here" checked for other races' versions (open check), the faction page's long "Later" group folded, Gather shows which zones suit your level.
+6. The Exploration page's zone map (R8): probe the base map tiles, then the Phase 3 design (revealed pieces through fog) in Lua.
+7. A living Atlas: untouched zones as faint washes on the chart that paint into colour as they fill; claimed zones get a pennant; the Overview thumbnail follows. Mockup first.
+8. Faction crests for the Reputation tab (about 12 majors, glyph fallback), used on its rows, faction pages and the zone ledger. Codex CLI.
+9. More celebrations and sound: a class road stop walked, a profession rank trained and Mastered, a reputation rank-up toast; the game's own sounds on celebrations and claims. Mockup first.
+10. Art checks: the Alliance / Horde class strip pairs (are the Horde landmarks Horde places?), the three near-pure red zones (owner's call).
+11. Close: docs, history, decision log, the owner's review.
+
+**Done when:** each task above is built or explicitly dropped by the owner, checked in game with `/azf shots`, tests pass, and the owner approves.
+
 ## 7. Phase 0 questions
 
 All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabilities.md`.
@@ -540,6 +559,7 @@ All answered 2026-11-07 except #5. Answers are in `docs/research/client-capabili
 | 2026-11-14 | Painted skill roads for the Professions tab: one antique map per trade under the Journey road (three Codex panels joined to 2048x256; the pipeline finds each lane and the bar sits on it), rank names alone on cartouches (no "from x"; ink by state) and the scale on cartouches | Owner's choice after the close, over a shared strip; Blacksmithing approved in the mockup first; checked in game on Gideon (WoWScrnShot_111426_143116-143133). Owner approved |
 | 2026-11-14 | Phase 14 accepted: the Professions tab closed. The version stays 1.2.0 until Phase 11 (v1.3) closes; open checks G1, G2 and G4 wait on play; the painted banners and coins wait on the art (prompts drafted in `docs/research/professions-art.md`) | Checked in game on Gideon (every view, standard, minimum and wide sizes, the Overview panel, G3 confirmed) and Thragor (no professions yet). Owner closed it |
 | 2026-11-14 | Season of Discovery recipes stay under No known source even when QuestieDB has a recipe item for them (35 in Blacksmithing); "opens in the next 25" uses only a learn-at skill the game gave | Owner, at Phase 14 step 3. The mockup counted them (386); the rules count 351 |
+| 2026-11-14 | Phase 15: address the whole design review (`docs/reviews/2026-11-14-design-review.md`) in eleven steps, quick fixes first | Owner, after reading the review |
 | 2026-11-13 | Professions tab design: a Class-tab-style skill road per profession (1 to 300, rank gates as milestones, the profession coin at the end); a painted banner and a coin per profession (12 each); recipes in levelling order by default; an Overview panel in round 1; "Where to gather" from a hand-curated, unofficial node → skill and zone table (no game source) | Owner, after the UX analysis ([professions-ux.md](docs/research/professions-ux.md)) |
 
 ## 10. Definition of done (v1)
