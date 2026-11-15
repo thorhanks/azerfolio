@@ -2149,3 +2149,8 @@ body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; po
 .trregion { position: absolute; top: 0; bottom: 0; background-size: cover; background-position: center;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 80px, #000 calc(100% - 80px), transparent 100%); }
 .trdusk.painted { background: linear-gradient(180deg, rgba(20,12,6,.25), rgba(20,12,6,.05) 30%, rgba(20,12,6,.05) 70%, rgba(20,12,6,.35)); }
+
+/* ---------- Round 7: the road follows the painting (2026-11-15) ---------- */
+.trroad.painted .trbed, .trroad.painted .trlane, .trroad.painted .trruts { display: none; }
+.trroad.painted .trgold { stroke-width: 7; opacity: .85; stroke-linejoin: round; }
+.trmed .trcart { white-space: nowrap; padding: 2px 26px 3px; }

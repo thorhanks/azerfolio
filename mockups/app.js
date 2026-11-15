@@ -2976,54 +2976,79 @@
     const STEP = 156, PAD = 130, H = 410, ROAD = 228;
     const W = PAD * 2 + STEP * (items.length - 1);
     const lvl = CHAR.level;
-    const pts = items.map((d, i) => ({ d, x: PAD + i * STEP, y: ROAD + (i % 2 ? 76 : -76) }));
-    const rp = items.map((d, i) => ({ x: PAD + i * STEP, y: ROAD + (i % 2 ? 22 : -22) }));
-    let path = `M20 ${ROAD}`;
-    rp.forEach((p, i) => { const prev = i ? rp[i - 1] : { x: 20, y: ROAD }; const mx = (prev.x + p.x) / 2; path += ` C${mx} ${prev.y} ${mx} ${p.y} ${p.x} ${p.y}`; });
-    path += ` C${W - PAD + 45} ${rp[rp.length - 1].y} ${W - PAD + 45} ${ROAD} ${W - 20} ${ROAD}`;
-    let yi = -1; items.forEach((d, i) => { if (d.kind !== "raid" && d.lv[0] <= lvl) yi = i; });
-    const youX = yi < 0 ? PAD - 70 : yi >= items.length - 1 ? rp[yi].x + 70 : (rp[yi].x + rp[yi + 1].x) / 2;
-    ui.trailYouX = youX; ui.trailW = W;
-    const firstRaid = items.findIndex(d => d.kind === "raid");
     // Round 6: one painted region per level bracket (dungeon-road1..6), each behind its stretch of road.
     const roads = ((window.AZF_ART || {}).dungeons || []).filter(k => /^road\d$/.test(k));
-    const regions = [];
+    const lanes = window.AZF_ROAD_LANES || {};
+    const regions = []; // { x0, w, key }: the region's box (its 40 px fades included)
     if (roads.length) {
       const regionOf = (d) => d.kind === "raid" ? 6 : d.lv[0] < 20 ? 1 : d.lv[0] < 30 ? 2 : d.lv[0] < 40 ? 3 : d.lv[0] < 50 ? 4 : 5;
       let start = 0;
       items.forEach((d, i) => {
         const r = regionOf(d), next = items[i + 1];
         if (!next || regionOf(next) !== r) {
-          const x0 = i === items.length - 1 && start === 0 ? 0 : start === 0 ? 0 : PAD + start * STEP - STEP / 2;
+          const x0 = start === 0 ? 0 : PAD + start * STEP - STEP / 2;
           const x1 = next ? PAD + i * STEP + STEP / 2 : W;
-          if (roads.includes("road" + r)) regions.push(`<div class="trregion" style="left:${x0 - 40}px;width:${x1 - x0 + 80}px;background-image:url(dungeon-art/road${r}.png)"></div>`);
+          if (roads.includes("road" + r)) regions.push({ x0: x0 - 40, w: x1 - x0 + 80, core0: x0, core1: x1, key: "road" + r });
           start = i + 1;
         }
       });
     }
+    // Round 7 (owner: "make the road path match the art"): the painted road's height at x, from the
+    // traced lanes (tools/trace-dungeon-road.ps1) through each region's cover crop (the panels are
+    // 1024x512), blended across the fades where two regions meet. Without painted lanes: the drawn wave.
+    const painted = regions.length && regions.every(r => lanes[r.key]);
+    const laneIn = (r, x) => {
+      const s = Math.max(r.w / 1024, H / 512), offX = (r.w - 1024 * s) / 2, offY = (H - 512 * s) / 2;
+      const u = Math.max(0, Math.min(1, (x - r.x0 - offX) / (1024 * s))), L = lanes[r.key], f = u * (L.length - 1), i = Math.floor(f), t = f - i;
+      return offY + (L[i] * (1 - t) + L[Math.min(L.length - 1, i + 1)] * t) * 512 * s;
+    };
+    const roadY = (x) => {
+      if (!painted) return null;
+      const here = regions.filter(r => x >= r.x0 && x <= r.x0 + r.w);
+      if (here.length === 1) return laneIn(here[0], x);
+      const [a, b] = here.sort((p, q) => p.x0 - q.x0), t = Math.max(0, Math.min(1, (x - b.x0) / (a.x0 + a.w - b.x0)));
+      return laneIn(a, x) * (1 - t) + laneIn(b, x) * t;
+    };
+    const rp = items.map((d, i) => { const x = PAD + i * STEP; return { x, y: painted ? roadY(x) : ROAD + (i % 2 ? 22 : -22) }; });
+    const pts = items.map((d, i) => ({ d, x: rp[i].x, y: rp[i].y + (i % 2 ? 80 : -80) }));
+    let path;
+    if (painted) { path = ""; for (let x = 0; x <= W; x += 8) path += `${path ? " L" : "M"}${x} ${roadY(x).toFixed(1)}`; }
+    else {
+      path = `M20 ${ROAD}`;
+      rp.forEach((p, i) => { const prev = i ? rp[i - 1] : { x: 20, y: ROAD }; const mx = (prev.x + p.x) / 2; path += ` C${mx} ${prev.y} ${mx} ${p.y} ${p.x} ${p.y}`; });
+      path += ` C${W - PAD + 45} ${rp[rp.length - 1].y} ${W - PAD + 45} ${ROAD} ${W - 20} ${ROAD}`;
+    }
+    let yi = -1; items.forEach((d, i) => { if (d.kind !== "raid" && d.lv[0] <= lvl) yi = i; });
+    const youX = yi < 0 ? PAD - 70 : yi >= items.length - 1 ? rp[yi].x + 70 : (rp[yi].x + rp[yi + 1].x) / 2;
+    const youY = painted ? roadY(youX) : ROAD;
+    ui.trailYouX = youX; ui.trailW = W;
+    const firstRaid = items.findIndex(d => d.kind === "raid");
     const signs = [];
     let lastBracket = null;
     items.forEach((d, i) => {
       const b = d.kind === "raid" ? "Raids · level 60" : (DUN_BRACKETS.find(([a, c]) => d.lv[0] >= a && d.lv[0] <= c) || [])[2];
-      if (b !== lastBracket) { signs.push(`<span class="trsign ${d.kind === "raid" ? "raid" : ""}" style="left:${PAD + i * STEP - STEP / 2}px"><span>${esc(b)}</span></span>`); lastBracket = b; }
+      // Round 7: the first sign sits far enough in that its plate isn't cut at the left edge.
+      if (b !== lastBracket) { signs.push(`<span class="trsign ${d.kind === "raid" ? "raid" : ""}" style="left:${Math.max(110, PAD + i * STEP - STEP / 2)}px"><span>${esc(b)}</span></span>`); lastBracket = b; }
     });
     // Level marks on the road: the first instance of each new starting level gets its level on a stone.
     const marks = [];
     let lastL = null;
     items.forEach((d, i) => { if (d.kind !== "raid" && d.lv[0] !== lastL) { marks.push(`<span class="trlv" style="left:${rp[i].x}px;top:${rp[i].y}px">${d.lv[0]}</span>`); lastL = d.lv[0]; } });
+    // Round 7: the name plate is one line (the name); the levels are in the info line and the preview.
     const meds = pts.map(({ d, x, y }, i) => {
       const far = d.kind !== "raid" && d.lv[0] > lvl + 8 && d.state === "untouched";
       return `<button class="trmed focusable ${d.state} ${d.kind} ${i % 2 ? "below" : "above"} ${d.fit ? "fit" : ""} ${far ? "far" : ""}" data-dun="${d.key}" data-trail="1"
         style="left:${x}px;top:${y}px" data-tip="${dunTip(d)}">
         <span class="trart">${dunArt(d)}</span><span class="trring"></span>${d.state === "complete" ? `<span class="trdone">✓</span>` : ""}${d.forever ? `<span class="trnew">New</span>` : ""}
-        <span class="trcart"><b>${esc(d.name)}</b><small>Lv ${d.lv[0]}-${d.lv[1]}${d.kind === "raid" ? ` · ${d.size}` : ""}</small></span></button>`;
+        <span class="trcart"><b>${esc(d.name)}</b></span></button>`;
     }).join("");
+    const regionDivs = regions.map(r => `<div class="trregion" style="left:${r.x0}px;width:${r.w}px;background-image:url(dungeon-art/${r.key}.png)"></div>`).join("");
     return `<div class="trailwin" id="trailwin"><div class="trail" style="width:${W}px;height:${H}px">
-        <div class="trground"></div>${regions.join("")}<div class="trdusk ${regions.length ? "painted" : ""}"></div>${firstRaid > 0 ? `<div class="trcitadel" style="left:${PAD + firstRaid * STEP - STEP / 2}px"></div>` : ""}
-        <svg class="trroad" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><path class="trbed" d="${path}"/><path class="trlane" d="${path}"/><path class="trruts" d="${path}"/>
+        <div class="trground"></div>${regionDivs}<div class="trdusk ${regions.length ? "painted" : ""}"></div>${firstRaid > 0 ? `<div class="trcitadel" style="left:${PAD + firstRaid * STEP - STEP / 2}px"></div>` : ""}
+        <svg class="trroad ${painted ? "painted" : ""}" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><path class="trbed" d="${path}"/><path class="trlane" d="${path}"/><path class="trruts" d="${path}"/>
           <clipPath id="trclip"><rect x="0" y="0" width="${youX}" height="${H}"/></clipPath><path class="trgold" d="${path}" clip-path="url(#trclip)"/></svg>
         ${signs.join("")}${marks.join("")}${meds}
-        <span class="tryou" style="left:${youX}px;top:${ROAD}px"><i>${esc(CHAR.name[0])}</i><b>You · ${lvl}</b></span>
+        <span class="tryou" style="left:${youX}px;top:${youY}px"><i>${esc(CHAR.name[0])}</i><b>You · ${lvl}</b></span>
       </div></div>
       <div class="trpreview" id="trpreview"></div>`;
   }
