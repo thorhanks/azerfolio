@@ -2154,3 +2154,17 @@ body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; po
 .trroad.painted .trbed, .trroad.painted .trlane, .trroad.painted .trruts { display: none; }
 .trroad.painted .trgold { stroke-width: 7; opacity: .85; stroke-linejoin: round; }
 .trmed .trcart { white-space: nowrap; padding: 2px 26px 3px; }
+
+/* ---------- Round 8: plates and stones that fit (2026-11-15) ---------- */
+.trmed .trcart { height: 28px; padding: 0 30px; display: flex; flex-direction: row; align-items: center; justify-content: center;
+  line-height: 1; font-size: 14px; border-image: url(chrome-art/cartouche.png) 34 64 30 64 fill / 6px 26px 6px 26px / 0 stretch; }
+.trmed .trcart b { display: block; padding-bottom: 1px; }
+.trmed.above .trcart { margin-bottom: 0; } .trmed.below .trcart { margin-top: 0; }
+.trlv { width: 44px; height: 44px; padding-top: 9px; font: 13px var(--font); text-shadow: 0 1px 0 rgba(255,240,210,.6); }
+.trmed .trring.painted { box-shadow: none !important; background: center / contain no-repeat; border-radius: 0; }
+.trmed .trring.painted::after { display: none; }
+.trmed:has(.trring.painted) .trart { inset: 11%; }
+.trmed.progress .trring.painted { filter: drop-shadow(0 0 6px rgba(224,138,60,.85)); }
+.trmed.fit .trring.painted { filter: drop-shadow(0 0 10px rgba(255,220,120,.8)); }
+.trmed.complete .trring.painted { filter: drop-shadow(0 0 12px rgba(255,209,0,.75)); }
+.focused.trmed .trring.painted { outline: none; filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 10px rgba(255,230,0,.95)); }

@@ -315,6 +315,7 @@ function Get-PieceKind([string]$name) {
     if ($name -match '^glyph-[a-z0-9-]+$') { return 'glyph' }
     if ($name -match '^crest-[a-z0-9-]+$') { return 'coin' } # faction crests (Phase 15 step 8): 128x128, keyed, DXT5
     if ($name -match '^boss-seal(-[a-z]+)?$') { return 'coin' } # the Dungeons tab's boss seals (round 6): numbered by the UI
+    if ($name -match '^medallion-ring(-[a-z]+)?$') { return 'coin' } # the Road view's medallion rings (round 8): hollow centre
     if ($name -eq 'you-ring') { return 'ring' }
     if ($name -match '^road-band(-gold)?$') { return 'band' }
     if ($name -eq 'cartouche') { return 'cartouche' }

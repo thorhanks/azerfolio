@@ -3010,7 +3010,9 @@
       return laneIn(a, x) * (1 - t) + laneIn(b, x) * t;
     };
     const rp = items.map((d, i) => { const x = PAD + i * STEP; return { x, y: painted ? roadY(x) : ROAD + (i % 2 ? 22 : -22) }; });
-    const pts = items.map((d, i) => ({ d, x: rp[i].x, y: rp[i].y + (i % 2 ? 80 : -80) }));
+    // Round 8: medallions stay clear of the signs above and the bottom edge (Ragefire Chasm sat on it):
+    // centre between 132 and H - 86 (the medallion, 52 px to its edge, plus its one-line plate).
+    const pts = items.map((d, i) => ({ d, x: rp[i].x, y: Math.max(132, Math.min(H - 86, rp[i].y + (i % 2 ? 80 : -80))) }));
     let path;
     if (painted) { path = ""; for (let x = 0; x <= W; x += 8) path += `${path ? " L" : "M"}${x} ${roadY(x).toFixed(1)}`; }
     else {
@@ -3035,11 +3037,13 @@
     let lastL = null;
     items.forEach((d, i) => { if (d.kind !== "raid" && d.lv[0] !== lastL) { marks.push(`<span class="trlv" style="left:${rp[i].x}px;top:${rp[i].y}px">${d.lv[0]}</span>`); lastL = d.lv[0]; } });
     // Round 7: the name plate is one line (the name); the levels are in the info line and the preview.
+    // Round 8: the painted medallion rings (bronze, raid red, gold when every quest is done).
+    const ringArt = !!((window.AZF_ART || {}).chrome || {})["medallion-ring"];
     const meds = pts.map(({ d, x, y }, i) => {
       const far = d.kind !== "raid" && d.lv[0] > lvl + 8 && d.state === "untouched";
       return `<button class="trmed focusable ${d.state} ${d.kind} ${i % 2 ? "below" : "above"} ${d.fit ? "fit" : ""} ${far ? "far" : ""}" data-dun="${d.key}" data-trail="1"
         style="left:${x}px;top:${y}px" data-tip="${dunTip(d)}">
-        <span class="trart">${dunArt(d)}</span><span class="trring"></span>${d.state === "complete" ? `<span class="trdone">✓</span>` : ""}${d.forever ? `<span class="trnew">New</span>` : ""}
+        <span class="trart">${dunArt(d)}</span><span class="trring ${ringArt ? "painted" : ""}" style="${ringArt ? `background-image:url(chrome-art/medallion-ring${d.state === "complete" ? "-gold" : d.kind === "raid" ? "-raid" : ""}.png)` : ""}"></span>${d.state === "complete" ? `<span class="trdone">✓</span>` : ""}${d.forever ? `<span class="trnew">New</span>` : ""}
         <span class="trcart"><b>${esc(d.name)}</b></span></button>`;
     }).join("");
     const regionDivs = regions.map(r => `<div class="trregion" style="left:${r.x0}px;width:${r.w}px;background-image:url(dungeon-art/${r.key}.png)"></div>`).join("");
