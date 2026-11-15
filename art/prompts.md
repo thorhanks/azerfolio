@@ -791,3 +791,57 @@ A profession you haven't mastered shows a painted bronze coin (the code-greyed g
 Style: the chrome style block with its metal line replaced by `aged dark bronze and dull pewter metal, soft shading`, and the gold coin attached as the reference. Subject line: `the same coin in worn dark bronze, <the gold coin's emblem from the table above>, deep crisp relief, the emblem polished lighter bronze against a darker field.` Prompt preamble: keep the emblem bold and readable at 40 pixels, a little lighter than the field; keep the border plain and quiet.
 
 Negative prompt: `gold, shiny gold, glow, gems, perspective, 3D render, glossy plastic, neon, busy background, text, letters, numbers, faces, crown, currency symbols, busy filigree border`.
+
+## Dungeons and raids (Dungeons tab, 2026-11-15)
+
+Design: mockups/DESIGN.md "Dungeons tab". One painting per instance (41, keys from `Azerfolio/Data/Dungeons.lua`), shown big on the tab's cards (16:10), in the page's banner (about 5:1), as a round medallion on the adventurer's road, and on Zone Detail's dungeon tile. Until a painting exists, the entrance zone's art stands in. Save as `art/source/dungeon-<key>.png` (2:1, like zone art); `tools/process-art.ps1` converts it to `Media/Dungeons/<key>.blp` and `mockups/dungeon-art/<key>.png` and lists it in `Data/Art.lua` (`dungeons`). The Codex CLI (`codex exec`, image generation) can make them in batches, with the approved zone art attached as the style reference.
+
+Use the **zone art style block and negative prompt** (§ Zone art) with Elwynn Forest (1429) as the style reference, and add to the style block: `An interior or entrance of a dungeon: the place's signature hall, gate or landmark large and centred so it still reads when cropped to a circle; dramatic light from one source; the lower fifth simple and dark (a title sits over it). 2:1 landscape.` The negative prompt's "no creatures" still holds: show the place, never the bosses.
+
+| File | Subject line |
+|---|---|
+| dungeon-ragefire | A volcanic cavern under a city, rivers of glowing lava between black basalt ledges, crude orcish wooden walkways and spiked banners, red-orange glow, rising smoke |
+| dungeon-deadmines | A vast underground mine cavern opening onto a hidden cove, a huge half-built wooden pirate warship moored at a rough dock inside the cave, mine carts and rails, lanterns, shafts of daylight from the cave mouth |
+| dungeon-wailing | A deep green cavern system with pools of glowing teal water, giant twisted roots and luminous mushrooms, ancient night elf stone carvings overgrown with vines, misty dim light |
+| dungeon-shadowfang | The courtyard of a dark gothic keep at night, tall stone towers with lit arched windows, iron gates and a wolf-head stone crest, cold moonlight and drifting fog |
+| dungeon-stockade | A grim stone prison block beneath a city, rows of iron-barred cells along a torch-lit corridor, damp flagstones, chains on the walls, a heavy portcullis |
+| dungeon-blackfathom | A sunken night elf temple half-drowned in a dark sea cave, moonwell-blue water, broken marble columns and a great carved archway, bioluminescent light on the water |
+| dungeon-gnomeregan | A colossal gnomish city of brass and steel inside a mountain, gears, pipes and catwalks, sickly green radiation glow pooling below, flickering electric lamps |
+| dungeon-razorfenKraul | A maze of enormous thorny brambles in a dusty savanna, tunnels woven from giant barbed vines, crude quillboar totems and bone fetishes, warm dusty light |
+| dungeon-smGraveyard | A walled monastery graveyard at dusk, crooked tombstones and stone crypts, a crimson-bannered cloister wall behind, pale mist between the graves |
+| dungeon-smLibrary | A grand monastery library, towering oak bookshelves and reading desks, crimson banners with a gold flame sigil, candlelight and dust in the air |
+| dungeon-smArmory | A monastery armory and training hall, racks of polished swords, shields and crimson tabards, practice dummies, a long hall with high windows |
+| dungeon-smCathedral | The nave of a vast crimson-and-gold cathedral, tall stained-glass windows, rows of pews leading to a raised altar, shafts of holy light |
+| dungeon-razorfenDowns | A huge mound of withered thorny brambles under a dark sky, bone-strewn paths spiralling up to a skull-crowned summit, cold blue unholy light |
+| dungeon-uldaman | An ancient titan vault deep under a desert canyon, enormous carved stone doors and statues of giant stone guardians, glowing blue runes, dusty excavation scaffolding |
+| dungeon-zulfarrak | A sand-blasted troll city in a desert, stepped sandstone pyramids and broken walls, a great stairway to a temple, a dry pool at its foot, harsh noon sun |
+| dungeon-maraudon | A vast crystal cavern with a waterfall pouring into a lush underground garden, purple and orange crystals, ancient twisted trees, soft magical light |
+| dungeon-sunkenTemple | The interior of a sunken troll temple, a great domed chamber half-flooded with green water, carved serpent pillars, an altar on a stepped dais, eerie green light |
+| dungeon-blackrockDepths | A colossal dwarven city of black iron built inside a volcano, forges and lava channels, a great throne hall behind a huge iron gate, orange glow and smoke |
+| dungeon-lowerSpire | The lower halls of a black volcanic fortress, rough orc and ogre camps, war banners, spider-web-filled side passages, torches and red light |
+| dungeon-dmEast | Overgrown ruins of an elven city in a forest, a twisted corrupted ancient tree growing through broken marble halls, green-violet light |
+| dungeon-dmWest | The gardens of a ruined elven capital, ornate courtyards with crumbling statues, pylons of arcane crystal, a pale violet glow at dusk |
+| dungeon-dmNorth | A ruined elven palace taken over by ogres, crude wooden fortifications and stolen banners in a grand marble hall, a rough throne at the end |
+| dungeon-scholomance | A haunted castle school's dungeon, a vaulted stone chamber with dusty desks, tall bookshelves, a glowing green ritual circle on the floor, candles |
+| dungeon-stratholme | A burning plagued city street at night, timber-framed houses and a cathedral spire, green plague fog, glowing embers, a slaughterhouse ziggurat in the distance |
+| dungeon-upperSpire | The top of a black volcanic fortress, a great dragon-perch hall with chains and huge iron braziers, red dragon banners, lava glow below |
+| dungeon-hallOfThanes | A royal dwarven burial hall beneath a mountain city, rows of carved stone thane statues with hammers, tombs and runic pillars, a ghostly blue light |
+| dungeon-ruinsOfLordaeron | The ruined throne room of a fallen human capital, broken marble columns and a shattered throne, torn blue-and-gold banners, ivy and grey mist |
+| dungeon-excavationSite | A deep dwarven excavation pit in a marsh, wooden scaffolding and ladders around a half-uncovered ancient stone relic, lanterns, rain clouds overhead |
+| dungeon-dalaran | The sewers beneath a magical city, stone tunnels with violet glowing runes, arcane crystals growing from the walls, a grate opening to a violet sky |
+| dungeon-drownedCity | A sunken city under a tropical sea, coral-covered stone towers and archways, shafts of sunlight through the water, a wrecked pirate ship among the ruins |
+| dungeon-kroldok | A huge ogre war stronghold of rough timber and stone in a river valley, spiked palisades, slave pens and twilight-purple banners, campfires at dusk |
+| dungeon-alcazPrison | A grim island prison fortress of grey stone on a rocky sea crag, high walls and watchtowers, a dark cellar entrance, stormy marsh light |
+| dungeon-blackmawHold | A corrupted furbolg den deep under a forested mountain, a long-sealed carved stone gate opening into tunnels, sickly green fel glow, giant roots |
+| dungeon-shapersTerrace | A vast titan terrace on a jungle crater rim, huge carved stone platforms and four great glowing coloured crystals (red, blue, green, yellow), lush prehistoric jungle below |
+| dungeon-zulgurub | A great troll temple city in a jungle, a huge stepped pyramid with a blood-red altar at its top, serpent statues, river and mist, red evening sky |
+| dungeon-onyxia | A volcanic dragon's lair, a huge cavern littered with bones and eggs, lava vents, a raised rocky nest in the centre, red-orange glow |
+| dungeon-moltenCore | The molten heart of a volcano, rivers and lakes of lava, black rock bridges and runes glowing on stone, a fiery pool at the centre |
+| dungeon-blackwingLair | A black dragon's fortress at the peak of a mountain, laboratories with glowing vats and chains, dragon banners, a high balcony over lava |
+| dungeon-ruinsOfAhnQiraj | Ruined insectoid temples half-buried in desert sand, giant curved carved pillars and scarab sigils, a dusty golden haze |
+| dungeon-templeOfAhnQiraj | The entrance of a colossal insectoid temple carved into a desert cliff, giant carved figures and curved spires, an eerie violet glow from within |
+| dungeon-naxxramas | A dark floating necropolis ziggurat in a stormy sky above a plagued land, green runes glowing on its stone, sickly green light |
+
+### The adventurer's road (optional, if the owner picks that view)
+
+One long painted strip behind the medallions, like the Class tab's strips: left to right the world grows darker and higher-level, from green farmland and a lighthouse coast (low levels) through savanna, swamp and desert, to volcanic black mountains and a plagued land at the far right, with a dark citadel at the end for the raids. A pale dirt road winds along the middle. Three 3:2 panels stacked into one strip, like the profession roads (`process-art.ps1`); prompts to write once the view is chosen.
