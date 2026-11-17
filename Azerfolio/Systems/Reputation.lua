@@ -258,7 +258,7 @@ local function now() return type(GetTime) == "function" and GetTime() or 0 end
 
 function Reputation.State() return state end
 
--- The rule's input from Quests' index: every zone's counted and repeatable quests.
+-- The rule's input from Quests' index: every zone's counted, repeatable and not-counted quests.
 local function ruleInput()
     local index = ns.Quests.Index()
     if not index then return nil end
@@ -267,6 +267,7 @@ local function ruleInput()
         local ids = {}
         for _, id in ipairs(z.ids) do ids[#ids + 1] = id end
         for _, id in ipairs(z.repeats or {}) do ids[#ids + 1] = id end
+        for _, e in ipairs(z.extras or {}) do ids[#ids + 1] = e.id end -- not counted for the zone, but they raise factions
         input[mapID] = ids
     end
     return input
@@ -283,6 +284,7 @@ local function catalogueInput(index)
     for mapID, z in pairs(index.zones) do
         for _, id in ipairs(z.ids) do entries[#entries + 1] = { id = id, kind = "zone", key = mapID } end
         for _, id in ipairs(z.repeats or {}) do entries[#entries + 1] = { id = id, kind = "zone", key = mapID, repeatable = true } end
+        for _, e in ipairs(z.extras or {}) do entries[#entries + 1] = { id = e.id, kind = "zone", key = mapID } end
     end
     for _, o in ipairs(index.repOthers or {}) do entries[#entries + 1] = o end
     return entries

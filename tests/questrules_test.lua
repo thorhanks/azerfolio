@@ -177,4 +177,26 @@ return function(t)
         t.eq(unknownList.progress.percent, nil, "no completed list: no percentage")
         t.eq(unknownList.objectives[1].completion, "unknown")
     end)
+
+    t.test("evaluate: not-counted quests are listed with their state, never in progress", function()
+        local ns = load()
+        local recs = {
+            [1] = { name = "A" }, [2] = { name = "B" },
+            [97045] = { name = "Your First Horse", level = 40, reqLevel = 40 },
+            [97170] = { name = "Learning to Ride", level = 40, reqLevel = 40 },
+        }
+        local extras = { { id = 97045, why = "riding" }, { id = 97170, why = "riding" } }
+        local r = ns.Quests.Evaluate(ctx(ns, recs, { 1, 2 }), 1429, { 1, 2 }, 0, extras)
+        t.eq(r.progress.completed, 2)
+        t.eq(r.progress.denominator, 2, "riding quests left out")
+        t.eq(r.progress.percent, 100, "the zone's quests are 100%")
+        t.eq(r.count, 2)
+        t.eq(#r.notCounted, 2)
+        t.eq(r.notCounted[1].name, "Learning to Ride", "by level, then name")
+        t.eq(r.notCounted[1].notCounted, "riding")
+        t.eq(r.notCounted[1].kind, "locked")
+        t.eq(r.notCounted[1].reason, "level 40")
+        for _, o in ipairs(r.ready) do t.ok(o.id ~= 97045 and o.id ~= 97170, "not in Ready now") end
+        t.same(ns.Quests.Evaluate(ctx(ns, recs, { 1 }), 1429, { 1 }, 0).notCounted, {}, "none given")
+    end)
 end

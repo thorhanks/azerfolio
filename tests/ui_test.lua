@@ -425,10 +425,13 @@ return function(t)
             [15] = { name = "Investigate Echo Ridge", level = 3, preSingle = { 7 } },
             [176] = { name = "WANTED: \"Hogger\"", level = 11, reqLevel = 5 },
             [5261] = { name = "Eagan Peltskinner", level = 2, preSingle = { 7 }, breadcrumbFor = 15 },
+            [97170] = { name = "Learning to Ride", level = 40, reqLevel = 40, races = 1 },
+            [97018] = { name = "Learning to Ride", level = 40, reqLevel = 40, races = 4 },
         }
         local ctx = ns.QuestRules.Context(function(id) return info[id] end, { [40] = true, [7] = true, [15] = true },
             { raceID = 1, classID = 2, level = 9 })
-        local q = ns.Quests.Evaluate(ctx, 1429, { 40, 35, 37, 7, 15, 176, 5261 }, 4)
+        local q = ns.Quests.Evaluate(ctx, 1429, { 40, 35, 37, 7, 15, 176, 5261 }, 4,
+            { { id = 97170, why = "riding" }, { id = 97018, why = "riding" } })
         local realForZone = ns.Quests.ForZone
         ns.Quests.ForZone = function(z) local id = type(z) == "table" and z.mapID or z; if id == 1429 then return q end
             return { status = "ready", count = 0, objectives = {}, progress = ns.Progression.Aggregate({}) } end
@@ -455,6 +458,12 @@ return function(t)
         t.eq(ns.Focus.Current().key, "fold:7", "unfolded, focus kept")
         press(ns, "PADDDOWN")
         t.eq(ns.Focus.Current().title, "Kobold Camp Cleanup", "its track shows")
+        -- Not counted: the riding quest for this race (the dwarf one hidden), never in "3 of 6".
+        press(ns, "PADRTRIGGER")
+        t.eq(ns.Focus.Current().key, "nc:97170")
+        t.ok(ns.Focus.Current().detail:find("Never counted"), ns.Focus.Current().detail)
+        t.ok(ns.Focus.Current().detail:find("Locked"), ns.Focus.Current().detail)
+        t.eq(d.headers[4].text:GetText(), "Not counted"); t.ok(d.headers[4].count:GetText():find("^1 "), d.headers[4].count:GetText())
         press(ns, "PADRTRIGGER")
         t.eq(ns.Focus.Current().key, "toggle")
         press(ns, "PAD1")

@@ -29,7 +29,15 @@ Quests.START_DELAY = 5   -- seconds after AZF_READY: after the exploration basel
 Quests.REFRESH_DELAY = 1 -- after QUEST_TURNED_IN, so the completed list has the quest [unverified]
 
 -- Reasons a quest isn't in a zone count. "dungeon" and "raid" are kept per instance.
-Quests.REASONS = { "repeatable", "sort", "nozone", "dungeon", "raid", "battleground", "unmapped", "excluded", "error" }
+-- "notcounted" quests (Data/QuestAreas.lua notCountedQuests) stay on their zone's page, uncounted.
+Quests.REASONS = { "repeatable", "sort", "nozone", "dungeon", "raid", "battleground", "unmapped", "excluded",
+    "notcounted", "error" }
+
+-- Why a notCountedQuests quest isn't counted: reason key -> { label (the list's header, plural),
+-- detail (its tooltip) }.
+Quests.NOT_COUNTED = {
+    riding = { label = "riding quests", detail = "Learning to ride, at level 40: a step for your character, not the zone. Never counted." },
+}
 
 local function rules() return ns.QuestRules end
 
@@ -76,9 +84,11 @@ function Quests.Place(zoneOrSort, areas)
 end
 
 -- Pure: an empty index.
---   zones[mapID] = { ids = {questID...}, repeatable = n, repeats = {questID...} }
---                  counted quests, and the zone's repeatables left out (count for its note,
---                  IDs for Reputation: repeatables raise factions too)
+--   zones[mapID] = { ids = {questID...}, repeatable = n, repeats = {questID...},
+--                    extras = { { id, why } } }
+--                  counted quests, the zone's repeatables left out (count for its note,
+--                  IDs for Reputation: repeatables raise factions too), and its not-counted
+--                  quests (Data/QuestAreas.lua notCountedQuests), shown but never counted
 --   instances[areaID] = { kind = "dungeon"|"raid", ids }  kept for a Dungeons tab later
 --   left[reason] = n          quests left out of zone counts, by reason (Quests.REASONS)
 --   unmapped[areaID] = n      quests per unmapped area; sorts[sortID] = n
@@ -95,7 +105,7 @@ end
 
 local function zoneOf(index, mapID)
     local z = index.zones[mapID]
-    if not z then z = { ids = {}, repeatable = 0, repeats = {} }; index.zones[mapID] = z end
+    if not z then z = { ids = {}, repeatable = 0, repeats = {}, extras = {} }; index.zones[mapID] = z end
     return z
 end
 
@@ -113,6 +123,18 @@ function Quests.Add(index, id, zoneOrSort, specialFlags, areas, ok, questFlags)
         return "excluded"
     end
     local kind, key = Quests.Place(zoneOrSort, areas)
+    -- Quests the curated data keeps out of zone counts but on the zone's page (riding).
+    local why = areas and areas.notCountedQuests and areas.notCountedQuests[id]
+    if why then
+        left.notcounted = left.notcounted + 1
+        if kind == "zone" then
+            local z = zoneOf(index, key)
+            z.extras[#z.extras + 1] = { id = id, why = why }
+        else
+            index.others[#index.others + 1] = { id = id, kind = kind, key = key }
+        end
+        return "notcounted"
+    end
     if Quests.IsRepeatable(specialFlags, questFlags) then
         left.repeatable = left.repeatable + 1
         if kind == "zone" then
@@ -221,6 +243,7 @@ function Quests.Builder(Q, ids, areas)
                 for _, z in pairs(index.zones) do
                     for _, id in ipairs(z.ids) do todo[#todo + 1] = id end
                     for _, id in ipairs(z.repeats) do todo[#todo + 1] = id end
+                    for _, e in ipairs(z.extras) do todo[#todo + 1] = e.id end
                 end
                 table.sort(todo)
                 b.phase = "details"
@@ -419,35 +442,54 @@ end
 -- objectives: ns.Objectives (category "quests", id = questID) plus questLevel, reqLevel, reason.
 -- The set's coverage is "complete" when every quest was read without error; QuestieDB is the
 -- catalogue (the coverage note says so and lists what's left out).
-function Quests.Evaluate(ctx, mapID, ids, repeatable)
+-- One quest as an objective, with its state for the page (kind, difficulty, what it needs).
+local function questObjective(ctx, mapID, id)
     local O, R = ns.Objectives, rules()
+    local info = ctx.info(id)
+    local elig, why = R.Evaluate(ctx, id)
+    local o = O.New({ id = id, category = Quests.CATEGORY, zone = mapID, name = info and info.name,
+        completion = R.Completion(ctx.completed, id), eligibility = elig, source = "questiedb" })
+    o.questLevel, o.reqLevel, o.reason = info and info.level, info and info.reqLevel, why
+    o.kind = Quests.KindOf(o)
+    o.difficulty = Quests.Difficulty(o.questLevel, ctx.char and ctx.char.level, ctx.greenRange)
+    -- A quest locked behind others names the ones still to do (any zone), when known.
+    if why == "prerequisite" and info then
+        local names = {}
+        local function add(p)
+            if not (ctx.completed and ctx.completed[p]) then
+                local r = ctx.info(p)
+                if r and r.name then names[#names + 1] = r.name end
+            end
+        end
+        for _, p in ipairs(idList(info.preGroup)) do add(p) end
+        for _, p in ipairs(idList(info.preSingle)) do add(p) end
+        for _, p in ipairs(idList(info.startingWith)) do add(p) end
+        if #names > 0 then o.prereqs = names; o.prereqAny = info.preSingle ~= nil and info.preGroup == nil end
+    end
+    return o, info, why
+end
+
+-- extras = the zone's not-counted quests ({ { id, why } }, Quests.Add): returned as
+-- notCounted objectives (o.notCounted = why), by level, never in progress or the shape.
+function Quests.Evaluate(ctx, mapID, ids, repeatable, extras)
     local objectives, reasons, coverage = {}, {}, "complete"
     for _, id in ipairs(ids or {}) do
-        local info = ctx.info(id)
+        local o, info, why = questObjective(ctx, mapID, id)
         if not info or info.err then coverage = "partial" end
-        local elig, why = R.Evaluate(ctx, id)
-        local o = O.New({ id = id, category = Quests.CATEGORY, zone = mapID, name = info and info.name,
-            completion = R.Completion(ctx.completed, id), eligibility = elig, source = "questiedb" })
-        o.questLevel, o.reqLevel, o.reason = info and info.level, info and info.reqLevel, why
-        o.kind = Quests.KindOf(o)
-        o.difficulty = Quests.Difficulty(o.questLevel, ctx.char and ctx.char.level, ctx.greenRange)
-        -- A quest locked behind others names the ones still to do (any zone), when known.
-        if why == "prerequisite" and info then
-            local names = {}
-            local function add(p)
-                if not (ctx.completed and ctx.completed[p]) then
-                    local r = ctx.info(p)
-                    if r and r.name then names[#names + 1] = r.name end
-                end
-            end
-            for _, p in ipairs(idList(info.preGroup)) do add(p) end
-            for _, p in ipairs(idList(info.preSingle)) do add(p) end
-            for _, p in ipairs(idList(info.startingWith)) do add(p) end
-            if #names > 0 then o.prereqs = names; o.prereqAny = info.preSingle ~= nil and info.preGroup == nil end
-        end
         objectives[#objectives + 1] = o
         if why then reasons[why] = (reasons[why] or 0) + 1 end
     end
+    local notCounted = {}
+    for _, e in ipairs(extras or {}) do
+        local o = questObjective(ctx, mapID, e.id)
+        o.notCounted = e.why
+        notCounted[#notCounted + 1] = o
+    end
+    table.sort(notCounted, function(a, b)
+        local la, lb = a.questLevel or 0, b.questLevel or 0
+        if la ~= lb then return la < lb end
+        return (a.name or "") < (b.name or "")
+    end)
     local progress = ns.Progression.Aggregate({ { category = Quests.CATEGORY, coverage = coverage, objectives = objectives } })
     local unknownReasons = {}
     for _, o in ipairs(objectives) do
@@ -457,7 +499,7 @@ function Quests.Evaluate(ctx, mapID, ids, repeatable)
     return { status = "ready", mapID = mapID, objectives = objectives, progress = progress,
         count = #objectives, repeatable = repeatable or 0, reasons = reasons, unknownReasons = unknownReasons,
         coverage = coverage, ready = shape.ready, readyRed = shape.readyRed, stories = shape.stories, finished = shape.finished,
-        singles = shape.singles }
+        singles = shape.singles, notCounted = notCounted }
 end
 
 ---------------------------------------------------------------------------------------------
@@ -589,7 +631,7 @@ function Quests.ForZone(zone)
     local r = results[mapID]
     if r then return r end
     local z = state.index.zones[mapID]
-    r = Quests.Evaluate(context(), mapID, z and z.ids or {}, z and z.repeatable or 0)
+    r = Quests.Evaluate(context(), mapID, z and z.ids or {}, z and z.repeatable or 0, z and z.extras)
     results[mapID] = r
     return r
 end
@@ -626,6 +668,7 @@ function Quests.Probe(id)
     for mapID, z in pairs(index and index.zones or {}) do
         for _, q in ipairs(z.ids) do if q == id then p.indexed = mapID end end
         for _, q in ipairs(z.repeats or {}) do if q == id then p.indexed = "repeat " .. mapID end end
+        for _, e in ipairs(z.extras or {}) do if e.id == id then p.indexed = "not counted " .. mapID end end
     end
     return p
 end
@@ -839,8 +882,8 @@ function Quests.DebugReport(option)
     local t0 = clock()
     ns.Printf("Quests: %d in QuestieDB, %d in zone counts (built in %d frames, %s ms work, %s ms max frame)",
         i.total, i.counted, state.steps, tostring(state.workMs), tostring(state.maxStepMs))
-    ns.Printf("  left out: repeatable %d, quest sorts %d, no zone %d, dungeon %d, raid %d, battleground %d, unmapped %d, excluded %d, errors %d",
-        L.repeatable, L.sort, L.nozone, L.dungeon, L.raid, L.battleground, L.unmapped, L.excluded, L.error)
+    ns.Printf("  left out: repeatable %d, quest sorts %d, no zone %d, dungeon %d, raid %d, battleground %d, unmapped %d, excluded %d, not counted %d, errors %d",
+        L.repeatable, L.sort, L.nozone, L.dungeon, L.raid, L.battleground, L.unmapped, L.excluded, L.notcounted, L.error)
 
     -- Our zone list against the index: zones with no quests, and indexed maps we don't list.
     local listed, zones, empty, notListed = {}, {}, {}, {}

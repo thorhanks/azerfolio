@@ -1648,6 +1648,49 @@ local function fillQuests(d, zone, page)
         y = y + S.s2
     end
 
+    -- Not counted (owner 2026-11-16): quests filed under this zone that aren't about it (the
+    -- level-40 riding quests), shown with their state, never in the zone's numbers.
+    local nc, ncSeen, ncOrder = {}, {}, {}
+    for _, o in ipairs(q.notCounted or {}) do
+        if show or o.kind ~= "unavailable" then
+            nc[#nc + 1] = o
+            if not ncSeen[o.notCounted] then ncSeen[o.notCounted] = true; ncOrder[#ncOrder + 1] = o.notCounted end
+        end
+    end
+    if #nc > 0 then
+        section = section + 1
+        local NC = ns.Quests.NOT_COUNTED or {}
+        local labels = {}
+        for _, w in ipairs(ncOrder) do labels[#labels + 1] = (NC[w] and NC[w].label) or w end
+        y = header(d, y, "Not counted", #nc .. "  ·  " .. table.concat(labels, ", "))
+        local width = (child:GetWidth() or 900) - L.listInset - S.s6
+        local cw = math.floor((width - (CHIP_COLS - 1) * S.s2) / CHIP_COLS)
+        for i = 1, #nc, CHIP_COLS do
+            local items = {}
+            for c = 0, CHIP_COLS - 1 do
+                local quest = nc[i + c]
+                if quest then
+                    local b = take(d, "chips", function() return newChip(child) end)
+                    b:SetPoint("TOPLEFT", child, "TOPLEFT", L.listInset + c * (cw + S.s2), -y)
+                    b:SetWidth(cw)
+                    local col = DIFF_COLOR[quest.difficulty] or DIFF_COLOR.grey or { 1, 1, 1 }
+                    b.lv:SetText(quest.questLevel or "?")
+                    b.lv:SetTextColor(col[1], col[2], col[3])
+                    b.name:SetText(quest.name or "?")
+                    b.name:SetTextColor(T.RGB("dim"))
+                    b:SetAlpha(quest.kind == "unavailable" and 0.5 or 1)
+                    b.item = questItem(d, b, "nc:" .. quest.id, quest, L.listHeader + S.s2)
+                    local why = NC[quest.notCounted]
+                    b.item.detail = b.item.detail .. ".  " .. ((why and why.detail) or "Not counted.")
+                    items[#items + 1] = b.item
+                end
+            end
+            rows[#rows + 1] = { items = items, section = section }
+            y = y + CHIP_H + S.s2
+        end
+        y = y + S.s2
+    end
+
     -- Footer: what the numbers leave out, and the can't-do toggle.
     local left = {}
     if (q.repeatable or 0) > 0 then left[#left + 1] = q.repeatable .. " repeatable" end

@@ -1893,6 +1893,7 @@ body.chrome .reptoast::before { content: ""; position: absolute; inset: -4px; po
 .dqh small { color: var(--dim); font-size: var(--fs-xs); }
 .dsec .qchips { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px; }
 .qchip.done .qn { color: var(--dim); }
+.qchip.nc .qn { color: var(--dim); }
 .qchip .qdone { margin-left: auto; color: var(--st-complete); }
 .dnote { font-size: var(--fs-xs); color: var(--dim); font-style: italic; margin: var(--s2) 0 0; }
 .dnote.src { margin-top: var(--s4); border-top: 1px solid var(--divider); padding-top: var(--s2); }

@@ -131,4 +131,33 @@ ns.QuestAreaData = {
         [5844] = true,  -- Welcome! (Camp Narache)
         [5847] = true,  -- Welcome! (Deathknell)
     },
+    -- Quests that belong to a zone in QuestieDB but aren't about the zone: shown on its Quests
+    -- page as "not counted", never in its counts. The value is the reason key
+    -- (Quests.NOT_COUNTED). Riding: Forever's level-40 riding quests, one set per race, filed
+    -- under the riding trainer's zone (owner 2026-11-16: they kept Elwynn Forest from 100%
+    -- until level 40). Found with `luajit tools/qdb.lua name <text>` (req 40, races set).
+    notCountedQuests = {
+        [97018] = "riding", -- Learning to Ride (dwarf, Dun Morogh)
+        [97188] = "riding", -- Learning to Ride (gnome, Dun Morogh)
+        [97017] = "riding", -- Your First Riding Ram (Dun Morogh)
+        [97046] = "riding", -- Your First Mechanostrider (Dun Morogh)
+        [97170] = "riding", -- Learning to Ride (human, Elwynn Forest)
+        [97045] = "riding", -- Your First Horse (Elwynn Forest)
+        [97171] = "riding", -- Your First Horse (Wetlands)
+        [98166] = "riding", -- Your First Horse (Wetlands)
+        [99326] = "riding", -- Your First Horse (Hillsbrad Foothills)
+        [97074] = "riding", -- Learning to Ride (night elf, Darnassus)
+        [95511] = "riding", -- Your First Feline Friend (Darnassus)
+        [97205] = "riding", -- Learning to Ride (Zephras Isle)
+        [96996] = "riding", -- Your First Riding Galestrider (Zephras Isle)
+        [97194] = "riding", -- Learning to Ride (orc, Orgrimmar)
+        [97200] = "riding", -- Learning to Ride (troll, Orgrimmar)
+        [96994] = "riding", -- Your First Riding Wolf (Orgrimmar)
+        [96989] = "riding", -- Your First Riding Raptor (Durotar)
+        [97204] = "riding", -- Learning to Ride (tauren, Mulgore)
+        [96982] = "riding", -- Your First Riding Kodo (Mulgore)
+        [97446] = "riding", -- Your First Riding Kodo (Stonetalon Mountains)
+        [97203] = "riding", -- Learning to Ride (undead, Tirisfal Glades)
+        [96997] = "riding", -- A Steed in Death as They Were in Life (Tirisfal Glades)
+    },
 }

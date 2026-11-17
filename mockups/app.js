@@ -132,7 +132,13 @@
     [99130, "An Enticing Offer", 7, 4, C, "eligible", "completed"], [99131, "Baited for Success", 7, 4, C, "eligible", "completed"],
     [99143, "Bottles and Baubles", 7, 4, C, "eligible", "completed"],
   ];
-  const QUEST_SAMPLES = { "Elwynn Forest": { quests: ELWYNN_QUESTS, repeatable: 4 } };
+  // Not counted (owner 2026-11-16): quests filed under the zone that aren't about it, shown with
+  // their state, never in its numbers (Data/QuestAreas.lua notCountedQuests).
+  const ELWYNN_NOT_COUNTED = [
+    [97170, "Learning to Ride", 40, 40, I, "locked", "level 40"], [97045, "Your First Horse", 40, 40, I, "locked", "level 40"],
+  ];
+  const NOT_COUNTED_TEXT = "Learning to ride, at level 40: a step for your character, not the zone. Never counted.";
+  const QUEST_SAMPLES = { "Elwynn Forest": { quests: ELWYNN_QUESTS, repeatable: 4, notCounted: ELWYNN_NOT_COUNTED } };
   // Quest data states for the dev bar: QuestieDB loaded, loaded for a Horde character, still
   // reading, not installed.
   const QUEST_MODES = { loaded: "QuestieDB loaded", horde: "Loaded, as Thragor (Horde)", building: "Reading QuestieDB", missing: "QuestieDB not installed" };
@@ -414,6 +420,10 @@
       ui.quests === "horde" ? { id, name, questLevel, reqLevel, completion: I, eligibility: "unavailable", reason: "race or faction" }
         : { id, name, questLevel, reqLevel, completion, eligibility, reason, prereqs });
     objectives.forEach(o => { o.kind = kindOf(o); o.diff = difficulty(o.questLevel, CHAR.level); });
+    const notCounted = (sample.notCounted || []).map(([id, name, questLevel, reqLevel, completion, eligibility, reason]) =>
+      ui.quests === "horde" ? { id, name, questLevel, reqLevel, completion: I, eligibility: "unavailable", reason: "race or faction" }
+        : { id, name, questLevel, reqLevel, completion, eligibility, reason });
+    notCounted.forEach(o => { o.kind = kindOf(o); o.diff = difficulty(o.questLevel, CHAR.level); });
     const n = (f) => objectives.filter(f).length;
     const counted = (o) => o.eligibility === "eligible" || o.eligibility === "locked";
     const completed = n(o => counted(o) && o.completion === C), denominator = n(counted);
@@ -449,7 +459,7 @@
     const finished = stories.filter(s => s.finished).sort((a, b) => a.name.localeCompare(b.name));
     const order = { ready: 0, locked: 1, unknown: 2, unavailable: 3, done: 4 };
     singles.sort((a, b) => order[a.kind] - order[b.kind] || byLevel(a, b));
-    return { status: "ready", objectives, repeatable: sample.repeatable, unknownReasons,
+    return { status: "ready", objectives, repeatable: sample.repeatable, unknownReasons, notCounted,
       progress: { completed, denominator, remaining: denominator - completed, locked: n(o => o.eligibility === "locked"),
         unavailable: n(o => o.eligibility === "unavailable"), eligibilityUnknown: n(o => o.eligibility === "unknown"),
         percent: denominator ? completed / denominator : null },
@@ -1692,6 +1702,11 @@
           ${open ? `<div class="story inner">${track(s)}</div>` : ""}`;
       }).join("");
     }
+    // Not counted: quests filed here that aren't about the zone (riding), with their state.
+    const nc = (r.notCounted || []).filter(visible);
+    if (nc.length) html += `<h2 class="section" data-group>Not counted <small>${nc.length} · riding quests</small></h2>
+      <div class="readygrid">${nc.map(q => `<button class="qchip nc focusable d-${q.diff}" data-quest="${q.id}" data-tip="${qtip(q)}. ${esc(NOT_COUNTED_TEXT)}">
+        <span class="lvl">${q.questLevel}</span><span class="qn">${esc(q.name)}</span></button>`).join("")}</div>`;
     // Footer: what the numbers leave out, and the can't-do toggle.
     const why = Object.entries(r.unknownReasons);
     const left = [];
